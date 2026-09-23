@@ -18,21 +18,34 @@
 -- -----------------------------------------------------------------------------
 -- COMO RODAR
 -- -----------------------------------------------------------------------------
--- Via Supabase MCP `execute_sql`, PELO ORQUESTRADOR e numa UNICA chamada — nunca
--- pelo executor (subagentes GSD nao recebem os tools MCP do Supabase; bug upstream
--- anthropics/claude-code#13898). A UNICA chamada e obrigatoria por motivo MECANICO:
--- `set_config(..., false)` e escopado a SESSAO, entao statements espalhados por
--- chamadas separadas zerariam o contador `smoke45m.pass` e o RESUMO (z) reprovaria
--- um run que na verdade passou (licao da P41-05, repetida na P43 e na P44).
+-- ⚠ ATUALIZADO NO PLANO 49-14 (2026-09-23). A instrucao anterior mandava rodar pelo
+-- tool MCP `execute_sql`, "pelo orquestrador". Aquela via esta OBSOLETA desde a Phase
+-- 46 (CLAUDE.md §"Via de apply ATUAL"), e por um motivo que importa aqui: ela depende
+-- de o SQL ser TRANSCRITO pelo modelo, e foi por transcricao que duas das cinco
+-- migrations do M8 chegaram a PROD com os comentarios descartados. A via atual le o
+-- arquivo do disco, byte a byte:
 --
--- GATE VERDE = o contador `smoke45m.pass` bate **25** no RESUMO (z). O gate NAO e
--- "nao levantou excecao": um run parcial acumula < 25 e o RESUMO reprova ALTO.
+--     node p46apply.cjs run supabase/tests/p45_motor_exclusao_smoke.sql
+--
+-- O arquivo INTEIRO vai numa UNICA requisicao, e isso e obrigatorio por motivo
+-- MECANICO: `set_config(..., false)` e escopado a SESSAO, entao statements espalhados
+-- por chamadas separadas zerariam o contador `smoke45m.pass` e o RESUMO (z) reprovaria
+-- um run que na verdade passou (licao da P41-05, repetida na P43 e na P44). O
+-- `p46apply run` satisfaz isso por construcao — um arquivo, uma requisicao.
+--
+-- GATE VERDE = o contador `smoke45m.pass` bate **30** no RESUMO (z). O gate NAO e
+-- "nao levantou excecao": um run parcial acumula < 30 e o RESUMO reprova ALTO.
 -- Esperado FIXO — nao ha metade adaptativa, nao ha "pelo menos N".
 -- ⚠ O contador subiu de 21 para 23 no plano 45-13: (C7), o guard de INTENCAO (CR-01),
 -- e (B11), o ponteiro reverso de candidaturas (CR-04). Subiu de 23 para 24 no plano
 -- 45-14: (C8), `p_dry_run := NULL` resolvendo para o lado SEGURO (BL-01). Subiu de 24
 -- para 25 no plano 48-01: (C6-neg), o pedido de exclusao NAO marca candidatura de
--- knockout (Defeito 26 / JORN-26). Acrescentar
+-- knockout (Defeito 26 / JORN-26). Subiu de 25 para 30 no plano 49-14, CINCO asserções
+-- de uma vez porque sao cinco propriedades independentes do mesmo apply: (B12) o INPUT
+-- que o titular mandou a IA sai (D-61), (B13) a linha de comparativo que o CITA e
+-- redigida INTEIRA (D-63), (B14) ⊖ a que NAO o cita fica INTOCADA, (B15) a resposta do
+-- revisor sai da linha corrente E de TODAS as versoes do arquivo (D-60), e (B16) o
+-- dry-run PREVE as tres contagens pela mesma expressao. Acrescentar
 -- bloco sem bumpar este numero transforma uma adicao legitima em reprovacao do RESUMO.
 --
 -- -----------------------------------------------------------------------------
@@ -129,6 +142,28 @@
 --        `curriculo_nome_original` NAO sobrevivem ao tombstone: o primeiro embute o
 --        `auth.uid()` em claro e resolve de volta a `auth.users` por `split_part`, o
 --        segundo carrega o NOME e e lido pelo painel de triagem. As LINHAS ficam.
+--   (B12) 49-14 / D-61 — `ai_call_logs.user_prompt_template` do titular sai. E o INPUT
+--        que foi ao modelo: o texto que a PESSOA escreveu, mais a fala literal nas
+--        chamadas de entrevista. A SAIDA (`raw_response`, `parsed_reasoning`) ja era
+--        tratada desde o 45-07; a entrada nao era, e severar o ponteiro deixando o
+--        input de pe e pseudonimizacao apresentada como anonimizacao (Art. 12 §1o).
+--   (B13) 49-14 / D-63 — a linha `call_type = 'comparative_ranking'` que CITA uma
+--        candidatura do titular e redigida INTEIRA (as tres colunas de conteudo). Ela
+--        nasce com `candidato_id` NULL por desenho — a chamada e sobre varias pessoas
+--        — e por isso o passo (1/5), que acha a linha por `candidato_id`, NUNCA a
+--        alcancou. O endereco e o proprio prompt: `(id=<candidatura_id>)`.
+--   (B14) ⊖ NEGATIVA (49-14 / D-63) — a OUTRA linha de comparativo, a que NAO cita o
+--        titular, fica INTOCADA nas tres colunas. Sem esta metade, "a redacao
+--        funcionou" seria indistinguivel de "o passo redigiu toda linha de
+--        comparativo do banco", que destruiria o historico de IA de terceiros.
+--   (B15) 49-14 / D-60 — `revisao_resultado` (a resposta que o revisor ESCREVEU ao
+--        pedido de revisao do Art. 20) sai da linha corrente E de TODAS as versoes do
+--        arquivo, inclusive a que o snapshot acabou de criar durante o proprio passo
+--        carregando o valor ANTIGO. E a mesma armadilha M1 da `justificativa`, numa
+--        coluna que nasceu depois dela.
+--   (B16) 49-14 — O DRY-RUN PREVE AS TRES CONTAGENS, pela MESMA expressao do motor
+--        (regra (ii) do C3). Um numero previsto diferente do executado e o recibo
+--        prometendo um apagamento de tamanho diferente do que a exclusao entrega.
 --
 -- BLOCO C — SEGURANCA, NAO-DIVERGENCIA E OS DOIS NEGATIVOS DO ENCERRAMENTO.
 --   (C1) ⊖ NEGATIVA — `proacl` das 5 funcoes novas nao concede EXECUTE a `anon` nem a
@@ -231,13 +266,46 @@
 --      que este gate existe para fechar: passaria a haver DUAS copias do predicado
 --      no repositorio, e a segunda envelheceria em silencio.
 --
---   valor  : 42f916d81cd274b28044a410ae57a237   (plano_exclusao_titular — octetos: 27392)
---   valor  : 5209239f191aa15b1725b726b00eb4cd   (anonimizar_candidato   — octetos: 47549)
+--   valor  : 12bfca3bf936704f1bc581acd5061df3   (plano_exclusao_titular — octetos: 29603)
+--   valor  : 6ab2890ebfc87fbd489215579bf1d9f8   (anonimizar_candidato   — octetos: 56226)
 --   origem : corpo entre os dois delimitadores NOMEADOS de cifrao
 --            (`$plano_exclusao_titular$` e `$anonimizar_candidato$`) em
---            — ⚠ OS DOIS ARQUIVOS MUDARAM NO 46-04 —
---            `supabase/migrations/20260823000008_p46_guard_plano.sql` e
---            `supabase/migrations/20260823000006_p46_guard_purga.sql`
+--            — ⚠ OS DOIS ARQUIVOS MUDARAM NO 49-14 (antes, no 46-04) —
+--            `supabase/migrations/20260922000012_p49_motor_logs_e_revisao.sql`
+--            (as DUAS funcoes vivem no MESMO arquivo desde este plano: o dry-run e o
+--             delete real mudaram juntos, e separa-los em dois arquivos seria abrir
+--             uma janela em que um conta o que o outro nao apaga)
+--
+-- ⚠⚠ RE-PIN DAS DUAS FUNCOES EM 2026-09-23 (Phase 49 / plano 49-14), E ELE E ATO
+--    CONSCIENTE, MEDIDO E REVISAVEL — nao um numero atualizado para fazer o gate
+--    passar. A rede estrutural (C3/iii) e (C3/iv) CRESCEU NO MESMO COMMIT, antes de
+--    o pin ser trocado, e e isso que impede o re-pin de virar carimbo: um md5
+--    recem-carimbado casa com QUALQUER corpo, inclusive um em que o passo novo
+--    tenha sido apagado.
+--    O QUE MUDOU NO CORPO (migration `20260922000012`, JORN-36 / D-60, D-61, D-63):
+--      (a) `tombstone_decisao_final` rasga `revisao_resultado` nos DOIS UPDATEs, na
+--          ordem corrente -> arquivo que ja era o mecanismo da `justificativa`;
+--      (b) `severar_fks_set_null` ganhou um statement (0/5), ANTES do (1/5), que
+--          rediga INTEIRAS as linhas `comparative_ranking` que citam o titular;
+--      (c) o (1/5) passou a rasgar `user_prompt_template` no MESMO UPDATE que faz
+--          `candidato_id := NULL` — e a posicao e o ponto: e o `candidato_id` que
+--          ACHA a linha;
+--      (d) tres contagens novas em `'passos'`, na mensagem do terminador do dry-run
+--          e — pela MESMA expressao — em `plano_exclusao_titular`.
+--    ⚠ OS CORPOS ANTIGOS FORAM CONFERIDOS ANTES DA EDICAO, e a conferencia foi
+--    CRUZADA: os corpos foram extraidos dos ARQUIVOS `20260823000006` e
+--    `20260823000008` e deram exatamente `5209239f191aa15b1725b726b00eb4cd` /
+--    47 549 octetos e `42f916d81cd274b28044a410ae57a237` / 27 392 octetos — os pins
+--    que vigoravam E os `md5(prosrc)` vivos medidos em PROD em 2026-09-23. Ou seja,
+--    a copia editada era byte a byte o que estava aplicado.
+--    ⚠ AS EDICOES FORAM APLICADAS POR SUBSTITUICAO DE ANCORA UNICA, e nao por
+--    transcricao: uma ancora que aparecesse 0 ou 2 vezes abortava a montagem, em vez
+--    de casar no lugar errado em silencio. Transcrever e o que fez duas das cinco
+--    migrations do M8 chegarem a PROD com os comentarios descartados.
+--    ⚠ POR QUE O RE-PIN E DE DUAS, E NAO DE UMA: o (C3/ii) exige que o motor CHAME
+--    o plano, e a regra (ii) exige que os dois saiam da MESMA expressao. Mudar o que
+--    o motor apaga sem mudar o que o plano conta e o P39/CR-02 outra vez — um
+--    dry-run que diverge do predicado e decoracao.
 --
 -- ⚠⚠ RE-PIN DE `anonimizar_candidato` EM 2026-08-23 (Phase 46 / plano 46-04),
 --    E ELE E ATO CONSCIENTE, MEDIDO E REVISAVEL — nao um numero atualizado para
@@ -806,6 +874,38 @@ DECLARE
   v_aud_delta   bigint;
   v_mudou2      int;
 
+  -- ── 49-14 · D-61 (o input), D-63 (comparativos), D-60 (a revisao) ─────────
+  v_aicallid    uuid;      -- a linha de IA do titular (fixture 12/13)
+  v_cmp_cita    uuid;      -- comparativo que CITA a candidatura do titular
+  v_cmp_nao     uuid;      -- comparativo que NAO a cita — a assercao NEGATIVA
+  v_upt_a       text;      -- user_prompt_template do titular, ANTES
+  v_upt_d       text;      -- e DEPOIS
+  v_cmp_upt_a   text;      -- o comparativo que cita, ANTES
+  v_cmp_upt_d   text;      -- e DEPOIS, nas TRES colunas de conteudo
+  v_cmp_raw_d   jsonb;
+  v_cmp_rea_d   text;
+  v_nao_upt_a   text;      -- o comparativo que NAO cita, ANTES
+  v_nao_upt_d   text;      -- e DEPOIS — tem de ser IDENTICO
+  v_nao_raw_a   jsonb;
+  v_nao_raw_d   jsonb;
+  v_nao_rea_a   text;
+  v_nao_rea_d   text;
+  v_rev_a       text;      -- decisao_final.revisao_resultado ANTES
+  v_rev_d       text;      -- e DEPOIS
+  v_revh_a      text;      -- decisao_final_historico.revisao_resultado ANTES
+  v_revh_ident  int;       -- copias IDENTIFICAVEIS sobreviventes no arquivo
+  v_revh_tot    int;       -- versoes do arquivo do titular com revisao NAO NULA
+  -- ⚠ o dry-run, lido ANTES do tombstone (depois dele o titular ja nao existe) e
+  --   comparado com a MESMA expressao medida a mao — a regra (ii) do (C3)
+  v_plano_j     jsonb;
+  v_pl_rev_c    int;
+  v_pl_rev_a    int;
+  v_pl_cmp_n    int;
+  v_ex_rev_c    int;
+  v_ex_rev_a    int;
+  v_ex_cmp_n    int;
+  v_passos      jsonb;
+
   v_mudadas     int;
   v_ufs         text[] := ARRAY['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
                                 'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
@@ -891,22 +991,51 @@ BEGIN
 
     -- (fixture 5/13) decisao_final — justificativa longa, para que a
     -- desidentificacao seja visivel e nao confundivel com truncamento.
+    -- ⚠⚠ 49-14 / D-60 · A FIXTURE TRAZ O CICLO DE REVISAO DO Art. 20 COMPLETO, e nao
+    --    so `revisao_resultado` solto. Duas razoes, e a segunda e a que importa:
+    --      1. os CHECKs vivos amarram os campos — `..._resposta_completa_check` exige
+    --         veredito + revisor + data juntos, ou nenhum dos tres;
+    --      2. **e `..._revisao_justificativa_min_check` exige
+    --         `length(btrim(coalesce(revisao_resultado,''))) >= 50` sempre que houver
+    --         veredito.** Com o veredito preenchido, esta fixture EXERCITA esse CHECK:
+    --         se a sentinela do motor fosse curta, o tombstone abortaria aqui com
+    --         23514 — e num pedido REAL isso acontece DEPOIS de o curriculo ja ter sido
+    --         apagado do Storage, sem caminho de volta (Pitfall 1). Uma fixture sem
+    --         veredito deixaria a sentinela curta passar, e o smoke ficaria verde
+    --         sobre a propria armadilha que ele deveria pegar.
+    -- ⚠ O revisor e o MESMO administrador. Isso nao afrouxa nada aqui: o guard de
+    --   revisor-diferente-do-decisor vive em `responder_revisao_decisao`, e esta
+    --   fixture escreve direto na tabela de proposito — o que esta sob teste e o
+    --   TOMBSTONE, nao o ciclo de revisao.
     INSERT INTO public.decisao_final
-      (candidatura_id, decisao, justificativa, por_usuario)
+      (candidatura_id, decisao, justificativa, por_usuario,
+       revisao_solicitada_em, revisao_veredito, revisao_por_usuario,
+       revisao_respondida_em, revisao_resultado)
     VALUES
       (v_candtr, 'em_espera',
        'SMOKE P45 fixture: justificativa sintetica com mais de cinquenta caracteres para exercitar a preservacao anonimizada exigida pela D-45-02.',
-       v_admin_auth);
+       v_admin_auth,
+       now() - interval '10 days', 'mantida', v_admin_auth, now() - interval '9 days',
+       'SMOKE P45 fixture: resposta do revisor ao pedido de revisao, sintetica, com mais de cinquenta caracteres, para exercitar a D-60 e o CHECK de tamanho minimo.');
 
     -- (fixture 6/13) decisao_final_historico — a SONDA 4e mediu esta tabela em ZERO
     -- linhas. Sem esta linha, a assercao de contagem do ERASE-08 sobre ela seria
     -- satisfeita TRIVIALMENTE e nao provaria nada (D-45-03).
+    -- ⚠ 49-14 / D-60: a versao arquivada tambem carrega `revisao_resultado`. Sem ela,
+    --   a metade "e em TODAS as versoes do arquivo" da assercao (B15) mediria SO a
+    --   versao que o snapshot cria durante o passo — e um scrub que alcancasse apenas
+    --   a linha nova (a mais recente) passaria, deixando as ANTIGAS identificaveis.
+    --   O arquivo e onde a copia sobrevive; e por isso que ele precisa de duas.
     INSERT INTO public.decisao_final_historico
-      (candidatura_id, decisao, justificativa, por_usuario, decidido_em)
+      (candidatura_id, decisao, justificativa, por_usuario, decidido_em,
+       revisao_solicitada_em, revisao_veredito, revisao_por_usuario,
+       revisao_respondida_em, revisao_resultado)
     VALUES
       (v_candtr, 'em_espera',
        'SMOKE P45 fixture: justificativa arquivada, sintetica, com mais de cinquenta caracteres, exigida pela D-45-03.',
-       v_admin_auth, now() - interval '20 days');
+       v_admin_auth, now() - interval '20 days',
+       now() - interval '19 days', 'mantida', v_admin_auth, now() - interval '18 days',
+       'SMOKE P45 fixture: resposta do revisor ARQUIVADA, sintetica, com mais de cinquenta caracteres, para a metade "todas as versoes" da D-60.');
 
     -- (fixture 7/13) logs_acesso — `ip_address` e `inet NOT NULL`.
     INSERT INTO public.logs_acesso (user_id, evento, ip_address)
@@ -948,14 +1077,72 @@ BEGIN
     END IF;
 
     -- (fixture 12/13) ai_call_logs — SONDA 4e: ZERO linhas em PROD.
+    -- ⚠⚠ 49-14 / D-61: `user_prompt_template` deixou de ser a palavra `'usuario'`. Ela
+    --    e `text NOT NULL` e guarda o INPUT que foi ao modelo — o texto que a PESSOA
+    --    escreveu, mais a fala literal transcrita nas chamadas de entrevista. Com
+    --    `'usuario'` a assercao (B12) compararia um valor generico contra a sentinela e
+    --    passaria sem provar nada sobre conteudo identificavel: o valor agora carrega o
+    --    NOME da fixture, e e por isso que a comparacao "o valor de ANTES desapareceu"
+    --    significa alguma coisa.
     INSERT INTO public.ai_call_logs
       (call_type, provider, model_id, prompt_hash, prompt_version_id,
        input_token_count, output_token_count, latency_ms, raw_response, retain_until,
-       system_prompt, user_prompt_template, candidato_id, vaga_id)
+       system_prompt, user_prompt_template, parsed_reasoning, candidato_id, vaga_id)
     VALUES
       ('cv_summary', 'anthropic', 'modelo-sintetico-p45', 'p45smokehash', v_pv,
-       1, 1, 1, '{}'::jsonb, now() + interval '30 days',
-       'sistema', 'usuario', v_cand, v_vaga);
+       1, 1, 1, '{"texto":"resposta sintetica do modelo sobre SMOKE P45 Titular Sintetico"}'::jsonb,
+       now() + interval '30 days',
+       'sistema',
+       'SMOKE P45 fixture (input): curriculo de SMOKE P45 Titular Sintetico, ' ||
+       v_email_fix || ', Campinas/SP. Trecho literal do que a pessoa escreveu.',
+       'SMOKE P45 fixture: raciocinio do modelo sobre o titular sintetico.',
+       v_cand, v_vaga)
+    RETURNING id INTO v_aicallid;
+
+    -- (fixture 12b/13) ⚠⚠ 49-14 / D-63 · O COMPARATIVO QUE **CITA** O TITULAR.
+    -- `candidato_id` fica NULL de proposito — e o estado REAL medido em PROD (a
+    -- chamada e sobre varias pessoas, nao ha UM titular a quem apontar), e e
+    -- exatamente por isso que o passo (1/5) nunca a alcancou. O endereco e o proprio
+    -- prompt: a EF monta cada bloco como `Candidato C<n> (id=<candidatura_id>)`
+    -- (comparativo-candidatos/index.ts:382). O `id=` abaixo e o da candidatura da
+    -- fixture, e e o unico fio entre esta linha e o titular.
+    INSERT INTO public.ai_call_logs
+      (call_type, provider, model_id, prompt_hash, prompt_version_id,
+       input_token_count, output_token_count, latency_ms, raw_response, retain_until,
+       system_prompt, user_prompt_template, parsed_reasoning, candidato_id, vaga_id)
+    VALUES
+      ('comparative_ranking', 'anthropic', 'modelo-sintetico-p45', 'p45smokehash', v_pv,
+       1, 1, 1, '{"ranking":"C1 acima de C2 — SMOKE P45 Titular Sintetico"}'::jsonb,
+       now() + interval '30 days',
+       'sistema',
+       'SMOKE P45 fixture (comparativo que CITA): Candidato C1 (id=' || v_candtr::text ||
+       ') SMOKE P45 Titular Sintetico, Campinas/SP. Candidato C2 (id=' ||
+       gen_random_uuid()::text || ') outra pessoa.',
+       'SMOKE P45 fixture: raciocinio do comparativo que cita o titular.',
+       NULL, v_vaga)
+    RETURNING id INTO v_cmp_cita;
+
+    -- (fixture 12c/13) ⊖ 49-14 / D-63 · O COMPARATIVO QUE **NAO** CITA O TITULAR.
+    -- ⚠ Ela e a metade que impede o falso verde mais caro deste passo: sem esta linha,
+    --   "a redacao funcionou" seria indistinguivel de "o passo redigiu TODA linha de
+    --   comparativo do banco". A segunda destruiria o historico de IA de terceiros que
+    --   nada tem a ver com este titular — e passaria pela (B13) sem um aviso. As duas
+    --   candidaturas citadas aqui sao uuids sorteados, que nao existem.
+    INSERT INTO public.ai_call_logs
+      (call_type, provider, model_id, prompt_hash, prompt_version_id,
+       input_token_count, output_token_count, latency_ms, raw_response, retain_until,
+       system_prompt, user_prompt_template, parsed_reasoning, candidato_id, vaga_id)
+    VALUES
+      ('comparative_ranking', 'anthropic', 'modelo-sintetico-p45', 'p45smokehash', v_pv,
+       1, 1, 1, '{"ranking":"C1 acima de C2 — terceiros"}'::jsonb,
+       now() + interval '30 days',
+       'sistema',
+       'SMOKE P45 fixture (comparativo que NAO cita): Candidato C1 (id=' ||
+       gen_random_uuid()::text || ') pessoa alheia. Candidato C2 (id=' ||
+       gen_random_uuid()::text || ') outra pessoa alheia.',
+       'SMOKE P45 fixture: raciocinio do comparativo de terceiros.',
+       NULL, v_vaga)
+    RETURNING id INTO v_cmp_nao;
 
     -- (fixture 13/13) candidate_ai_decisions — SONDA 4e: ZERO linhas em PROD. O
     -- `ai_reasoning_summary` carrega texto sobre a PESSOA: e o conteudo que a
@@ -1008,6 +1195,41 @@ BEGIN
       INTO v_dedupe_a, v_dest_a, v_desto_a
       FROM public.notificacoes_enviadas n WHERE n.id = v_notifid;
     SELECT x.ai_reasoning_summary INTO v_airsum_a FROM public.candidate_ai_decisions x WHERE x.id = v_aidec;
+
+    -- ── 49-14 · ESTADO ANTES das tres origens novas ────────────────────────────
+    SELECT l.user_prompt_template INTO v_upt_a
+      FROM public.ai_call_logs l WHERE l.id = v_aicallid;
+    SELECT l.user_prompt_template INTO v_cmp_upt_a
+      FROM public.ai_call_logs l WHERE l.id = v_cmp_cita;
+    SELECT l.user_prompt_template, l.raw_response, l.parsed_reasoning
+      INTO v_nao_upt_a, v_nao_raw_a, v_nao_rea_a
+      FROM public.ai_call_logs l WHERE l.id = v_cmp_nao;
+    SELECT d.revisao_resultado INTO v_rev_a
+      FROM public.decisao_final d WHERE d.candidatura_id = v_candtr;
+    SELECT h.revisao_resultado INTO v_revh_a
+      FROM public.decisao_final_historico h
+     WHERE h.candidatura_id = v_candtr AND h.revisao_resultado IS NOT NULL
+     LIMIT 1;
+
+    -- ⚠⚠ AS TRES CONTAGENS MEDIDAS A MAO, PELA EXPRESSAO DO MOTOR, e medidas AQUI —
+    --    depois do tombstone o titular ja nao existe e estas consultas dariam zero,
+    --    reprovando a implementacao CORRETA em toda execucao. E o defeito nº 6 da
+    --    Phase 45 (a `(B3/email)` medida depois do rollback da propria fixture) com
+    --    outra cara, e este arquivo o carrega escrito como licao.
+    SELECT count(*) INTO v_ex_rev_c
+      FROM public.decisao_final d
+     WHERE d.revisao_resultado IS NOT NULL
+       AND d.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand);
+    SELECT count(*) INTO v_ex_rev_a
+      FROM public.decisao_final_historico h
+     WHERE h.revisao_resultado IS NOT NULL
+       AND h.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand);
+    SELECT count(*) INTO v_ex_cmp_n
+      FROM public.ai_call_logs l
+     WHERE l.call_type = 'comparative_ranking'
+       AND EXISTS (SELECT 1 FROM public.candidaturas c
+                    WHERE c.candidato_id = v_cand
+                      AND position('id=' || c.id::text IN l.user_prompt_template) > 0);
 
     SELECT count(*) INTO v_aud_a FROM public.logs_auditoria;
 
@@ -1090,6 +1312,46 @@ BEGIN
       INTO v_dedupe_d, v_dest_d, v_desto_d
       FROM public.notificacoes_enviadas n WHERE n.id = v_notifid;
     SELECT x.ai_reasoning_summary INTO v_airsum_d FROM public.candidate_ai_decisions x WHERE x.id = v_aidec;
+
+    -- ── 49-14 · ESTADO DEPOIS + o que o proprio motor DECLAROU ─────────────────
+    -- ⚠⚠ O DRY-RUN E LIDO DE DENTRO DO RETORNO DO MOTOR (`'plano'`), e nao por uma
+    --    segunda chamada a `plano_exclusao_titular`. E a forma mais forte disponivel:
+    --    esse jsonb e o plano que O MOTOR viu no PASSO 0, na MESMA transacao, sobre o
+    --    MESMO estado. Uma segunda chamada mediria outro instante — e, depois do
+    --    tombstone, mediria um titular que ja nao existe.
+    v_plano_j  := (v_ret::jsonb) -> 'plano';
+    v_passos   := (v_ret::jsonb) -> 'passos';
+    v_pl_rev_c := (v_plano_j -> 'tombstone_decisao_final' ->> 'revisao_resultado_corrente')::int;
+    v_pl_rev_a := (v_plano_j -> 'tombstone_decisao_final' ->> 'revisao_resultado_arquivo')::int;
+    v_pl_cmp_n := (v_plano_j -> 'severar_fks_set_null'    ->> 'ai_call_logs_comparativo')::int;
+
+    SELECT l.user_prompt_template INTO v_upt_d
+      FROM public.ai_call_logs l WHERE l.id = v_aicallid;
+    SELECT l.user_prompt_template, l.raw_response, l.parsed_reasoning
+      INTO v_cmp_upt_d, v_cmp_raw_d, v_cmp_rea_d
+      FROM public.ai_call_logs l WHERE l.id = v_cmp_cita;
+    SELECT l.user_prompt_template, l.raw_response, l.parsed_reasoning
+      INTO v_nao_upt_d, v_nao_raw_d, v_nao_rea_d
+      FROM public.ai_call_logs l WHERE l.id = v_cmp_nao;
+
+    SELECT d.revisao_resultado INTO v_rev_d
+      FROM public.decisao_final d WHERE d.candidatura_id = v_candtr;
+
+    -- ⚠ A METADE QUE IMPORTA: copias IDENTIFICAVEIS sobreviventes no arquivo —
+    --   contra os DOIS valores de ANTES (o da linha corrente e o da versao arquivada),
+    --   porque o snapshot disparado DURANTE o passo copia o da CORRENTE para uma versao
+    --   NOVA. Mesma forma da `v_justh_ident` logo acima, que e a (B7): o arquivo e onde
+    --   a copia sobrevive.
+    SELECT count(*) INTO v_revh_ident
+      FROM public.decisao_final_historico h
+      JOIN public.candidaturas c ON c.id = h.candidatura_id
+     WHERE c.candidato_id = v_cand
+       AND (h.revisao_resultado = v_revh_a OR h.revisao_resultado = v_rev_a);
+
+    SELECT count(*) INTO v_revh_tot
+      FROM public.decisao_final_historico h
+      JOIN public.candidaturas c ON c.id = h.candidatura_id
+     WHERE c.candidato_id = v_cand AND h.revisao_resultado IS NOT NULL;
 
     -- ── B6: severacao das 5 tabelas SET NULL, medida por POS-ESTADO ────────────
     SELECT count(*) INTO v_p_aicall FROM public.ai_call_logs           WHERE candidato_id = v_cand;
@@ -1334,6 +1596,99 @@ BEGIN
   END IF;
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P45M PASS (B6): as 5 tabelas SET NULL tratadas por pos-estado; os 2 inet mascarados e nao nulos';
+
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- (B12)..(B16) — 49-14 · O QUE O TITULAR MANDOU A IA, OS COMPARATIVOS QUE O
+  --                CITAM, E A RESPOSTA DO REVISOR (D-61, D-63, D-60)
+  -- ═══════════════════════════════════════════════════════════════════════════
+
+  -- (B12) D-61 · O INPUT SAI — e a fixture nao era vacua (o valor de ANTES tinha nome)
+  IF v_upt_a IS NULL OR position('SMOKE P45 Titular Sintetico' IN v_upt_a) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B12): a fixture de ai_call_logs.user_prompt_template nao carregava conteudo identificavel ANTES do tombstone (valor=%). Sem isso, "o valor mudou" nao prova nada sobre o input que a pessoa mandou — a assercao passaria comparando dois textos genericos. Ausencia de fixture util e FALHA DE TESTE', coalesce(left(v_upt_a, 60), '<nulo>');
+  END IF;
+  IF v_upt_d IS NULL OR v_upt_d = v_upt_a OR position('SMOKE P45 Titular Sintetico' IN v_upt_d) > 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B12): ai_call_logs.user_prompt_template do titular SOBREVIVEU ao tombstone (depois=%). E o INPUT que foi ao modelo: o texto que a PESSOA escreveu, mais a fala literal transcrita nas chamadas de entrevista. A SAIDA (raw_response, parsed_reasoning) ja era tratada desde o 45-07 — severar o ponteiro deixando a ENTRADA de pe e pseudonimizacao apresentada como anonimizacao, que e exatamente o que o Art. 12 §1o nao aceita. ⚠ E o lugar do conserto e o MESMO UPDATE que faz candidato_id := NULL: e o candidato_id que ACHA a linha, e um UPDATE depois dele nao acha nada. D-61', coalesce(left(v_upt_d, 80), '<nulo>');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B12): o input que o titular mandou a IA saiu — user_prompt_template redigido e sem o nome';
+
+  -- (B13) D-63 · A LINHA DE COMPARATIVO QUE CITA O TITULAR E REDIGIDA INTEIRA
+  IF v_cmp_upt_a IS NULL OR position('id=' || v_candtr::text IN v_cmp_upt_a) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B13): a fixture do comparativo nao citava a candidatura do titular ANTES do tombstone. O unico fio entre a linha comparative_ranking e o titular e o `id=<candidatura_id>` dentro do prompt (comparativo-candidatos/index.ts:382) — sem ele a assercao mediria uma linha que nada tem a ver com o caso. Ausencia de fixture util e FALHA DE TESTE';
+  END IF;
+  IF v_cmp_upt_d = v_cmp_upt_a OR position('id=' || v_candtr::text IN coalesce(v_cmp_upt_d, '')) > 0
+     OR position('SMOKE P45 Titular Sintetico' IN coalesce(v_cmp_upt_d, '')) > 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B13/user_prompt_template): a linha comparative_ranking que CITA o titular sobreviveu (depois=%). Ela nasce com candidato_id NULL POR DESENHO — a chamada e sobre varias pessoas — e ai_call_logs nao tem candidatura_id, entao o passo (1/5) NUNCA a alcanca. O predicado tem de ser position(''id='' || <candidatura do titular>) sobre o proprio prompt. D-63', coalesce(left(v_cmp_upt_d, 80), '<nulo>');
+  END IF;
+  IF v_cmp_raw_d IS NULL OR (v_cmp_raw_d ->> 'redigido') IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B13/raw_response): a saida da chamada de comparativo que cita o titular nao foi redigida (valor=%). Ela repete o ranking com o nome dentro. E a sentinela tem de ser PROPRIA (anonimizacao_p49_comparativo): sem discriminador, uma auditoria nao distingue a linha de comparativo da linha de candidato', coalesce(v_cmp_raw_d::text, '<nulo>');
+  END IF;
+  IF v_cmp_rea_d IS NULL OR position('SMOKE P45' IN v_cmp_rea_d) > 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B13/parsed_reasoning): o raciocinio da chamada de comparativo que cita o titular sobreviveu (valor=%). Ele e saida DERIVADA de raw_response — redigir uma e deixar a outra e redigir metade', coalesce(left(v_cmp_rea_d, 80), '<nulo>');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B13): a linha de comparativo que citava o titular foi redigida nas TRES colunas de conteudo';
+
+  -- (B14) ⊖ NEGATIVA · A LINHA DE COMPARATIVO QUE **NAO** CITA FICA INTOCADA
+  -- ⚠⚠ ESTA E A METADE QUE IMPEDE O FALSO VERDE MAIS CARO DO PASSO. Sem ela, "a
+  --    redacao funcionou" seria indistinguivel de "o passo redigiu TODA linha de
+  --    comparativo do banco" — e a segunda destroi o historico de IA de pessoas que
+  --    nada tem a ver com este titular, passando pela (B13) sem um aviso.
+  IF v_nao_upt_d IS DISTINCT FROM v_nao_upt_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B14): o tombstone redigiu uma linha comparative_ranking que NAO cita o titular (antes=%, depois=%). O escopo vazou: o predicado deixou de exigir a candidatura DESTE titular dentro do prompt e passou a alcancar toda chamada de comparativo. Isso apaga o historico de IA de terceiros numa exclusao que nao e deles — e o dano e irreversivel. D-63', coalesce(left(v_nao_upt_a, 50), '<nulo>'), coalesce(left(v_nao_upt_d, 50), '<nulo>');
+  END IF;
+  IF v_nao_raw_d IS DISTINCT FROM v_nao_raw_a OR v_nao_rea_d IS DISTINCT FROM v_nao_rea_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B14): o tombstone mexeu em raw_response/parsed_reasoning de uma linha de comparativo alheia ao titular. Mesmo escopo vazado da metade acima, nas outras duas colunas';
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B14): a linha de comparativo que NAO cita o titular ficou INTOCADA nas tres colunas';
+
+  -- (B15) D-60 · A RESPOSTA DO REVISOR SAI DA CORRENTE **E** DE TODAS AS VERSOES
+  IF v_rev_a IS NULL OR v_revh_a IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B15): a fixture nao tinha revisao_resultado preenchido na linha corrente (%) e/ou numa versao do arquivo (%). Sem as DUAS, a metade "todas as versoes" seria satisfeita por vacuidade — e um scrub que alcancasse somente a versao criada pelo snapshot passaria deixando as ANTIGAS identificaveis', coalesce(left(v_rev_a, 30), '<nulo>'), coalesce(left(v_revh_a, 30), '<nulo>');
+  END IF;
+  IF v_rev_d IS NULL OR v_rev_d = v_rev_a OR position('SMOKE P45' IN v_rev_d) > 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B15/corrente): decisao_final.revisao_resultado sobreviveu ao tombstone (depois=%). E o texto que o revisor ESCREVEU ao responder o pedido de revisao do Art. 20 — e ele tem de sair no MESMO UPDATE da justificativa: um segundo UPDATE dispararia o snapshot de novo e arquivaria uma versao a mais. ⚠ NULL nao serve: o CHECK decisao_final_revisao_justificativa_min_check exige >= 50 caracteres uteis quando ha veredito, e nulificar abortaria a transacao com 23514 DEPOIS de o curriculo ja ter sido apagado do Storage. D-60', coalesce(left(v_rev_d, 80), '<nulo>');
+  END IF;
+  IF v_revh_ident <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B15/arquivo): % versao(oes) de decisao_final_historico do titular ainda carregam a resposta do revisor IDENTIFICAVEL. E a armadilha M1 da justificativa repetida na coluna que nasceu depois dela: trg_decisao_final_snapshot e AFTER UPDATE e copia OLD.revisao_resultado para uma versao NOVA, entao o scrub do arquivo tem de ser o ULTIMO statement a tocar o par — DEPOIS do UPDATE em decisao_final. Faze-lo antes deixa uma versao recem-criada e identificavel atras dele. D-60', v_revh_ident;
+  END IF;
+  IF v_revh_tot = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B15/arquivo): ZERO versoes do arquivo do titular tem revisao_resultado nao nulo. A assercao acima passou por VACUIDADE — ou o scrub nulificou a coluna (e o CHECK da corrente diz que o valor certo e sentinela, nao NULL), ou o arquivo perdeu linhas, o que o ERASE-08 proibe';
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B15): a resposta do revisor saiu da linha corrente e de TODAS as % versao(oes) do arquivo — zero copia identificavel', v_revh_tot;
+
+  -- (B16) O DRY-RUN PREVE O QUE O MOTOR EXECUTOU, PELA MESMA EXPRESSAO
+  -- ⚠ Tres fontes independentes na MESMA transacao: (1) as contagens medidas A MAO
+  --   antes do tombstone, (2) o `'plano'` que o motor leu no PASSO 0, (3) o `'passos'`
+  --   que ele declarou ter executado. Duas bastariam para uma igualdade; a terceira e
+  --   o que distingue "o plano e o motor concordam" de "os dois copiaram o mesmo erro".
+  IF v_pl_rev_c IS NULL OR v_pl_rev_a IS NULL OR v_pl_cmp_n IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B16): o dry-run NAO expoe as tres contagens novas (corrente=%, arquivo=%, comparativo=%). O plano conta menos do que o motor apaga, e o recibo derivado dele promete um tamanho diferente do que a exclusao entrega — P39/CR-02, uma guarda que era dead code', coalesce(v_pl_rev_c::text, '<ausente>'), coalesce(v_pl_rev_a::text, '<ausente>'), coalesce(v_pl_cmp_n::text, '<ausente>');
+  END IF;
+  IF v_pl_rev_c <> v_ex_rev_c OR v_pl_rev_a <> v_ex_rev_a OR v_pl_cmp_n <> v_ex_cmp_n THEN
+    RAISE EXCEPTION 'P45M FAIL (B16): o dry-run DIVERGE da expressao medida a mao (corrente %/%, arquivo %/%, comparativo %/%). Nao e o numero que importa e sim a EXPRESSAO: se as duas divergem, existem DUAS definicoes de "o que sai" no banco, e a que o recibo mostra nao e a que o motor executa', v_pl_rev_c, v_ex_rev_c, v_pl_rev_a, v_ex_rev_a, v_pl_cmp_n, v_ex_cmp_n;
+  END IF;
+  IF (v_passos -> 'tombstone_decisao_final' ->> 'revisao_resultado_corrente')::int <> v_pl_rev_c
+     OR (v_passos -> 'severar_fks_set_null' ->> 'ai_call_logs_comparativo')::int <> v_pl_cmp_n THEN
+    RAISE EXCEPTION 'P45M FAIL (B16): o que o motor DECLAROU ter executado nao bate o que o plano previu (corrente %/%, comparativo %/%)', (v_passos -> 'tombstone_decisao_final' ->> 'revisao_resultado_corrente'), v_pl_rev_c, (v_passos -> 'severar_fks_set_null' ->> 'ai_call_logs_comparativo'), v_pl_cmp_n;
+  END IF;
+  -- ⚠⚠ E AQUI A IGUALDADE E DELIBERADAMENTE **OUTRA**, e a assimetria e declarada em
+  --    vez de escondida: o arquivo CRESCE DURANTE o passo. O UPDATE da linha corrente
+  --    dispara o snapshot, que insere uma versao nova carregando o valor ANTIGO — e o
+  --    motor conta DEPOIS disso, de proposito (contar antes deixaria a versao
+  --    recem-criada fora do numero, e o recibo prometeria menos do que a raspagem
+  --    alcanca). A relacao exata e `plano + <linhas correntes com revisao>`, e e ela
+  --    que esta asserida. Uma igualdade simples reprovaria o comportamento CORRETO —
+  --    a classe de defeito que o CLAUDE.md §"Portoes" cataloga.
+  IF (v_passos -> 'tombstone_decisao_final' ->> 'revisao_resultado_arquivo')::int
+     <> v_pl_rev_a + v_pl_rev_c THEN
+    RAISE EXCEPTION 'P45M FAIL (B16/arquivo): o motor declarou % revisoes raspadas no arquivo e o esperado e % (plano % + % linha(s) corrente(s) que o snapshot acabou de arquivar). O excedente e escrita que ninguem previu; a falta significa que o motor contou ANTES do snapshot e o recibo promete menos do que ele apaga', (v_passos -> 'tombstone_decisao_final' ->> 'revisao_resultado_arquivo'), v_pl_rev_a + v_pl_rev_c, v_pl_rev_a, v_pl_rev_c;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B16): dry-run = expressao a mao = passos do motor (corrente %, arquivo % -> % com o snapshot, comparativo %)',
+    v_pl_rev_c, v_pl_rev_a, v_pl_rev_a + v_pl_rev_c, v_pl_cmp_n;
 
   -- (B9) RE-IDENTIFICACAO COMO GATE — a unica assercao da fase que prova
   --      IRREVERSIBILIDADE em vez de apagamento.
@@ -1711,8 +2066,11 @@ DECLARE
   --   migration 20260823000006 acrescentou o quarto ramo do guard. Re-pinar sem
   --   que a migration tenha mudado FAZ (C3/i) DEIXAR DE PROVAR QUALQUER COISA — e
   --   ato consciente e revisavel.
-  v_pin_plano text := '42f916d81cd274b28044a410ae57a237';
-  v_pin_anon  text := '5209239f191aa15b1725b726b00eb4cd';
+  --   `anonimizar_candidato` e `plano_exclusao_titular` RE-PINADOS em 2026-09-23
+  --   pelo plano 49-14 (migration `20260922000012`), com a rede (iii)/(iv)/(v)
+  --   CRESCIDA ANTES da troca. Ver PROVENIENCIA no cabecalho.
+  v_pin_plano text := '12bfca3bf936704f1bc581acd5061df3';
+  v_pin_anon  text := '6ab2890ebfc87fbd489215579bf1d9f8';
   v_src_plano text;
   v_src_anon  text;
   v_def_anon  text;
@@ -1749,6 +2107,20 @@ DECLARE
   -- Sem estas, o re-pin de `plano_exclusao_titular` seria um numero novo sem
   -- nenhuma exigencia de forma atras dele — e foi justamente o guard DELA que
   -- quase deixou a fase inteira passar por um caminho que nao funciona.
+  -- ── 49-14 · A REDE SOBRE O PASSO NOVO, E ELA NASCEU **ANTES** DO RE-PIN ───
+  -- ⚠ Mesma razao de sempre, agora na terceira geracao de pins deste arquivo: o md5
+  --   responde "o corpo vivo e o do arquivo?", nao "o arquivo tem a forma certa?".
+  --   No dia do re-pin a diferenca deixa de ser teorica — um numero recem-carimbado
+  --   casa com um corpo em que o passo novo nunca existiu. Estas oito checagens sao
+  --   o que o pin de 2026-09-23 tem atras dele, e nenhuma pode sair.
+  v_rev_corr    boolean;   -- o tombstone rasga revisao_resultado na linha CORRENTE
+  v_rev_arq     boolean;   -- e no ARQUIVO
+  v_rev_ordem   boolean;   -- e na ordem corrente -> arquivo, medida por POSICAO
+  v_cmp_tipo    boolean;   -- o passo (0/5) e escopado a call_type comparative_ranking
+  v_cmp_pred    boolean;   -- e acha a linha pelo `position('id=' || ...)` do prompt
+  v_upt_junto   boolean;   -- user_prompt_template na MESMA lista SET de candidato_id := NULL
+  v_pl_rev      boolean;   -- o PLANO conta as duas revisoes
+  v_pl_cmp_f    boolean;   -- e as linhas de comparativo, pelo MESMO predicado
   v_pl_itens    boolean;   -- o 3o ramo LE o ledger de itens
   v_pl_alvo     boolean;   -- e exige o ALVO, nao so o modo
   v_pl_notin    boolean;   -- e nunca nega por pertencimento a conjunto
@@ -1881,6 +2253,59 @@ BEGIN
 
   IF v_pl_notin THEN
     RAISE EXCEPTION 'P45M FAIL (C3/iv): o corpo vivo de plano_exclusao_titular usa negacao por PERTENCIMENTO A CONJUNTO DE VALORES. Com um dos lados NULL essa forma avalia NULL, o IF nao e tomado e o guard FALHA ABERTO — defeito REAL medido na 42-06. Toda verificacao de estado tem de ser EXISTS correlacionado, e toda comparacao de papel IS DISTINCT FROM';
+  END IF;
+
+  -- ── (C3/v) 49-14 · A REDE SOBRE O PASSO NOVO (D-60, D-61, D-63) ──────────
+  -- ⚠⚠ ELA EXISTE PORQUE O PIN FOI TROCADO. Sem estas oito checagens, o re-pin de
+  --    2026-09-23 seria um numero novo sem nenhuma exigencia de forma atras dele —
+  --    e "a rede embaixo do md5 so cresce" (D-46-18, obrigacao 4) e a regra que
+  --    impede um re-pin de virar desculpa para afrouxar a assercao.
+  v_rev_corr  := (v_src_anon ~ 'revisao_resultado = CASE WHEN d\.revisao_resultado IS NULL');
+  v_rev_arq   := (v_src_anon ~ 'revisao_resultado = CASE WHEN h\.revisao_resultado IS NULL');
+  v_cmp_tipo  := (v_src_anon ~ 'call_type = ''comparative_ranking''');
+  v_cmp_pred  := (v_src_anon ~ 'position\(''id='' \|\|');
+  -- ⚠ A ORDEM E MEDIDA POR POSICAO, e nao por presenca das duas. O UPDATE da linha
+  --   CORRENTE dispara `trg_decisao_final_snapshot`, que arquiva o valor ANTIGO; o
+  --   scrub do arquivo tem de vir DEPOIS dele. Invertidos, sobra no arquivo uma
+  --   versao recem-criada e identificavel — a armadilha M1 da `justificativa`, agora
+  --   valendo tambem para a resposta do revisor. Presenca das duas passaria nos dois
+  --   mundos.
+  v_rev_ordem := (position('UPDATE public.decisao_final d' IN v_src_anon) > 0)
+             AND (position('UPDATE public.decisao_final_historico h' IN v_src_anon) > 0)
+             AND (position('UPDATE public.decisao_final d' IN v_src_anon)
+                  < position('UPDATE public.decisao_final_historico h' IN v_src_anon));
+  -- ⚠⚠ E AQUI A CHECAGEM E DA LISTA `SET` CONTIGUA, nao de duas presencas somadas.
+  --    Duas presencas passariam com a sentinela num UPDATE SEPARADO depois do (1/5)
+  --    — e esse UPDATE nao acharia linha nenhuma, porque o `candidato_id` que serve
+  --    de endereco acabou de ser cortado: zero linha, zero erro, input intacto. Um
+  --    falso verde que nao da nem um aviso.
+  v_upt_junto := (position('candidato_id         = NULL,
+         parsed_reasoning     = NULL,
+         raw_response         = ''{"redigido":"anonimizacao_p45"}''::jsonb,
+         user_prompt_template = ''[conteudo enviado' IN v_src_anon) > 0);
+  v_pl_rev    := (v_src_plano ~ '''revisao_resultado_corrente''')
+             AND (v_src_plano ~ '''revisao_resultado_arquivo''');
+  v_pl_cmp_f  := (v_src_plano ~ '''ai_call_logs_comparativo''')
+             AND (v_src_plano ~ 'position\(''id='' \|\|');
+
+  IF NOT v_rev_corr OR NOT v_rev_arq THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/v): o tombstone nao rasga revisao_resultado nos DOIS lados (corrente=%, arquivo=%). E o texto que o revisor ESCREVEU ao responder o pedido de revisao do Art. 20 — e o arquivo entrega o que a linha corrente protege (achado M1, agora na coluna que nasceu depois da justificativa). D-60', v_rev_corr, v_rev_arq;
+  END IF;
+
+  IF NOT v_rev_ordem THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/v): a ordem corrente -> arquivo do tombstone nao esta no corpo vivo. O UPDATE de decisao_final dispara trg_decisao_final_snapshot, que insere no arquivo uma versao com o valor ANTIGO; raspar o arquivo ANTES dele deixa essa versao recem-criada e identificavel atras do scrub. E o mecanismo, nao o estilo';
+  END IF;
+
+  IF NOT v_cmp_tipo OR NOT v_cmp_pred THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/v): o passo das linhas de comparativo sumiu do corpo vivo (escopo por call_type=%, predicado por position(''id=''...)=%). Essas linhas nascem com candidato_id NULL POR DESENHO (a chamada e sobre varias pessoas), e ai_call_logs nao tem candidatura_id: sem este predicado nada as alcanca, e o user_prompt_template delas guarda o bloco literal de cada candidato comparado. D-63', v_cmp_tipo, v_cmp_pred;
+  END IF;
+
+  IF NOT v_upt_junto THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/v): user_prompt_template NAO esta na mesma lista SET que faz candidato_id := NULL no passo (1/5). E o candidato_id que ACHA a linha: num UPDATE separado depois dele o predicado nao casa com nada — zero linha, zero erro, e o INPUT do titular de pe. Severar o ponteiro deixando a entrada intacta e pseudonimizacao apresentada como anonimizacao (Art. 12 §1o). D-61';
+  END IF;
+
+  IF NOT v_pl_rev OR NOT v_pl_cmp_f THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/v): plano_exclusao_titular nao conta o que o motor passou a apagar (revisoes=%, comparativos=%). O dry-run e o delete real TEM de sair da MESMA expressao (regra (ii) desta assercao): um plano que conta menos do que o motor apaga e um recibo que promete um tamanho e entrega outro — P39/CR-02, uma guarda que era dead code', v_pl_rev, v_pl_cmp_f;
   END IF;
 
   -- ── (C3/janela) RD2-06 + RD3-01 · AS TRES JANELAS, MEDIDAS NO CODIGO ─────
@@ -2454,7 +2879,8 @@ $c456$;
 --
 --     A metade de CONTAGEM existe porque delegar a leitura dos NOTICEs a quem roda
 --     produz run parcial que termina em silencio (licao da 37-03, repetida na P41-05
---     e na P43). O esperado e FIXO: 25.
+--     e na P43). O esperado e FIXO: 30 (subiu de 25 no plano 49-14 — cinco
+--     propriedades independentes do mesmo apply; ver o bump registrado no cabecalho).
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
@@ -2463,7 +2889,10 @@ DECLARE
   v_divergs  text := '';
   v_agora    bigint;
   v_asserts  int;
-  v_esperado int := 25;
+  -- ⚠ 30 desde o plano 49-14 (era 25). Escopo DELIBERADO, nao fotografia: e o numero
+  --   exato de assercoes que este arquivo contem, e o RESUMO existe para reprovar o run
+  --   PARCIAL que termina em silencio (licao da 37-03, repetida na P41-05 e na P43).
+  v_esperado int := 30;
   v_solic_b  bigint := current_setting('smoke45m.solic')::bigint;
   v_solic_a  bigint;
 BEGIN
