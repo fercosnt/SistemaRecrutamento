@@ -18,6 +18,13 @@
  *   para humano (nunca passa um roteiro incompleto em silêncio). Persiste o roteiro
  *   em `entrevista_guias`.
  *
+ * Phase 49 / plano 49-26 / WINDOWS 64 — ONDE a flag vive: em `guia.flags`, e agora nos DOIS
+ *   ramos do upsert. A frase acima descrevia a intenção do ENTREV-01 desde a Phase 14, mas a
+ *   flag só era gravada quando NÃO havia roteiro — e `weak_dim_uncovered` só pode existir
+ *   quando HÁ. Ou seja: no único caminho capaz de produzi-la, ela era computada e descartada, e
+ *   o docblock prometia um comportamento que o código não tinha. A chave fica AUSENTE (nunca
+ *   `[]`) quando não há nada a sinalizar — ver o bloco §8 para o porquê.
+ *
  * BRANCH por `tipo` (CONTEXT):
  *   - `online`     → dimensões fracas = score<3 (das etapas anteriores).
  *   - `presencial` → roteiro focado nos GAPS da entrevista online; dimensões
@@ -58,6 +65,7 @@ import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared
 import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import { GerarGuiaBodySchema } from "../_shared/entrevista-schemas.ts";
 import { InterviewGuideSchema } from "../_shared/interview-output-schemas.ts";
+import { algumProvedorRespondeu } from "../_shared/resultado-de-provedor.ts";
 import { checkWeakDimCoverage } from "./_local/weak-dim-coverage.ts";
 // SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")`
 // escondia o pacote da lista de deps do deploy → ERR_MODULE_NOT_FOUND. NÃO copiar.
@@ -151,24 +159,25 @@ type GuiaSlice = { questions?: Array<{ competency: string }> };
  * o marcador de revisão humana), que existe para o chamador não precisar tratar `null` e
  * para preservar a RNF-07a (nunca rejeitar candidato por custo).
  *
- * Esse stub não é um roteiro de entrevista. Até este conserto a EF lia «`parsed` não nulo»
- * como «há roteiro» e persistia a linha como um guia gerado: ZERO perguntas de IA, nenhuma
- * flag, resposta de sucesso. Um roteiro barrado por gasto ficava indistinguível de um
- * roteiro vazio bem-sucedido — e o RH conduz a entrevista por ele.
+ * Esse stub não é um roteiro de entrevista. Até o conserto do 49-25 a EF lia «`parsed` não
+ * nulo» como «há roteiro» e persistia a linha como um guia gerado: ZERO perguntas de IA,
+ * nenhuma flag, resposta de sucesso. Um roteiro barrado por gasto ficava indistinguível de
+ * um roteiro vazio bem-sucedido — e o RH conduz a entrevista por ele.
  *
- * ⚠ A pergunta é pelo PROVEDOR, não por uma lista de códigos de erro. Enumerar
- * `cost_cap_exceeded` e `prompt_injection_detected` seria a forma «iteração sobre lista
- * literal» que o CLAUDE.md §Portões descreve: o próximo bloqueio pré-provedor nasceria
- * fora da vigilância e o caminho seguiria parecendo correto. `provider === "none"` cobre
- * os dois de hoje e qualquer um de amanhã por construção.
+ * ⚠ A pergunta é pelo PROVEDOR, e desde o plano 49-26 ela vive em UM lugar:
+ * `algumProvedorRespondeu` (`_shared/resultado-de-provedor.ts`), que este helper CONSOME em
+ * vez de repetir. O motivo de a pergunta ser estrutural — e não uma enumeração dos códigos de
+ * bloqueio conhecidos — está no docblock daquele módulo, junto com o registro de que o MESMO
+ * defeito foi medido em duas EFs porque a pergunta estava escrita duas vezes. Uma terceira
+ * cópia aqui reabriria exatamente essa causa.
  *
- * O provedor vazio/ausente entra no mesmo ramo — é o idioma que `avaliar-redacao` (49-11)
- * já usa: na dúvida sobre quem respondeu, a EF NÃO afirma que há roteiro.
+ * O que sobra de próprio deste helper é só a parte específica do roteiro: com provedor real, o
+ * `parsed` é a fatia do guia; sem ele, não há guia nenhum, por mais que o objeto exista.
  */
 export function guiaDeResultado(
   result: { provider?: string | null; parsed?: unknown },
 ): GuiaSlice | null {
-  if (!result.provider || result.provider === "none") return null;
+  if (!algumProvedorRespondeu(result)) return null;
   return (result.parsed ?? null) as GuiaSlice | null;
 }
 
@@ -388,6 +397,20 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
     }
     if (needsHumanFlag) persistFlags.push("weak_dim_uncovered");
 
+    //   Phase 49 / plano 49-26 / WINDOWS 64 — a flag SÓ tem valor se chegar na linha.
+    //
+    //   `weak_dim_uncovered` só pode existir quando HÁ roteiro (o passo 7 nem roda sem ele), e
+    //   o objeto do upsert carregava `flags` apenas no ramo em que NÃO há roteiro. Resultado: a
+    //   única flag que este caminho sabe computar era computada e jogada fora. O rastro de
+    //   runtime dizia `needs_human: true` e a linha não dizia nada — e quem lê a linha depois
+    //   (o selo do RH) não tem acesso ao log. Uma flag que não é persistida não é uma flag.
+    //
+    //   ⚠ AUSENTE, não `[]`. As duas formas se leem diferente («não havia nada a sinalizar» vs
+    //   «havia uma lista, e ela está vazia»), e sob o `onConflict` abaixo um `[]` explícito
+    //   APAGARIA a flag gravada pela execução anterior no instante do reprocessamento — o
+    //   mesmo modo de falha que o 49-11 mediu. A chave só nasce quando há o que dizer.
+    const flagsDoRoteiro = persistFlags.length > 0 ? { flags: persistFlags } : {};
+
     // ── 8a. MERGE-PRESERVE (ENTREV-08 anti-silent-discard) ─────────────────────
     //   Lê a guia ATUAL (allowlist `select("guia")` — NUNCA select('*'),
     //   reference_select_star_leaks_pii) e separa as perguntas por `origem`. As
@@ -459,7 +482,7 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
         candidatura_id: body.candidatura_id,
         tipo: body.tipo,
         guia: guide
-          ? { ...guide, questions: mergedQuestions }
+          ? { ...guide, questions: mergedQuestions, ...flagsDoRoteiro }
           : { incompleto: true, flags: persistFlags, questions: manualQs },
         prompt_version: resolved.prompt_version,
         // D-28 — quem escreveu este roteiro (ver §8b acima).
