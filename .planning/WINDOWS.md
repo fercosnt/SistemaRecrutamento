@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 9
+open_count: 11
 waived_count: 7
 fixed_count: 33
-total_count: 49
-last_updated: 2026-09-22T23:00:36.248Z
+total_count: 51
+last_updated: 2026-09-23T00:11:20.613Z
 ---
 
 # Broken Windows Ledger
@@ -64,6 +64,8 @@ last_updated: 2026-09-22T23:00:36.248Z
 | 47 | 49 | deviation | supabase/functions/_shared/ai-client.ts |  | interview_guide a 89% do timeout: maior latencia medida 98363 ms contra teto de 110 s; a 45 tok/s o teto por TEMPO e ~4950 tokens, mas max_tokens esta em 8000. Risco P1 de 'demorou' registrado, NAO consertado (Deferred do 49-02). | open |  | 2026-09-22T21:17:37.198Z |  |
 | 48 | 49 | deviation | supabase/functions/_shared/ai-client.ts |  | OPENAI_FALLBACK_MODEL segue hardcoded ('gpt-4o-mini') e o parametro fallback_model_id do ResolvedPrompt continua ignorado pelas EFs. P1 registrado no 49-02, fora do escopo dele. | open |  | 2026-09-22T21:17:37.287Z |  |
 | 49 | 49 | deviation | src/components/__tests__/KanbanBoard.test.tsx |  | 49-05: menu Radix não abre no happy-dom; exigiu 3 mocks (dropdown-menu + os 2 diálogos que ele passaria a montar sem QueryClientProvider) | open |  | 2026-09-22T23:00:36.248Z |  |
+| 50 | 49 | deviation | supabase/functions/_shared/comparativo-config.ts |  | O teto COMPARATIVO_MAX_CANDIDATOS=4 repousa em aritmética (80 s x 45 tok/s = 3600 tok; n=4 = 3140 tok estimados), nao em medicao: a premissa A3 (P ~ 280-410 tok/candidato) e MEDIDA pela prova n=4 do plano 49-18. Se a saida real passar de 3140 tok, o teto volta ao operador antes de fechar a fase (D-59). | open |  | 2026-09-23T00:11:20.528Z |  |
+| 51 | 49 | deviation | .planning/phases/49-consertos-da-jornada-bloco-2/49-08-PLAN.md |  | Dois <verify> do 49-08 embutem uma ESCRITA no comando de verificacao (p46apply.cjs migrate; efdeploy.cjs sem --dry-run). Nao sao re-rodaveis: o primeiro sai nao-zero por desenho (version ja no ledger), o segundo criaria uma version de EF identica. Um portao que nao se pode re-rodar so morde uma vez. | open |  | 2026-09-23T00:11:20.613Z |  |
 
 ````json
 [
@@ -658,6 +660,32 @@ last_updated: 2026-09-22T23:00:36.248Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-22T23:00:36.248Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 50,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "supabase/functions/_shared/comparativo-config.ts",
+    "line": null,
+    "description": "O teto COMPARATIVO_MAX_CANDIDATOS=4 repousa em aritmética (80 s x 45 tok/s = 3600 tok; n=4 = 3140 tok estimados), nao em medicao: a premissa A3 (P ~ 280-410 tok/candidato) e MEDIDA pela prova n=4 do plano 49-18. Se a saida real passar de 3140 tok, o teto volta ao operador antes de fechar a fase (D-59).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T00:11:20.528Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 51,
+    "kind": "deviation",
+    "phase": "49",
+    "file": ".planning/phases/49-consertos-da-jornada-bloco-2/49-08-PLAN.md",
+    "line": null,
+    "description": "Dois <verify> do 49-08 embutem uma ESCRITA no comando de verificacao (p46apply.cjs migrate; efdeploy.cjs sem --dry-run). Nao sao re-rodaveis: o primeiro sai nao-zero por desenho (version ja no ledger), o segundo criaria uma version de EF identica. Um portao que nao se pode re-rodar so morde uma vez.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T00:11:20.613Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
