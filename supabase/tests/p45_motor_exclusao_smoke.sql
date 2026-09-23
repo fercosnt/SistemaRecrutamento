@@ -33,8 +33,8 @@
 -- um run que na verdade passou (licao da P41-05, repetida na P43 e na P44). O
 -- `p46apply run` satisfaz isso por construcao — um arquivo, uma requisicao.
 --
--- GATE VERDE = o contador `smoke45m.pass` bate **30** no RESUMO (z). O gate NAO e
--- "nao levantou excecao": um run parcial acumula < 30 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke45m.pass` bate **36** no RESUMO (z). O gate NAO e
+-- "nao levantou excecao": um run parcial acumula < 36 e o RESUMO reprova ALTO.
 -- Esperado FIXO — nao ha metade adaptativa, nao ha "pelo menos N".
 -- ⚠ O contador subiu de 21 para 23 no plano 45-13: (C7), o guard de INTENCAO (CR-01),
 -- e (B11), o ponteiro reverso de candidaturas (CR-04). Subiu de 23 para 24 no plano
@@ -45,7 +45,15 @@
 -- que o titular mandou a IA sai (D-61), (B13) a linha de comparativo que o CITA e
 -- redigida INTEIRA (D-63), (B14) ⊖ a que NAO o cita fica INTOCADA, (B15) a resposta do
 -- revisor sai da linha corrente E de TODAS as versoes do arquivo (D-60), e (B16) o
--- dry-run PREVE as tres contagens pela mesma expressao. Acrescentar
+-- dry-run PREVE as tres contagens pela mesma expressao. Subiu de 30 para 36 no plano
+-- 49-20, SEIS assercoes por seis propriedades independentes do passo
+-- `apagar_respostas_e_producoes`: (B17) as quatro tabelas do D-62 ficam com ZERO
+-- linhas e os scores FICAM, (B18) sentinela/NULL coluna a coluna nas nove tabelas em
+-- que a linha fica, (B19) `cited_evidence` sai e o RESTO da analise fica, (B20) o
+-- dry-run PREVE as treze contagens pela mesma expressao, (B21) a execucao sob claims
+-- de ADMINISTRADOR rasga `texto`/`analise_ia` e a janela `app.motor_exclusao` nao
+-- vaza, e (B22) ⊖ CONTROLE — sem a janela, o MESMO UPDATE sob as MESMAS claims
+-- continua sendo RECUSADO pelo trigger. Acrescentar
 -- bloco sem bumpar este numero transforma uma adicao legitima em reprovacao do RESUMO.
 --
 -- -----------------------------------------------------------------------------
@@ -164,6 +172,35 @@
 --   (B16) 49-14 — O DRY-RUN PREVE AS TRES CONTAGENS, pela MESMA expressao do motor
 --        (regra (ii) do C3). Um numero previsto diferente do executado e o recibo
 --        prometendo um apagamento de tamanho diferente do que a exclusao entrega.
+--   (B17) 49-20 / D-62 — as QUATRO tabelas de resposta de multipla escolha
+--        (`respostas_raven`, `respostas_bigfive`, `respostas_disc`,
+--        `respostas_formulario`) ficam com ZERO linhas do titular, e a fixture nao
+--        era vacua (tinha linha em cada uma ANTES). ⊕ E a metade que impede o
+--        excesso: `scores_raven` e `scores_candidato` CONTINUAM la — os scores sao
+--        a prova de que houve avaliacao, e o D-62 e excecao para as RESPOSTAS.
+--   (B18) 49-20 / D-48 — nas NOVE tabelas em que a linha FICA, cada coluna prometida
+--        pelo recibo esta redigida: sentinela nas `NOT NULL`, NULL nas nulaveis. Com
+--        nao-vacuidade: o valor de ANTES carregava conteudo identificavel.
+--   (B19) 49-20 / D-48 — `cited_evidence` (o trecho LITERAL do que a pessoa escreveu,
+--        com localizacao) sai de `redacoes_candidato.analise_ia -> dimension_scores`
+--        E da `metadata` da SJT, **e o resto da analise fica** (`score`, `level`,
+--        `dimension`, `reasoning`). Sem a segunda metade, "a citacao saiu" seria
+--        indistinguivel de "a analise inteira foi destruida", que o ERASE-08 proibe.
+--   (B20) 49-20 — O DRY-RUN PREVE AS TREZE CONTAGENS, pela MESMA expressao, com as
+--        condicoes `IS NOT NULL` incluidas. Tres fontes na mesma transacao: a
+--        expressao medida a mao, o `'plano'` lido no PASSO 0, e o `'passos'`
+--        declarado. Para as quatro do D-62 o numero previsto e o de linhas que VAO
+--        DEIXAR DE EXISTIR — e o dry-run e o unico lugar onde ele pode ser lido.
+--   (B21) 49-20 / Correcao 18 — a execucao acontece sob claims de ADMINISTRADOR e
+--        AINDA ASSIM rasga `texto`/`analise_ia` de `redacoes_candidato`, que
+--        `trg_redacao_rh_only_review_fields` recusa para `rh`/`administrador`. E a
+--        janela `app.motor_exclusao` esta VAZIA depois: ela nao vaza para o resto da
+--        transacao. Sem a sancao, um pedido feito por admin abortaria DEPOIS de o
+--        curriculo ja ter sido apagado do Storage (Pitfall 6).
+--   (B22) ⊖ CONTROLE (49-20) — com a janela DESLIGADA, o MESMO UPDATE sob as MESMAS
+--        claims continua sendo RECUSADO pelo trigger. Sem esta metade, "a sancao
+--        funciona" e indistinguivel de "o trigger foi esvaziado" — e a segunda
+--        deixaria a tela do RH reescrevendo a redacao do candidato para sempre.
 --
 -- BLOCO C — SEGURANCA, NAO-DIVERGENCIA E OS DOIS NEGATIVOS DO ENCERRAMENTO.
 --   (C1) ⊖ NEGATIVA — `proacl` das 5 funcoes novas nao concede EXECUTE a `anon` nem a
@@ -198,7 +235,13 @@
 --        linha intacta. Precisa de fixture porque contra uuid inexistente a versao
 --        defeituosa e a corrigida dao o mesmo `P0002`, e a (C7) chama com `false`
 --        literal — foi por isso que o defeito passou pelas duas suites.
---   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 25.
+--   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 36.
+--        ⚠ Esta linha dizia «FIXO em 25» ate 2026-09-23 e o gate ja era 30 desde o
+--        plano 49-14: o numero vivia em TRES lugares (aqui, o «GATE VERDE» do topo,
+--        e o `v_esperado` do bloco (z)) e so dois foram bumpados. Um registro
+--        desatualizado num arquivo que e a ESPECIFICACAO do motor custa o mesmo que
+--        registro ausente — e custa mais, porque vem com autoridade. Corrigido aqui;
+--        o valor que MANDA continua sendo o `v_esperado` do bloco (z).
 --
 -- =============================================================================
 -- ⚠ TRES ACHADOS MEDIDOS QUE ESTA ESPEC ENCODA, E QUE O 45-07 TEM DE RESOLVER
@@ -266,15 +309,52 @@
 --      que este gate existe para fechar: passaria a haver DUAS copias do predicado
 --      no repositorio, e a segunda envelheceria em silencio.
 --
---   valor  : 12bfca3bf936704f1bc581acd5061df3   (plano_exclusao_titular — octetos: 29603)
---   valor  : 6ab2890ebfc87fbd489215579bf1d9f8   (anonimizar_candidato   — octetos: 56226)
+--   valor  : f86cb2b1ae6ae007c8145c18f7797dbd   (plano_exclusao_titular — octetos: 34299)
+--   valor  : 0d16c0d8185fe9885d4ec823cfa4dd71   (anonimizar_candidato   — octetos: 77508)
 --   origem : corpo entre os dois delimitadores NOMEADOS de cifrao
 --            (`$plano_exclusao_titular$` e `$anonimizar_candidato$`) em
---            — ⚠ OS DOIS ARQUIVOS MUDARAM NO 49-14 (antes, no 46-04) —
---            `supabase/migrations/20260922000012_p49_motor_logs_e_revisao.sql`
---            (as DUAS funcoes vivem no MESMO arquivo desde este plano: o dry-run e o
+--            — ⚠ OS DOIS ARQUIVOS MUDARAM NO 49-20 (antes, no 49-14 e no 46-04) —
+--            `supabase/migrations/20260922000013_p49_motor_respostas_e_producoes.sql`
+--            (as DUAS funcoes vivem no MESMO arquivo desde o 49-14: o dry-run e o
 --             delete real mudaram juntos, e separa-los em dois arquivos seria abrir
 --             uma janela em que um conta o que o outro nao apaga)
+--
+-- ⚠⚠ RE-PIN DAS DUAS FUNCOES EM 2026-09-23 (Phase 49 / plano 49-20), E ELE E ATO
+--    CONSCIENTE, MEDIDO E REVISAVEL. A rede estrutural (C3/vi) — ONZE checagens de
+--    forma sobre o passo novo — CRESCEU NO MESMO COMMIT, ANTES de o pin ser trocado.
+--    E isso nao e cerimonia aqui: este apply instala o PRIMEIRO passo do motor que
+--    APAGA LINHA, e um md5 recem-carimbado casa com QUALQUER corpo, inclusive um em
+--    que o apagamento tenha vazado para uma quinta tabela.
+--    O QUE MUDOU NO CORPO (migration `20260922000013`, JORN-36 / D-48, D-62):
+--      (a) passo NOVO `apagar_respostas_e_producoes`, TREZE statements, ANTES de
+--          `severar_fks_set_null`, escopado por `candidatura_id IN (...)`;
+--      (b) nele, QUATRO apagamentos de linha — `respostas_raven`,
+--          `respostas_bigfive`, `respostas_disc`, `respostas_formulario` (D-62, a
+--          excecao explicita do operador: os CHECKs dessas quatro nao aceitam
+--          sentinela). Em TODAS as outras origens a linha FICA;
+--      (c) `cited_evidence` removido cirurgicamente de
+--          `redacoes_candidato.analise_ia -> dimension_scores` e da `metadata` da
+--          SJT, preservando `score`/`level`/`dimension`/`reasoning`;
+--      (d) chave nova em `'passos'` com as treze contagens por tabela, o mesmo no
+--          terminador do dry-run, e — pela MESMA expressao, condicoes `IS NOT NULL`
+--          inclusas — em `plano_exclusao_titular`.
+--    ⚠ UMA TERCEIRA FUNCAO MUDOU E **NAO** E PINADA POR md5, de proposito:
+--    `trg_redacao_rh_only_review_fields()` ganhou a janela `app.motor_exclusao`
+--    (md5 novo `d54f28e054fc1c038793f01ed2edf524`, 3 671 octetos). Ela e vigiada
+--    por FORMA em (C3/vi) — a janela existe E a lista de quinze colunas continua
+--    inteira — e nao por resumo: e um trigger de UI que outros planos editam
+--    legitimamente, e um pin de md5 ali reprovaria trabalho correto (a forma de
+--    portao que o `CLAUDE.md` §"Portoes" cataloga como fotografia). O que ESTE
+--    arquivo precisa garantir e o mecanismo, e o mecanismo e a forma.
+--    ⚠ OS CORPOS ANTIGOS FORAM CONFERIDOS ANTES DA EDICAO, e a conferencia foi
+--    CRUZADA: os tres foram extraidos dos ARQUIVOS (`20260922000012` para as duas
+--    funcoes, `20260623100003` para o trigger) e deram exatamente
+--    `6ab2890ebfc87fbd489215579bf1d9f8` / 56 226 octetos,
+--    `12bfca3bf936704f1bc581acd5061df3` / 29 603 octetos e
+--    `84d5552315a513cbea378ff94de20fb6` / 1 483 octetos — os pins que vigoravam E os
+--    `md5(prosrc)` vivos medidos em PROD em 2026-09-23.
+--    ⚠ AS EDICOES FORAM APLICADAS POR SUBSTITUICAO DE ANCORA UNICA (0 ou 2
+--    ocorrencias abortam a montagem), nunca por transcricao.
 --
 -- ⚠⚠ RE-PIN DAS DUAS FUNCOES EM 2026-09-23 (Phase 49 / plano 49-14), E ELE E ATO
 --    CONSCIENTE, MEDIDO E REVISAVEL — nao um numero atualizado para fazer o gate
@@ -736,6 +816,29 @@ BEGIN
   PERFORM set_config('smoke45m.aidec',    (SELECT count(*) FROM public.candidate_ai_decisions)::text, false);
   PERFORM set_config('smoke45m.alerts',   (SELECT count(*) FROM public.recruiter_alerts)::text,       false);
 
+  -- ⚠⚠ 49-20 · AS QUINZE TABELAS DO PASSO `apagar_respostas_e_producoes`, E ELAS
+  --    ENTRAM NA NEGATIVA DE RESIDUO POR UMA RAZAO NOVA. Ate aqui a metade de
+  --    residuo provava que o smoke nao POLUIU producao. A partir deste plano ela
+  --    prova tambem que o smoke nao APAGOU nada de producao: o passo novo remove
+  --    linha em quatro destas tabelas, e se a subtransacao do Bloco B nao
+  --    revertesse, as respostas de candidatos REAIS teriam ido junto — sem PITR e
+  --    sem backup de Storage. Contagem global antes, contagem global depois.
+  PERFORM set_config('smoke45m.rraven',   (SELECT count(*) FROM public.respostas_raven)::text,                 false);
+  PERFORM set_config('smoke45m.rbig',     (SELECT count(*) FROM public.respostas_bigfive)::text,               false);
+  PERFORM set_config('smoke45m.rdisc',    (SELECT count(*) FROM public.respostas_disc)::text,                  false);
+  PERFORM set_config('smoke45m.rform',    (SELECT count(*) FROM public.respostas_formulario)::text,            false);
+  PERFORM set_config('smoke45m.red',      (SELECT count(*) FROM public.redacoes_candidato)::text,              false);
+  PERFORM set_config('smoke45m.redp',     (SELECT count(*) FROM public.redacoes_candidato_em_progresso)::text, false);
+  PERFORM set_config('smoke45m.rcult',    (SELECT count(*) FROM public.respostas_cultura)::text,               false);
+  PERFORM set_config('smoke45m.raval',    (SELECT count(*) FROM public.respostas_avaliacao)::text,             false);
+  PERFORM set_config('smoke45m.cog',      (SELECT count(*) FROM public.cognitivo_respostas)::text,             false);
+  PERFORM set_config('smoke45m.eon',      (SELECT count(*) FROM public.entrevistas_online)::text,              false);
+  PERFORM set_config('smoke45m.epr',      (SELECT count(*) FROM public.entrevistas_presenciais)::text,         false);
+  PERFORM set_config('smoke45m.ean',      (SELECT count(*) FROM public.entrevista_analises)::text,             false);
+  PERFORM set_config('smoke45m.scand',    (SELECT count(*) FROM public.scores_candidato)::text,                false);
+  PERFORM set_config('smoke45m.sraven',   (SELECT count(*) FROM public.scores_raven)::text,                    false);
+  PERFORM set_config('smoke45m.pcult',    (SELECT count(*) FROM public.perguntas_cultura)::text,               false);
+
   RAISE NOTICE 'P45M BASELINE ok: admin e vaga resolvidos; % candidatos / % candidaturas / % auth.users / % historico / % decisao_final / % decisao_final_historico',
     current_setting('smoke45m.candos'), current_setting('smoke45m.cands'), current_setting('smoke45m.users'),
     current_setting('smoke45m.hist'), current_setting('smoke45m.df'), current_setting('smoke45m.dfh');
@@ -905,6 +1008,71 @@ DECLARE
   v_ex_rev_a    int;
   v_ex_cmp_n    int;
   v_passos      jsonb;
+
+  -- ── 49-20 · D-48 / D-62 — o passo `apagar_respostas_e_producoes` ──────────
+  -- ⚠ As origens do item `respostas_e_producoes` do recibo. Quatro delas perdem a
+  --   LINHA (D-62); nas outras nove a linha fica e a coluna e redigida.
+  v_rh_id       uuid;      -- usuarios_rh.id (agendado_por e FK para ELE, nao ao uid)
+  v_perg_red    uuid;
+  v_perg_cult   uuid;
+  v_perg_form   uuid;
+  v_q_big       uuid;
+  v_q_disc      uuid;
+  v_q_raven     uuid;
+  v_eon_id      uuid;
+  v_epr_id      uuid;
+  v_ean_id      uuid;
+  v_sc_sjt      uuid;
+  v_red_id      uuid;
+  v_redp_id     uuid;
+  v_rcult_id    uuid;
+  v_raval_id    uuid;
+  v_cog_id      uuid;
+  -- contagens das QUATRO do D-62, antes e depois (⊕ nao-vacuidade e ⊖ pos-estado)
+  v_d62_rav_a   int;  v_d62_rav_d   int;
+  v_d62_big_a   int;  v_d62_big_d   int;
+  v_d62_dsc_a   int;  v_d62_dsc_d   int;
+  v_d62_frm_a   int;  v_d62_frm_d   int;
+  -- ⊕ os SCORES ficam: o D-62 e excecao para as RESPOSTAS, nunca para a prova
+  v_scr_raven_d int;
+  v_scr_cand_d  int;
+  -- coluna a coluna: ANTES e DEPOIS
+  v_red_txt_a   text;   v_red_txt_d   text;
+  v_red_ana_a   jsonb;  v_red_ana_d   jsonb;
+  v_redp_a      text;   v_redp_d      text;
+  v_rcult_a     text;   v_rcult_d     text;
+  v_raval_a     jsonb;  v_raval_d     jsonb;
+  v_cog_raw_a   jsonb;  v_cog_raw_d   jsonb;
+  v_cog_prc_a   jsonb;  v_cog_prc_d   jsonb;
+  v_eon_tra_a   text;   v_eon_tra_d   text;
+  v_eon_fbk_a   text;   v_eon_fbk_d   text;
+  v_eon_res_a   text;   v_eon_res_d   text;
+  v_eon_lnk_a   text;   v_eon_lnk_d   text;
+  v_epr_doc_a   jsonb;  v_epr_doc_d   jsonb;
+  v_ean_cit_a   jsonb;  v_ean_cit_d   jsonb;
+  v_sc_cit_a    jsonb;  v_sc_cit_d    jsonb;
+  v_sc_meta_a   jsonb;  v_sc_meta_d   jsonb;
+  -- (B19) cited_evidence fora, o RESTO da analise dentro
+  v_red_cit_d   int;    -- elementos de dimension_scores AINDA com cited_evidence
+  v_red_ds_d    int;    -- e quantos elementos sobraram (a analise nao foi destruida)
+  v_red_rea_d   int;    -- e quantos ainda tem `reasoning` (o resto ficou)
+  v_sc_cit_n_d  int;
+  v_sc_ds_d     int;
+  -- (B20) as treze contagens: plano, expressao a mao, e o que o motor declarou
+  v_pl_rp       jsonb;
+  v_ps_rp       jsonb;
+  v_ex_rp       jsonb;
+  v_rp_div      text := '';
+  v_rp_k        text;
+  v_rp_chaves   constant text[] := ARRAY['respostas_raven','respostas_bigfive','respostas_disc',
+                                         'respostas_formulario','redacoes_candidato',
+                                         'redacoes_candidato_em_progresso','respostas_cultura',
+                                         'respostas_avaliacao','cognitivo_respostas',
+                                         'entrevistas_online','entrevistas_presenciais',
+                                         'entrevista_analises_citacoes','scores_candidato'];
+  -- (B21)/(B22) a janela e o controle
+  v_guc_depois  text;
+  v_ctrl_st     text := '<nao medido>';
 
   v_mudadas     int;
   v_ufs         text[] := ARRAY['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
@@ -1155,6 +1323,188 @@ BEGIN
        'review', 'SMOKE P45 fixture: sumario de raciocinio sintetico sobre o titular.')
     RETURNING id INTO v_aidec;
 
+    -- ═══════════════════════════════════════════════════════════════════════
+    -- (fixtures 15/28 .. 28/28) ⚠⚠ 49-20 / D-48 · AS ORIGENS DO ITEM
+    -- `respostas_e_producoes` DO RECIBO. Sem elas, TODA assercao do passo novo
+    -- passa por VACUIDADE e conta como verde — e o passo novo APAGA LINHA em
+    -- quatro delas. Ausencia de fixture aqui nao e "um teste a menos": e um
+    -- portao que se declara satisfeito sobre um apagamento que ninguem viu.
+    -- ⚠ Medido em PROD: `respostas_cultura`, `respostas_bigfive`,
+    --   `respostas_disc`, `cognitivo_respostas` e
+    --   `redacoes_candidato_em_progresso` estao em ZERO linhas — exatamente a
+    --   familia de tabelas que a SONDA 4e obrigou a popular no 45-07.
+    -- ═══════════════════════════════════════════════════════════════════════
+
+    -- (15/28) os atores e as perguntas/questoes REAIS de que as origens dependem.
+    -- ⚠ `agendado_por` e FK para `usuarios_rh(id)`, e NAO para o `auth.uid()` que
+    --   `v_admin_auth` carrega. Confundir os dois da 23503 no meio da fixture.
+    SELECT u.id INTO v_rh_id FROM public.usuarios_rh u WHERE u.user_id = v_admin_auth LIMIT 1;
+    SELECT p.id INTO v_perg_red  FROM public.perguntas_redacao p    ORDER BY p.id LIMIT 1;
+    SELECT p.id INTO v_perg_form FROM public.perguntas_formulario p ORDER BY p.id LIMIT 1;
+    SELECT q.id INTO v_q_big     FROM public.questoes_bigfive q     ORDER BY q.id LIMIT 1;
+    SELECT q.id INTO v_q_disc    FROM public.questoes_disc q        ORDER BY q.id LIMIT 1;
+    SELECT q.id INTO v_q_raven   FROM public.questoes_raven q       ORDER BY q.id LIMIT 1;
+
+    IF v_rh_id IS NULL OR v_perg_red IS NULL OR v_perg_form IS NULL
+       OR v_q_big IS NULL OR v_q_disc IS NULL OR v_q_raven IS NULL THEN
+      RAISE EXCEPTION 'P45M FAIL (B/fixture 49-20): falta um ator ou um banco de questoes real (usuarios_rh.id=%, perguntas_redacao=%, perguntas_formulario=%, questoes_bigfive=%, questoes_disc=%, questoes_raven=%). Sem eles as origens do item respostas_e_producoes nao podem ser criadas, e TODA assercao do passo apagar_respostas_e_producoes passaria por VACUIDADE. Ausencia de fixture e FALHA DE TESTE, nunca verde',
+        v_rh_id, v_perg_red, v_perg_form, v_q_big, v_q_disc, v_q_raven;
+    END IF;
+
+    -- (16/28) perguntas_cultura — medida em ZERO linhas em PROD, entao a pergunta
+    -- tambem e sintetica. `ordem` tem CHECK 1..7 (lido do catalogo vivo).
+    INSERT INTO public.perguntas_cultura (vaga_id, ordem, texto_pergunta)
+    VALUES (v_vaga, 1, 'SMOKE P45 fixture: pergunta de cultura sintetica.')
+    RETURNING id INTO v_perg_cult;
+
+    -- (17/28) redacoes_candidato — `texto` e `text NOT NULL` (sentinela), e
+    -- `analise_ia` carrega `dimension_scores[]` com `cited_evidence`: o TRECHO
+    -- LITERAL do que a pessoa escreveu, com localizacao. Medido em PROD: 2 linhas,
+    -- 4 de 4 elementos com citacao em cada.
+    -- ⚠ `word_count` tem CHECK 200..500 e NAO e tocado pelo passo: o valor fica
+    --   coerente com o texto ORIGINAL, e e isso que o trigger exige (ele recusa
+    --   qualquer mudanca de `word_count` feita por rh/admin).
+    -- ⚠ O `reasoning` de cada elemento fica. E ele que a assercao (B19) usa para
+    --   provar que a analise NAO foi destruida junto com a citacao.
+    INSERT INTO public.redacoes_candidato
+      (candidatura_id, pergunta_id, ordem, eh_pergunta_padrao, texto, word_count,
+       texto_hash, tempo_gasto_segundos, analise_ia, status_analise)
+    VALUES
+      (v_candtr, v_perg_red, 1, true,
+       'SMOKE P45 fixture (redacao): o texto que SMOKE P45 Titular Sintetico escreveu, com o nome dentro para que a assercao de desaparecimento signifique alguma coisa.',
+       250, 'p45smoke-texto-hash', 900,
+       jsonb_build_object(
+         'dimension_scores', jsonb_build_array(
+           jsonb_build_object('dimension', 'D1', 'score', 5, 'level', 'exemplary',
+                              'reasoning', 'SMOKE P45 fixture: raciocinio da dimensao 1, que FICA.',
+                              'cited_evidence', jsonb_build_array(
+                                jsonb_build_object('text', 'SMOKE P45 fixture: trecho literal citado da redacao do titular.',
+                                                   'location', 'Paragrafo 1'))),
+           jsonb_build_object('dimension', 'D2', 'score', 4, 'level', 'proficient',
+                              'reasoning', 'SMOKE P45 fixture: raciocinio da dimensao 2, que FICA.',
+                              'cited_evidence', jsonb_build_array(
+                                jsonb_build_object('text', 'SMOKE P45 fixture: segundo trecho literal do titular.',
+                                                   'location', 'Paragrafo 3')))),
+         'composite_0_25', 18),
+       'concluida')
+    RETURNING id INTO v_red_id;
+
+    -- (18/28) redacoes_candidato_em_progresso — `texto_em_progresso` NULAVEL.
+    -- ⚠ A pergunta e a MESMA: a UNIQUE e (candidatura_id, pergunta_id) e vale POR
+    --   TABELA, e o rascunho do mesmo enunciado e o caso real.
+    INSERT INTO public.redacoes_candidato_em_progresso
+      (candidatura_id, pergunta_id, texto_em_progresso)
+    VALUES (v_candtr, v_perg_red,
+            'SMOKE P45 fixture (rascunho): o que SMOKE P45 Titular Sintetico estava escrevendo quando saiu.')
+    RETURNING id INTO v_redp_id;
+
+    -- (19/28) respostas_cultura — `resposta_texto` e `text NOT NULL` (sentinela)
+    INSERT INTO public.respostas_cultura (candidatura_id, pergunta_id, resposta_texto)
+    VALUES (v_candtr, v_perg_cult,
+            'SMOKE P45 fixture (cultura): resposta escrita por SMOKE P45 Titular Sintetico.')
+    RETURNING id INTO v_rcult_id;
+
+    -- (20/28) respostas_avaliacao — `respostas` e `jsonb NOT NULL` (sentinela jsonb)
+    INSERT INTO public.respostas_avaliacao (candidatura_id, teste, respostas)
+    VALUES (v_candtr, 'sjt',
+            '{"q1":"SMOKE P45 fixture: alternativa justificada pelo titular"}'::jsonb)
+    RETURNING id INTO v_raval_id;
+
+    -- (21/28) cognitivo_respostas — as DUAS colunas sao `jsonb NOT NULL`.
+    -- ⚠ `proctoring` entra junto: e observacao sobre a PESSOA durante a prova
+    --   (foco de janela, tempo por item), nao telemetria de custo.
+    INSERT INTO public.cognitivo_respostas (candidatura_id, raw_responses, proctoring)
+    VALUES (v_candtr,
+            '{"itens":[{"id":1,"marcada":3}],"nota":"SMOKE P45 fixture"}'::jsonb,
+            '{"trocas_de_janela":2,"nota":"SMOKE P45 fixture"}'::jsonb)
+    RETURNING id INTO v_cog_id;
+
+    -- (22/28) entrevistas_online — transcricao/feedback/resumo NULAVEIS, e
+    -- `link_videochamada` `text NOT NULL`. ⚠ `data_agendada > created_at` e CHECK
+    -- VIVO: uma data no passado aborta a fixture inteira.
+    INSERT INTO public.entrevistas_online
+      (candidatura_id, data_agendada, link_videochamada, agendado_por,
+       duracao_estimada_minutos, transcricao, feedback_candidato, resumo_ia)
+    VALUES
+      (v_candtr, now() + interval '7 days',
+       'https://meet.example/p45smoke-sala-de-SMOKE-P45-Titular-Sintetico', v_rh_id, 60,
+       'SMOKE P45 fixture (transcricao): a fala literal de SMOKE P45 Titular Sintetico na entrevista.',
+       'SMOKE P45 fixture (feedback): o que o titular achou do processo.',
+       'SMOKE P45 fixture (resumo): resumo automatico da entrevista do titular.')
+    RETURNING id INTO v_eon_id;
+
+    -- (23/28) entrevistas_presenciais — `documentos_apresentados` jsonb NULAVEL
+    INSERT INTO public.entrevistas_presenciais
+      (candidatura_id, data_agendada, local_entrevista, agendado_por,
+       duracao_estimada_minutos, documentos_apresentados)
+    VALUES
+      (v_candtr, now() + interval '8 days', 'Unidade sintetica p45', v_rh_id, 60,
+       '{"documentos":["SMOKE P45 fixture: RG de SMOKE P45 Titular Sintetico"]}'::jsonb)
+    RETURNING id INTO v_epr_id;
+
+    -- (24/28) entrevista_analises — `citacoes` guarda a fala LITERAL; a coluna e
+    -- NULAVEL e recebe NULL. `competencias` FICA: medida em PROD, ela tem apenas
+    -- `{competency, score}` — nenhum texto — e e prova de que houve avaliacao.
+    INSERT INTO public.entrevista_analises
+      (candidatura_id, tipo, competencias, citacoes)
+    VALUES
+      (v_candtr, 'online',
+       '[{"competency":"Comunicacao","score":4}]'::jsonb,
+       jsonb_build_array(jsonb_build_object(
+         'competency', 'Comunicacao',
+         'cited_evidence', jsonb_build_array(jsonb_build_object(
+           'text', 'SMOKE P45 fixture: fala literal de SMOKE P45 Titular Sintetico na entrevista.')))))
+    RETURNING id INTO v_ean_id;
+
+    -- (25/28) scores_candidato tipo `sjt` — `citacoes` NULAVEL e `metadata`
+    -- `jsonb NOT NULL` com `dimension_scores[]` carregando `cited_evidence`.
+    -- ⚠ A LINHA FICA: `composite_0_25` e as notas por dimensao sao a prova de
+    --   nao-discriminacao (RNF-07a), e so a citacao literal sai de dentro.
+    INSERT INTO public.scores_candidato (candidatura_id, tipo, metadata, citacoes)
+    VALUES
+      (v_candtr, 'sjt'::public.tipo_score,
+       jsonb_build_object(
+         'composite_0_25', 17,
+         'dimension_scores', jsonb_build_array(
+           jsonb_build_object('dimension', 'Avaliacao diagnostica', 'score', 4,
+                              'level', 'proficient',
+                              'reasoning', 'SMOKE P45 fixture: raciocinio da SJT, que FICA.',
+                              'cited_evidence', jsonb_build_array(
+                                jsonb_build_object('text', 'SMOKE P45 fixture: trecho literal da resposta do titular na SJT.'))))),
+       jsonb_build_array(jsonb_build_object(
+         'text', 'SMOKE P45 fixture: citacao avulsa da resposta do titular.')))
+    RETURNING id INTO v_sc_sjt;
+
+    -- (26/28 .. 28/28) ⚠⚠ AS TRES TABELAS DO D-62 QUE PERDEM A LINHA, mais a
+    -- quarta (`respostas_formulario`) logo abaixo. Uma resposta em cada: os
+    -- calculadores AFTER INSERT so disparam na questao 100/28/60 (medido nos tres
+    -- corpos), entao uma linha nao recalcula score nenhum.
+    INSERT INTO public.respostas_raven (candidatura_id, questao_id, resposta)
+    VALUES (v_candtr, v_q_raven, 5);
+
+    INSERT INTO public.respostas_bigfive (candidatura_id, questao_id, resposta)
+    VALUES (v_candtr, v_q_big, 4);
+
+    -- ⚠ `mais_caracteristico <> menos_caracteristico` e CHECK VIVO
+    INSERT INTO public.respostas_disc (candidatura_id, questao_id, mais_caracteristico, menos_caracteristico)
+    VALUES (v_candtr, v_q_disc, 'D', 'S');
+
+    -- ⚠ `resposta_preenchida_check` exige AO MENOS UMA das tres colunas nao nula —
+    --   e e exatamente esse CHECK que torna a sentinela impossivel aqui (anular a
+    --   de texto numa linha sem as outras duas aborta com 23514). Por isso D-62.
+    INSERT INTO public.respostas_formulario (candidatura_id, pergunta_id, resposta_texto)
+    VALUES (v_candtr, v_perg_form,
+            'SMOKE P45 fixture (formulario): resposta aberta de SMOKE P45 Titular Sintetico.');
+
+    -- ⊕ E O SCORE DO RAVEN, QUE **FICA**. Ele e a metade que impede o excesso: o
+    --   D-62 e excecao para as RESPOSTAS de multipla escolha, jamais para a prova
+    --   de que houve avaliacao. Sem esta linha, "as respostas sumiram" seria
+    --   indistinguivel de "o cognitivo inteiro do titular foi destruido".
+    INSERT INTO public.scores_raven
+      (candidatura_id, total_acertos, percentual_acerto, percentil, classificacao,
+       acertos_por_serie, tempo_total_segundos)
+    VALUES (v_candtr, 42, 70.0, 65, 'Médio', '{"A":10,"B":10}'::jsonb, 1800);
+
     -- ── B0: a fixture EXISTE, com enfase nas TRES tabelas em zero linhas ────────
     SELECT count(*) INTO v_n_aicall FROM public.ai_call_logs           WHERE candidato_id = v_cand;
     SELECT count(*) INTO v_n_aidec  FROM public.candidate_ai_decisions WHERE candidato_id = v_cand;
@@ -1230,6 +1580,82 @@ BEGIN
        AND EXISTS (SELECT 1 FROM public.candidaturas c
                     WHERE c.candidato_id = v_cand
                       AND position('id=' || c.id::text IN l.user_prompt_template) > 0);
+
+    -- ── 49-20 · ESTADO ANTES das treze origens de `respostas_e_producoes` ─────
+    -- ⚠ TODAS lidas POR ID, nunca pelo ponteiro ao titular: o tombstone corta os
+    --   ponteiros, e reler por eles DEPOIS devolveria zero linhas e reprovaria a
+    --   implementacao CORRETA. As quatro do D-62 sao contadas pelo ESCOPO, porque
+    --   e a contagem — e nao a linha — que a assercao mede.
+    SELECT count(*) INTO v_d62_rav_a FROM public.respostas_raven      WHERE candidatura_id = v_candtr;
+    SELECT count(*) INTO v_d62_big_a FROM public.respostas_bigfive    WHERE candidatura_id = v_candtr;
+    SELECT count(*) INTO v_d62_dsc_a FROM public.respostas_disc       WHERE candidatura_id = v_candtr;
+    SELECT count(*) INTO v_d62_frm_a FROM public.respostas_formulario WHERE candidatura_id = v_candtr;
+
+    SELECT r.texto, r.analise_ia INTO v_red_txt_a, v_red_ana_a
+      FROM public.redacoes_candidato r WHERE r.id = v_red_id;
+    SELECT p.texto_em_progresso INTO v_redp_a
+      FROM public.redacoes_candidato_em_progresso p WHERE p.id = v_redp_id;
+    SELECT u.resposta_texto INTO v_rcult_a
+      FROM public.respostas_cultura u WHERE u.id = v_rcult_id;
+    SELECT a.respostas INTO v_raval_a
+      FROM public.respostas_avaliacao a WHERE a.id = v_raval_id;
+    SELECT g.raw_responses, g.proctoring INTO v_cog_raw_a, v_cog_prc_a
+      FROM public.cognitivo_respostas g WHERE g.id = v_cog_id;
+    SELECT e.transcricao, e.feedback_candidato, e.resumo_ia, e.link_videochamada
+      INTO v_eon_tra_a, v_eon_fbk_a, v_eon_res_a, v_eon_lnk_a
+      FROM public.entrevistas_online e WHERE e.id = v_eon_id;
+    SELECT f.documentos_apresentados INTO v_epr_doc_a
+      FROM public.entrevistas_presenciais f WHERE f.id = v_epr_id;
+    SELECT n.citacoes INTO v_ean_cit_a
+      FROM public.entrevista_analises n WHERE n.id = v_ean_id;
+    SELECT s.citacoes, s.metadata INTO v_sc_cit_a, v_sc_meta_a
+      FROM public.scores_candidato s WHERE s.id = v_sc_sjt;
+
+    -- ⚠⚠ AS TREZE CONTAGENS MEDIDAS A MAO, PELA EXPRESSAO DO MOTOR, e medidas AQUI
+    --    — depois do tombstone o titular ja nao existe e estas consultas dariam
+    --    zero, reprovando a implementacao CORRETA em toda execucao (o defeito nº 6
+    --    da Phase 45, que este arquivo ja carrega escrito como licao). As condicoes
+    --    `IS NOT NULL` e o predicado da SJT estao aqui porque estao no motor: sem
+    --    elas a contagem mediria VISITAS em vez de RASPAGENS.
+    SELECT jsonb_build_object(
+      'respostas_raven',      (SELECT count(*) FROM public.respostas_raven x
+                                WHERE x.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'respostas_bigfive',    (SELECT count(*) FROM public.respostas_bigfive x
+                                WHERE x.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'respostas_disc',       (SELECT count(*) FROM public.respostas_disc x
+                                WHERE x.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'respostas_formulario', (SELECT count(*) FROM public.respostas_formulario x
+                                WHERE x.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'redacoes_candidato',   (SELECT count(*) FROM public.redacoes_candidato r
+                                WHERE r.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'redacoes_candidato_em_progresso',
+                              (SELECT count(*) FROM public.redacoes_candidato_em_progresso p
+                                WHERE p.texto_em_progresso IS NOT NULL
+                                  AND p.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'respostas_cultura',    (SELECT count(*) FROM public.respostas_cultura u
+                                WHERE u.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'respostas_avaliacao',  (SELECT count(*) FROM public.respostas_avaliacao a
+                                WHERE a.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'cognitivo_respostas',  (SELECT count(*) FROM public.cognitivo_respostas g
+                                WHERE g.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'entrevistas_online',   (SELECT count(*) FROM public.entrevistas_online e
+                                WHERE e.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'entrevistas_presenciais',
+                              (SELECT count(*) FROM public.entrevistas_presenciais f
+                                WHERE f.documentos_apresentados IS NOT NULL
+                                  AND f.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'entrevista_analises_citacoes',
+                              (SELECT count(*) FROM public.entrevista_analises n
+                                WHERE n.citacoes IS NOT NULL
+                                  AND n.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)),
+      'scores_candidato',     (SELECT count(*) FROM public.scores_candidato s
+                                WHERE s.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand)
+                                  AND ( s.citacoes IS NOT NULL
+                                     OR ( s.tipo = 'sjt'::public.tipo_score
+                                          AND jsonb_typeof(s.metadata -> 'dimension_scores') = 'array'
+                                          AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.metadata -> 'dimension_scores') z
+                                                       WHERE jsonb_exists(z, 'cited_evidence')) ) ))
+    ) INTO v_ex_rp;
 
     SELECT count(*) INTO v_aud_a FROM public.logs_auditoria;
 
@@ -1352,6 +1778,73 @@ BEGIN
       FROM public.decisao_final_historico h
       JOIN public.candidaturas c ON c.id = h.candidatura_id
      WHERE c.candidato_id = v_cand AND h.revisao_resultado IS NOT NULL;
+
+    -- ── 49-20 · ESTADO DEPOIS das treze origens + o que o motor DECLAROU ──────
+    SELECT count(*) INTO v_d62_rav_d FROM public.respostas_raven      WHERE candidatura_id = v_candtr;
+    SELECT count(*) INTO v_d62_big_d FROM public.respostas_bigfive    WHERE candidatura_id = v_candtr;
+    SELECT count(*) INTO v_d62_dsc_d FROM public.respostas_disc       WHERE candidatura_id = v_candtr;
+    SELECT count(*) INTO v_d62_frm_d FROM public.respostas_formulario WHERE candidatura_id = v_candtr;
+
+    -- ⊕ e os SCORES, que FICAM — a metade que impede o excesso
+    SELECT count(*) INTO v_scr_raven_d FROM public.scores_raven     WHERE candidatura_id = v_candtr;
+    SELECT count(*) INTO v_scr_cand_d  FROM public.scores_candidato WHERE candidatura_id = v_candtr;
+
+    SELECT r.texto, r.analise_ia INTO v_red_txt_d, v_red_ana_d
+      FROM public.redacoes_candidato r WHERE r.id = v_red_id;
+    SELECT p.texto_em_progresso INTO v_redp_d
+      FROM public.redacoes_candidato_em_progresso p WHERE p.id = v_redp_id;
+    SELECT u.resposta_texto INTO v_rcult_d
+      FROM public.respostas_cultura u WHERE u.id = v_rcult_id;
+    SELECT a.respostas INTO v_raval_d
+      FROM public.respostas_avaliacao a WHERE a.id = v_raval_id;
+    SELECT g.raw_responses, g.proctoring INTO v_cog_raw_d, v_cog_prc_d
+      FROM public.cognitivo_respostas g WHERE g.id = v_cog_id;
+    SELECT e.transcricao, e.feedback_candidato, e.resumo_ia, e.link_videochamada
+      INTO v_eon_tra_d, v_eon_fbk_d, v_eon_res_d, v_eon_lnk_d
+      FROM public.entrevistas_online e WHERE e.id = v_eon_id;
+    SELECT f.documentos_apresentados INTO v_epr_doc_d
+      FROM public.entrevistas_presenciais f WHERE f.id = v_epr_id;
+    SELECT n.citacoes INTO v_ean_cit_d
+      FROM public.entrevista_analises n WHERE n.id = v_ean_id;
+    SELECT s.citacoes, s.metadata INTO v_sc_cit_d, v_sc_meta_d
+      FROM public.scores_candidato s WHERE s.id = v_sc_sjt;
+
+    -- (B19) as DUAS metades: a citacao saiu E o resto da analise ficou
+    SELECT count(*) FILTER (WHERE jsonb_exists(z, 'cited_evidence')),
+           count(*),
+           count(*) FILTER (WHERE jsonb_exists(z, 'reasoning'))
+      INTO v_red_cit_d, v_red_ds_d, v_red_rea_d
+      FROM jsonb_array_elements(coalesce(v_red_ana_d -> 'dimension_scores', '[]'::jsonb)) z;
+
+    SELECT count(*) FILTER (WHERE jsonb_exists(z, 'cited_evidence')), count(*)
+      INTO v_sc_cit_n_d, v_sc_ds_d
+      FROM jsonb_array_elements(coalesce(v_sc_meta_d -> 'dimension_scores', '[]'::jsonb)) z;
+
+    v_pl_rp := v_plano_j -> 'apagar_respostas_e_producoes';
+    v_ps_rp := v_passos  -> 'apagar_respostas_e_producoes';
+
+    -- ⚠⚠ (B21/B22) A JANELA `app.motor_exclusao`, MEDIDA NOS DOIS SENTIDOS, e as
+    --    claims AINDA sao de `administrador` neste ponto (elas so sao zeradas
+    --    depois, junto com o rollback). Esta e a metade da Correcao 18 que so
+    --    existe por EXECUCAO: o motor acabou de rasgar `texto`/`analise_ia` de
+    --    `redacoes_candidato` sob um papel que `trg_redacao_rh_only_review_fields`
+    --    RECUSA.
+    v_guc_depois := coalesce(current_setting('app.motor_exclusao', true), '<ausente>');
+
+    -- ⊖ CONTROLE: o MESMO UPDATE, as MESMAS claims, SEM a janela. Ele TEM de ser
+    --   recusado. Sem esta metade, "a sancao funciona" e indistinguivel de "o
+    --   trigger foi esvaziado" — e a segunda deixaria a tela do RH reescrevendo a
+    --   redacao do candidato para sempre. O bloco aninhado captura a excecao
+    --   ESPERADA e reverte so ate o savepoint implicito dele: a fixture fica.
+    BEGIN
+      UPDATE public.redacoes_candidato r
+         SET texto = 'SMOKE P45 controle: escrita de RH que o trigger TEM de recusar.'
+       WHERE r.id = v_red_id;
+      v_ctrl_st := '<NAO RECUSOU>';
+    EXCEPTION
+      WHEN others THEN
+        v_ctrl_st := SQLSTATE;
+    END;
 
     -- ── B6: severacao das 5 tabelas SET NULL, medida por POS-ESTADO ────────────
     SELECT count(*) INTO v_p_aicall FROM public.ai_call_logs           WHERE candidato_id = v_cand;
@@ -1689,6 +2182,164 @@ BEGIN
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P45M PASS (B16): dry-run = expressao a mao = passos do motor (corrente %, arquivo % -> % com o snapshot, comparativo %)',
     v_pl_rev_c, v_pl_rev_a, v_pl_rev_a + v_pl_rev_c, v_pl_cmp_n;
+
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- (B17)..(B22) — 49-20 · O PASSO `apagar_respostas_e_producoes` (D-48, D-62)
+  -- ═══════════════════════════════════════════════════════════════════════════
+
+  -- (B17) D-62 · AS QUATRO TABELAS DE RESPOSTA PERDEM A LINHA — e os SCORES ficam
+  IF v_d62_rav_a < 1 OR v_d62_big_a < 1 OR v_d62_dsc_a < 1 OR v_d62_frm_a < 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B17): a fixture nao tinha resposta nas quatro tabelas do D-62 ANTES do tombstone (raven=%, bigfive=%, disc=%, formulario=%). Sem linha, "ficou em zero depois" e VERDADE POR VACUIDADE e o apagamento nunca foi exercitado. Ausencia de fixture e FALHA DE TESTE, nunca verde', v_d62_rav_a, v_d62_big_a, v_d62_dsc_a, v_d62_frm_a;
+  END IF;
+  IF v_d62_rav_d <> 0 OR v_d62_big_d <> 0 OR v_d62_dsc_d <> 0 OR v_d62_frm_d <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B17): as respostas de multipla escolha do titular SOBREVIVERAM ao tombstone (raven=%, bigfive=%, disc=%, formulario=%). O recibo diz «as suas respostas das avaliacoes … foram apagados», e nestas quatro tabelas nao ha sentinela possivel: os CHECKs vivos sao int 1..8, int 1..5, D/I/S/C com os dois diferentes, e ao-menos-uma-resposta-preenchida. E por isso que o operador decidiu apagar a LINHA (D-62) — e e a unica excecao: em toda outra origem a linha fica', v_d62_rav_d, v_d62_big_d, v_d62_dsc_d, v_d62_frm_d;
+  END IF;
+  -- ⊕ A METADE QUE IMPEDE O EXCESSO. Sem ela, "as respostas sumiram" seria
+  --   indistinguivel de "o cognitivo do titular foi destruido inteiro" — e a
+  --   segunda destroi a prova de que houve avaliacao, que o ERASE-08 preserva.
+  IF v_scr_raven_d <> 1 OR v_scr_cand_d < 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B17/⊕): o passo levou junto o SCORE (scores_raven=%, scores_candidato=%, esperado 1 e >=1). O D-62 e excecao para as RESPOSTAS de multipla escolha, jamais para a prova de que houve avaliacao: os scores calculados a partir delas FICAM (RNF-07a / ERASE-08). Um passo que apaga o score apaga a defesa da propria empresa numa alegacao de discriminacao', v_scr_raven_d, v_scr_cand_d;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B17): as 4 tabelas do D-62 foram de (%,%,%,%) a ZERO, e os scores ficaram (raven=%, candidato=%)',
+    v_d62_rav_a, v_d62_big_a, v_d62_dsc_a, v_d62_frm_a, v_scr_raven_d, v_scr_cand_d;
+
+  -- (B18) D-48 · NAS NOVE TABELAS EM QUE A LINHA FICA, A COLUNA ESTA REDIGIDA
+  -- ⚠ A nao-vacuidade e medida PRIMEIRO, e coluna a coluna: o valor de ANTES tem de
+  --   carregar o nome do titular sintetico. Sem isso, "o valor mudou" compararia
+  --   dois textos genericos e passaria sem provar nada sobre conteudo identificavel.
+  IF position('SMOKE P45 Titular Sintetico' IN coalesce(v_red_txt_a, '')) = 0
+     OR position('SMOKE P45 Titular Sintetico' IN coalesce(v_redp_a, '')) = 0
+     OR position('SMOKE P45 Titular Sintetico' IN coalesce(v_rcult_a, '')) = 0
+     OR position('SMOKE P45' IN coalesce(v_raval_a::text, '')) = 0
+     OR position('SMOKE P45' IN coalesce(v_cog_raw_a::text, '')) = 0
+     OR position('SMOKE P45' IN coalesce(v_cog_prc_a::text, '')) = 0
+     OR position('SMOKE P45 Titular Sintetico' IN coalesce(v_eon_tra_a, '')) = 0
+     OR position('SMOKE P45' IN coalesce(v_eon_fbk_a, '')) = 0
+     OR position('SMOKE P45' IN coalesce(v_eon_res_a, '')) = 0
+     OR position('SMOKE-P45-Titular-Sintetico' IN coalesce(v_eon_lnk_a, '')) = 0
+     OR position('SMOKE P45 Titular Sintetico' IN coalesce(v_epr_doc_a::text, '')) = 0
+     OR position('SMOKE P45 Titular Sintetico' IN coalesce(v_ean_cit_a::text, '')) = 0
+     OR v_sc_cit_a IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B18): uma das treze origens nao carregava conteudo identificavel ANTES do tombstone. Cada uma delas e uma frase do recibo: sem valor de partida, a assercao de desaparecimento e verdadeira por vacuidade. Ausencia de fixture util e FALHA DE TESTE';
+  END IF;
+
+  -- `NOT NULL` ⇒ sentinela; NULAVEL ⇒ NULL. A escolha por coluna veio do catalogo.
+  IF v_red_txt_d IS NULL OR v_red_txt_d = v_red_txt_a
+     OR position('SMOKE P45 Titular Sintetico' IN v_red_txt_d) > 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/redacoes_candidato.texto): o texto que a pessoa escreveu SOBREVIVEU ao tombstone (depois=%). E `text NOT NULL`: o valor certo e sentinela, nunca NULL. ⚠ Se o erro for 42501/P0001 em vez desta mensagem, o que faltou foi a janela app.motor_exclusao — trg_redacao_rh_only_review_fields recusa esta escrita para rh/administrador (ver B21/B22)', coalesce(left(v_red_txt_d, 80), '<nulo>');
+  END IF;
+  IF v_redp_d IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/redacoes_candidato_em_progresso): o rascunho do titular sobreviveu (depois=%). A coluna e NULAVEL: o valor certo e NULL, e nao sentinela — carimbar sentinela onde nao havia rascunho INVENTARIA um rascunho que nunca existiu', left(v_redp_d, 60);
+  END IF;
+  IF v_rcult_d IS NULL OR v_rcult_d = v_rcult_a
+     OR position('SMOKE P45 Titular Sintetico' IN v_rcult_d) > 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/respostas_cultura.resposta_texto): a resposta de cultura escrita pelo titular sobreviveu (depois=%)', coalesce(left(v_rcult_d, 60), '<nulo>');
+  END IF;
+  IF v_raval_d IS NULL OR (v_raval_d ->> 'redigido') IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/respostas_avaliacao.respostas): as respostas da avaliacao nao foram redigidas (depois=%). A coluna e `jsonb NOT NULL`: o valor certo e a sentinela jsonb', coalesce(v_raval_d::text, '<nulo>');
+  END IF;
+  IF v_cog_raw_d IS NULL OR (v_cog_raw_d ->> 'redigido') IS NULL
+     OR v_cog_prc_d IS NULL OR (v_cog_prc_d ->> 'redigido') IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/cognitivo_respostas): raw_responses e/ou proctoring sobreviveram (raw=%, proctoring=%). As duas sao `jsonb NOT NULL`. ⚠ `proctoring` entra junto de proposito: e observacao sobre a PESSOA durante a prova — foco de janela, tempo por item — e nao telemetria de custo', coalesce(v_cog_raw_d::text, '<nulo>'), coalesce(v_cog_prc_d::text, '<nulo>');
+  END IF;
+  IF v_eon_tra_d IS NOT NULL OR v_eon_fbk_d IS NOT NULL OR v_eon_res_d IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/entrevistas_online): a transcricao, o feedback ou o resumo sobreviveram (transcricao=%, feedback=%, resumo=%). As tres sao NULAVEIS e recebem NULL. A transcricao e a FALA LITERAL da pessoa — e a origem mais direta do item respostas_e_producoes', coalesce(left(v_eon_tra_d, 40), '<nulo>'), coalesce(left(v_eon_fbk_d, 40), '<nulo>'), coalesce(left(v_eon_res_d, 40), '<nulo>');
+  END IF;
+  IF v_eon_lnk_d IS NULL OR v_eon_lnk_d = v_eon_lnk_a
+     OR position('SMOKE-P45-Titular-Sintetico' IN v_eon_lnk_d) > 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/entrevistas_online.link_videochamada): o link sobreviveu (depois=%). Ele e `text NOT NULL` e recebe sentinela — e nao e cerimonia: um link de sala NOMEADA resolve de volta a quem foi entrevistado, e e por isso que o recibo o lista como origem', coalesce(left(v_eon_lnk_d, 80), '<nulo>');
+  END IF;
+  IF v_epr_doc_d IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/entrevistas_presenciais.documentos_apresentados): os documentos apresentados pelo titular sobreviveram (depois=%)', left(v_epr_doc_d::text, 80);
+  END IF;
+  IF v_ean_cit_d IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/entrevista_analises.citacoes): a fala LITERAL transcrita sobreviveu dentro da analise da entrevista (depois=%). A coluna e NULAVEL e recebe NULL; `competencias` FICA, porque ela tem so {competency, score} e e a prova de que houve avaliacao', left(v_ean_cit_d::text, 80);
+  END IF;
+  IF v_sc_cit_d IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B18/scores_candidato.citacoes): as citacoes do score sobreviveram (depois=%)', left(v_sc_cit_d::text, 80);
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B18): as nove tabelas em que a linha fica estao redigidas coluna a coluna — sentinela nas NOT NULL, NULL nas nulaveis';
+
+  -- (B19) D-48 · O TRECHO LITERAL SAI, E O RESTO DA ANALISE FICA
+  -- ⚠⚠ AS DUAS METADES, E A SEGUNDA E A QUE IMPEDE O CONSERTO EXCESSIVO. Redigir a
+  --    coluna `analise_ia` inteira tambem faria `cited_evidence` desaparecer — e
+  --    levaria junto score, level, dimension e reasoning, que sao a prova de que
+  --    houve avaliacao revisavel (Art. 7o VI / RNF-07a). Sem a metade positiva, o
+  --    excesso passaria por conserto.
+  IF position('cited_evidence' IN coalesce(v_red_ana_a::text, '')) = 0
+     OR position('cited_evidence' IN coalesce(v_sc_meta_a::text, '')) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B19): a fixture nao tinha cited_evidence ANTES, num dos dois lugares (redacao=%, sjt=%). Sem citacao de partida, "a citacao saiu" e verdade por vacuidade', (v_red_ana_a IS NOT NULL), (v_sc_meta_a IS NOT NULL);
+  END IF;
+  IF v_red_cit_d <> 0 OR v_sc_cit_n_d <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B19): o trecho LITERAL do que a pessoa escreveu sobreviveu a exclusao (% elemento(s) em redacoes_candidato.analise_ia, % na metadata da SJT). O recibo diz que o texto foi apagado, e o trecho citado E o texto — com localizacao («Paragrafo 3»), o que o torna ainda mais reconstituivel. D-48', v_red_cit_d, v_sc_cit_n_d;
+  END IF;
+  IF v_red_ds_d <> 2 OR v_red_rea_d <> 2 OR v_sc_ds_d <> 1
+     OR (v_sc_meta_d ->> 'composite_0_25') IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B19/⊕): a remocao da citacao levou a ANALISE junto (dimension_scores da redacao=% de 2, com reasoning=% de 2, da SJT=% de 1, composite_0_25=%). O que sai e o trecho citado; score, level, dimension e reasoning FICAM — eles sao a prova de que houve avaliacao humana revisavel, que o ERASE-08 preserva. Uma sentinela na coluna inteira passaria pela metade negativa desta assercao e destruiria a defesa da empresa', v_red_ds_d, v_red_rea_d, v_sc_ds_d, coalesce(v_sc_meta_d ->> 'composite_0_25', '<ausente>');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B19): cited_evidence saiu dos dois lugares e a analise ficou inteira (% dimensoes na redacao, % na SJT)', v_red_ds_d, v_sc_ds_d;
+
+  -- (B20) O DRY-RUN PREVE AS TREZE CONTAGENS, PELA MESMA EXPRESSAO
+  -- ⚠ Tres fontes independentes na MESMA transacao: (1) a expressao medida A MAO
+  --   antes do tombstone, (2) o `'plano'` que o motor leu no PASSO 0, (3) o
+  --   `'passos'` que ele declarou. Duas bastariam para uma igualdade; a terceira e
+  --   o que distingue "o plano e o motor concordam" de "os dois copiaram o mesmo
+  --   erro". ⚠ Para as quatro do D-62 o numero previsto e o de linhas que VAO
+  --   DEIXAR DE EXISTIR, e o dry-run e o UNICO lugar onde ele pode ser lido antes.
+  IF v_pl_rp IS NULL OR v_ps_rp IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B20): o passo apagar_respostas_e_producoes nao aparece no plano (%) e/ou nos passos declarados (%). Um passo destrutivo que nao diz quanto destruiu nao e auditavel — e este e o primeiro passo deste motor que apaga LINHA', coalesce(v_pl_rp::text, '<ausente>'), coalesce(v_ps_rp::text, '<ausente>');
+  END IF;
+  FOREACH v_rp_k IN ARRAY v_rp_chaves LOOP
+    IF (v_pl_rp ->> v_rp_k) IS NULL OR (v_ps_rp ->> v_rp_k) IS NULL
+       OR (v_pl_rp ->> v_rp_k)::int <> (v_ex_rp ->> v_rp_k)::int
+       OR (v_ps_rp ->> v_rp_k)::int <> (v_ex_rp ->> v_rp_k)::int THEN
+      v_rp_div := v_rp_div || format('%s(plano=%s mao=%s passos=%s) ', v_rp_k,
+                                     coalesce(v_pl_rp ->> v_rp_k, '<ausente>'),
+                                     coalesce(v_ex_rp ->> v_rp_k, '<ausente>'),
+                                     coalesce(v_ps_rp ->> v_rp_k, '<ausente>'));
+    END IF;
+  END LOOP;
+  IF v_rp_div <> '' THEN
+    RAISE EXCEPTION 'P45M FAIL (B20): o dry-run, a expressao medida a mao e o que o motor declarou DIVERGEM em: %. Nao e o numero que importa e sim a EXPRESSAO: se as tres nao coincidem, existem DUAS definicoes de "o que sai" no banco, e a que o recibo mostra nao e a que o motor executa (P39/CR-02). Com um passo que APAGA LINHA, um dry-run que conta a menos e um ensaio que nao ensaia o que vai acontecer', v_rp_div;
+  END IF;
+  IF (v_ps_rp ->> 'linhas_apagadas_d62')::int
+     <> (v_ex_rp ->> 'respostas_raven')::int + (v_ex_rp ->> 'respostas_bigfive')::int
+      + (v_ex_rp ->> 'respostas_disc')::int + (v_ex_rp ->> 'respostas_formulario')::int THEN
+    RAISE EXCEPTION 'P45M FAIL (B20/D-62): o total de linhas apagadas declarado (%) nao bate a soma das quatro tabelas do D-62. E o numero que o recibo do titular vai citar como apagamento irreversivel: ele nao pode ser um agregado que ninguem conferiu', (v_ps_rp ->> 'linhas_apagadas_d62');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B20): as 13 contagens batem nas TRES fontes; linhas apagadas pelo D-62 = %', (v_ps_rp ->> 'linhas_apagadas_d62');
+
+  -- (B21) Correcao 18 · A EXECUCAO NAO DEPENDE DO PAPEL DE QUEM EXECUTA
+  -- ⚠ O bloco (B) inteiro roda sob claims de `administrador` (ver a impersonacao
+  --   junto ao caminho feliz). `trg_redacao_rh_only_review_fields` RECUSA mudanca de
+  --   `texto` e de `analise_ia` para `rh`/`administrador`: se as duas mudaram, a
+  --   janela `app.motor_exclusao` funcionou. Sem ela, um pedido executado por
+  --   administrador abortaria DEPOIS de o curriculo ja ter sido apagado do
+  --   Storage, sem PITR e sem backup de Storage (Pitfall 6).
+  IF v_red_txt_d IS NOT DISTINCT FROM v_red_txt_a
+     OR v_red_ana_d IS NOT DISTINCT FROM v_red_ana_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B21): sob claims de ADMINISTRADOR o motor NAO alterou texto e/ou analise_ia de redacoes_candidato (texto mudou=%, analise mudou=%). Ou o passo nao roda, ou ele foi recusado por trg_redacao_rh_only_review_fields — e a segunda hipotese e a cara: a Edge Function do direito do titular chama o motor COM O JWT DE QUEM PEDIU. A saida e a janela app.motor_exclusao em volta do UPDATE, nunca depender do papel', (v_red_txt_d IS DISTINCT FROM v_red_txt_a), (v_red_ana_d IS DISTINCT FROM v_red_ana_a);
+  END IF;
+  IF v_guc_depois = 'on' THEN
+    RAISE EXCEPTION 'P45M FAIL (B21): a janela app.motor_exclusao continua LIGADA depois do passo (valor=%). set_config(..., true) e SET LOCAL e morre com a transacao — mas "morre no fim da transacao" nao e "nao vale para o proximo statement": o tombstone das FKs roda DEPOIS deste passo, e uma janela aberta transforma uma sancao pontual em portao desligado pelo resto do pedido', v_guc_depois;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B21): sob claims de administrador o passo rasgou texto e analise_ia, e a janela ficou em [%] depois', v_guc_depois;
+
+  -- (B22) ⊖ CONTROLE · SEM A JANELA, O TRIGGER AINDA MORDE
+  -- ⚠⚠ ESTA E A METADE QUE DISTINGUE "SANCIONADO" DE "ESVAZIADO". Desligar o
+  --    trigger faria a (B21) passar exatamente igual — e deixaria a tela do RH
+  --    reescrevendo a redacao do candidato para sempre. O controle repete o MESMO
+  --    UPDATE, sob as MESMAS claims, FORA da janela: ele tem de ser recusado.
+  IF v_ctrl_st <> 'P0001' THEN
+    RAISE EXCEPTION 'P45M FAIL (B22): fora da janela app.motor_exclusao, um UPDATE de redacoes_candidato.texto sob claims de ADMINISTRADOR devolveu [%] em vez de P0001 (a recusa de trg_redacao_rh_only_review_fields). Se foi "<NAO RECUSOU>", o trigger foi ESVAZIADO em vez de sancionado: a regra que impede o RH de reescrever a redacao do candidato deixou de existir, e a (B21) continuaria verde sobre isso. A sancao e UMA JANELA em volta de UM statement do motor, jamais a remocao do portao', v_ctrl_st;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B22): fora da janela, o trigger recusou a mesma escrita com [%] — sancionado, nao esvaziado', v_ctrl_st;
 
   -- (B9) RE-IDENTIFICACAO COMO GATE — a unica assercao da fase que prova
   --      IRREVERSIBILIDADE em vez de apagamento.
@@ -2069,8 +2720,12 @@ DECLARE
   --   `anonimizar_candidato` e `plano_exclusao_titular` RE-PINADOS em 2026-09-23
   --   pelo plano 49-14 (migration `20260922000012`), com a rede (iii)/(iv)/(v)
   --   CRESCIDA ANTES da troca. Ver PROVENIENCIA no cabecalho.
-  v_pin_plano text := '12bfca3bf936704f1bc581acd5061df3';
-  v_pin_anon  text := '6ab2890ebfc87fbd489215579bf1d9f8';
+  --   RE-PINADOS DE NOVO em 2026-09-23 pelo plano 49-20 (migration
+  --   `20260922000013`), que instala o passo `apagar_respostas_e_producoes` — o
+  --   PRIMEIRO passo deste motor que APAGA LINHA (D-62). A rede (vi) cresceu ANTES
+  --   da troca, no MESMO commit, e e ela que vigia o escopo do apagamento.
+  v_pin_plano text := 'f86cb2b1ae6ae007c8145c18f7797dbd';
+  v_pin_anon  text := '0d16c0d8185fe9885d4ec823cfa4dd71';
   v_src_plano text;
   v_src_anon  text;
   v_def_anon  text;
@@ -2121,6 +2776,33 @@ DECLARE
   v_upt_junto   boolean;   -- user_prompt_template na MESMA lista SET de candidato_id := NULL
   v_pl_rev      boolean;   -- o PLANO conta as duas revisoes
   v_pl_cmp_f    boolean;   -- e as linhas de comparativo, pelo MESMO predicado
+  -- ── (C3/vi) 49-20 · A REDE SOBRE O PASSO QUE APAGA LINHA (D-48, D-62) ─────
+  v_src_trg     text;      -- prosrc do trigger da redacao, vigiado por FORMA
+  v_rp_ini      int;       -- onde o passo novo comeca no corpo vivo
+  v_rp_fim      int;       -- e onde `severar_fks_set_null` comeca (o passo termina)
+  v_rp_trecho   text;      -- o trecho do passo, recortado entre os dois
+  v_rp_alvos    text[];    -- as tabelas em que o motor APAGA linha, extraidas do vivo
+  v_rp_fora     text[];    -- as que estao fora do D-62 (tem de ser NENHUMA)
+  v_rp_falta    text[];    -- as do D-62 que o motor NAO apaga (tem de ser NENHUMA)
+  v_rp_guc1     int;       -- a janela abre
+  v_rp_upd      int;       -- o UPDATE da redacao
+  v_rp_guc0     int;       -- e a janela FECHA
+  v_rp_tab      text;
+  v_rp_ausentes text := '';
+  v_rp_permit   constant text[] := ARRAY['respostas_raven','respostas_bigfive',
+                                         'respostas_disc','respostas_formulario'];
+  -- ⚠ CLASSIFICACAO DA FORMA (CLAUDE.md §"Portoes"): lista LITERAL, e ela e ESCOPO
+  --   DELIBERADO e nao fotografia. As treze sao exatamente as origens que o item
+  --   `respostas_e_producoes` do recibo enumera, menos `devolutivas_candidato` (que
+  --   morre por FK CASCADE, nao por statement). Uma origem NOVA no recibo TEM de
+  --   aparecer aqui, e reprovar e o comportamento certo: e assim que o passo deixa
+  --   de silenciar uma promessa nova.
+  v_rp_treze    constant text[] := ARRAY['respostas_raven','respostas_bigfive','respostas_disc',
+                                         'respostas_formulario','redacoes_candidato',
+                                         'redacoes_candidato_em_progresso','respostas_cultura',
+                                         'respostas_avaliacao','cognitivo_respostas',
+                                         'entrevistas_online','entrevistas_presenciais',
+                                         'entrevista_analises','scores_candidato'];
   v_pl_itens    boolean;   -- o 3o ramo LE o ledger de itens
   v_pl_alvo     boolean;   -- e exige o ALVO, nao so o modo
   v_pl_notin    boolean;   -- e nunca nega por pertencimento a conjunto
@@ -2307,6 +2989,127 @@ BEGIN
   IF NOT v_pl_rev OR NOT v_pl_cmp_f THEN
     RAISE EXCEPTION 'P45M FAIL (C3/v): plano_exclusao_titular nao conta o que o motor passou a apagar (revisoes=%, comparativos=%). O dry-run e o delete real TEM de sair da MESMA expressao (regra (ii) desta assercao): um plano que conta menos do que o motor apaga e um recibo que promete um tamanho e entrega outro — P39/CR-02, uma guarda que era dead code', v_pl_rev, v_pl_cmp_f;
   END IF;
+
+  -- ── (C3/vi) 49-20 · A REDE SOBRE O PASSO QUE APAGA LINHA (D-48, D-62) ────
+  -- ⚠⚠ ELA EXISTE PORQUE O PIN FOI TROCADO OUTRA VEZ, E PORQUE O QUE ENTROU NO
+  --    CORPO APAGA LINHA. Ate o 49-14 o pior que um re-pin descuidado escondia era
+  --    uma raspagem que deixou de acontecer. A partir daqui ele pode esconder um
+  --    apagamento que acontece em tabela que ninguem autorizou — e nao ha PITR
+  --    (D-45-10) nem backup de Storage. As onze checagens abaixo sao a exigencia de
+  --    FORMA embaixo do md5 novo, e "a rede embaixo do md5 so cresce" (D-46-18,
+  --    obrigacao 4).
+  v_rp_ini := position('passo_motor: apagar_respostas_e_producoes' IN v_src_anon);
+  v_rp_fim := position('passo_motor: severar_fks_set_null' IN v_src_anon);
+
+  IF v_rp_ini = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): o passo apagar_respostas_e_producoes sumiu do corpo vivo. Sem ele o motor nao toca NENHUMA das 14 origens do item respostas_e_producoes do recibo — o estado exato que o plano 49-20 encontrou (respostas_raven e cited_evidence AUSENTES do corpo) e que ele fechou. E um md5 que casasse com esta forma significaria que alguem re-pinou um corpo que nao devia existir. D-48';
+  END IF;
+  -- ⚠ A ORDEM E MEDIDA POR POSICAO, e nao por presenca das duas: o passo novo se
+  --   enderece por `candidatura_id`, e `severar_fks_set_null` corta ponteiros logo
+  --   depois. Presenca das duas passaria nos dois mundos.
+  IF v_rp_fim = 0 OR v_rp_ini > v_rp_fim THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): o passo apagar_respostas_e_producoes nao vem ANTES de severar_fks_set_null (posicoes %/%)', v_rp_ini, v_rp_fim;
+  END IF;
+
+  v_rp_trecho := substr(v_src_anon, v_rp_ini, v_rp_fim - v_rp_ini);
+
+  -- ⚠⚠ O ESCOPO DO APAGAMENTO, EXTRAIDO DO CORPO VIVO E COMPARADO COM O CONJUNTO
+  --    AUTORIZADO. Esta e a assercao mais cara deste arquivo, e a razao e simples:
+  --    o D-62 autoriza apagar linha em QUATRO tabelas de resposta de multipla
+  --    escolha, porque os CHECKs delas (int 1..8 / 1..5, D/I/S/C, ao-menos-uma-
+  --    resposta) nao aceitam sentinela. Em qualquer outra tabela, apagar a linha
+  --    destruiria a prova de que houve avaliacao — que o ERASE-08 e a RNF-07a
+  --    preservam — e destruiria de forma irreversivel.
+  -- ⚠ O padrao e POSIX e nao a forma literal: o `<verify>` do plano varre o ARQUIVO
+  --   da migration pela forma de apagamento e exige que ela apareca so para as
+  --   quatro permitidas. Escrever a forma literal aqui nao reprovaria este arquivo,
+  --   mas reproduziria no smoke exatamente o que ele proibe do outro lado — §K do
+  --   PATTERNS: registrar a forma sem reproduzi-la.
+  SELECT array_agg(m[1]) INTO v_rp_alvos
+    FROM regexp_matches(v_src_anon, 'DELETE[[:space:]]+FROM[[:space:]]+public\.([a-z_]+)', 'g') AS m;
+
+  SELECT array_agg(t) INTO v_rp_fora
+    FROM unnest(coalesce(v_rp_alvos, ARRAY[]::text[])) AS t
+   WHERE NOT (t = ANY (v_rp_permit));
+  IF v_rp_fora IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): ⛔ O MOTOR APAGA LINHA EM TABELA FORA DO D-62: %. A excecao do operador e valida SO no passo apagar_respostas_e_producoes e SO em respostas_raven, respostas_bigfive, respostas_disc e respostas_formulario. Em toda outra origem a linha FICA (sentinela onde a coluna e NOT NULL, NULL onde ela aceita): apagar linha de score, de decisao, de candidatura ou de historico destroi a prova de nao-discriminacao que o ERASE-08 e a RNF-07a preservam — e destroi sem volta, porque PITR esta desligado e o backup de 7 dias exclui Storage', array_to_string(v_rp_fora, ', ');
+  END IF;
+
+  SELECT array_agg(p) INTO v_rp_falta
+    FROM unnest(v_rp_permit) AS p
+   WHERE NOT (p = ANY (coalesce(v_rp_alvos, ARRAY[]::text[])));
+  IF v_rp_falta IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): as tabelas do D-62 que o motor NAO apaga: %. Nas quatro nao ha sentinela possivel — deixar uma de fora e deixar as respostas da pessoa de pe enquanto o recibo diz que sairam', array_to_string(v_rp_falta, ', ');
+  END IF;
+
+  -- ⚠⚠ A JANELA `app.motor_exclusao` ENVOLVE O UPDATE DA REDACAO, MEDIDA POR
+  --    POSICAO. Presenca das tres passaria com a janela aberta cedo e fechada
+  --    tarde, deixando o resto da transacao — inclusive o tombstone das FKs —
+  --    rodando com o trigger sancionado. E sem o FECHO, o proximo UPDATE de redacao
+  --    desta transacao herdaria a sancao.
+  v_rp_guc1 := position('set_config(''app.motor_exclusao'',''on'',true)' IN v_src_anon);
+  v_rp_upd  := position('UPDATE public.redacoes_candidato r' IN v_src_anon);
+  v_rp_guc0 := position('set_config(''app.motor_exclusao'','''',true)' IN v_src_anon);
+  IF v_rp_guc1 = 0 OR v_rp_upd = 0 OR v_rp_guc0 = 0
+     OR NOT (v_rp_guc1 < v_rp_upd AND v_rp_upd < v_rp_guc0) THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): a janela app.motor_exclusao nao envolve o UPDATE de redacoes_candidato (abre=%, update=%, fecha=%). trg_redacao_rh_only_review_fields LEVANTA EXCECAO quando rh/administrador muda texto/analise_ia, e a Edge Function do direito do titular chama o motor COM O JWT DE QUEM PEDIU: sem a janela, um pedido executado por ADMINISTRADOR aborta aqui DEPOIS de o curriculo ja ter sido apagado do Storage (RESEARCH Correcao 18 / Pitfall 6). E sem o fecho, uma sancao pontual vira portao desligado pelo resto da transacao', v_rp_guc1, v_rp_upd, v_rp_guc0;
+  END IF;
+
+  -- ⚠ O TRIGGER FOI SANCIONADO, NAO ESVAZIADO — as duas metades, e a segunda e a
+  --   que impede o conserto errado: desligar o trigger tambem faria o motor passar,
+  --   e deixaria a tela do RH reescrevendo a redacao do candidato para sempre.
+  SELECT p.prosrc INTO v_src_trg
+    FROM pg_catalog.pg_proc p
+   WHERE p.oid = to_regprocedure('public.trg_redacao_rh_only_review_fields()')::oid;
+  IF v_src_trg IS NULL OR position('app.motor_exclusao' IN v_src_trg) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): trg_redacao_rh_only_review_fields nao reconhece a janela app.motor_exclusao. Sem ela o passo depende do PAPEL de quem executa — e o papel de quem executa um direito do titular nao e escolha do sistema';
+  END IF;
+  IF position('NEW.texto                 IS DISTINCT FROM OLD.texto' IN v_src_trg) = 0
+     OR position('NEW.analise_ia            IS DISTINCT FROM OLD.analise_ia' IN v_src_trg) = 0
+     OR position('RH/admin so pode atualizar campos de revisao' IN v_src_trg) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): trg_redacao_rh_only_review_fields perdeu a regra que ele existe para aplicar. A sancao do motor NAO e afrouxamento: FORA da janela, rh e administrador continuam impedidos de mudar texto/analise_ia. Um trigger esvaziado produz o MESMO verde no caminho feliz e abre a tela do RH para reescrever a redacao do candidato — por isso (B22) assere o controle por EXECUCAO, e esta metade assere a forma';
+  END IF;
+  IF position('current_setting(''app.motor_exclusao'', true)' IN v_src_trg) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): a leitura da janela nao usa missing_ok = true. Sem ele, current_setting levanta 42704 em TODO UPDATE de redacao do sistema — o portao mataria o caminho normal em vez de guarda-lo';
+  END IF;
+
+  -- ⚠ `cited_evidence` sai dos DOIS lugares, e sai CIRURGICAMENTE. Redigir a coluna
+  --   inteira levaria score, level, dimension e reasoning junto — a prova de que
+  --   houve avaliacao revisavel, que o ERASE-08 preserva.
+  IF position('jsonb_set(r.analise_ia' IN v_rp_trecho) = 0
+     OR position('jsonb_set(s.metadata' IN v_rp_trecho) = 0
+     OR position('cited_evidence' IN v_rp_trecho) = 0
+     OR position('''{dimension_scores}''' IN v_rp_trecho) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): o trecho literal do que a pessoa escreveu nao e removido dos DOIS lugares, ou nao e removido cirurgicamente. cited_evidence vive em redacoes_candidato.analise_ia -> dimension_scores E na metadata da SJT em scores_candidato (medido nos dois). Apagar o texto e deixar a citacao e apagar metade; redigir a coluna inteira e destruir a analise. D-48';
+  END IF;
+
+  -- ⚠ AS TREZE ORIGENS ESTAO NO PASSO. Ver a classificacao da forma no DECLARE.
+  FOREACH v_rp_tab IN ARRAY v_rp_treze LOOP
+    IF position(v_rp_tab IN v_rp_trecho) = 0 THEN
+      v_rp_ausentes := v_rp_ausentes || v_rp_tab || ' · ';
+    END IF;
+  END LOOP;
+  IF v_rp_ausentes <> '' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): o passo nao menciona as origens: %. O recibo promete o apagamento de cada uma delas no item respostas_e_producoes; uma origem sem statement e uma frase do recibo sem mecanismo — e foi exatamente esse o estado que o 49-20 encontrou nas catorze', v_rp_ausentes;
+  END IF;
+
+  -- ⚠ O DRY-RUN CONTA O MESMO, PELA MESMA EXPRESSAO — incluidas as condicoes que no
+  --   motor fazem `ROW_COUNT` contar RASPAGENS em vez de VISITAS. Sem elas o plano
+  --   diria "vou raspar N citacoes" quando vai raspar ZERO, e para as quatro do
+  --   D-62 ele e o UNICO lugar onde o numero de linhas que VAO deixar de existir
+  --   pode ser lido antes de deixarem.
+  IF position('''apagar_respostas_e_producoes''' IN v_src_plano) = 0
+     OR position('p.texto_em_progresso IS NOT NULL' IN v_src_plano) = 0
+     OR position('f.documentos_apresentados IS NOT NULL' IN v_src_plano) = 0
+     OR position('n.citacoes IS NOT NULL' IN v_src_plano) = 0
+     OR position('jsonb_exists(z, ''cited_evidence'')' IN v_src_plano) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): plano_exclusao_titular nao conta o passo novo pela MESMA expressao do motor (chave e/ou as condicoes IS NOT NULL / o predicado da SJT). O dry-run e o delete real TEM de sair da mesma expressao (regra (ii)) — e com um passo que APAGA LINHA, um dry-run que conta a menos e um ensaio que nao ensaia o que vai acontecer';
+  END IF;
+  FOREACH v_rp_tab IN ARRAY v_rp_treze LOOP
+    IF position(v_rp_tab IN v_src_plano) = 0 THEN
+      RAISE EXCEPTION 'P45M FAIL (C3/vi): o dry-run nao conta a origem %. Contar menos do que o motor apaga e um recibo que promete um tamanho e entrega outro', v_rp_tab;
+    END IF;
+  END LOOP;
 
   -- ── (C3/janela) RD2-06 + RD3-01 · AS TRES JANELAS, MEDIDAS NO CODIGO ─────
   -- ⚠⚠ A PRIMEIRA VERSAO DESTE PORTAO LIA COMENTARIO, NAO CODIGO — e essa e a
@@ -2879,8 +3682,9 @@ $c456$;
 --
 --     A metade de CONTAGEM existe porque delegar a leitura dos NOTICEs a quem roda
 --     produz run parcial que termina em silencio (licao da 37-03, repetida na P41-05
---     e na P43). O esperado e FIXO: 30 (subiu de 25 no plano 49-14 — cinco
---     propriedades independentes do mesmo apply; ver o bump registrado no cabecalho).
+--     e na P43). O esperado e FIXO: 36 (subiu de 25 para 30 no plano 49-14 e de 30
+--     para 36 no plano 49-20 — seis propriedades independentes do passo que apaga
+--     linha; ver o bump registrado no cabecalho).
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
@@ -2889,10 +3693,10 @@ DECLARE
   v_divergs  text := '';
   v_agora    bigint;
   v_asserts  int;
-  -- ⚠ 30 desde o plano 49-14 (era 25). Escopo DELIBERADO, nao fotografia: e o numero
+  -- ⚠ 36 desde o plano 49-20 (era 30 no 49-14, 25 antes). Escopo DELIBERADO, nao fotografia: e o numero
   --   exato de assercoes que este arquivo contem, e o RESUMO existe para reprovar o run
   --   PARCIAL que termina em silencio (licao da 37-03, repetida na P41-05 e na P43).
-  v_esperado int := 30;
+  v_esperado int := 36;
   v_solic_b  bigint := current_setting('smoke45m.solic')::bigint;
   v_solic_a  bigint;
 BEGIN
@@ -2909,7 +3713,26 @@ BEGIN
       ('public.notificacoes_enviadas',   'notif'),
       ('public.ai_call_logs',            'aicall'),
       ('public.candidate_ai_decisions',  'aidec'),
-      ('public.recruiter_alerts',        'alerts')
+      ('public.recruiter_alerts',        'alerts'),
+      -- ⚠ 49-20: as quinze do passo `apagar_respostas_e_producoes`. Nas quatro
+      --   primeiras a metade de residuo deixou de ser so "nao poluiu" e passou a
+      --   ser tambem "nao APAGOU": o passo remove linha nelas, e uma subtransacao
+      --   que nao revertesse teria levado respostas de candidatos REAIS junto.
+      ('public.respostas_raven',                 'rraven'),
+      ('public.respostas_bigfive',               'rbig'),
+      ('public.respostas_disc',                  'rdisc'),
+      ('public.respostas_formulario',            'rform'),
+      ('public.redacoes_candidato',              'red'),
+      ('public.redacoes_candidato_em_progresso', 'redp'),
+      ('public.respostas_cultura',               'rcult'),
+      ('public.respostas_avaliacao',             'raval'),
+      ('public.cognitivo_respostas',             'cog'),
+      ('public.entrevistas_online',              'eon'),
+      ('public.entrevistas_presenciais',         'epr'),
+      ('public.entrevista_analises',             'ean'),
+      ('public.scores_candidato',                'scand'),
+      ('public.scores_raven',                    'sraven'),
+      ('public.perguntas_cultura',               'pcult')
     ) AS t(tabela, chave)
   LOOP
     EXECUTE format('SELECT count(*) FROM %s', r.tabela) INTO v_agora;
@@ -2934,7 +3757,7 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (z): RESUMO % PASS de % esperadas — run parcial, NAO tratar como verde. Confira que o arquivo rodou numa UNICA chamada de execute_sql: set_config(..., false) e escopado a SESSAO, e statements espalhados por chamadas separadas zeram o contador e reprovam um run que na verdade passou', v_asserts, v_esperado;
   END IF;
 
-  RAISE NOTICE 'P45M RESUMO: % assercoes PASS de % esperadas; zero residuo em 13 tabelas — gate VERDE. Este arquivo e a ESPECIFICACAO do motor, nao um relatorio dele: se a implementacao divergir, corrige-se a implementacao', v_asserts, v_esperado;
+  RAISE NOTICE 'P45M RESUMO: % assercoes PASS de % esperadas; zero residuo em 28 tabelas — gate VERDE. Este arquivo e a ESPECIFICACAO do motor, nao um relatorio dele: se a implementacao divergir, corrige-se a implementacao', v_asserts, v_esperado;
 END
 $z$;
 
