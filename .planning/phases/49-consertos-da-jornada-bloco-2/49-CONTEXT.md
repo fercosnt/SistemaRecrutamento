@@ -567,6 +567,32 @@ refaz as que forem load-bearing para o plano (D-49), em vez de copiar daqui.
 
 **Downstream agents MUST read these before planning or implementing.**
 
+### Decisões durante a execução (operador, 2026-09-23)
+
+> Tomadas com a fase em andamento, sobre fatos que os executores MEDIRAM e não estavam no kickoff.
+> Mesma autoridade das D-24..D-68: nenhum plano as reinterpreta.
+
+- **D-69 (respostas da SJT no motor de exclusão):** o passo `apagar_respostas_e_producoes` do
+  `anonimizar_candidato` **passa a apagar também `scores_candidato.metadata->'respostas'`** — a chave
+  sai, a linha fica (`metadata - 'respostas'`).
+  - **Por que:** o 49-20 mediu que as escolhas da SJT (`opcao_id`, `pergunta_id`, `peso`) sobrevivem
+    em 4 de 5 linhas `sjt`, enquanto o recibo promete ao titular que «as suas respostas das avaliações
+    foram apagadas». A **Correção 14** já havia rejeitado a formulação «as alternativas que você marcou
+    ficam», então o desalinhamento é entre o motor e uma decisão sua anterior — não entre o motor e o
+    recibo.
+  - **Dono:** plano **49-21**, como ampliação autorizada de escopo. Tem de entrar **antes do 49-19**,
+    que é a primeira execução real sob portão do operador.
+  - **Reversibility:** a escrita é irreversível por natureza (é exclusão), mas o ALCANCE é o que o
+    recibo já promete; não amplia o que o titular espera.
+- **D-70 (hashes do texto apagado):** `redacoes_candidato.texto_hash`, `.input_hash` e
+  `entrevista_analises.texto_hash` **permanecem** depois da exclusão, como **resíduo aceito**.
+  - **Por que:** são o vínculo entre análise e `ai_call_logs` que o 49-10 e o 49-12 estabeleceram, e a
+    chave de idempotência. Apagá-los desfaria a proveniência que esta fase construiu e que o JORN-28
+    exige. O risco é estreito: exige acesso ao banco **e** um palpite do texto — permite confirmar,
+    não recuperar.
+  - **Dono do registro:** plano **49-17** (inventário LGPD), que documenta o resíduo e a razão.
+  - **Não** é matéria do 49-21: nada a apagar.
+
 ### Origem e decisões
 - `.planning/JORNADA-GUIADA.md` — §«FILA DE CONSERTOS» → «BLOCO 2»; §«DECISÕES TOMADAS» (D1–D8); tabela «Defeitos — acumulado» (prova de cada defeito); seções dos Defeitos 7 (~l.635), 12 (~l.1029, 1087), 13 (~l.1095), 14 (~l.1162), 17 (~l.1341, 1488), 3b (~l.1378), 25 (~l.1827), 28 (~l.2028). ⚠ Regra 5 do arquivo: feche-o no editor antes de escrever nele (format-on-save já o corrompeu duas vezes).
 - `.planning/phases/48-consertos-da-jornada-bloco-1/48-CONTEXT.md` — D-01..D-23; §Integração.
