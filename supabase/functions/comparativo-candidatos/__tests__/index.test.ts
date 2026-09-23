@@ -110,10 +110,27 @@ function makeMockSupabaseAdmin(
   // `comparativo_solicitado`. O default `null` preserva todos os testes anteriores; um
   // erro aqui tem de virar 500, NUNCA `{ ok: true }` com auditoria ausente.
   insertError: { code?: string; message?: string } | null = null,
+  // Phase 49 / 49-08 Task 2 (JORN-32 / D-34): as linhas de `candidaturas` que a EF passa a
+  // ler para conferir POSSE e ESTADO de cada candidatura. `null` = derivadas das análises
+  // (mesma vaga, etapa de trabalho, em andamento), que é o que todos os testes anteriores
+  // assumem implicitamente — assim eles seguem verdes sem edição.
+  candidaturaRows: Record<string, unknown>[] | null = null,
 ) {
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
+  // Registra as tabelas LIDAS. As asserções «zero leituras de análise» e «zero chamadas de
+  // IA» são o que distingue uma recusa CORRETA (antes de tocar PII de vaga alheia) de uma
+  // recusa que já leu tudo e só não mostrou (T-49-08-01).
+  const reads: string[] = [];
+  const candidaturas = candidaturaRows ??
+    analiseRows.map((r) => ({
+      id: r.candidatura_id,
+      vaga_id: r.vaga_id,
+      etapa_atual: "triagem",
+      status: "em_analise",
+    }));
   return {
     inserts,
+    reads,
     from(table: string) {
       // AI-01 (23-02): loadPrompt FALHA ALTO agora (stub silencioso removido) — o
       // mock responde à query de prompt_versions (3 eq encadeados) com a row ativa.
@@ -137,10 +154,28 @@ function makeMockSupabaseAdmin(
         };
         return { select: (_cols?: string) => chain };
       }
+      // 49-08 Task 2: leitura de `candidaturas` (allowlist `id, vaga_id, etapa_atual, status`)
+      // pelos ids pedidos — a posse e o estado de CADA candidatura, antes das análises.
+      if (table === "candidaturas") {
+        return {
+          select: (_cols?: string) => ({
+            in: (_col: string, ids: string[]) => {
+              reads.push("candidaturas");
+              return Promise.resolve({
+                data: candidaturas.filter((c) => ids.includes(c.id as string)),
+                error: null,
+              });
+            },
+          }),
+        };
+      }
       return {
         select: (_cols?: string) => ({
           // analise_candidato_vaga read (`.in(...)`)
-          in: () => Promise.resolve({ data: analiseRows, error: null }),
+          in: () => {
+            reads.push(table);
+            return Promise.resolve({ data: analiseRows, error: null });
+          },
           // vagas ownership read (`.eq(...).maybeSingle()`) — C1 guard
           eq: () => ({
             maybeSingle: () =>
@@ -317,45 +352,81 @@ Deno.test("49-08 / D-59 — exatamente MAX ids é ACEITO (o teto é inclusivo)",
   assertEquals(res.status, 200, "o teto é inclusivo — MAX candidatos tem de passar");
 });
 
-// ── TRIAGEM-03: same-vaga validation (mixed-vaga + length mismatch) ─────────
-Deno.test("TRIAGEM-03 — candidatos de vagas diferentes → 400 ('vagas diferentes')", async () => {
-  const { handler } = await loadHandler();
-  // Two rows spanning two vagas → vagas.size !== 1.
-  const mixed = [
-    ...rowsForVaga("v1", ["c1"]),
-    ...rowsForVaga("v2", ["c2"]),
-  ];
-  const deps = {
-    anthropic: makeMockAnthropic(),
-    openai: makeMockOpenAI(),
-    supabaseAdmin: makeMockSupabaseAdmin(mixed),
-    supabaseUser: makeMockSupabaseUser(RH_USER),
-  };
-  const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
-  assertEquals(res.status, 400);
-  const json = await res.json();
-  // MIXED_VAGA (not VALIDATION) so triagemService.invokeComparativo surfaces the
-  // specific pt-BR copy — the two sides were misaligned (frontend checked
-  // MIXED_VAGA, EF emitted VALIDATION). Verifier gap 10-VERIFICATION.
-  assertEquals(json.error_code, "MIXED_VAGA");
-  assert(
-    /vagas diferentes/i.test(String(json.message)),
-    "message must explain candidatos pertencem a vagas diferentes",
-  );
-});
+// ── TRIAGEM-03 → 49-08: a mesma-vaga deixou de ser o ÚNICO critério ──────────
+//
+// ⚠ MUDANÇA DE PROPÓSITO — Phase 49 / 49-08 / D-56 / D-34 / JORN-32. Os dois testes
+// abaixo assertavam que TUDO que não fosse o caminho feliz recebia `MIXED_VAGA`
+// «Os candidatos pertencem a vagas diferentes (ou alguma análise ainda não existe)».
+// Essa mensagem é FALSA em dois dos três casos que caíam nela: um knockout sem
+// análise e um candidato ainda não analisado são da MESMA vaga — o RH lia «vagas
+// diferentes» e ia procurar um erro que não existia. E o critério não protegia de
+// IDOR nenhum: conferia que as análises eram da mesma vaga ENTRE SI, nunca que eram
+// da vaga cuja posse foi verificada.
+//
+// Agora cada causa tem o seu código: 403 `FORBIDDEN` (posse), 400 `ENCERRADA`
+// (estado), 400 `SEM_ANALISE` (análise ausente). `MIXED_VAGA` SOBRA, como defesa em
+// profundidade, para o caso em que a candidatura é da vaga certa e a ANÁLISE dela
+// aponta para outra — um estado que não deveria existir, e é por isso que continua
+// tendo portão.
+Deno.test(
+  "49-08 / defesa em profundidade — candidatura da vaga certa com ANÁLISE de outra vaga → 400 MIXED_VAGA",
+  async () => {
+    const { handler } = await loadHandler();
+    // As duas candidaturas são de v1 (posse OK, em andamento), mas a análise de c2
+    // aponta para v2 — incoerência de dados, não pedido malicioso.
+    const analisesIncoerentes = [
+      ...rowsForVaga("v1", ["c1"]),
+      ...rowsForVaga("v2", ["c2"]),
+    ];
+    const deps = {
+      anthropic: makeMockAnthropic(),
+      openai: makeMockOpenAI(),
+      supabaseAdmin: makeMockSupabaseAdmin(analisesIncoerentes, "rh-1", "recrutador", null, [
+        { id: "c1", vaga_id: "v1", etapa_atual: "triagem", status: "em_analise" },
+        { id: "c2", vaga_id: "v1", etapa_atual: "triagem", status: "em_analise" },
+      ]),
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+    assertEquals(res.status, 400);
+    const json = await res.json();
+    assertEquals(json.error_code, "MIXED_VAGA");
+    assert(
+      /vagas diferentes/i.test(String(json.message)),
+      "aqui a mensagem «vagas diferentes» é VERDADEIRA — é o único caso em que ela é",
+    );
+  },
+);
 
-Deno.test("TRIAGEM-03 — rows.length !== ids.length → 400 VALIDATION", async () => {
-  const { handler } = await loadHandler();
-  // Asked for 2 ids but only 1 analise row exists (one not yet analyzed).
-  const deps = {
-    anthropic: makeMockAnthropic(),
-    openai: makeMockOpenAI(),
-    supabaseAdmin: makeMockSupabaseAdmin(rowsForVaga("v1", ["c1"])),
-    supabaseUser: makeMockSupabaseUser(RH_USER),
-  };
-  const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
-  assertEquals(res.status, 400);
-});
+Deno.test(
+  "49-08 / D-34 — candidatura elegível SEM análise → 400 SEM_ANALISE com os ids (nunca «vagas diferentes»)",
+  async () => {
+    const { handler } = await loadHandler();
+    // c1 tem análise, c2 não. As duas são de v1 e estão em andamento.
+    const anthropic = makeMockAnthropic();
+    const deps = {
+      anthropic,
+      openai: makeMockOpenAI(),
+      supabaseAdmin: makeMockSupabaseAdmin(rowsForVaga("v1", ["c1"]), "rh-1", "recrutador", null, [
+        { id: "c1", vaga_id: "v1", etapa_atual: "triagem", status: "em_analise" },
+        { id: "c2", vaga_id: "v1", etapa_atual: "triagem", status: "em_analise" },
+      ]),
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+    assertEquals(res.status, 400);
+    const json = await res.json();
+    assertEquals(json.error_code, "SEM_ANALISE");
+    assertEquals(json.candidaturas_sem_analise, ["c2"], "o corpo tem de NOMEAR quem falta");
+    // A mensagem antiga é o defeito: ela mandava o RH investigar «vagas diferentes»
+    // quando a causa era simplesmente uma análise que ainda não rodou.
+    assert(
+      !/vagas diferentes/i.test(String(json.message)),
+      `a mensagem não pode mais falar de vagas diferentes; veio: ${json.message}`,
+    );
+    assertEquals(anthropic.calls.length, 0, "zero chamadas de IA");
+  },
+);
 
 // ── TRIAGEM-03: happy path returns ranking + writes one audit row ───────────
 Deno.test("TRIAGEM-03 — happy path returns { ranking, latencia_ms } and writes one comparativo_solicitado row", async () => {
@@ -510,6 +581,163 @@ Deno.test(
     assertEquals(json.posicoes, { C1: "c-alfa", C2: "c-meio", C3: "c-zebra" });
   },
 );
+
+// ── Phase 49 / 49-08 Task 2 — JORN-32 (IDOR) e D-34 (encerrada, sem análise) ──
+Deno.test(
+  "49-08 / JORN-32 — uma candidatura de OUTRA vaga → 403 FORBIDDEN, zero leitura de análise, zero IA",
+  async () => {
+    const { handler } = await loadHandler();
+    const anthropic = makeMockAnthropic();
+    // O RH é dono de v1 (a posse de `body.vaga_id` PASSA). c2 é de v2. Antes deste plano,
+    // a EF só conferia que as ANÁLISES eram da mesma vaga entre si — então bastava pedir
+    // dois candidatos da MESMA vaga alheia para ler score, gaps e resumo de CV deles.
+    const supabaseAdmin = makeMockSupabaseAdmin(
+      rowsForVaga("v2", ["c1", "c2"]),
+      "rh-1",
+      "recrutador",
+      null,
+      [
+        { id: "c1", vaga_id: "v1", etapa_atual: "triagem", status: "em_analise" },
+        { id: "c2", vaga_id: "v2", etapa_atual: "triagem", status: "em_analise" },
+      ],
+    );
+    const deps = {
+      anthropic,
+      openai: makeMockOpenAI(),
+      supabaseAdmin,
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+    assertEquals(res.status, 403);
+    const json = await res.json();
+    assertEquals(json.error_code, "FORBIDDEN");
+    assertEquals(String(json.message), "Acesso negado.");
+    // A recusa tem de acontecer ANTES de ler PII de vaga alheia. Uma recusa que já leu as
+    // análises e só não as devolveu deixa o dado no processo e nos logs.
+    assertEquals(
+      supabaseAdmin.reads.includes("analise_candidato_vaga"),
+      false,
+      "zero leituras de análise numa recusa de IDOR",
+    );
+    assertEquals(anthropic.calls.length, 0, "zero chamadas de IA");
+  },
+);
+
+Deno.test(
+  "49-08 / JORN-32 — id INEXISTENTE recebe o MESMO 403 genérico (sem oráculo de existência)",
+  async () => {
+    const { handler } = await loadHandler();
+    // c2 não existe. A resposta tem de ser indistinguível da de «existe, mas é de outra
+    // vaga» — senão a mensagem de erro vira um oráculo: um RH descobriria, por tentativa,
+    // quais ids de candidatura existem no sistema (T-49-08-02).
+    const supabaseAdmin = makeMockSupabaseAdmin(
+      rowsForVaga("v1", ["c1"]),
+      "rh-1",
+      "recrutador",
+      null,
+      [{ id: "c1", vaga_id: "v1", etapa_atual: "triagem", status: "em_analise" }],
+    );
+    const deps = {
+      anthropic: makeMockAnthropic(),
+      openai: makeMockOpenAI(),
+      supabaseAdmin,
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(
+      makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2-inexistente"] }),
+      deps,
+    );
+    assertEquals(res.status, 403);
+    const json = await res.json();
+    assertEquals(json.error_code, "FORBIDDEN");
+    assertEquals(String(json.message), "Acesso negado.");
+  },
+);
+
+Deno.test(
+  "49-08 / D-34 — knockout (inscricao/rejeitado) → 400 ENCERRADA, zero IA",
+  async () => {
+    const { handler } = await loadHandler();
+    const anthropic = makeMockAnthropic();
+    // O knockout PRESERVA `etapa_atual='inscricao'` por desenho e só move o status. Quem
+    // olhava só a etapa não via que acabou — é o mesmo defeito do e-mail de «avanço» (49-03).
+    const deps = {
+      anthropic,
+      openai: makeMockOpenAI(),
+      supabaseAdmin: makeMockSupabaseAdmin(
+        rowsForVaga("v1", ["c1", "c2"]),
+        "rh-1",
+        "recrutador",
+        null,
+        [
+          { id: "c1", vaga_id: "v1", etapa_atual: "triagem", status: "em_analise" },
+          { id: "c2", vaga_id: "v1", etapa_atual: "inscricao", status: "rejeitado" },
+        ],
+      ),
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+    assertEquals(res.status, 400);
+    const json = await res.json();
+    assertEquals(json.error_code, "ENCERRADA");
+    assert(
+      /encerrada/i.test(String(json.message)),
+      `a mensagem tem de dizer o motivo verdadeiro; veio: ${json.message}`,
+    );
+    assertEquals(anthropic.calls.length, 0, "zero chamadas de IA");
+  },
+);
+
+Deno.test(
+  "49-08 / D-34 — retirada A PEDIDO (em andamento + encerrada_a_pedido_em) NÃO é encerrada e segue comparável",
+  async () => {
+    const { handler } = await loadHandler();
+    // `encerrada_a_pedido_em` fica FORA do predicado canônico de propósito (D-21/D-34): a
+    // Invariante 9 da 45-UI-SPEC exige que a candidatura retirada CONTINUE visível ao RH.
+    // Pôr esse campo no critério a sumiria do comparativo — e este teste é o que impede
+    // alguém de «consertar» isso achando que está fechando um buraco.
+    const deps = {
+      anthropic: makeMockAnthropic(),
+      openai: makeMockOpenAI(),
+      supabaseAdmin: makeMockSupabaseAdmin(
+        rowsForVaga("v1", ["c1", "c2"]),
+        "rh-1",
+        "recrutador",
+        null,
+        [
+          { id: "c1", vaga_id: "v1", etapa_atual: "triagem", status: "em_analise" },
+          {
+            id: "c2",
+            vaga_id: "v1",
+            etapa_atual: "triagem",
+            status: "em_analise",
+            encerrada_a_pedido_em: "2026-09-01T10:00:00Z",
+          },
+        ],
+      ),
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+    assertEquals(res.status, 200, "retirada a pedido não é encerrada pelo predicado canônico");
+  },
+);
+
+Deno.test("49-08 — ids repetidos → 400 VALIDATION", async () => {
+  const { handler } = await loadHandler();
+  // Sem esta checagem, ids repetidos fazem a leitura por `.in()` devolver MENOS linhas do
+  // que ids pedidos, e a recusa sairia como 403 «Acesso negado.» — um diagnóstico falso
+  // sobre um pedido que só está malformado.
+  const deps = {
+    anthropic: makeMockAnthropic(),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: makeMockSupabaseAdmin(rowsForVaga("v1", ["c1"])),
+    supabaseUser: makeMockSupabaseUser(RH_USER),
+  };
+  const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c1"] }), deps);
+  assertEquals(res.status, 400);
+  const json = await res.json();
+  assertEquals(json.error_code, "VALIDATION");
+});
 
 Deno.test("49-08 / D-63 — o bloco de cada candidato no prompt conserva o token `(id=`", async () => {
   const { handler } = await loadHandler();
