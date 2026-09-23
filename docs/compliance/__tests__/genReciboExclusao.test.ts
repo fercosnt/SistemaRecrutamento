@@ -155,9 +155,19 @@ describe('recibo-exclusao.json — o artefato', () => {
       expect(item.passo_motor, `linha «sai» sem passo: ${item.item_id}`).toBeTruthy();
       expect(recibo.passos_motor, `passo fora do vocabulário em ${item.item_id}`).toContain(item.passo_motor);
     }
-    // O vocabulário é FECHADO em sete valores — é o contrato que 45-07 e 45-10 assinam.
+    // O vocabulário é FECHADO — é o contrato que 45-07, 45-10 e, desde a Phase 49, a
+    // RPC de anonimização assinam.
+    // ⚠ MUDOU DE PROPÓSITO no plano 49-21 (eram SETE valores). `apagar_respostas_e_producoes`
+    // entrou porque o passo passou a EXISTIR: até o plano 49-20 o item
+    // `respostas_e_producoes` apontava `tombstone_candidato`, e o tombstone não tocava
+    // nenhuma das suas catorze origens — a promessa não tinha executor. O passo foi
+    // instalado em PROD pelas migrations `20260922000013` (D-48/D-62) e `20260923000001`
+    // (D-69), e é asserido por execução em `p45_motor_exclusao_smoke.sql` (B17..B23).
+    // Esta lista é ESCOPO DELIBERADO e não fotografia: um passo novo no gerador sem
+    // linha de recibo TEM de reprovar aqui.
     expect([...recibo.passos_motor].sort()).toEqual(
       [
+        'apagar_respostas_e_producoes',
         'auth_delete_user',
         'scrub_ledger_email',
         'severar_fks_set_null',
@@ -169,7 +179,7 @@ describe('recibo-exclusao.json — o artefato', () => {
     );
   });
 
-  it('(2) E4·error, volta: cada um dos sete passos tem ao menos uma linha «sai»', () => {
+  it('(2) E4·error, volta: cada um dos oito passos tem ao menos uma linha «sai»', () => {
     // Um passo do motor sem linha de recibo é um apagamento que o titular nunca
     // soube que aconteceu. Um snapshot de texto não pega isto — passaria numa
     // lista honesta hoje e continuaria passando quando o motor mudasse.

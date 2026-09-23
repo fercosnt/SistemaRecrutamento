@@ -127,7 +127,7 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `em` | 🔒 preservar | timestamptz |  |
 | `explicacao_solicitada_em` | 🔒 preservar | timestamptz |  |
 | `revisao_solicitada_em` | 🔒 preservar | timestamptz | Art. 20 — prova de exercício de direito |
-| `revisao_resultado` | ⚠️ preservar c/ ressalva | text | Passa a ser a justificativa da revisão na Phase 42 |
+| `revisao_resultado` | 🗑️ apagar | text | Resposta que o REVISOR escreveu ao pedido de revisão do Art. 20 — texto sobre a pessoa, na fala de quem revisou. anonimizar_candidato a substitui por valor fixo (49-14 / D-60), na ordem snapshot → raspagem, para que o arquivo não guarde a versão identificável. Recibo: item resposta_ao_seu_pedido_de_revisao |
 | `candidatura_id` | 🔒 preservar | uuid |  |
 | `reaberta_em` | 🔒 preservar | timestamptz | Phase 48 (JORN-19, D-01) — quando a revisão reverteu e a candidatura foi reaberta. Parte do registro da decisão |
 | `prazo_nova_decisao_em` | 🔒 preservar | timestamptz | Phase 48 (D-10) — fim do 10º dia corrido em SP; a data foi dita ao titular por e-mail |
@@ -148,7 +148,7 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `explicacao_solicitada_em` | 🔒 preservar | timestamptz |  |
 | `revisao_solicitada_em` | 🔒 preservar | timestamptz | Art. 20 — prova de exercício de direito (versão arquivada) |
 | `revisao_veredito` | 🔒 preservar | text | Vocabulário fechado mantida|revertida — estado do processo |
-| `revisao_resultado` | ⚠️ preservar c/ ressalva | text | Justificativa do REVISOR. ⚠ anonimizar_candidato não a toca, nem aqui nem em decisao_final (deferred do 48-11) |
+| `revisao_resultado` | 🗑️ apagar | text | Resposta do REVISOR, na versão arquivada pelo snapshot. Mesmo tratamento e mesma ordem da homônima de decisao_final (49-14 / D-60) |
 | `revisao_por_usuario` | 🔒 preservar | uuid | Funcionário |
 | `revisao_respondida_em` | 🔒 preservar | timestamptz |  |
 | `reaberta_em` | 🔒 preservar | timestamptz |  |
@@ -341,8 +341,8 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | Coluna | Classificação | Tipo | Nota |
 |--------|---------------|------|------|
 | `system_prompt` | 🔒 preservar | text | Template, não dado do titular |
-| `user_prompt_template` | 🔒 preservar | text |  |
-| `raw_response` | 🗑️ apagar | R5 | ⚠ Contém o payload enviado à LLM — pode embutir PII completa |
+| `user_prompt_template` | 🗑️ apagar | text | Input MASCARADO enviado ao modelo: currículo, respostas, redação e a transcrição da entrevista. maskPII remove só identificadores estruturados (CPF, e-mail, telefone, data, endereço, RG, CNPJ) — nomes e fala ficam literais (medido 2026-09-22: 3/3 transcript_analysis e 34/38 cv_job_match com o primeiro nome do titular). Janela: 180 d (retain_until + cron ai-logs-retention-cleanup); só administrador lê (RLS). Desde a Phase 49 (D-38) é a fonte da análise de entrevista, por hash + vínculo. Linhas comparative_ranking têm candidato_id NULL e carregam o input de vários titulares. ⚠ anonimizar_candidato a apaga desde 49-14 (migration 20260922000012) |
+| `raw_response` | 🗑️ apagar | R5 | ⚠ SAÍDA do modelo sobre a pessoa — pode embutir PII completa (o input enviado é user_prompt_template) |
 | `parsed_reasoning` | 🗑️ apagar | text |  |
 | `parsed_score` | 🔒 preservar | numeric |  |
 | `prompt_hash` | 🔒 preservar | text |  |
@@ -483,7 +483,7 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 |--------|---------------|------|------|
 | `citacoes` | 🗑️ apagar | R5 | Trechos literais |
 | `red_flags` | 🔒 preservar | R5 |  |
-| `metadata` | ⚠️ preservar c/ ressalva | R5 |  |
+| `metadata` | ⚠️ preservar c/ ressalva | R5 | Parcialmente redigida pelo motor: as escolhas da SJT (chave respostas, D-69) e as citações literais saem; o score composto, as notas por dimensão e o motivo da revisão ficam |
 
 ### `comparativo_solicitado`
 
@@ -575,7 +575,7 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 
 ## Tabelas sem PII de titular
 
-Cobertas integralmente pela regra **R4** — Conteúdo do produto, catálogo de itens de teste ou configuração de vaga.
+Cobertas integralmente pela regra **R4** — Conteúdo do produto, catálogo de itens de teste ou configuração de vaga. ⚠ DUAS ENTRADAS DESTA LISTA TÊM RESSALVA ABERTA E MEDIDA (Phase 49, D-66): `analise_candidato_vaga` e `entrevista_guias` contêm o primeiro nome do titular dentro de texto livre — 13 de 24 análises e 2 de 5 guias, medido em 2026-09-22 e reconfirmado em 2026-09-23. `anonimizar_candidato` NÃO as desidentifica, e o operador deixou esse apagamento fora do escopo desta fase (é escopo novo). A permanência delas nesta lista é, portanto, DESCRITIVA do estado do motor, não uma afirmação de ausência de PII: até o apagamento existir, mover as duas para `tabelas:` obrigaria o recibo a dar um veredito por coluna, e o único veredito honesto disponível hoje seria uma linha nova dizendo ao titular que o seu nome continua nesses textos — texto de produto, que é decisão do operador e não da engenharia. Registrado em `WINDOWS.md` e no SUMMARY do plano 49-21.
 
 - `ai_cost_daily`
 - `analise_candidato_vaga`
@@ -650,9 +650,9 @@ o defeito de verdade, e não a existência da tabela.
 | Classificação | Colunas |
 |---------------|--------:|
 | 🎭 anonimizar | 23 |
-| 🗑️ apagar | 65 |
-| 🔒 preservar | 98 |
-| ⚠️ preservar c/ ressalva | 51 |
+| 🗑️ apagar | 68 |
+| 🔒 preservar | 97 |
+| ⚠️ preservar c/ ressalva | 49 |
 | **Total explícito** | **237** |
 
 Cobertura de tabelas: **65 / 64**.

@@ -160,7 +160,12 @@ tabelas:
       em:                       { classificacao: preservar, tipo: timestamptz }
       explicacao_solicitada_em: { classificacao: preservar, tipo: timestamptz }
       revisao_solicitada_em:    { classificacao: preservar, tipo: timestamptz, nota: "Art. 20 — prova de exercício de direito" }
-      revisao_resultado:        { classificacao: preservar_com_ressalva, tipo: text, nota: "Passa a ser a justificativa da revisão na Phase 42" }
+      # Phase 49 (D-60): era `preservar_com_ressalva`. O motor passou a substituir o texto
+      # por um valor fixo nos DOIS UPDATEs do tombstone (49-14, migration 20260922000012),
+      # e esse valor diz que o texto original foi removido — o mesmo tratamento de
+      # `redacoes_candidato.texto`, que é `apagar`. O que sobrevive é o REGISTRO (data do
+      # pedido, veredito de vocabulário fechado, data da resposta), não a resposta.
+      revisao_resultado:        { classificacao: apagar, regra: R5, tipo: text, nota: "Resposta que o REVISOR escreveu ao pedido de revisão do Art. 20 — texto sobre a pessoa, na fala de quem revisou. anonimizar_candidato a substitui por valor fixo (49-14 / D-60), na ordem snapshot → raspagem, para que o arquivo não guarde a versão identificável. Recibo: item resposta_ao_seu_pedido_de_revisao" }
       candidatura_id:           { classificacao: preservar, tipo: uuid }
       reaberta_em:              { classificacao: preservar, tipo: timestamptz, nota: "Phase 48 (JORN-19, D-01) — quando a revisão reverteu e a candidatura foi reaberta. Parte do registro da decisão" }
       prazo_nova_decisao_em:    { classificacao: preservar, tipo: timestamptz, nota: "Phase 48 (D-10) — fim do 10º dia corrido em SP; a data foi dita ao titular por e-mail" }
@@ -180,7 +185,11 @@ tabelas:
       explicacao_solicitada_em: { classificacao: preservar, tipo: timestamptz }
       revisao_solicitada_em:    { classificacao: preservar, tipo: timestamptz, nota: "Art. 20 — prova de exercício de direito (versão arquivada)" }
       revisao_veredito:         { classificacao: preservar, tipo: text, nota: "Vocabulário fechado mantida|revertida — estado do processo" }
-      revisao_resultado:        { classificacao: preservar_com_ressalva, tipo: text, nota: "Justificativa do REVISOR. ⚠ anonimizar_candidato não a toca, nem aqui nem em decisao_final (deferred do 48-11)" }
+      # Phase 49 (D-60): a ressalva anterior afirmava que `anonimizar_candidato` não tocava
+      # esta coluna nem a homônima corrente. Deixou de ser verdade no plano 49-14, e a
+      # cópia arquivada é raspada DEPOIS da corrente, de propósito: o UPDATE da corrente
+      # dispara o snapshot, que insere no arquivo uma linha nova com o valor antigo.
+      revisao_resultado:        { classificacao: apagar, regra: R5, tipo: text, nota: "Resposta do REVISOR, na versão arquivada pelo snapshot. Mesmo tratamento e mesma ordem da homônima de decisao_final (49-14 / D-60)" }
       revisao_por_usuario:      { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
       revisao_respondida_em:    { classificacao: preservar, tipo: timestamptz }
       reaberta_em:              { classificacao: preservar, tipo: timestamptz }
@@ -327,8 +336,15 @@ tabelas:
     natureza: "⚠ Alvo do INVENT-05. ERASE-09 — SET NULL deixa órfã. 0 linhas em 2026-07-29."
     colunas:
       system_prompt:        { classificacao: preservar, tipo: text, nota: "Template, não dado do titular" }
-      user_prompt_template: { classificacao: preservar, tipo: text }
-      raw_response:         { classificacao: apagar, regra: R5, nota: "⚠ Contém o payload enviado à LLM — pode embutir PII completa" }
+      # Phase 49 (D-61, decisão do operador no portão): era `preservar`, numa
+      # classificação de 2026-07-29 feita quando a tabela tinha 0 linhas — e a coluna
+      # nunca foi template, apesar do nome.
+      user_prompt_template: { classificacao: apagar, regra: R5, tipo: text, nota: "Input MASCARADO enviado ao modelo: currículo, respostas, redação e a transcrição da entrevista. maskPII remove só identificadores estruturados (CPF, e-mail, telefone, data, endereço, RG, CNPJ) — nomes e fala ficam literais (medido 2026-09-22: 3/3 transcript_analysis e 34/38 cv_job_match com o primeiro nome do titular). Janela: 180 d (retain_until + cron ai-logs-retention-cleanup); só administrador lê (RLS). Desde a Phase 49 (D-38) é a fonte da análise de entrevista, por hash + vínculo. Linhas comparative_ranking têm candidato_id NULL e carregam o input de vários titulares. ⚠ anonimizar_candidato a apaga desde 49-14 (migration 20260922000012)" }
+      # Phase 49 (D-61): a nota anterior dizia que esta coluna contém o payload ENVIADO.
+      # Ela guarda a SAÍDA; o payload enviado é `user_prompt_template`. Uma nota trocada
+      # entre duas colunas adjacentes fez o inventário classificar como preservável
+      # exatamente a coluna que carrega o que a pessoa escreveu.
+      raw_response:         { classificacao: apagar, regra: R5, nota: "⚠ SAÍDA do modelo sobre a pessoa — pode embutir PII completa (o input enviado é user_prompt_template)" }
       parsed_reasoning:     { classificacao: apagar, tipo: text }
       parsed_score:         { classificacao: preservar, tipo: numeric }
       prompt_hash:          { classificacao: preservar, tipo: text }
@@ -400,7 +416,16 @@ tabelas:
     colunas:
       citacoes:  { classificacao: apagar, regra: R5, nota: "Trechos literais" }
       red_flags: { classificacao: preservar, regra: R5 }
-      metadata:  { classificacao: preservar_com_ressalva, regra: R5 }
+      # Phase 49 (D-48 e D-69): a coluna é PARCIALMENTE redigida, e é por isso que ela
+      # aparece nas DUAS colunas do recibo. SAI de dentro dela: a chave `respostas` — as
+      # alternativas que a pessoa marcou na SJT, com `opcao_id`/`pergunta_id`/`peso`
+      # (medido 2026-09-23 pelo 49-20: presentes em 4 de 5 linhas `sjt`) — e o
+      # `cited_evidence` de `dimension_scores[]`, que é trecho literal do que a pessoa
+      # escreveu. FICA: `composite_0_25`, as notas por dimensão com o `reasoning`, e o
+      # motivo da revisão humana. A coluna é `jsonb NOT NULL`: sentinela nela inteira
+      # destruiria a prova de que houve avaliação (ERASE-08 / RNF-07a), e a remoção é
+      # cirúrgica por isso. Asserida em `p45_motor_exclusao_smoke` (B19) e (B23).
+      metadata:  { classificacao: preservar_com_ressalva, regra: R5, nota: "Parcialmente redigida pelo motor: as escolhas da SJT (chave respostas, D-69) e as citações literais saem; o score composto, as notas por dimensão e o motivo da revisão ficam" }
 
   comparativo_solicitado:
     colunas:
@@ -491,10 +516,24 @@ tabelas:
 # ---------------------------------------------------------------------------
 tabelas_sem_pii_titular:
   regra_aplicada: R4
-  nota: "Conteúdo do produto, catálogo de itens de teste ou configuração de vaga."
+  nota: >-
+    Conteúdo do produto, catálogo de itens de teste ou configuração de vaga.
+    ⚠ DUAS ENTRADAS DESTA LISTA TÊM RESSALVA ABERTA E MEDIDA (Phase 49, D-66):
+    `analise_candidato_vaga` e `entrevista_guias` contêm o primeiro nome do titular
+    dentro de texto livre — 13 de 24 análises e 2 de 5 guias, medido em 2026-09-22 e
+    reconfirmado em 2026-09-23. `anonimizar_candidato` NÃO as desidentifica, e o
+    operador deixou esse apagamento fora do escopo desta fase (é escopo novo). A
+    permanência delas nesta lista é, portanto, DESCRITIVA do estado do motor, não uma
+    afirmação de ausência de PII: até o apagamento existir, mover as duas para
+    `tabelas:` obrigaria o recibo a dar um veredito por coluna, e o único veredito
+    honesto disponível hoje seria uma linha nova dizendo ao titular que o seu nome
+    continua nesses textos — texto de produto, que é decisão do operador e não da
+    engenharia. Registrado em `WINDOWS.md` e no SUMMARY do plano 49-21.
   lista:
     - ai_cost_daily
-    - analise_candidato_vaga        # ⚠ ressalva R5 em resumo_cv/resumo_respostas/gaps/pontos_fortes
+    - analise_candidato_vaga        # ⚠ RESSALVA ABERTA (D-66): 13/24 análises contêm o primeiro nome do
+                                    # titular em resumo_cv/resumo_respostas/gaps/pontos_fortes, e o motor
+                                    # não as toca. Ver a `nota` desta seção.
                                     # Phase 48 (48-17): descartada_em (R1) e descartada_motivo (R3 em espírito —
                                     # vocabulário fechado `knockout_automatico`) = preservar. A marca do D-02
                                     # segue o destino da LINHA, como `status`: sem PII, e existe para provar a
@@ -504,7 +543,8 @@ tabelas_sem_pii_titular:
     - bigfive_itens
     - cognitivo_itens
     - config_sla_etapa
-    - entrevista_guias              # ⚠ ressalva R5 no jsonb `guia`
+    - entrevista_guias              # ⚠ RESSALVA ABERTA (D-66): 2/5 guias contêm o primeiro nome do titular
+                                    # no jsonb `guia`, e o motor não os toca. Ver a `nota` desta seção.
     - pergunta_opcao_metadata
     - perguntas
     - perguntas_cultura

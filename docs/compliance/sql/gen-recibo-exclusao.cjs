@@ -106,6 +106,13 @@ const PASSOS_MOTOR = [
   'storage_remove',
   'tombstone_candidato',
   'tombstone_decisao_final',
+  // Phase 49 (49-20 / 49-21, D-48 · D-62 · D-69): o passo que APAGA o que este recibo
+  // sempre disse que apagava. Ele existia como frase e não como código — o motor não
+  // tocava nenhuma das origens de `respostas_e_producoes` —, e é o único passo deste
+  // motor que apaga LINHA (nas quatro tabelas de múltipla escolha, cujos CHECKs não
+  // aceitam sentinela). Instalado em PROD pelas migrations `20260922000013` e
+  // `20260923000001`; contrato executável em `p45_motor_exclusao_smoke.sql` (B17..B23).
+  'apagar_respostas_e_producoes',
   'severar_user_id',
   'severar_fks_set_null',
   'scrub_ledger_email',
@@ -116,7 +123,9 @@ const PASSOS_MOTOR = [
 const PASSO_ONDE = {
   storage_remove: 'Edge Function (Storage Admin API) — plano 45-10',
   tombstone_candidato: 'RPC SECURITY DEFINER de anonimização — plano 45-07',
-  tombstone_decisao_final: 'RPC SECURITY DEFINER de anonimização — plano 45-07 (D-45-02/03)',
+  tombstone_decisao_final: 'RPC SECURITY DEFINER de anonimização — plano 45-07 (D-45-02/03), com a resposta ao pedido de revisão desde o plano 49-14 (D-60)',
+  apagar_respostas_e_producoes:
+    'RPC SECURITY DEFINER de anonimização — planos 49-20 (D-48/D-62) e 49-21 (D-69), catorze statements antes da severação das ligações',
   severar_user_id: 'migration S1 + tombstone — plano 45-07 (D-45-11)',
   severar_fks_set_null: 'tombstone — plano 45-07 (ERASE-09)',
   scrub_ledger_email: 'tombstone com sentinela — plano 45-07 (D-45-12)',
@@ -297,7 +306,11 @@ const ITENS_SAI = [
     texto_passado:
       'As suas respostas das avaliações, os textos que você escreveu, as transcrições das entrevistas e a sua devolutiva foram apagados.',
     aplicavel_quando: 'sempre',
-    passo_motor: 'tombstone_candidato',
+    // ⚠ Phase 49 (D-48): até o plano 49-20 esta linha apontava `tombstone_candidato`,
+    // e o tombstone não tocava NENHUMA das origens abaixo — a frase existia sem
+    // mecanismo. O passo próprio é o que a executa (`p45_motor_exclusao_smoke`
+    // B17..B23 é a especificação executável de cada origem desta lista).
+    passo_motor: 'apagar_respostas_e_producoes',
     origens: flat(
       q('redacoes_candidato', ['texto']),
       q('redacoes_candidato_em_progresso', ['texto_em_progresso']),
@@ -312,6 +325,13 @@ const ITENS_SAI = [
       q('entrevistas_presenciais', ['documentos_apresentados']),
       q('entrevista_analises', ['citacoes']),
       q('scores_candidato', ['citacoes']),
+      // ⚠ Phase 49 (D-69, operador 2026-09-23): `metadata` entra AQUI **e** continua em
+      // `avaliacoes_e_analises`, e as duas presenças são a verdade. O que sai de dentro
+      // dela é a chave `respostas` — as alternativas que a pessoa marcou na SJT — e o
+      // trecho literal citado pela análise; o que fica é o score composto e as notas por
+      // dimensão. Medido pelo 49-20: as escolhas sobreviviam em 4 de 5 linhas `sjt`
+      // enquanto esta linha do recibo já prometia que as respostas foram apagadas.
+      q('scores_candidato', ['metadata']),
       q('devolutivas_candidato', ['conteudo_jsonb']),
     ),
   },
@@ -343,14 +363,26 @@ const ITENS_SAI = [
   {
     item_id: 'dados_enviados_a_analise_automatica',
     rotulo: 'O que foi enviado para as análises automáticas',
+    // ⚠ Phase 49 (D-61 e D-63): o texto ganhou a segunda frase porque o motor passou a
+    // alcançar duas coisas que ele não alcançava. (a) O conteúdo ENVIADO ao modelo — que
+    // esta linha já prometia e que o recibo classificava como conteúdo do produto, e não
+    // como dado da pessoa. (b) As análises que comparam candidaturas: elas falam de
+    // várias pessoas na mesma chamada e por isso nasciam sem ligação com um titular só,
+    // o que fazia o motor nunca encontrá-las (49-14 / D-63). Nenhuma tabela é nomeada:
+    // o texto é para a pessoa, não para quem mantém o banco.
     texto_futuro:
-      'O conteúdo enviado para as análises automáticas e o texto que elas produziram sobre você vão ser apagados.',
+      'O conteúdo enviado para as análises automáticas e o texto que elas produziram sobre você vão ser apagados. Isso inclui as análises que compararam a sua candidatura com as de outras pessoas: o que foi enviado nelas também vai ser apagado.',
     texto_passado:
-      'O conteúdo enviado para as análises automáticas e o texto que elas produziram sobre você foram apagados.',
+      'O conteúdo enviado para as análises automáticas e o texto que elas produziram sobre você foram apagados. Isso inclui as análises que compararam a sua candidatura com as de outras pessoas: o que foi enviado nelas também foi apagado.',
     aplicavel_quando: 'sempre',
     passo_motor: 'tombstone_candidato',
     origens: flat(
-      q('ai_call_logs', ['raw_response', 'parsed_reasoning']),
+      // ⚠ D-61: `user_prompt_template` é o conteúdo ENVIADO ao modelo — currículo,
+      // respostas, redação e a transcrição da entrevista, mascarado só nos
+      // identificadores estruturados (nome e fala ficam literais). Até o plano 49-20 ele
+      // estava em `FORA_DO_RECIBO` como conteúdo do produto; é dado da pessoa, e o motor
+      // o apaga desde o plano 49-14.
+      q('ai_call_logs', ['user_prompt_template', 'raw_response', 'parsed_reasoning']),
       q('candidate_ai_decisions', ['ai_reasoning_summary']),
     ),
   },
@@ -404,6 +436,32 @@ const ITENS_SAI = [
     aplicavel_quando: 'tem_decisao_registrada',
     passo_motor: 'tombstone_decisao_final',
     origens: flat(q('decisao_final', ['justificativa']), q('decisao_final_historico', ['justificativa'])),
+  },
+  {
+    // ⚠⚠ Phase 49 (D-60, plano 49-21) · LINHA NOVA, E O TEXTO DELA É O QUE O MOTOR FAZ.
+    // Medido no corpo vivo (`anonimizar_candidato`, migration `20260923000001`): nos DOIS
+    // UPDATEs do passo `tombstone_decisao_final` a coluna recebe um valor fixo no lugar do
+    // que o revisor escreveu, e esse valor diz, com estas palavras, que o texto original
+    // foi removido. Por isso a classificação no inventário é `apagar` — a mesma de
+    // `redacoes_candidato.texto`, que é `NOT NULL` e tem o mesmo tratamento — e por isso
+    // esta linha está na coluna «sai» e não entre as anotações que ficam.
+    // ⚠ O que FICA está na coluna «mantém», em `registro_da_decisao`: a data do pedido, o
+    // veredito de vocabulário fechado e a data da resposta. É por isso que a frase abaixo
+    // pode dizer «fica o registro» sem prometer nada que não exista.
+    // ⚠ A linha só aparece a quem tem decisão registrada: prometer apagar a resposta a um
+    // pedido de revisão que nunca houve é superestimar na direção oposta (SC#5).
+    item_id: 'resposta_ao_seu_pedido_de_revisao',
+    rotulo: 'A resposta que a equipe escreveu ao seu pedido de revisão',
+    texto_futuro:
+      'Vai ser apagada. No lugar dela fica o registro de que você pediu revisão, de que uma pessoa respondeu e em que data — sem ligação com você.',
+    texto_passado:
+      'Foi apagada. No lugar dela ficou o registro de que você pediu revisão, de que uma pessoa respondeu e em que data — sem ligação com você.',
+    aplicavel_quando: 'tem_decisao_registrada',
+    passo_motor: 'tombstone_decisao_final',
+    origens: flat(
+      q('decisao_final', ['revisao_resultado']),
+      q('decisao_final_historico', ['revisao_resultado']),
+    ),
   },
   {
     item_id: 'sua_conta_de_acesso',
@@ -534,10 +592,11 @@ const ITENS_MANTEM = [
     origens: flat(
       q('candidatos', ['bloqueado_motivo']),
       q('candidaturas', ['observacoes_rh', 'feedback_rejeicao', 'etapa_justificativa']),
-      q('decisao_final', ['revisao_resultado']),
-      // Phase 48 (48-17): a mesma resposta à revisão, na versão arquivada pelo
-      // snapshot (48-11) — mesma linha e mesmo destino da homônima corrente.
-      q('decisao_final_historico', ['revisao_resultado']),
+      // ⚠ Phase 49 (D-60): `decisao_final.revisao_resultado` e a cópia arquivada SAÍRAM
+      // desta linha. Elas estavam aqui como anotação que FICA, e desde o plano 49-14 o
+      // motor apaga o texto das duas — a linha `resposta_ao_seu_pedido_de_revisao` da
+      // coluna «sai» é onde elas passaram a viver. Manter a promessa antiga seria dizer
+      // que fica guardado um texto que sai.
       q('entrevistas_online', ['notas_durante', 'notas_preparacao', 'observacoes_gerais']),
       q('entrevistas_presenciais', ['primeira_impressao', 'notas_durante', 'notas_preparacao', 'observacoes_gerais']),
       q('entrevista_analises', ['notas_humanas']),
@@ -647,7 +706,12 @@ const FORA_DO_RECIBO = Object.assign(
   mapa(q('redacoes_candidato', ['texto_hash']), 'chave_tecnica'),
   mapa(q('redacoes_candidato', ['decisao_revisor']), 'estado_do_processo'),
   mapa(q('respostas_formulario', ['resposta_numerica']), 'estado_do_processo'),
-  mapa(q('ai_call_logs', ['system_prompt', 'user_prompt_template']), 'conteudo_do_produto'),
+  // ⚠ Phase 49 (D-61): `user_prompt_template` SAIU desta linha. O `system_prompt` é o
+  // molde (igual para todo mundo, não é fato sobre a pessoa) e fica; o outro carrega o
+  // que a pessoa escreveu e enviou, e agora é origem de
+  // `dados_enviados_a_analise_automatica`. Enquanto estava aqui, a coluna era descrita
+  // como conteúdo do produto — e o motor a apaga desde o plano 49-14.
+  mapa(q('ai_call_logs', ['system_prompt']), 'conteudo_do_produto'),
   mapa(q('ai_call_logs', ['prompt_hash', 'retain_until']), 'chave_tecnica'),
   mapa(q('candidate_ai_decisions', ['ai_call_log_ids']), 'chave_tecnica'),
   mapa(q('candidate_ai_decisions', ['reviewer_id']), 'dado_de_funcionario'),

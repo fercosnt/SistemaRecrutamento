@@ -134,8 +134,6 @@
         "candidaturas.etapa_justificativa",
         "candidaturas.feedback_rejeicao",
         "candidaturas.observacoes_rh",
-        "decisao_final.revisao_resultado",
-        "decisao_final_historico.revisao_resultado",
         "entrevista_analises.notas_humanas",
         "entrevistas_online.notas_durante",
         "entrevistas_online.notas_preparacao",
@@ -310,7 +308,8 @@
     {
       "aplicavel_quando": "sempre",
       "classificacoes_origem": [
-        "apagar"
+        "apagar",
+        "preservar_com_ressalva"
       ],
       "colunas_origem": [
         "cognitivo_respostas.proctoring",
@@ -331,11 +330,12 @@
         "respostas_disc.menos_caracteristico",
         "respostas_formulario.resposta_texto",
         "respostas_raven.resposta",
-        "scores_candidato.citacoes"
+        "scores_candidato.citacoes",
+        "scores_candidato.metadata"
       ],
       "item_id": "respostas_e_producoes",
-      "passo_motor": "tombstone_candidato",
-      "passo_motor_onde": "RPC SECURITY DEFINER de anonimização — plano 45-07",
+      "passo_motor": "apagar_respostas_e_producoes",
+      "passo_motor_onde": "RPC SECURITY DEFINER de anonimização — planos 49-20 (D-48/D-62) e 49-21 (D-69), catorze statements antes da severação das ligações",
       "rotulo": "O que você escreveu, respondeu e falou no processo",
       "texto_futuro": "As suas respostas das avaliações, os textos que você escreveu, as transcrições das entrevistas e a sua devolutiva vão ser apagados.",
       "texto_passado": "As suas respostas das avaliações, os textos que você escreveu, as transcrições das entrevistas e a sua devolutiva foram apagados."
@@ -377,14 +377,15 @@
       "colunas_origem": [
         "ai_call_logs.parsed_reasoning",
         "ai_call_logs.raw_response",
+        "ai_call_logs.user_prompt_template",
         "candidate_ai_decisions.ai_reasoning_summary"
       ],
       "item_id": "dados_enviados_a_analise_automatica",
       "passo_motor": "tombstone_candidato",
       "passo_motor_onde": "RPC SECURITY DEFINER de anonimização — plano 45-07",
       "rotulo": "O que foi enviado para as análises automáticas",
-      "texto_futuro": "O conteúdo enviado para as análises automáticas e o texto que elas produziram sobre você vão ser apagados.",
-      "texto_passado": "O conteúdo enviado para as análises automáticas e o texto que elas produziram sobre você foram apagados."
+      "texto_futuro": "O conteúdo enviado para as análises automáticas e o texto que elas produziram sobre você vão ser apagados. Isso inclui as análises que compararam a sua candidatura com as de outras pessoas: o que foi enviado nelas também vai ser apagado.",
+      "texto_passado": "O conteúdo enviado para as análises automáticas e o texto que elas produziram sobre você foram apagados. Isso inclui as análises que compararam a sua candidatura com as de outras pessoas: o que foi enviado nelas também foi apagado."
     },
     {
       "aplicavel_quando": "sempre",
@@ -453,10 +454,26 @@
       ],
       "item_id": "ligacao_com_a_justificativa",
       "passo_motor": "tombstone_decisao_final",
-      "passo_motor_onde": "RPC SECURITY DEFINER de anonimização — plano 45-07 (D-45-02/03)",
+      "passo_motor_onde": "RPC SECURITY DEFINER de anonimização — plano 45-07 (D-45-02/03), com a resposta ao pedido de revisão desde o plano 49-14 (D-60)",
       "rotulo": "A ligação entre você e a justificativa escrita sobre a sua candidatura",
       "texto_futuro": "Vai ser cortada: o texto continua guardado como prova de que a decisão não foi discriminatória, sem ligação com você.",
       "texto_passado": "Foi cortada: o texto continua guardado como prova de que a decisão não foi discriminatória, sem ligação com você."
+    },
+    {
+      "aplicavel_quando": "tem_decisao_registrada",
+      "classificacoes_origem": [
+        "apagar"
+      ],
+      "colunas_origem": [
+        "decisao_final.revisao_resultado",
+        "decisao_final_historico.revisao_resultado"
+      ],
+      "item_id": "resposta_ao_seu_pedido_de_revisao",
+      "passo_motor": "tombstone_decisao_final",
+      "passo_motor_onde": "RPC SECURITY DEFINER de anonimização — plano 45-07 (D-45-02/03), com a resposta ao pedido de revisão desde o plano 49-14 (D-60)",
+      "rotulo": "A resposta que a equipe escreveu ao seu pedido de revisão",
+      "texto_futuro": "Vai ser apagada. No lugar dela fica o registro de que você pediu revisão, de que uma pessoa respondeu e em que data — sem ligação com você.",
+      "texto_passado": "Foi apagada. No lugar dela ficou o registro de que você pediu revisão, de que uma pessoa respondeu e em que data — sem ligação com você."
     },
     {
       "aplicavel_quando": "sempre",
@@ -497,7 +514,6 @@
     "ai_call_logs.prompt_hash": "chave_tecnica",
     "ai_call_logs.retain_until": "chave_tecnica",
     "ai_call_logs.system_prompt": "conteudo_do_produto",
-    "ai_call_logs.user_prompt_template": "conteudo_do_produto",
     "avaliacoes_rh.avaliador_id": "dado_de_funcionario",
     "candidate_ai_decisions.ai_call_log_ids": "chave_tecnica",
     "candidate_ai_decisions.reviewer_id": "dado_de_funcionario",
@@ -576,18 +592,18 @@
       "arquivo": "supabase/functions/_shared/exportAllowlist.ts",
       "razao": "Cobre 30 de 69 tabelas (45-RESEARCH §C2) e exclui, como telemetria_interna, oito tabelas com PII do titular — inclusive ai_call_logs e logs_acesso, duas das cinco do ERASE-09. Um recibo derivado dele seria omisso sobre o que não diz (§Pitfall 5)."
     },
-    "gerado_em": "2026-09-21T17:38:39.251Z",
+    "gerado_em": "2026-09-23T20:41:27.284Z",
     "gerador": "docs/compliance/sql/gen-recibo-exclusao.cjs",
     "inventario_coletado_em": "2026-07-29T14:08:18Z",
     "plano": "45-02",
     "requirement": "ERASE-07",
     "totais": {
-      "colunas_com_linha_no_recibo": 176,
-      "colunas_com_razao_de_silencio": 47,
+      "colunas_com_linha_no_recibo": 177,
+      "colunas_com_razao_de_silencio": 46,
       "colunas_com_veredito": 223,
       "colunas_em_escopo_do_titular": 223,
       "linhas_mantem": 9,
-      "linhas_sai": 11,
+      "linhas_sai": 12,
       "tabelas_em_escopo_do_titular": 38,
       "tabelas_fora_do_escopo_do_titular": 5,
       "tabelas_no_inventario": 43
@@ -597,19 +613,21 @@
     "storage_remove",
     "tombstone_candidato",
     "tombstone_decisao_final",
+    "apagar_respostas_e_producoes",
     "severar_user_id",
     "severar_fks_set_null",
     "scrub_ledger_email",
     "auth_delete_user"
   ],
   "passos_motor_onde": {
+    "apagar_respostas_e_producoes": "RPC SECURITY DEFINER de anonimização — planos 49-20 (D-48/D-62) e 49-21 (D-69), catorze statements antes da severação das ligações",
     "auth_delete_user": "Edge Function (Auth Admin API, hard delete) — plano 45-10 (D-45-09)",
     "scrub_ledger_email": "tombstone com sentinela — plano 45-07 (D-45-12)",
     "severar_fks_set_null": "tombstone — plano 45-07 (ERASE-09)",
     "severar_user_id": "migration S1 + tombstone — plano 45-07 (D-45-11)",
     "storage_remove": "Edge Function (Storage Admin API) — plano 45-10",
     "tombstone_candidato": "RPC SECURITY DEFINER de anonimização — plano 45-07",
-    "tombstone_decisao_final": "RPC SECURITY DEFINER de anonimização — plano 45-07 (D-45-02/03)"
+    "tombstone_decisao_final": "RPC SECURITY DEFINER de anonimização — plano 45-07 (D-45-02/03), com a resposta ao pedido de revisão desde o plano 49-14 (D-60)"
   },
   "tabelas_sem_pii_titular": {
     "lista": [

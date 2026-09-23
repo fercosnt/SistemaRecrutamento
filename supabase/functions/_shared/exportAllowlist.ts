@@ -69,7 +69,7 @@ export const EXPORT_ALLOWLIST = {
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-09-21T17:38:39.181Z",
+    "gerado_em": "2026-09-23T20:35:21.691Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-04T01:34:27Z",
     "padrao_nome_de_endereco": "(^|_)(url|urls|uri|uris|link|links)($|_)",
@@ -533,7 +533,7 @@ export const EXPORT_ALLOWLIST = {
         "prazo_nova_decisao_em": "decisoes_por_coluna",
         "reaberta_em": "decisoes_por_coluna",
         "revisao_respondida_em": "R1",
-        "revisao_resultado": "inventario:preservar_com_ressalva",
+        "revisao_resultado": "inventario:apagar",
         "revisao_solicitada_em": "inventario:preservar",
         "revisao_veredito": "decisoes_por_coluna"
       },
