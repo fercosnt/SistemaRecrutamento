@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 25
+open_count: 26
 waived_count: 8
-fixed_count: 37
-total_count: 70
-last_updated: 2026-09-23T05:59:44.862Z
+fixed_count: 38
+total_count: 72
+last_updated: 2026-09-23T13:02:48.332Z
 ---
 
 # Broken Windows Ledger
@@ -66,7 +66,7 @@ last_updated: 2026-09-23T05:59:44.862Z
 | 49 | 49 | deviation | src/components/__tests__/KanbanBoard.test.tsx |  | 49-05: menu Radix não abre no happy-dom; exigiu 3 mocks (dropdown-menu + os 2 diálogos que ele passaria a montar sem QueryClientProvider) | open |  | 2026-09-22T23:00:36.248Z |  |
 | 50 | 49 | deviation | supabase/functions/_shared/comparativo-config.ts |  | O teto COMPARATIVO_MAX_CANDIDATOS=4 repousa em aritmética (80 s x 45 tok/s = 3600 tok; n=4 = 3140 tok estimados), nao em medicao: a premissa A3 (P ~ 280-410 tok/candidato) e MEDIDA pela prova n=4 do plano 49-18. Se a saida real passar de 3140 tok, o teto volta ao operador antes de fechar a fase (D-59). | open |  | 2026-09-23T00:11:20.528Z |  |
 | 51 | 49 | deviation | .planning/phases/49-consertos-da-jornada-bloco-2/49-08-PLAN.md |  | Dois <verify> do 49-08 embutem uma ESCRITA no comando de verificacao (p46apply.cjs migrate; efdeploy.cjs sem --dry-run). Nao sao re-rodaveis: o primeiro sai nao-zero por desenho (version ja no ledger), o segundo criaria uma version de EF identica. Um portao que nao se pode re-rodar so morde uma vez. | open |  | 2026-09-23T00:11:20.613Z |  |
-| 52 | 49 | deviation | src/features/triagem/components/RedacaoReviewPanel.tsx | 47 | 49-09 deployou a EF v15 avaliando a redacao pela BARS (D1 Especificidade, D2 Acao, D3 Aprendizado, D4 Alinhamento), mas a tela do RH (RedacaoReviewPanel.tsx:47 e RedacaoOverrideForm.tsx:45) rotula D1-D4 como os 4 valores BS (Experiencia UAU, Inovacao, Atitude de Dono, Sede de Crescimento). Toda redacao avaliada entre este deploy e o plano 49-15 aparece com o rotulo ERRADO: o numero e da especificidade da situacao e a tela diz Experiencia UAU. O 49-15 importa a mesma constante e fecha (D-25). | open |  | 2026-09-23T00:40:21.953Z |  |
+| 52 | 49 | deviation | src/features/triagem/components/RedacaoReviewPanel.tsx | 47 | 49-09 deployou a EF v15 avaliando a redacao pela BARS (D1 Especificidade, D2 Acao, D3 Aprendizado, D4 Alinhamento), mas a tela do RH (RedacaoReviewPanel.tsx:47 e RedacaoOverrideForm.tsx:45) rotula D1-D4 como os 4 valores BS (Experiencia UAU, Inovacao, Atitude de Dono, Sede de Crescimento). Toda redacao avaliada entre este deploy e o plano 49-15 aparece com o rotulo ERRADO: o numero e da especificidade da situacao e a tela diz Experiencia UAU. O 49-15 importa a mesma constante e fecha (D-25). | fixed | 49-15: as duas telas passaram a importar DIMENSOES_REDACAO de _shared/bars-redacao.ts — a MESMA constante que a EF v15 envia ao modelo — e resolvem o rotulo PELA CHAVE devolvida, nunca por posicao; os mapas proprios (DIM_LABEL :47 e DIMENSOES :45, com os 4 valores BS) sairam. Provado por assercoes que ITERAM sobre a constante (sem lista literal de rotulos — a forma que nao envelhece) e por 8 mutacoes que mordem, entre elas o retorno do mapa proprio (25 reprovados) e a leitura por POSICAO do dimension_scores (4 reprovados, exatamente os 4 de ordem trocada). Marcador redacao-rubrica-versao-antiga lido de volta de rh.beautysmile.com.br, no chunk lazy RedacaoReviewPanel-D4O1GT-q.js. ACHADO EXTRA do mesmo conserto, medido em PROD: analise_ia.reasoning e analise_ia.citacoes, que a tela lia, NAO EXISTEM no JSONB (false nas 2 linhas vivas), enquanto dimension_scores[].reasoning e .cited_evidence existem (true nas duas) — o raciocinio da IA nunca chegou ao RH, e agora chega, por dimensao. | 2026-09-23T00:40:21.953Z | 2026-09-23T13:01:33.905Z |
 | 53 | 49 | unrun-verify | .planning/phases/49-consertos-da-jornada-bloco-2/49-09-PLAN.md |  | O <verify> #3 do 49-09 embute uma ESCRITA no comando de verificacao (node efdeploy.cjs sem --dry-run). Nao e re-rodavel: repeti-lo criaria uma version 16 identica a 15, poluindo o historico de deploy para nao provar nada novo. Re-verificado pelo RESULTADO (version=15/ACTIVE/verify_jwt=true lida de volta da Management API + os marcadores lidos do bundle vivo). Mesma familia da WINDOWS 51 (49-08); e a segunda ocorrencia da fase. | open |  | 2026-09-23T00:40:22.050Z |  |
 | 54 | 49 | deviation | supabase/functions/_shared/bars-redacao.ts |  | A rubrica BARS entra no input com 8476 octetos (~2037 tok, medido) de ancoras, em bloco cacheado (cache_control ephemeral). O culture_fit_essay tem max_tokens 2500 e a maior saida medida foi 1253 tok (50%). O bloco novo alonga o PEDIDO, nao necessariamente a saida, mas a saida real sob a rubrica nova nao foi medida: nenhuma redacao foi avaliada pela v15 ainda. A prova de saida real e do plano 49-18 (premissa C9). Registrado, nao consertado: mexer no max_tokens sem medir e consertar o parametro errado. | open |  | 2026-09-23T00:40:22.138Z |  |
 | 55 | 49 | unrun-verify | .planning/phases/49-consertos-da-jornada-bloco-2/49-23-PLAN.md |  | O <verify> #3 do 49-23 embute duas ESCRITAS no comando de verificacao (node efdeploy.cjs sem --dry-run, e um segundo deploy no encadeamento). Nao e re-rodavel: repeti-lo criaria uma version 22 identica a 21. Re-verificado pelo RESULTADO (version=21/ACTIVE/verify_jwt=true relidos da Management API + o marcador dimensao_desconhecida=3 lido do bundle vivo + origin/main..HEAD vazio) e pelas partes re-rodaveis (--dry-run com sjt-rubrica.ts no fechamento). TERCEIRA ocorrencia da fase (WINDOWS 51 do 49-08, 53 do 49-09). | open |  | 2026-09-23T01:16:21.597Z |  |
@@ -85,6 +85,8 @@ last_updated: 2026-09-23T05:59:44.862Z
 | 68 | 49 | stub | supabase/functions/comparativo-candidatos/index.ts | 434 | 49-26: SEXTO sitio da mesma familia, achado pela re-varredura das SETE consumidoras de callAi (o 49-25 varreu cinco e nao alcancou esta). `const ranking = result.parsed ?? null` — NAO ha nenhuma guarda de bloqueio pre-provedor nesta EF: zero ocorrencias de flagged_for_human_review e nenhuma leitura de error_code. Com o teto diario de custo (AI-06) estourado, callAi devolve parsed={recommendation:'hold',flagged_for_human_review:true}, logo `ranking` fica NAO nulo e o stub e (a) inserido em comparativo_solicitado.ranking (jsonb NOT NULL) como se fosse o ranking auditado, e (b) DEVOLVIDO ao RH no payload (`return jsonResponse({ok:true, ranking, ...})`) — um comparativo que nenhum modelo produziu chega a tela como comparativo. provedor_ia/modelo_ia ja saem NULL corretamente, entao a linha de auditoria fica auto-contraditoria: ranking presente, autor ausente. NAO consertado (Scope Boundary: o <measure_first> do 49-26 mandou reportar e nao consertar; EF de outro plano, exige deploy proprio). Conserto: a mesma pergunta estrutural — `!algumProvedorRespondeu(result)` de _shared/resultado-de-provedor.ts, que este plano criou e que esta EF ainda nao importa. | open |  | 2026-09-23T05:59:25.800Z |  |
 | 69 | 49 | deviation | .planning/WINDOWS.md |  | 49-26: `gsd-tools windows fixed <id> <reason>` ACEITA o segundo posicional e o DESCARTA — a entrada vira status=fixed com reason vazio, nos dois lugares (tabela e bloco JSON). Medido duas vezes nesta sessao (64 e 65) e confirmado retroativamente: a entrada 60, marcada fixed pelo 49-25, tambem esta com reason vazio. Contornado escrevendo o motivo a mao nos dois lugares. Um ledger que registra QUE foi consertado mas nao COMO e meio registro: quem reabrir a janela no futuro nao tem a prova. Nao consertado no gsd-core (fora do repositorio do projeto). | open |  | 2026-09-23T05:59:44.768Z |  |
 | 70 | 49 | deviation | supabase/functions/_shared/resultado-de-provedor.ts |  | 49-26: o normalizador `provedorDeResultado(provider)` (devolve 'anthropic'\|'openai'\|NULL, gatilhado pelos CHECKs das tabelas) existe em SEIS copias — avaliar-transcricao-entrevista:157, analise-candidato-individual:166, avaliar-redacao-cultural:139, avaliar-redacao:254 (como `proveniencia`), gerar-guia-entrevista:442 e comparativo-candidatos:443 (as duas ultimas inline, sem funcao). NAO e o mesmo predicado que este plano extraiu: aquele pergunta 'algum provedor respondeu?' e e deliberadamente SEM allowlist; este NORMALIZA contra a allowlist de um CHECK de banco. Fundi-los seria errado. Mas as seis copias do normalizador entre si sao a mesma duplicacao que o D-21 proibe, e agora ha um modulo em _shared onde ele caberia. Nao consertado: seis EFs, seis deploys, escopo de plano proprio. | open |  | 2026-09-23T05:59:44.862Z |  |
+| 71 | 49 | deviation | src/features/avaliacao/components/DevolutivaBigFiveView.tsx | 38 | 49-15 (delta da varredura por FORMA, nao pedido pelo plano): o padrao 'DIM_LABEL\|DIMENSOES = [' acha DOIS mapas de rotulo de dimensao Big Five que a tabela C7 do kickoff nao lista — DevolutivaBigFiveView.tsx:38 (DIM_LABEL) e ScorecardAvaliacao.tsx:223 (BIGFIVE_DIM_LABEL). Os dois estao IDENTICOS hoje (5/5 iguais), entao NAO ha defeito vivo; o que ha e a precondicao exata do WINDOWS 52: dois mapas locais, nenhuma constante compartilhada, e um _shared/bigfive-scoring.ts que poderia hospedar a fonte unica e nao hospeda rotulo nenhum. A divergencia da redacao tambem comecou com duas tabelas iguais e apareceu quando UM lado mudou. Agravante: o rotulo N='Sensibilidade Emocional' e exigencia LGPD-04 (nunca o termo clinico) em AMBOS — uma divergencia ali nao seria cosmetica, seria de conformidade, e o guard forbidden-strings NAO pega o termo clinico do N (nao esta entre os 7 termos). Nao consertado: fora dos IDs do 49-15 (JORN-07/JORN-28), e o Big Five e outra rubrica. | open |  | 2026-09-23T13:02:34.783Z |  |
+| 72 | 49 | deviation | src/features/entrevista/components/EntrevistaScorecardInline.tsx | 30 | 49-15: depois do conserto do D-25, EntrevistaScorecardInline.tsx:29-34 (DEFAULT_COMPETENCIAS) e o UNICO lugar do front onde os 4 valores Beauty Smile aparecem como rotulos de eixo de avaliacao — e ali eles sao COMPETENCIAS DE ENTREVISTA, nao dimensoes da rubrica da redacao: escopo deliberado, o plano 49-15 manda nao tocar. Registrado porque o portao estatico do 49-15 procura os 4 valores apenas nos dois arquivos da redacao; quem varrer o front inteiro por 'Experiencia UAU' vai achar este e precisa saber que o achado e legitimo. Se algum dia a entrevista tambem ganhar rubrica versionada em _shared, este e o sitio. | open |  | 2026-09-23T13:02:48.332Z |  |
 
 ````json
 [
@@ -715,10 +717,10 @@ last_updated: 2026-09-23T05:59:44.862Z
     "file": "src/features/triagem/components/RedacaoReviewPanel.tsx",
     "line": 47,
     "description": "49-09 deployou a EF v15 avaliando a redacao pela BARS (D1 Especificidade, D2 Acao, D3 Aprendizado, D4 Alinhamento), mas a tela do RH (RedacaoReviewPanel.tsx:47 e RedacaoOverrideForm.tsx:45) rotula D1-D4 como os 4 valores BS (Experiencia UAU, Inovacao, Atitude de Dono, Sede de Crescimento). Toda redacao avaliada entre este deploy e o plano 49-15 aparece com o rotulo ERRADO: o numero e da especificidade da situacao e a tela diz Experiencia UAU. O 49-15 importa a mesma constante e fecha (D-25).",
-    "status": "open",
-    "reason": "",
+    "status": "fixed",
+    "reason": "49-15: as duas telas passaram a importar DIMENSOES_REDACAO de _shared/bars-redacao.ts — a MESMA constante que a EF v15 envia ao modelo — e resolvem o rotulo PELA CHAVE devolvida, nunca por posicao; os mapas proprios (DIM_LABEL :47 e DIMENSOES :45, com os 4 valores BS) sairam. Provado por assercoes que ITERAM sobre a constante (sem lista literal de rotulos — a forma que nao envelhece) e por 8 mutacoes que mordem, entre elas o retorno do mapa proprio (25 reprovados) e a leitura por POSICAO do dimension_scores (4 reprovados, exatamente os 4 de ordem trocada). Marcador redacao-rubrica-versao-antiga lido de volta de rh.beautysmile.com.br, no chunk lazy RedacaoReviewPanel-D4O1GT-q.js. ACHADO EXTRA do mesmo conserto, medido em PROD: analise_ia.reasoning e analise_ia.citacoes, que a tela lia, NAO EXISTEM no JSONB (false nas 2 linhas vivas), enquanto dimension_scores[].reasoning e .cited_evidence existem (true nas duas) — o raciocinio da IA nunca chegou ao RH, e agora chega, por dimensao.",
     "recorded_at": "2026-09-23T00:40:21.953Z",
-    "resolved_at": null,
+    "resolved_at": "2026-09-23T13:01:33.905Z",
     "milestone": "v8.0"
   },
   {
@@ -952,6 +954,32 @@ last_updated: 2026-09-23T05:59:44.862Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-23T05:59:44.862Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 71,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "src/features/avaliacao/components/DevolutivaBigFiveView.tsx",
+    "line": 38,
+    "description": "49-15 (delta da varredura por FORMA, nao pedido pelo plano): o padrao 'DIM_LABEL|DIMENSOES = [' acha DOIS mapas de rotulo de dimensao Big Five que a tabela C7 do kickoff nao lista — DevolutivaBigFiveView.tsx:38 (DIM_LABEL) e ScorecardAvaliacao.tsx:223 (BIGFIVE_DIM_LABEL). Os dois estao IDENTICOS hoje (5/5 iguais), entao NAO ha defeito vivo; o que ha e a precondicao exata do WINDOWS 52: dois mapas locais, nenhuma constante compartilhada, e um _shared/bigfive-scoring.ts que poderia hospedar a fonte unica e nao hospeda rotulo nenhum. A divergencia da redacao tambem comecou com duas tabelas iguais e apareceu quando UM lado mudou. Agravante: o rotulo N='Sensibilidade Emocional' e exigencia LGPD-04 (nunca o termo clinico) em AMBOS — uma divergencia ali nao seria cosmetica, seria de conformidade, e o guard forbidden-strings NAO pega o termo clinico do N (nao esta entre os 7 termos). Nao consertado: fora dos IDs do 49-15 (JORN-07/JORN-28), e o Big Five e outra rubrica.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T13:02:34.783Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 72,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "src/features/entrevista/components/EntrevistaScorecardInline.tsx",
+    "line": 30,
+    "description": "49-15: depois do conserto do D-25, EntrevistaScorecardInline.tsx:29-34 (DEFAULT_COMPETENCIAS) e o UNICO lugar do front onde os 4 valores Beauty Smile aparecem como rotulos de eixo de avaliacao — e ali eles sao COMPETENCIAS DE ENTREVISTA, nao dimensoes da rubrica da redacao: escopo deliberado, o plano 49-15 manda nao tocar. Registrado porque o portao estatico do 49-15 procura os 4 valores apenas nos dois arquivos da redacao; quem varrer o front inteiro por 'Experiencia UAU' vai achar este e precisa saber que o achado e legitimo. Se algum dia a entrevista tambem ganhar rubrica versionada em _shared, este e o sitio.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T13:02:48.332Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
