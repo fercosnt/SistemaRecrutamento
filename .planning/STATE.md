@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-25-PLAN.md (EF gerar-guia-entrevista v20 em PROD)
-last_updated: "2026-09-23T04:46:50.673Z"
+stopped_at: Completed 49-14-PLAN.md
+last_updated: "2026-09-23T05:32:52.229Z"
 last_activity: 2026-09-23
-state_head: 6d4eb35d0bb8b3c15ee72f07426bfac3252ae12d
+state_head: 293f86f8b732ce8791bb417149207d6a8981cb27
 progress:
   total_phases: 8
   completed_phases: 9
-  total_plans: 103
-  completed_plans: 91
+  total_plans: 104
+  completed_plans: 92
   percent: 88
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
@@ -804,6 +804,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P11 | 34 min | 2 tasks | 2 files |
 | Phase 49 P13 | 17 min | 2 tasks | 11 files |
 | Phase 49 P25 | ~35 min | 1 tasks | 2 files |
+| Phase 49 P14 | 88 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1108,6 +1109,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-13: o PDF do comparativo imprime a proveniência abaixo do título, com a cópia importada da tela por CONSTRUÇÃO (a função, não a constante) — O PDF circula fora do sistema e quem o recebe não tem tela onde conferir. Importar `textoProveniencia` (construída de PROVENIENCIA_IA_COPY) torna a igualdade de cópia uma propriedade de construção; importar a constante sem usá-la seria código morto que o noUnusedLocals reprovaria — e seria o 90º erro de tsc, com o teto em 90.
 - [Phase 49]: 49-25: a pergunta «há resultado da IA?» é pelo PROVEDOR (provider === 'none'), nunca por lista literal de error_code — cobre o teto de custo, a injeção e todo bloqueio pré-provedor futuro por construção
 - [Phase 49]: 49-25: uma variável de resultado reatribuída por re-prompt só AVANÇA se a nova passada produziu o artefato persistido; senão a proveniência descreve quem não escreveu nada
+- [Phase 49]: 49-14: o motor de exclusao passa a apagar o INPUT que o titular mandou a IA (ai_call_logs.user_prompt_template, no MESMO UPDATE que faz candidato_id := NULL — e o candidato_id que acha a linha), as linhas comparative_ranking que o CITAM (achadas por position('id=' || candidatura_id), porque o candidato_id delas e NULL por desenho e o motor nunca as alcancava) e a resposta do revisor (revisao_resultado) na linha corrente E em todas as versoes do arquivo. O dry-run conta o mesmo pela mesma expressao. md5 novos: anonimizar_candidato=6ab2890e..., plano_exclusao_titular=12bfca3b...; contador do p45 smoke 25 -> 30. — Medido no catalogo antes de escrever: decisao_final_revisao_justificativa_min_check exige length(btrim(coalesce(revisao_resultado,''))) >= 50 quando ha veredito. Uma sentinela curta nao falha no apply — falha com 23514 no primeiro pedido real, DEPOIS de o curriculo ja ter sido apagado do Storage (Pitfall 1). Virou portao de apply que LE o minimo do CHECK vivo em vez de transcreve-lo, e a fixture do smoke ganhou o ciclo de revisao completo para exercita-lo por execucao. 12 mutacoes provam a mordida clausula por clausula; duas delas (M6b, M10b) existem porque a inversao obvia reprovava por OUTRA assercao.
 
 ### Roadmap Evolution
 
@@ -1174,6 +1176,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - 49-09 deployou a EF v15 medindo a redação pela BARS, mas a tela do RH (RedacaoReviewPanel.tsx:47, RedacaoOverrideForm.tsx:45) ainda rotula D1-D4 como os 4 valores: toda redação avaliada até o plano 49-15 aparece com legenda FALSA sobre um número correto (WINDOWS 52).
 - ~~49-10: `git push origin main` NEGADO pelo ambiente (Out-of-Place Publication)~~ — **RESOLVIDO no mesmo plano, 2026-09-23.** A primeira tentativa de push foi negada e este blocker foi aberto enquanto era verdadeiro; a tentativa seguinte passou. Medido: `origin/main` = `HEAD` = `44fe06cf`, `git log --oneline origin/main..HEAD` **vazio**. Fica registrado em vez de apagado porque o `49-10-SUMMARY.md` chegou a ser escrito afirmando que o critério estava em aberto — a correção é a lição deste arquivo sobre diagnóstico plausível que ninguém mediu, aplicada a si mesma. Nenhuma ação do operador pendente.
 - 49-22: são 13 linhas de literal de teto do comparativo, não 12 nem 8. O 49-08 contou só as que carregam o par completo (>= 2 && <= 10) e deixou de fora as duas que carregam só o piso (ComparativoCandidatosPage.tsx:153, DecisaoFinalPage.tsx:181). Trocar as demais pela constante e esquecer essas duas deixa a tela dizendo «ao menos 2» num lugar e lendo a constante no outro.
+- p46_purga_smoke (j.2) reprova por estado de fixture-seed alheio: a vaga 4601d000-0000-4000-8000-000000000003 esta 'arquivada' desde 2026-08-23 e a assercao de NAO-VACUIDADE exige 'ativa'. Medido pre-existente (identico com os corpos ANTERIORES ao apply do 49-14). Bloqueia (o)/(o.6)/(o.7)/(p), que exercitam o 4o ramo do guard do motor; com a vaga devolvida a 'ativa' dentro de requisicao que aborta, o gate fecha 27/27. Conserto e UPDATE retroativo em fixture de PROD — checkpoint do operador (D-54). Registrado em WINDOWS.md.
 
 ## Deferred Verification
 
@@ -1397,8 +1400,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T04:46:50.350Z
-Stopped at: Completed 49-25-PLAN.md (EF gerar-guia-entrevista v20 em PROD)
+Last session: 2026-09-23T05:32:17.985Z
+Stopped at: Completed 49-14-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

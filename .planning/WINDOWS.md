@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 23
+open_count: 24
 waived_count: 8
 fixed_count: 35
-total_count: 66
-last_updated: 2026-09-23T04:41:36.084Z
+total_count: 67
+last_updated: 2026-09-23T05:25:53.300Z
 ---
 
 # Broken Windows Ledger
@@ -81,6 +81,7 @@ last_updated: 2026-09-23T04:41:36.084Z
 | 64 | 49 | stub | supabase/functions/gerar-guia-entrevista/index.ts | 385 | 49-25: persistFlags (inclusive weak_dim_uncovered, do Pitfall 4 / ENTREV-01) e COMPUTADO e depois DESCARTADO quando existe roteiro: o upsert grava flags apenas no ramo { incompleto: true, ... }. Logo um roteiro que, DEPOIS do re-prompt, ainda deixa uma dimensao fraca descoberta e persistido SEM nenhuma flag, enquanto o docblock da EF afirma que ele 'persiste o roteiro com flag para humano'. O rastro de runtime diz needs_human: true e a linha nao diz nada. Conserto: acrescentar flags ao ramo do roteiro existente. Fora de escopo do 49-25 (defeito PRE-EXISTENTE, requisito ENTREV-01 e nao JORN-39, e muda a forma do guia no caminho de sucesso, que o 49-16 le). O 49-16 PRECISA disto: sem ele o selo nunca vera weak_dim_uncovered. | open |  | 2026-09-23T04:40:06.094Z |  |
 | 65 | 49 | stub | supabase/functions/avaliar-transcricao-entrevista/index.ts | 377 | 49-25: MESMA FORMA do defeito que o 49-25 consertou em gerar-guia-entrevista (WINDOWS 60), medida pela varredura do <measure_first> item 4. A guarda e 'parsed == null \|\| error_code === <codigo de injecao>' e NAO olha o provedor nem flagged_for_human_review. Com o teto diario de custo (AI-06) estourado, callAi devolve parsed NAO nulo com error_code cost_cap_exceeded: a guarda da falso, a EF cai no caminho de sucesso e grava a analise como status_analise pendente_humano com competencias vazias — indistinguivel de uma analise real esperando revisao humana. As outras tres irmas (analise-candidato-individual, avaliar-redacao, avaliar-redacao-cultural) estao cobertas porque tambem testam flagged_for_human_review === true; esta e a unica que nao. NAO consertado aqui (Scope Boundary: EF de outro plano; as sete EFs compartilham _shared e um segundo sitio pede plano proprio). Conserto: a mesma pergunta pelo PROVEDOR. | open |  | 2026-09-23T04:40:17.604Z |  |
 | 66 | 49 | unrun-verify | .planning/phases/49-consertos-da-jornada-bloco-2/49-25-PLAN.md |  | 49-25: o <verify> #2 do plano embute uma ESCRITA (node efdeploy.cjs sem --dry-run) e nao e re-rodavel — re-rodar criaria uma version nova identica, poluindo o historico de deploy para nao provar nada. Re-verificado pelo RESULTADO: version/status/verify_jwt/import_map relidos da Management API, marcadores conferidos no bundle VIVO, --dry-run re-rodavel, origin/main..HEAD vazio. QUINTA ocorrencia da fase (as quatro anteriores estao no WINDOWS 59). | open |  | 2026-09-23T04:41:05.237Z |  |
+| 67 | 49 | unrun-verify | supabase/tests/p46_purga_smoke.sql | 1532 | p46_purga_smoke (j.2) reprova por estado de fixture-seed que derivou: a vaga 4601d000-...-0003 ('fixture-p46 vaga ativa (sintetica)') esta 'arquivada' desde 2026-08-23 17:47, e a assercao de NAO-VACUIDADE exige 'ativa'. Medido pre-existente: identico com os corpos ANTERIORES ao apply do 49-14. Bloqueia as assercoes (o)/(o.6)/(o.7)/(p) que exercitam o 4o ramo do guard do motor; com a vaga devolvida a 'ativa' dentro de requisicao que aborta, o gate fecha 27/27. | open |  | 2026-09-23T05:25:53.300Z |  |
 
 ````json
 [
@@ -896,6 +897,19 @@ last_updated: 2026-09-23T04:41:36.084Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-23T04:41:05.237Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 67,
+    "kind": "unrun-verify",
+    "phase": "49",
+    "file": "supabase/tests/p46_purga_smoke.sql",
+    "line": 1532,
+    "description": "p46_purga_smoke (j.2) reprova por estado de fixture-seed que derivou: a vaga 4601d000-...-0003 ('fixture-p46 vaga ativa (sintetica)') esta 'arquivada' desde 2026-08-23 17:47, e a assercao de NAO-VACUIDADE exige 'ativa'. Medido pre-existente: identico com os corpos ANTERIORES ao apply do 49-14. Bloqueia as assercoes (o)/(o.6)/(o.7)/(p) que exercitam o 4o ramo do guard do motor; com a vaga devolvida a 'ativa' dentro de requisicao que aborta, o gate fecha 27/27.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T05:25:53.300Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
