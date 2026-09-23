@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-09-PLAN.md
-last_updated: "2026-09-23T00:46:25.006Z"
+stopped_at: Completed 49-23-PLAN.md (EF avaliar-redacao v21 viva em PROD, push em dia)
+last_updated: "2026-09-23T01:21:30.528Z"
 last_activity: 2026-09-22
-state_head: eb23b73176a0422517e9e015dce694ee378f8023
+state_head: 36cdad503441f691e87d578540322757ad9f5085
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 102
-  completed_plans: 84
-  percent: 82
+  completed_plans: 85
+  percent: 83
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -797,6 +797,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P06 | 37 min | 3 tasks | 5 files |
 | Phase 49 P08 | 19 min | 2 tasks | 5 files |
 | Phase 49 P09 | 58 min | 1 tasks | 5 files |
+| Phase 49 P23 | 74 min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -1085,6 +1086,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-09: a rubrica da redação cultural é a BARS do PRD v1.1 (D1 Especificidade · D2 Ação · D3 Aprendizado · D4 Alinhamento), numa constante versionada sem imports (_shared/bars-redacao.ts, bars-prd-1.1) que a EF envia e a tela do RH vai importar (49-15). Os 4 valores Beauty Smile são o OBJETO da D4, não as dimensões. — Medido em PROD: o prompt manda «use as âncoras BARS fornecidas no input» e o input levava só a pergunta; as 2 redações avaliadas tiveram os nomes das dimensões INVENTADOS pelo modelo, e DIFERENTES entre si. A nota 0-100 e o cap D1<=2 incidiam sobre dimensões que nada garantia serem as da rubrica escrita.
 - [Phase 49]: 49-09: commitar ANTES de mutar. A prova de mordida (D-56) por "git checkout -- <arquivo>" sobre trabalho NÃO commitado apagou as alterações da EF que ela existia para testar; num arquivo não rastreado a restauração falha em silêncio e a mutação fica em disco. — "git checkout --" restaura para o HEAD, não para o disco. O harness passou a exigir commit prévio e "git diff --quiet" por mutação. Custo real: reconstrução completa das 11 edições da EF.
 - [Phase 49]: 49-09: uma checagem redundante é um portão incapaz de falhar. A recusa de dimensão REPETIDA é redundante quanto ao veredito (num array de 4 sobre vocabulário de 4, repetir implica faltar), então só o MOTIVO precisa de asserção — e sem ela a mutação não morde.
+- [Phase 49]: 49-23: ancoras 1-5 por dimensao da rubrica SJT nao existem em fonte nenhuma (as que existem sao das 10 dimensoes CLINICAS, e 2 chaves citam a MESMA D10 e 3 citam PARES) — ancoras: null nas cinco, com teste que reprova se alguem as acrescentar sem registrar a fonte
+- [Phase 49]: 49-23: quando duas causas levam ao mesmo roteamento mas pedem consertos OPOSTOS, elas precisam de campos separados — metadata.motivos_revisao (lista completa, ausente em sucesso) separa dimensao_desconhecida de insufficient_evidence, red_flag e abaixo_do_corte
 
 ### Roadmap Evolution
 
@@ -1372,8 +1375,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T00:45:39.630Z
-Stopped at: Completed 49-09-PLAN.md
+Last session: 2026-09-23T01:21:30.250Z
+Stopped at: Completed 49-23-PLAN.md (EF avaliar-redacao v21 viva em PROD, push em dia)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

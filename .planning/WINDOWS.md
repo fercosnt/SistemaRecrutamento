@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 14
+open_count: 18
 waived_count: 7
 fixed_count: 33
-total_count: 54
-last_updated: 2026-09-23T00:40:22.138Z
+total_count: 58
+last_updated: 2026-09-23T01:16:21.871Z
 ---
 
 # Broken Windows Ledger
@@ -69,6 +69,10 @@ last_updated: 2026-09-23T00:40:22.138Z
 | 52 | 49 | deviation | src/features/triagem/components/RedacaoReviewPanel.tsx | 47 | 49-09 deployou a EF v15 avaliando a redacao pela BARS (D1 Especificidade, D2 Acao, D3 Aprendizado, D4 Alinhamento), mas a tela do RH (RedacaoReviewPanel.tsx:47 e RedacaoOverrideForm.tsx:45) rotula D1-D4 como os 4 valores BS (Experiencia UAU, Inovacao, Atitude de Dono, Sede de Crescimento). Toda redacao avaliada entre este deploy e o plano 49-15 aparece com o rotulo ERRADO: o numero e da especificidade da situacao e a tela diz Experiencia UAU. O 49-15 importa a mesma constante e fecha (D-25). | open |  | 2026-09-23T00:40:21.953Z |  |
 | 53 | 49 | unrun-verify | .planning/phases/49-consertos-da-jornada-bloco-2/49-09-PLAN.md |  | O <verify> #3 do 49-09 embute uma ESCRITA no comando de verificacao (node efdeploy.cjs sem --dry-run). Nao e re-rodavel: repeti-lo criaria uma version 16 identica a 15, poluindo o historico de deploy para nao provar nada novo. Re-verificado pelo RESULTADO (version=15/ACTIVE/verify_jwt=true lida de volta da Management API + os marcadores lidos do bundle vivo). Mesma familia da WINDOWS 51 (49-08); e a segunda ocorrencia da fase. | open |  | 2026-09-23T00:40:22.050Z |  |
 | 54 | 49 | deviation | supabase/functions/_shared/bars-redacao.ts |  | A rubrica BARS entra no input com 8476 octetos (~2037 tok, medido) de ancoras, em bloco cacheado (cache_control ephemeral). O culture_fit_essay tem max_tokens 2500 e a maior saida medida foi 1253 tok (50%). O bloco novo alonga o PEDIDO, nao necessariamente a saida, mas a saida real sob a rubrica nova nao foi medida: nenhuma redacao foi avaliada pela v15 ainda. A prova de saida real e do plano 49-18 (premissa C9). Registrado, nao consertado: mexer no max_tokens sem medir e consertar o parametro errado. | open |  | 2026-09-23T00:40:22.138Z |  |
+| 55 | 49 | unrun-verify | .planning/phases/49-consertos-da-jornada-bloco-2/49-23-PLAN.md |  | O <verify> #3 do 49-23 embute duas ESCRITAS no comando de verificacao (node efdeploy.cjs sem --dry-run, e um segundo deploy no encadeamento). Nao e re-rodavel: repeti-lo criaria uma version 22 identica a 21. Re-verificado pelo RESULTADO (version=21/ACTIVE/verify_jwt=true relidos da Management API + o marcador dimensao_desconhecida=3 lido do bundle vivo + origin/main..HEAD vazio) e pelas partes re-rodaveis (--dry-run com sjt-rubrica.ts no fechamento). TERCEIRA ocorrencia da fase (WINDOWS 51 do 49-08, 53 do 49-09). | open |  | 2026-09-23T01:16:21.597Z |  |
+| 56 | 49 | deviation | src/features/avaliacao/components/ScorecardAvaliacao.tsx |  | A EF avaliar-redacao (v21) passou a gravar em scores_candidato.metadata o motivo da revisao humana (motivos_revisao) e os nomes que a IA inventou (dimensoes_desconhecidas), mas NENHUMA tela le esses campos: CasoAbertoMetadata em scoresRhService.ts:62-66 declara somente dimension_scores e composite_0_25. Consequencia: uma SJT que foi para revisao porque a IA inventou o nome da dimensao aparece ao RH como qualquer outra pendente_humano. E o irmao SJT do D-25/WINDOWS 52 (a tela da redacao). Nao consertado aqui: o front e de quem o toca (D-55). | open |  | 2026-09-23T01:16:21.687Z |  |
+| 57 | 49 | deviation | supabase/functions/_shared/sjt-rubrica.ts |  | O bloco da rubrica SJT tem 5330 octetos (~1281 tok, 59 linhas) contra os 42 octetos do bloco antigo (Vaga: <uuid>) — 127x. O work_sample_sjt tem max_tokens 3000 e NUNCA teve chamada Sonnet logada (C9: 0 linhas em ai_call_logs), entao nao existe saida medida para comparar. max_tokens e teto de SAIDA e o bloco alonga o PEDIDO, mas o efeito de uma rubrica rica sobre o tamanho do campo reasoning por dimensao nao esta medido nesta EF. Irmao da WINDOWS 54 (redacao). A prova e do 49-18; mexer no teto sem medir e consertar o parametro errado. | open |  | 2026-09-23T01:16:21.778Z |  |
+| 58 | 49 | deviation | supabase/functions/avaliar-redacao/index.ts |  | A unica SJT de caso aberto ja avaliada em PROD (scores_candidato 8acf3c98) segue com score 7,00 — media UNIFORME sobre 5 dimensoes que a IA inventou —, sem provedor_ia/modelo_ia e sem motivos_revisao. Sem reescrita retroativa (D-30/D-26): a rubrica que a avaliou nao existia no input, entao nao ha nota correta a recalcular, e inventar uma seria pior que registrar que ela nao e confiavel. Fica como marco historico, igual as 2 redacoes do 49-09. | open |  | 2026-09-23T01:16:21.871Z |  |
 
 ````json
 [
@@ -728,6 +732,58 @@ last_updated: 2026-09-23T00:40:22.138Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-23T00:40:22.138Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 55,
+    "kind": "unrun-verify",
+    "phase": "49",
+    "file": ".planning/phases/49-consertos-da-jornada-bloco-2/49-23-PLAN.md",
+    "line": null,
+    "description": "O <verify> #3 do 49-23 embute duas ESCRITAS no comando de verificacao (node efdeploy.cjs sem --dry-run, e um segundo deploy no encadeamento). Nao e re-rodavel: repeti-lo criaria uma version 22 identica a 21. Re-verificado pelo RESULTADO (version=21/ACTIVE/verify_jwt=true relidos da Management API + o marcador dimensao_desconhecida=3 lido do bundle vivo + origin/main..HEAD vazio) e pelas partes re-rodaveis (--dry-run com sjt-rubrica.ts no fechamento). TERCEIRA ocorrencia da fase (WINDOWS 51 do 49-08, 53 do 49-09).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T01:16:21.597Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 56,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "src/features/avaliacao/components/ScorecardAvaliacao.tsx",
+    "line": null,
+    "description": "A EF avaliar-redacao (v21) passou a gravar em scores_candidato.metadata o motivo da revisao humana (motivos_revisao) e os nomes que a IA inventou (dimensoes_desconhecidas), mas NENHUMA tela le esses campos: CasoAbertoMetadata em scoresRhService.ts:62-66 declara somente dimension_scores e composite_0_25. Consequencia: uma SJT que foi para revisao porque a IA inventou o nome da dimensao aparece ao RH como qualquer outra pendente_humano. E o irmao SJT do D-25/WINDOWS 52 (a tela da redacao). Nao consertado aqui: o front e de quem o toca (D-55).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T01:16:21.687Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 57,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "supabase/functions/_shared/sjt-rubrica.ts",
+    "line": null,
+    "description": "O bloco da rubrica SJT tem 5330 octetos (~1281 tok, 59 linhas) contra os 42 octetos do bloco antigo (Vaga: <uuid>) — 127x. O work_sample_sjt tem max_tokens 3000 e NUNCA teve chamada Sonnet logada (C9: 0 linhas em ai_call_logs), entao nao existe saida medida para comparar. max_tokens e teto de SAIDA e o bloco alonga o PEDIDO, mas o efeito de uma rubrica rica sobre o tamanho do campo reasoning por dimensao nao esta medido nesta EF. Irmao da WINDOWS 54 (redacao). A prova e do 49-18; mexer no teto sem medir e consertar o parametro errado.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T01:16:21.778Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 58,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "supabase/functions/avaliar-redacao/index.ts",
+    "line": null,
+    "description": "A unica SJT de caso aberto ja avaliada em PROD (scores_candidato 8acf3c98) segue com score 7,00 — media UNIFORME sobre 5 dimensoes que a IA inventou —, sem provedor_ia/modelo_ia e sem motivos_revisao. Sem reescrita retroativa (D-30/D-26): a rubrica que a avaliou nao existia no input, entao nao ha nota correta a recalcular, e inventar uma seria pior que registrar que ela nao e confiavel. Fica como marco historico, igual as 2 redacoes do 49-09.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T01:16:21.871Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }

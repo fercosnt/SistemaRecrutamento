@@ -159,7 +159,7 @@ Acrescentados em 2026-09-21. Origem: `.planning/JORNADA-GUIADA.md` (validação 
 
 Acrescentados em 2026-09-22 no kickoff da Phase 49 (`49-CONTEXT.md`). Mesma convenção do Bloco 1: o número do ID é o do defeito. **32–40 são achados da varredura do kickoff**, que continuam a numeração da tabela «Defeitos — acumulado» da `JORNADA-GUIADA.md` (a tabela ainda não os tem). O Defeito 14 não vira requirement: D8 decidiu que avançar não exige evidência.
 
-- [ ] **JORN-28**: Troca de modelo nunca é silenciosa — o resultado grava provedor/modelo **reais**, a tela do resultado (e o PDF do comparativo) mostra quando houve fallback, o log de IA do admin tem estado próprio de fallback, e o `error_code` separa «não coube», «demorou» e «fora do schema»; o comparativo tem teto de candidatos medido para caber no tempo (D-27..D-30)
+- [x] **JORN-28**: Troca de modelo nunca é silenciosa — o resultado grava provedor/modelo **reais**, a tela do resultado (e o PDF do comparativo) mostra quando houve fallback, o log de IA do admin tem estado próprio de fallback, e o `error_code` separa «não coube», «demorou» e «fora do schema»; o comparativo tem teto de candidatos medido para caber no tempo (D-27..D-30)
 - [ ] **JORN-13**: O card da lista do RH nunca transforma ausência em 0 — Big Five mostra concluído/não fez, Cultura mostra só a nota revisada por humano, Inteligência mostra faixa (sem percentil), DISC sai (D-31..D-33)
 - [ ] **JORN-07**: A redação é avaliada pela rubrica BARS do PRD v1.1 (D1 Especificidade · D2 Ação · D3 Aprendizado · D4 Alinhamento com os valores), enviada ao modelo; a tela do RH rotula pela mesma constante e mostra raciocínio e citações; um teste reprova se rubrica, rótulos e nomes devolvidos divergirem (D-24..D-26)
 - [ ] **JORN-25**: Candidatura encerrada não é selecionável no comparativo (a EF também recusa, com mensagem verdadeira); o banco recusa mover candidatura encerrada, exceto transições sancionadas, e o e-mail de avanço não sai para ela; o «Avançar» leva à próxima etapa real; o comparativo da decisão compara quem está em `decisao_final` e não encerrado; o ranking rotula por `candidatura_id`, não por posição (D-34..D-36b)
@@ -169,7 +169,7 @@ Acrescentados em 2026-09-22 no kickoff da Phase 49 (`49-CONTEXT.md`). Mesma conv
 - [ ] **JORN-32**: A EF do comparativo confere que as análises pertencem à vaga cuja posse foi verificada (IDOR)
 - [ ] **JORN-33**: O Kanban trata candidatura encerrada pelo predicado canônico (hoje ignora `finalizado`) e não a deixa avançar
 - [ ] **JORN-34**: Nenhuma tela reabre candidatura encerrada só mudando o status, sem trilha (`UpdateStatusModal`)
-- [ ] **JORN-35**: O SJT recebe a rubrica da pergunta e aplica os pesos pela chave da dimensão, não pelo nome devolvido pela IA
+- [x] **JORN-35**: O SJT recebe a rubrica da pergunta e aplica os pesos pela chave da dimensão, não pelo nome devolvido pela IA
 - [ ] **JORN-36**: O motor de exclusão apaga o que o recibo afirma ter apagado (redação, citações, respostas, texto da transcrição no `ai_call_logs`) — mecanismo destrutivo, com portão e prova (D-48)
 - [ ] **JORN-37**: A justificativa da decisão final não chega ao titular pela trilha (BD-9 mantido): `registrar_decisao` deixa de copiá-la, e as 4 cópias no histórico são limpas com checkpoint (D-47)
 - [ ] **JORN-38**: A lista do RH não traz ao navegador colunas do candidato que não exibe (fim do `candidatos(*)`)
@@ -279,7 +279,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | JORN-06 | Phase 48 | Complete |
 | JORN-19 | Phase 48 | Complete |
 | JORN-D5 | Phase 48 | Complete |
-| JORN-28 | Phase 49 | Pending |
+| JORN-28 | Phase 49 | Complete |
 | JORN-13 | Phase 49 | Pending |
 | JORN-07 | Phase 49 | Pending |
 | JORN-25 | Phase 49 | Pending |
@@ -289,7 +289,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | JORN-32 | Phase 49 | Pending |
 | JORN-33 | Phase 49 | Pending |
 | JORN-34 | Phase 49 | Pending |
-| JORN-35 | Phase 49 | Pending |
+| JORN-35 | Phase 49 | Complete |
 | JORN-36 | Phase 49 | Pending |
 | JORN-37 | Phase 49 | Pending |
 | JORN-38 | Phase 49 | Pending |
