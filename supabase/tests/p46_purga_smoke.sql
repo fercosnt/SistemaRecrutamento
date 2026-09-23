@@ -19,6 +19,9 @@
 -- 46-06 acrescentou (a), (g), (m) e (n); e o plano 46-07 FECHOU o arquivo com as
 -- duas ultimas letras, (d) e (e). O RESUMO (z) subiu junto a cada plano (era 6,
 -- depois 11, depois 16, depois 21, depois 25, agora é 27 — o total final).
+-- O plano **49-28** NAO acrescentou letra nenhuma: ele mudou (j.1), (j.2) e (j.3) para
+-- ESTABELECEREM o estado que medem, em vez de o LEREM de PROD. O total segue **27**, e
+-- este numero foi LIDO da execucao (`P46P_REG_CONTADOR`), nao transcrito.
 -- Um arquivo por fase, e não um por plano: as asserções desta fase leem umas o
 -- estado das outras.
 --
@@ -77,6 +80,17 @@
 --   6  46-02: sai `neg-etapa#08`, pela allowlist de D-46-19 (`entrevista_online`)
 --   4  46-03: saem `neg-hold#05` (linha viva em `retencao_hold`, D-46-04) e
 --      `neg-vaga#06` (vaga em `ativa`, D-46-03)
+--
+-- ⚠⚠ REGISTRO CORRIGIDO EM 2026-09-23 (plano 49-28), MEDIDO E NAO LIDO DAQUI: a
+-- trajetoria acima descreve a fixture como ela nasceu em 2026-08-22, e o **4 do ultimo
+-- degrau nao e mais o numero vivo**. Medido hoje: `candidaturas_alem_da_janela()` = **5**
+-- e `titulares_alem_da_janela()` = **5**, porque a vaga de `neg-vaga#06`
+-- (`4601d000-…-0003`) foi ARQUIVADA em PROD em 2026-08-23 17:47 e aquela candidatura
+-- deixou de ser protegida por D-46-03. A trajetoria fica escrita como HISTORIA — ela
+-- explica quais linhas cairam e por que, que continua sendo o valor dela — e este aviso
+-- fica junto para que o `4` nao seja lido como estado atual. As asserções de execucao usam
+-- `>=` justamente por isto e continuam validas; a unica que dependia do estado vivo dessa
+-- vaga era a (j.2), e ela passou a ESTABELECER o estado que mede (ver o bloco (j.2)).
 --   `neg-art20#07` nunca esteve: a exceção do Art. 20 já valia desde a Phase 43.
 --   `neg-etapa#09` nunca esteve: está DENTRO da janela, e é por ela que o titular
 --   de `neg-etapa` não aparece em `titulares_alem_da_janela()` (D-46-11).
@@ -471,10 +485,20 @@ DECLARE
 
   -- (j.1) hold pontual
   v_j1_ativos bigint; v_j1_antes bigint; v_j1_depois bigint; v_j1_liberados int;
+  v_j1_restabelecidos int;                       -- 49-28: quantas o estabelecimento tocou
   -- (j.2) vaga ainda aberta
-  v_j2_vaga uuid; v_j2_status text; v_j2_antes bigint; v_j2_depois bigint;
+  -- ⚠ 49-28 — DUAS variaveis de status, e a diferenca e o conserto inteiro:
+  --   `v_j2_status_orig` = o estado ORIGINAL de PROD, lido ANTES de qualquer escrita, e e
+  --      SO a ele que a reposicao no fim do bloco devolve;
+  --   `v_j2_status`      = o estado que o PROPRIO envelope ESTABELECEU, RELIDO do banco, e
+  --      e ele que a 1ª metade da asserção julga.
+  -- Antes deste plano existia so a segunda, preenchida por leitura do estado VIVO — isto e,
+  -- a asserção tomava como linha de base uma premissa que ninguem garante.
+  v_j2_vaga uuid; v_j2_status text; v_j2_status_orig text; v_j2_abertas int;
+  v_j2_antes bigint; v_j2_depois bigint;
   -- (j.3) revisao do Art. 20 em aberto
   v_j3_abertas bigint; v_j3_antes bigint; v_j3_depois bigint; v_j3_respondidas int;
+  v_j3_restabelecidas int;                       -- 49-28: quantas o estabelecimento tocou
   -- (k) degrau (3) quando nao ha decisao registrada
   v_k4_hist bigint; v_k4_dec bigint; v_k4_pred bigint;
   v_k4_origem text; v_k4_itens bigint; v_k4_item_origem text;
@@ -747,6 +771,45 @@ BEGIN
     -- redundante com o rollback, e a redundancia e o ponto: enquanto o envelope
     -- ainda roda, as asserções seguintes tem de enxergar o mesmo estado que as
     -- anteriores enxergaram.
+    --
+    -- ⚠⚠ PLANO 49-28 — AS TRES METADES DE NAO-VACUIDADE PASSAM A **ESTABELECER** O
+    -- ESTADO DE PARTIDA, EM VEZ DE **LER** O ESTADO VIVO DE PROD COMO LINHA DE BASE.
+    --
+    -- O defeito, medido: a (j.2) fazia `SELECT v.status INTO v_j2_status` e julgava esse
+    -- valor. A vaga-semente do 46-01 foi arquivada em PROD em **2026-08-23 17:47** (por
+    -- usuario, fora deste arquivo — `updated_by` da linha), e desde entao as duas medicoes
+    -- da (j.2) aconteciam no MESMO estado: o delta virava zero e a metade de nao-vacuidade
+    -- reprovava. Ela reprovava CORRETAMENTE — sobre uma premissa que ninguem garante. Com
+    -- o smoke fail-fast em 2026-09-23, isso bloqueava (o), (o.6), (o.7) e (p), que sao
+    -- justamente as que exercitam o 4º ramo do guard do motor de exclusao.
+    --
+    -- E a forma que o `CLAUDE.md` §«Portoes: varra pela FORMA, nao pelo sintoma» descreve:
+    -- um INSTANTANEO do estado de PROD apresentado como INVARIANTE. O conserto e o que
+    -- aquele texto prescreve — linha de base capturada na PROPRIA EXECUCAO.
+    --
+    -- ⚠ O estabelecimento NAO e um conserto de PROD. Ele vive e morre dentro do envelope
+    -- que aborta em `P46B0`, exatamente como as tres mutacoes que ele antecede. O operador
+    -- RECUSOU o `UPDATE` retroativo na vaga-semente em 2026-09-23 (plano 49-12): uma vaga
+    -- sintetica ABERTA em PROD ficaria VISIVEL AO PUBLICO — medido com `SET LOCAL ROLE
+    -- anon`, o publico iria de 2 para 3 vagas, uma delas chamada
+    -- «fixture-p46 vaga ativa (sintetica)». Este bloco e a alternativa escolhida.
+    --
+    -- ⚠ O que o estabelecimento NAO afrouxa: as tres metades continuam reprovando por
+    -- AUSENCIA ESTRUTURAL. A (j.1) ainda le 0 se a linha de `retencao_hold` nunca foi
+    -- inserida (o estabelecimento toca 0 linhas e nao inventa a linha); a (j.3) ainda le 0
+    -- se `revisao_solicitada_em` for nula (o estabelecimento so mexe no lado
+    -- «respondida»); e a (j.2) ainda reprova se o `UPDATE ... 'ativa'` nao PEGAR — que e o
+    -- que acontece quando `deleted_at` nao e nulo, porque
+    -- `vagas_status_soft_delete_sync_trg` reescreve o status de volta para `arquivada`.
+    -- O que o estabelecimento remove e UMA causa de reprova, e so ela: «alguem mudou o
+    -- estado vivo da fixture desde a ultima vez».
+    --
+    -- ⚠ Assimetria DELIBERADA na reposicao, e a razao esta em qual estado e o original:
+    -- a (j.1) e a (j.3) repoem o estado CANONICO da fixture (hold ativo, revisao aberta) —
+    -- que, medido hoje, E o estado vivo, e a reposicao ja era escrita assim antes deste
+    -- plano. A (j.2) repoe o estado ORIGINAL LIDO (`v_j2_status_orig`), porque nela o
+    -- original DIVERGE do canonico hoje: repor «ativa» deixaria as asserções seguintes
+    -- enxergando um estado que as anteriores nao enxergaram.
 
     -- Gatilhos de despacho DESLIGADOS POR CRITERIO MEDIDO DO CATALOGO — nunca por
     -- lista fixa de nomes (licao paga por medicao no plano 46-01: o repositorio
@@ -771,6 +834,15 @@ BEGIN
     END LOOP;
 
     -- ── (j.1) ⊖ `retencao_hold` PROTEGE, e o hold LIBERADO deixa de proteger ──
+    -- 49-28: ESTABELECE o hold como ATIVO antes de medir. A instrucao e a MESMA que a
+    -- reposicao no fim do bloco ja executava — o defeito era ela rodar SO no fim. Se a
+    -- linha nao existir, isto toca 0 linhas e a asserção segue reprovando por ausencia
+    -- estrutural, que e o que a mensagem dela descreve.
+    UPDATE public.retencao_hold
+       SET liberado_em = NULL
+     WHERE candidatura_id = v_cdt_hold AND liberado_em IS NOT NULL;
+    GET DIAGNOSTICS v_j1_restabelecidos = ROW_COUNT;
+
     SELECT count(*) INTO v_j1_ativos
       FROM public.retencao_hold h
      WHERE h.candidatura_id = v_cdt_hold AND h.liberado_em IS NULL;
@@ -792,6 +864,21 @@ BEGIN
 
     -- ── (j.2) ⊖ VAGA AINDA ABERTA protege; arquivada, deixa de proteger ───────
     SELECT c.vaga_id INTO v_j2_vaga FROM public.candidaturas c WHERE c.id = v_cdt_vaga;
+
+    -- O ORIGINAL, lido ANTES de qualquer escrita — e so a ele que a reposicao devolve.
+    SELECT v.status::text INTO v_j2_status_orig FROM public.vagas v WHERE v.id = v_j2_vaga;
+
+    -- 49-28: ESTABELECE a vaga ABERTA dentro do envelope, em vez de LER o estado vivo.
+    UPDATE public.vagas
+       SET status = 'ativa'::public.status_vaga
+     WHERE id = v_j2_vaga AND status <> 'ativa'::public.status_vaga;
+    GET DIAGNOSTICS v_j2_abertas = ROW_COUNT;
+
+    -- RELIDO do banco, nunca assumido do `ROW_COUNT`: `vagas_status_soft_delete_sync_trg`
+    -- e um BEFORE UPDATE que reescreve `status := 'arquivada'` quando `deleted_at` nao e
+    -- nulo. Nesse caso o UPDATE acima conta 1 linha tocada e o estado NAO e `ativa` — ler
+    -- o ROW_COUNT como prova do estabelecimento seria acreditar na escrita em vez de medir
+    -- o efeito dela. E este valor relido que a 1ª metade da asserção julga.
     SELECT v.status::text INTO v_j2_status FROM public.vagas v WHERE v.id = v_j2_vaga;
 
     SELECT count(*) INTO v_j2_antes
@@ -804,7 +891,10 @@ BEGIN
       FROM public.candidaturas_alem_da_janela() f
      WHERE f.candidatura_id = v_cdt_vaga;
 
-    UPDATE public.vagas SET status = v_j2_status::public.status_vaga WHERE id = v_j2_vaga;
+    -- Reposicao ao estado ORIGINAL de PROD, nunca ao estabelecido: o envelope e a
+    -- reposicao tem de concordar, e as asserções seguintes tem de enxergar o mesmo estado
+    -- que as anteriores enxergaram.
+    UPDATE public.vagas SET status = v_j2_status_orig::public.status_vaga WHERE id = v_j2_vaga;
 
     -- ── (j.3) ⊖ REVISAO DO ART. 20 EM ABERTO protege; respondida, nao ─────────
     -- ⚠ A resposta grava as QUATRO colunas juntas porque
@@ -813,6 +903,21 @@ BEGIN
     -- UPDATE contorna o RPC responder_revisao_decisao de proposito — o objeto sob
     -- teste aqui e o PREDICADO, nao o guard daquele RPC (que tem smoke proprio em
     -- p42_revisao_art20_smoke.sql). Nenhum id de pessoa REAL e usado.
+    --
+    -- 49-28: ESTABELECE a revisao como EM ABERTO antes de medir. A instrucao e a MESMA que
+    -- a reposicao no fim do bloco ja executava — o defeito era ela rodar SO no fim. O
+    -- `WHERE ... IS NOT NULL` faz isto tocar 0 linhas no estado canonico, e por isso
+    -- `trg_decisao_final_snapshot` (que e condicional por `to_jsonb` da linha inteira desde
+    -- o 49-07) NAO arquiva uma versao a mais. E o lado `solicitada` NAO e tocado: se ele
+    -- for nulo, a asserção segue reprovando por ausencia estrutural.
+    UPDATE public.decisao_final
+       SET revisao_veredito      = NULL,
+           revisao_por_usuario   = NULL,
+           revisao_respondida_em = NULL,
+           revisao_resultado     = NULL
+     WHERE candidatura_id = v_cdt_art20 AND revisao_respondida_em IS NOT NULL;
+    GET DIAGNOSTICS v_j3_restabelecidas = ROW_COUNT;
+
     SELECT count(*) INTO v_j3_abertas
       FROM public.decisao_final d
      WHERE d.candidatura_id = v_cdt_art20
@@ -1508,8 +1613,12 @@ BEGIN
   -- ═══════════════════════════════════════════════════════════════════════════
 
 -- (j.1) ⊖ `retencao_hold` PROTEGE — e o hold LIBERADO deixa de proteger (D-46-04)
+-- ⚠ 49-28: o estado de partida e ESTABELECIDO dentro do envelope (`liberado_em := NULL`,
+-- % linhas em `v_j1_restabelecidos`), entao esta 1ª metade deixou de reprovar quando
+-- alguem liberou o hold da fixture e passou a reprovar SO por ausencia ESTRUTURAL da
+-- linha — que e exatamente o que a mensagem abaixo sempre descreveu.
   IF v_j1_ativos <> 1 THEN
-    RAISE EXCEPTION 'P46P FAIL (j.1): ⊖ NAO-VACUIDADE — a candidatura % tem % linha(s) de retencao_hold ATIVA (liberado_em nulo; esperado exatamente 1). A migration 20260823000005 TEM de inserir essa linha: e obrigacao HERDADA do plano 46-01, cuja fixture (§5f) tentou inseri-la em 2026-08-22, nao conseguiu porque a tabela nao existia, e emitiu apenas um aviso. ENQUANTO ELA FALTAR, neg-hold e so mais uma candidatura elegivel e ESTA ASSERCAO PASSARIA POR VACUIDADE — o modo de falha exato que a Phase 46 existe para eliminar', v_cdt_hold, v_j1_ativos;
+    RAISE EXCEPTION 'P46P FAIL (j.1): ⊖ NAO-VACUIDADE — depois de o envelope ESTABELECER o hold como ativo (% linha(s) tocada(s)), a candidatura % tem % linha(s) de retencao_hold ATIVA (liberado_em nulo; esperado exatamente 1). O estabelecimento NAO INVENTA a linha: se ela nao existe, ele toca 0 e esta asserção reprova aqui. A migration 20260823000005 TEM de inserir essa linha: e obrigacao HERDADA do plano 46-01, cuja fixture (§5f) tentou inseri-la em 2026-08-22, nao conseguiu porque a tabela nao existia, e emitiu apenas um aviso. ENQUANTO ELA FALTAR, neg-hold e so mais uma candidatura elegivel e ESTA ASSERCAO PASSARIA POR VACUIDADE — o modo de falha exato que a Phase 46 existe para eliminar', v_j1_restabelecidos, v_cdt_hold, v_j1_ativos;
   END IF;
 
   IF v_j1_antes <> 0 THEN
@@ -1528,8 +1637,14 @@ BEGIN
   RAISE NOTICE 'P46P PASS (j.1): com hold ATIVO a candidatura % esta FORA do conjunto elegivel; liberado o hold, ela passa a estar DENTRO — a excecao de D-46-04 morde, e a fixture estava ALEM DA JANELA o tempo todo', v_cdt_hold;
 
 -- (j.2) ⊖ VAGA AINDA ABERTA protege — arquivada, deixa de proteger (D-46-03)
+-- ⚠ 49-28: `v_j2_status` NAO e mais o estado vivo de PROD — e o estado que o envelope
+-- ESTABELECEU e que foi RELIDO do banco. Esta 1ª metade continua discriminante, e o
+-- cenario em que ela morde e este: o estabelecimento nao PEGAR. E o que acontece com
+-- `deleted_at` nao nulo, porque `vagas_status_soft_delete_sync_trg` reescreve
+-- `status := 'arquivada'` no BEFORE UPDATE. Provado por mutacao em 2026-09-23 (remover o
+-- `UPDATE ... 'ativa'` faz a asserção reprovar exatamente aqui, com `estabelecidas=0`).
   IF v_j2_status IS DISTINCT FROM 'ativa' THEN
-    RAISE EXCEPTION 'P46P FAIL (j.2): ⊖ NAO-VACUIDADE — a vaga % da candidatura % esta em status [%] (esperado ativa). A fixture neg-vaga do plano 46-01 existe justamente para que esta asserção tenha uma vaga ABERTA contra a qual medir; com a vaga ja fechada, "a candidatura nao aparece" seria verdade pelo motivo errado', coalesce(v_j2_vaga::text,'NULL'), v_cdt_vaga, coalesce(v_j2_status,'NULL');
+    RAISE EXCEPTION 'P46P FAIL (j.2): ⊖ NAO-VACUIDADE — o envelope NAO conseguiu ESTABELECER a vaga % da candidatura % em ativa: o estado ORIGINAL era [%], o UPDATE de estabelecimento tocou % linha(s) e o status RELIDO e [%] (esperado ativa). Esta asserção precisa de uma vaga ABERTA contra a qual medir; sem ela, "a candidatura nao aparece" seria verdade pelo motivo errado. Causa provavel com 1 linha tocada e status ainda arquivada: `vagas_status_soft_delete_sync_trg` reescreve status quando `deleted_at` NAO e nulo — conferir `deleted_at` desta vaga. ⚠ NAO "consertar" isto abrindo a vaga em PROD: ela e sintetica e ficaria VISIVEL AO PUBLICO (recusa do operador, plano 49-12)', coalesce(v_j2_vaga::text,'NULL'), v_cdt_vaga, coalesce(v_j2_status_orig,'NULL'), v_j2_abertas, coalesce(v_j2_status,'NULL');
   END IF;
 
   IF v_j2_antes <> 0 THEN
@@ -1541,15 +1656,19 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P46P PASS (j.2): com a vaga em ativa a candidatura % esta FORA; arquivada a vaga, ela passa a estar DENTRO — a excecao de D-46-03 morde', v_cdt_vaga;
+  RAISE NOTICE 'P46P PASS (j.2): com a vaga em ativa a candidatura % esta FORA; arquivada a vaga, ela passa a estar DENTRO — a excecao de D-46-03 morde. Estado de partida ESTABELECIDO pelo envelope (original [%], % linha(s) tocada(s)) e reposto ao original; nada disso sai do envelope', v_cdt_vaga, coalesce(v_j2_status_orig,'NULL'), v_j2_abertas;
 
 -- (j.3) ⊖ REVISAO DO ART. 20 EM ABERTO protege — respondida, deixa de proteger
   IF v_trg_back <> v_trg_off OR v_trg_rest <> 0 THEN
     RAISE EXCEPTION 'P46P FAIL (j.3): higiene de gatilhos — % desligados, % religados, % ainda DESLIGADOS com corpo que chama net.http_post em decisao_final/vagas/retencao_hold (esperado religar todos e restar 0). Deixar um despachante desligado em PROD e pior que o problema que o desligamento evitava: nenhuma notificacao sairia e ninguem saberia', v_trg_off, v_trg_back, v_trg_rest;
   END IF;
 
+-- ⚠ 49-28: o lado «respondida» e ESTABELECIDO como nulo dentro do envelope
+-- (`v_j3_restabelecidas` linhas). O lado «solicitada» NAO e tocado, entao esta 1ª metade
+-- deixou de reprovar quando alguem respondeu a revisao sintetica e passou a reprovar SO
+-- por ausencia ESTRUTURAL da solicitacao.
   IF v_j3_abertas <> 1 THEN
-    RAISE EXCEPTION 'P46P FAIL (j.3): ⊖ NAO-VACUIDADE — a candidatura % tem % decisao(oes) com revisao do Art. 20 EM ABERTO (solicitada nao-nula e respondida nula; esperado exatamente 1). Sem a revisao aberta, "a candidatura nao aparece" seria verdade por outro motivo qualquer', v_cdt_art20, v_j3_abertas;
+    RAISE EXCEPTION 'P46P FAIL (j.3): ⊖ NAO-VACUIDADE — depois de o envelope ESTABELECER a revisao como em aberto (% linha(s) tocada(s)), a candidatura % tem % decisao(oes) com revisao do Art. 20 EM ABERTO (solicitada nao-nula e respondida nula; esperado exatamente 1). O estabelecimento NAO cria a solicitacao: se `revisao_solicitada_em` for nula, esta asserção reprova aqui. Sem a revisao aberta, "a candidatura nao aparece" seria verdade por outro motivo qualquer', v_j3_restabelecidas, v_cdt_art20, v_j3_abertas;
   END IF;
 
   IF v_j3_antes <> 0 THEN
@@ -3730,3 +3849,17 @@ END $z$;
 
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ⚠ 49-28 — O CONTADOR SAI DA EXECUCAO EM FORMA DE **LINHA**, E NAO DE `NOTICE`
+-- ─────────────────────────────────────────────────────────────────────────────
+-- «LER O CONTADOR E OBRIGACAO DE QUEM RODA» esta escrito no cabecalho desde o 46-02, mas
+-- a via de execucao atual (`node p46apply.cjs run`, Management API) devolve **linhas** e
+-- descarta os `NOTICE`: o `P46P RESUMO` da (z) nunca chegava a quem roda. Na pratica cada
+-- sessao inventava o seu proprio instrumento — o plano 49-14 leu o numero acrescentando um
+-- `RAISE EXCEPTION` ao fim do arquivo, em copia de trabalho. Instrumento improvisado a
+-- cada rodada e como um harness que falha em silencio (49-PATTERNS §L): ele produz «nao
+-- levantou» e deixa quem le concluir «as asserções rodaram».
+-- Sendo a ULTIMA instrucao do arquivo, esta e a linha que a requisicao devolve.
+SELECT format('P46P_REG_CONTADOR=%s',
+              coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')) AS resumo;
