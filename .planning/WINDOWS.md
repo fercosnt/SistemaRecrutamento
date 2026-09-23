@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 26
+open_count: 28
 waived_count: 8
 fixed_count: 39
-total_count: 73
-last_updated: 2026-09-23T13:35:27.952Z
+total_count: 75
+last_updated: 2026-09-23T14:45:13.350Z
 ---
 
 # Broken Windows Ledger
@@ -88,6 +88,8 @@ last_updated: 2026-09-23T13:35:27.952Z
 | 71 | 49 | deviation | src/features/avaliacao/components/DevolutivaBigFiveView.tsx | 38 | 49-15 (delta da varredura por FORMA, nao pedido pelo plano): o padrao 'DIM_LABEL\|DIMENSOES = [' acha DOIS mapas de rotulo de dimensao Big Five que a tabela C7 do kickoff nao lista — DevolutivaBigFiveView.tsx:38 (DIM_LABEL) e ScorecardAvaliacao.tsx:223 (BIGFIVE_DIM_LABEL). Os dois estao IDENTICOS hoje (5/5 iguais), entao NAO ha defeito vivo; o que ha e a precondicao exata do WINDOWS 52: dois mapas locais, nenhuma constante compartilhada, e um _shared/bigfive-scoring.ts que poderia hospedar a fonte unica e nao hospeda rotulo nenhum. A divergencia da redacao tambem comecou com duas tabelas iguais e apareceu quando UM lado mudou. Agravante: o rotulo N='Sensibilidade Emocional' e exigencia LGPD-04 (nunca o termo clinico) em AMBOS — uma divergencia ali nao seria cosmetica, seria de conformidade, e o guard forbidden-strings NAO pega o termo clinico do N (nao esta entre os 7 termos). Nao consertado: fora dos IDs do 49-15 (JORN-07/JORN-28), e o Big Five e outra rubrica. | open |  | 2026-09-23T13:02:34.783Z |  |
 | 72 | 49 | deviation | src/features/entrevista/components/EntrevistaScorecardInline.tsx | 30 | 49-15: depois do conserto do D-25, EntrevistaScorecardInline.tsx:29-34 (DEFAULT_COMPETENCIAS) e o UNICO lugar do front onde os 4 valores Beauty Smile aparecem como rotulos de eixo de avaliacao — e ali eles sao COMPETENCIAS DE ENTREVISTA, nao dimensoes da rubrica da redacao: escopo deliberado, o plano 49-15 manda nao tocar. Registrado porque o portao estatico do 49-15 procura os 4 valores apenas nos dois arquivos da redacao; quem varrer o front inteiro por 'Experiencia UAU' vai achar este e precisa saber que o achado e legitimo. Se algum dia a entrevista tambem ganhar rubrica versionada em _shared, este e o sitio. | open |  | 2026-09-23T13:02:48.332Z |  |
 | 73 | 49 | unmet-truth | src/features/entrevista/services/entrevistaService.ts |  | 49-16 (§Deferred do plano, achado NAO perguntado ao operador): getGuia le entrevista_guias SEM filtro de tipo — order('created_at' desc).limit(1) — entao a aba do guia mostra sempre o roteiro MAIS RECENTE, seja ele da online ou da presencial, e nao ha nada na tela dizendo de qual entrevista aquele roteiro e. Medido em PROD 2026-09-23: das 3 candidaturas com guia, DUAS (a1dd4c42, 0b1c887b) tem os DOIS tipos gravados, entao o roteiro da online e inalcancavel pela tela nessas duas. O selo de proveniencia que este plano acrescentou herda o problema: ele diz corretamente qual modelo escreveu o roteiro EXIBIDO, e o roteiro exibido pode nao ser o da entrevista que o RH esta conduzindo. E a mesma classe do defeito D-41/D-39 que este plano consertou na aba da transcricao (a tela escolhendo por recencia em vez de por tipo/vigencia), um nivel ao lado. Conserto: getGuia(candidaturaId, tipo) com o mesmo seletor da aba da transcricao, ou a aba do guia mostrando os dois roteiros rotulados. Fora de escopo: o plano fixou explicitamente que getGuia segue sem filtro. | open |  | 2026-09-23T13:35:27.952Z |  |
+| 74 | 49 | unmet-truth | supabase/migrations/20260922000010_p49_retro_trilha_bd9.sql |  | BD-9 meio-fechada: D-47 RECUSADA pelo operador em 2026-09-23 (editaria a trilha de auditoria sem a trilha registrar a edicao). A justificativa da decisao final segue em 5 linhas de historico_candidatura.criterio_texto. Tem de aparecer no 49-17 (inventario LGPD) e no fecho do M8. | open |  | 2026-09-23T14:45:13.264Z |  |
+| 75 | 49 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | Asseroes (j.2), (o), (o.6), (o.7) e (p) bloqueadas: o operador RECUSOU abrir a vaga seed 4601d000-...-0003 (fica arquivada). O 4o ramo do guard do motor segue NAO exercitado entrando no 49-19. Conserto e do plano 49-28 (fixture que abre e restaura dentro do proprio envelope). | open |  | 2026-09-23T14:45:13.350Z |  |
 
 ````json
 [
@@ -994,6 +996,32 @@ last_updated: 2026-09-23T13:35:27.952Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-23T13:35:27.952Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 74,
+    "kind": "unmet-truth",
+    "phase": "49",
+    "file": "supabase/migrations/20260922000010_p49_retro_trilha_bd9.sql",
+    "line": null,
+    "description": "BD-9 meio-fechada: D-47 RECUSADA pelo operador em 2026-09-23 (editaria a trilha de auditoria sem a trilha registrar a edicao). A justificativa da decisao final segue em 5 linhas de historico_candidatura.criterio_texto. Tem de aparecer no 49-17 (inventario LGPD) e no fecho do M8.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T14:45:13.264Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 75,
+    "kind": "unrun-verify",
+    "phase": "49",
+    "file": "supabase/tests/p46_purga_smoke.sql",
+    "line": null,
+    "description": "Asseroes (j.2), (o), (o.6), (o.7) e (p) bloqueadas: o operador RECUSOU abrir a vaga seed 4601d000-...-0003 (fica arquivada). O 4o ramo do guard do motor segue NAO exercitado entrando no 49-19. Conserto e do plano 49-28 (fixture que abre e restaura dentro do proprio envelope).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T14:45:13.350Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }

@@ -434,10 +434,10 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 49-12-PLAN.md — Escritas retroativas com ensaio e checkpoint: justificativas grudadas (D-46), trilha sem a justificativa da decisão (D-47), marca das análises (D-43) (JORN-17, JORN-37, JORN-12)
+- [x] 49-12-PLAN.md — Escritas retroativas com ensaio e checkpoint: justificativas grudadas (D-46), trilha sem a justificativa da decisão (D-47), marca das análises (D-43) (JORN-17, JORN-37, JORN-12)
 - [x] 49-14-PLAN.md — Motor de exclusão, fatia 1: input da IA, comparativos que citam o titular e resposta do revisor saem com ele; dry-run conta o mesmo (JORN-36 / D-60, D-61, D-63)
 - [x] 49-15-PLAN.md — Revisão da redação pela constante, com raciocínio e citações; log do admin com estado de fallback e causa (JORN-07, JORN-28)
-- [ ] 49-16-PLAN.md — Aba da transcrição com tipo, vigente e superadas; selo no guia e na análise da triagem (JORN-12, JORN-28)
+- [x] 49-16-PLAN.md — Aba da transcrição com tipo, vigente e superadas; selo no guia e na análise da triagem (JORN-12, JORN-28)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -545,7 +545,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 18/27 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 20/27 | In Progress|  |
 
 ---
 
