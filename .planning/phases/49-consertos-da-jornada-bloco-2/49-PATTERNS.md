@@ -905,6 +905,13 @@ Ensaio só leitura com a mesma consulta → operador aprova o conjunto → migra
 **Apply to:** todo plano com efeito visível
 Migration `node p46apply.cjs migrate <arquivo>` (ordem: enum/colunas da onda 1 conferidas no catálogo **antes** de qualquer deploy da onda 3 — Pitfall 8); EF `node efdeploy.cjs <slug>` (`--dry-run` antes); front = push `main`; `git log --oneline origin/main..HEAD` vazio (hoje **não** está — Correção 1); marcador no chunk certo (`grep -rl "<marcador>" build/assets/`; `/rh/*` e `/admin/*` são lazy); `npm run lint` ≤ 90.
 
+### K. Registrar uma afirmação retirada sem reproduzi-la
+**Source:** medido duas vezes nesta fase — 49-09 Deviation 1, 49-23 Deviation 1 (o 49-23 leu o SUMMARY do 49-09 antes de começar e errou igual, em três lugares)
+**Apply to:** todo plano que remove ou corrige um texto que um portão estático vigia
+Ao consertar uma frase falsa, **não a cite verbatim** no comentário, no docblock nem na mensagem de commit «para registro histórico»: os portões estáticos desta fase procuram a expressão **no disco**, não no código executável, e uma citação a deixa encontrável no mesmo arquivo que acabou de ser consertado. O portão reprova — corretamente. Descreva a afirmação retirada (o que ela alegava, por que era falsa) sem reproduzir a forma proibida. Afrouxar o padrão do portão para aceitar a citação é a troca errada: ele perde a capacidade de pegar a cópia real.
+
+> Esta entrada existe porque a lição vivia só num SUMMARY de plano irmão e **não sobreviveu ao plano seguinte**. Um aprendizado de fase pertence ao PATTERNS, que todo plano lê, não ao SUMMARY de um vizinho.
+
 ---
 
 ## No Analog Found
