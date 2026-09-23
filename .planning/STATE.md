@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-12-PLAN.md (D-46 e D-43 aplicadas; D-47 RECUSADA - BD-9 meio-fechada)
-last_updated: "2026-09-23T14:49:29.300Z"
+stopped_at: Completed 49-20-PLAN.md (passo apagar_respostas_e_producoes em PROD; D-62 aplicado; primeira execução real segue sendo checkpoint do 49-19)
+last_updated: "2026-09-23T15:49:48.735Z"
 last_activity: 2026-09-23
-state_head: e03370c1cff0a15f0a0c06d4a6391cb97753103c
+state_head: 604828912a78c03fe5e99272a2ba2868b6e6f8a2
 progress:
   total_phases: 8
   completed_phases: 9
-  total_plans: 105
-  completed_plans: 96
-  percent: 91
+  total_plans: 106
+  completed_plans: 97
+  percent: 92
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -809,6 +809,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P15 | 28 min | 2 tasks | 10 files |
 | Phase 49 P16 | 48 min | 2 tasks | 15 files |
 | Phase 49 P12 | 50 min | 3 tasks | 5 files |
+| Phase 49 P20 | 45 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1120,6 +1121,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-16: getAnalises classifica pelo MESMO predicado do banco (entrevista_analise_vigente), transcrito UMA vez e nomeado — a quinta cópia potencial da regra «qual análise vale» não nasceu solta
 - [Phase 49]: 49-16: fora de etapa de entrevista o seletor de tipo NÃO tem padrão — o RH escolhe antes de analisar, a mesma postura da EF, que recusa gravar um palpite
 - [Phase 49]: 49-16: provedor_ia/modelo_ia entraram como OBRIGATÓRIOS em AnaliseHubRow com valor null — todo construtor de linha DECLARA de onde ela veio em vez de poder esquecer
+- [Phase 49]: O motor de exclusão passa a apagar as respostas, os textos, as transcrições e as citações do titular (JORN-36 / D-48). D-62 aplicado: as quatro tabelas de múltipla escolha perdem a LINHA — o primeiro apagamento de linha deste motor, e a exceção explícita do operador, porque os CHECKs delas não aceitam sentinela (reconfirmado no catálogo vivo). O escopo do apagamento é vigiado por EXTRAÇÃO da lista de tabelas do corpo instalado, não por presença — a mutação M13 prova que uma quinta tabela é pega mesmo quando a fixture não a vê. trg_redacao_rh_only_review_fields ganha janela por GUC: o passo deixa de depender do papel de quem executa (Correção 18 / Pitfall 6), e (B22) prova que fora da janela o trigger ainda morde.
 
 ### Roadmap Evolution
 
@@ -1410,8 +1412,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T14:49:29.017Z
-Stopped at: Completed 49-12-PLAN.md (D-46 e D-43 aplicadas; D-47 RECUSADA - BD-9 meio-fechada)
+Last session: 2026-09-23T15:49:26.683Z
+Stopped at: Completed 49-20-PLAN.md (passo apagar_respostas_e_producoes em PROD; D-62 aplicado; primeira execução real segue sendo checkpoint do 49-19)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
