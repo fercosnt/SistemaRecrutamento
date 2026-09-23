@@ -35,9 +35,11 @@ actuals:
   commits: 1
   plan_head_before: 5cc3e4eb7cda77bf6431f842dc6ed489ef69dad6
   # `commits: 1` = MEDIDO por `git rev-list --count 5cc3e4eb..HEAD` no instante em
-  # que este SUMMARY foi escrito (99ef1b35). Re-medir DEPOIS deste ponto da 2, e
-  # isso NAO e divergencia: o commit de metadado deste plano entra no mesmo
-  # intervalo por construcao, porque o `plan_head_before` e anterior a ele.
+  # que este SUMMARY foi escrito (HEAD = 99ef1b35, o commit de codigo). Re-medir
+  # DEPOIS deste ponto da um numero MAIOR, e isso NAO e divergencia: os commits de
+  # metadado deste plano (o do SUMMARY e o de STATE/ROADMAP) entram no mesmo
+  # intervalo por construcao, porque o `plan_head_before` e anterior a eles.
+  # Medido no fecho: 3 commits no intervalo — 1 de codigo + 2 de metadado.
   # `tokens: 55244` = (155 292 octetos da migration + 65 686 chars das linhas
   # acrescentadas ao smoke) / 4. A estimativa era 75 000; o realizado e 0,74x —
   # mais perto que o 0,53x do 49-14, e a razao e que o smoke cresceu MUITO mais
@@ -702,9 +704,9 @@ que impede uma quinta.
 - `.planning/phases/49-consertos-da-jornada-bloco-2/49-20-SUMMARY.md` — FOUND
 - commit `99ef1b35` — FOUND
 - `commits: 1` no frontmatter = MEDIDO por `git rev-list --count 5cc3e4eb..HEAD` no
-  instante da escrita deste SUMMARY. Re-medir DEPOIS deste ponto dá **2**, e a
-  diferença é o próprio commit de metadado — previsto no comentário do `actuals`,
-  não divergência.
+  instante da escrita deste SUMMARY (HEAD = `99ef1b35`). Re-medido no fecho dá **3**,
+  e a diferença são os dois commits de metadado deste plano — previsto no comentário
+  do `actuals`, não divergência.
 - `origin/main..HEAD` = **VAZIO** (push `5cc3e4eb..99ef1b35`)
 - `<acceptance_criteria>` da Task 1 re-executados:
   - PROD contém `apagar_respostas_e_producoes` ANTES de `severar_fks_set_null`
