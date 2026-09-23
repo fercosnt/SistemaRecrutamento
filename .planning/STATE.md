@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-22-PLAN.md
-last_updated: "2026-09-23T20:01:42.773Z"
+stopped_at: Completed 49-21-PLAN.md
+last_updated: "2026-09-23T20:52:22.547Z"
 last_activity: 2026-09-23
-state_head: cb397303e6d315d53f8f2bf39a0d5423f1db69a8
+state_head: 33283202671deea69c61036a5710af2f2fc96570
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 106
-  completed_plans: 100
-  percent: 94
+  completed_plans: 101
+  percent: 95
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -813,6 +813,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P27 | ~55 min | 1 tasks | 2 files |
 | Phase 49 P28 | 42 min | 1 tasks | 2 files |
 | Phase 49 P22 | 42 min | 2 tasks | 13 files |
+| Phase 49 P21 | 70 min | 1 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -1423,8 +1424,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T20:01:25.797Z
-Stopped at: Completed 49-22-PLAN.md
+Last session: 2026-09-23T20:52:22.288Z
+Stopped at: Completed 49-21-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

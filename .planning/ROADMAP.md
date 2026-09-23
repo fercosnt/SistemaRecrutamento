@@ -447,7 +447,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 49-21-PLAN.md — Motor de exclusão, fatia 3: recibo e inventário alinhados ao motor, `executar-direito-titular` redeployada (JORN-36 / D-60, D-61, D-63)
+- [x] 49-21-PLAN.md — Motor de exclusão, fatia 3: recibo e inventário alinhados ao motor, `executar-direito-titular` redeployada (JORN-36 / D-60, D-61, D-63)
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -546,7 +546,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 24/28 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 25/28 | In Progress|  |
 
 ---
 
