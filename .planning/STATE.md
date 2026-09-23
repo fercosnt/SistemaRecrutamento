@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-20-PLAN.md (passo apagar_respostas_e_producoes em PROD; D-62 aplicado; primeira execução real segue sendo checkpoint do 49-19)
-last_updated: "2026-09-23T15:49:48.735Z"
+stopped_at: Completed 49-27-PLAN.md
+last_updated: "2026-09-23T18:59:10.501Z"
 last_activity: 2026-09-23
-state_head: 604828912a78c03fe5e99272a2ba2868b6e6f8a2
+state_head: 107a057154f90bd2164c3df3268c99ecc6da469a
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 106
-  completed_plans: 97
+  completed_plans: 98
   percent: 92
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
@@ -810,6 +810,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P16 | 48 min | 2 tasks | 15 files |
 | Phase 49 P12 | 50 min | 3 tasks | 5 files |
 | Phase 49 P20 | 45 min | 1 tasks | 2 files |
+| Phase 49 P27 | ~55 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1122,6 +1123,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-16: fora de etapa de entrevista o seletor de tipo NÃO tem padrão — o RH escolhe antes de analisar, a mesma postura da EF, que recusa gravar um palpite
 - [Phase 49]: 49-16: provedor_ia/modelo_ia entraram como OBRIGATÓRIOS em AnaliseHubRow com valor null — todo construtor de linha DECLARA de onde ela veio em vez de poder esquecer
 - [Phase 49]: O motor de exclusão passa a apagar as respostas, os textos, as transcrições e as citações do titular (JORN-36 / D-48). D-62 aplicado: as quatro tabelas de múltipla escolha perdem a LINHA — o primeiro apagamento de linha deste motor, e a exceção explícita do operador, porque os CHECKs delas não aceitam sentinela (reconfirmado no catálogo vivo). O escopo do apagamento é vigiado por EXTRAÇÃO da lista de tabelas do corpo instalado, não por presença — a mutação M13 prova que uma quinta tabela é pega mesmo quando a fixture não a vê. trg_redacao_rh_only_review_fields ganha janela por GUC: o passo deixa de depender do papel de quem executa (Correção 18 / Pitfall 6), e (B22) prova que fora da janela o trigger ainda morde.
+- [Phase 49]: 49-27: recusa de comparativo bloqueado usa codigo NOVO (SEM_RESULTADO_IA, 503) — nenhum dos 5 codigos do 49-08 e verdadeiro para um corte de gasto; reusar um deles recriaria a mentira de diagnostico que o 49-08 removeu
+- [Phase 49]: 49-27: o bloqueio e gravado em comparativo_solicitado.ranking (jsonb NOT NULL) como marcador explicito {bloqueado, motivo} — NULL e proibido pela coluna e {} seria indistinguivel de 'nada escrito'. Nenhuma migration: o schema vivo ja permitia
 
 ### Roadmap Evolution
 
@@ -1412,8 +1415,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T15:49:26.683Z
-Stopped at: Completed 49-20-PLAN.md (passo apagar_respostas_e_producoes em PROD; D-62 aplicado; primeira execução real segue sendo checkpoint do 49-19)
+Last session: 2026-09-23T18:59:00.545Z
+Stopped at: Completed 49-27-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
