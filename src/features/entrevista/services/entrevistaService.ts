@@ -64,15 +64,28 @@ export type BandaCognitiva =
  * ([[reference_select_star_leaks_pii]]). Listed as a single auditable constant.
  */
 export const ENTREVISTA_GUIA_ALLOWLIST =
-  'id, candidatura_id, tipo, guia, prompt_version, created_at, updated_at'
+  'id, candidatura_id, tipo, guia, prompt_version, provedor_ia, modelo_ia, created_at, updated_at'
 
 /**
  * The EXPLICIT column allowlist for the transcript-analysis read. Carries the
  * BARS competencies + citations + flags + the human-review markers
  * (revisao_confirmada_em is what unblocks the server avancar_etapa guard).
+ *
+ * ── Phase 49 / plano 49-16 (D-39..D-42, D-27b) ──────────────────────────────────
+ * Ganhou as colunas de VIGÊNCIA (`tipo`, `superada_em`) e de PROVENIÊNCIA
+ * (`provedor_ia`, `modelo_ia`, `texto_hash`). Sem `tipo`/`superada_em` a tela não tinha
+ * como distinguir a análise que VALE da mais nova de qualquer estado — e era isso que
+ * ela mostrava. `texto_hash` entra porque é o que identifica QUAL texto gerou a linha
+ * (D-38/D-40) quando o RH compara duas análises da mesma entrevista.
+ *
+ * ⚠ **NÃO** entram `ai_call_log_id` nem `solicitado_por` (T-49-16-02): nenhuma tela lê
+ * o primeiro (é chave técnica do log, purgado em 180 d) e o segundo é UUID de
+ * FUNCIONÁRIO — projetar um dado de terceiro para o navegador porque «estava na mesma
+ * linha» é exatamente o vazamento que a allowlist existe para impedir. A allowlist
+ * segue sem curinga: RLS é por linha e NÃO esconde coluna.
  */
 export const ENTREVISTA_ANALISE_ALLOWLIST =
-  'id, candidatura_id, status_analise, competencias, citacoes, bias_flags, bloqueio_avanco, scores_humanos, notas_humanas, revisada_por, revisao_confirmada_em, prompt_version, created_at'
+  'id, candidatura_id, tipo, status_analise, superada_em, texto_hash, provedor_ia, modelo_ia, competencias, citacoes, bias_flags, bloqueio_avanco, scores_humanos, notas_humanas, revisada_por, revisao_confirmada_em, prompt_version, created_at'
 
 /**
  * The EXPLICIT column allowlist for the scores read (the inline scorecard + the
@@ -118,6 +131,13 @@ export interface EntrevistaGuiaRow {
   tipo: string
   guia: { perguntas?: GuiaPergunta[]; foco?: string | null; [k: string]: unknown } | null
   prompt_version: string | null
+  /**
+   * Proveniência do roteiro (D-27b / 49-24). `'openai'` ⇒ veio do modelo de
+   * contingência; NULL ⇒ desconhecida (as 5 linhas anteriores à v18 da EF, medidas em
+   * 2026-09-23). NULL nunca é silêncio na tela — é «modelo não registrado» (D-30).
+   */
+  provedor_ia?: string | null
+  modelo_ia?: string | null
   created_at: string
   /** Bumped by the save_entrevista_guia_edits upsert (20-02 migration). */
   updated_at?: string | null
@@ -145,7 +165,25 @@ export interface AnaliseCompetencia {
 export interface EntrevistaAnaliseRow {
   id: string
   candidatura_id: string
+  /**
+   * De QUAL entrevista é esta análise (49-01/49-10). NULL nas 6 linhas vivas
+   * anteriores à Phase 49 (medido 2026-09-23: `tipo` NULL em todas as 6) — e NULL é um
+   * GRUPO próprio, não um palpite: a tela as mostra como «entrevista não identificada».
+   */
+  tipo: string | null
   status_analise: string
+  /**
+   * Quando esta análise foi SUPERADA por outra do mesmo `(candidatura, tipo)`. NULL =
+   * não superada (o 1º termo do predicado `public.entrevista_analise_vigente`).
+   * Superar é MARCAR, nunca apagar (D-02/49-10): a revisão humana que a linha teve
+   * continua legível.
+   */
+  superada_em: string | null
+  /** Qual texto gerou esta análise (D-38) — o mesmo valor de `ai_call_logs.input_hash`. */
+  texto_hash: string | null
+  /** Proveniência REAL (D-27b): `'openai'` ⇒ contingência; NULL ⇒ desconhecida (D-30). */
+  provedor_ia: string | null
+  modelo_ia: string | null
   competencias: AnaliseCompetencia[] | null
   citacoes: unknown[] | null
   bias_flags: Record<string, unknown> | null
@@ -446,17 +484,88 @@ function normalizeCompetencia(c: AnaliseCompetencia): AnaliseCompetencia {
 }
 
 /**
- * Reads the latest transcript analysis for a candidatura. Allowlist projection of
- * `entrevista_analises` (transcript competencies + citations + the flag + the
- * human-review markers). Returns null when no transcript has been analyzed yet.
+ * A análise VIGENTE? — a MESMA regra que o banco aplica.
  *
- * CR-04: the EF persists the English `competency` key; this read normalizes it to
- * the pt-BR `competencia` the RH UI (scorecard + transcript panel) reads, so the
- * AI-seeded competencies actually reach the workspace (ENTREV-03).
+ * Espelha `public.entrevista_analise_vigente(timestamptz, text, jsonb)` (criada pelo
+ * plano 49-01 e CHAMADA pelas três RPCs de `entrevista_analises`, 49-10). O corpo vivo,
+ * lido do catálogo em 2026-09-23:
+ *
+ * ```sql
+ * SELECT p_superada_em IS NULL
+ *    AND p_status_analise IS DISTINCT FROM 'falhou'
+ *    AND p_competencias IS NOT NULL
+ * ```
+ *
+ * ⚠ **Esta é a QUINTA cópia potencial do predicado, e é por isso que ela é uma função
+ * só, nomeada, com a fonte apontada.** A lacuna do JORN-12 é literalmente vários
+ * leitores decidindo «qual análise vale» por regras que divergiam em silêncio — o
+ * `avancar_etapa`, a revisão humana, a RPC de gravação e a TELA. Os três primeiros
+ * passaram a chamar a função do banco (49-06/49-10); o navegador não pode chamá-la numa
+ * consulta de coluna, então aqui ela é transcrita UMA vez. Mudar a regra do banco sem
+ * mudar esta linha é o defeito voltando.
  */
-export async function getAnalise(
-  candidaturaId: string,
-): Promise<EntrevistaAnaliseRow | null> {
+function analiseVigente(row: EntrevistaAnaliseRow): boolean {
+  return (
+    row.superada_em == null &&
+    row.status_analise !== 'falhou' &&
+    row.competencias != null
+  )
+}
+
+/**
+ * As análises de uma candidatura separadas por VIGÊNCIA (D-39 / D4 / D-42).
+ *
+ * A tela mostrava a mais nova de QUALQUER estado como se fosse a que vale — então uma
+ * falha de IA virava «a análise», e a análise boa anterior desaparecia junto com a
+ * revisão humana que alguém tinha feito nela.
+ */
+export interface AnalisesPorVigencia {
+  /**
+   * A vigente de CADA grupo de tipo — `online`, `presencial` e o grupo das análises
+   * antigas sem tipo (`tipo` NULL é um grupo próprio, nunca um palpite: RESEARCH
+   * Correção 10). Mais recente primeiro.
+   */
+  vigentes: EntrevistaAnaliseRow[]
+  /**
+   * As anteriores, mais recente primeiro — acessíveis, nunca escondidas (D4).
+   *
+   * ⚠ Inclui DUAS populações, e a diferença é visível na tela em vez de apagada:
+   * (a) as MARCADAS, com `superada_em` preenchida pela RPC (49-10); (b) as legadas que
+   * já foram superadas de FATO — existe uma vigente mais nova do mesmo grupo — mas cujo
+   * marcador nunca foi escrito (as 6 linhas de PROD medidas em 2026-09-23 têm
+   * `superada_em` NULL em todas). Para (b) a tela diz que a data não está registrada, em
+   * vez de inventar uma; a marcação retroativa é do plano 49-12, com checkpoint.
+   */
+  superadas: EntrevistaAnaliseRow[]
+  /**
+   * As que NÃO produziram análise: `status_analise='falhou'` (injeção, parse nulo, teto
+   * de custo desde o 49-26) ou sem competências. Nunca apresentadas como vigentes.
+   */
+  falhas: EntrevistaAnaliseRow[]
+  /**
+   * A ÚNICA análise sobre a qual a revisão humana é oferecida: a vigente mais recente —
+   * exatamente a linha que `salvar_avaliacao_entrevista` grava e que
+   * `confirmar_revisao_entrevista` aceita (49-10). Oferecer revisar outra seria oferecer
+   * uma ação que o servidor recusa.
+   */
+  vigenteMaisRecente: EntrevistaAnaliseRow | null
+}
+
+/** `tipo` NULL é um grupo próprio — chave interna do agrupamento (nunca vai à tela). */
+const GRUPO_SEM_TIPO = '__sem_tipo__'
+
+/**
+ * Lê TODAS as análises de uma candidatura e as classifica por vigência (JORN-12).
+ *
+ * UMA consulta — não N+1: a classificação é feita no cliente com o predicado
+ * {@link analiseVigente}, que é a transcrição da função do banco. Allowlist projection
+ * de `entrevista_analises`, nunca `select('*')`.
+ *
+ * CR-04: o EF persiste a chave inglesa `competency`; esta leitura a normaliza para o
+ * `competencia` pt-BR que a UI do RH lê (scorecard + painel), em TODAS as linhas — a
+ * superada é lida pelo RH tanto quanto a vigente.
+ */
+export async function getAnalises(candidaturaId: string): Promise<AnalisesPorVigencia> {
   if (!candidaturaId) {
     throw new EntrevistaServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
@@ -465,7 +574,7 @@ export async function getAnalise(
     .select(ENTREVISTA_ANALISE_ALLOWLIST)
     .eq('candidatura_id', candidaturaId)
     .order('created_at', { ascending: false })
-    .limit(1)
+    .limit(READ_LIMIT)
 
   if (error) {
     throw new EntrevistaServiceError(
@@ -474,17 +583,63 @@ export async function getAnalise(
       error,
     )
   }
-  const rows = (data as unknown as EntrevistaAnaliseRow[] | null) ?? []
-  const row = rows[0] ?? null
-  if (!row) return null
-  // CR-04: normalize the EF's English `competency` → the pt-BR `competencia` the
-  // RH components read. competencias/citacoes/bias_flags all carry the English key.
-  return {
+  const rows = ((data as unknown as EntrevistaAnaliseRow[] | null) ?? []).map((row) => ({
     ...row,
     competencias: Array.isArray(row.competencias)
       ? row.competencias.map(normalizeCompetencia)
       : row.competencias,
+  }))
+
+  const vigentes: EntrevistaAnaliseRow[] = []
+  const superadas: EntrevistaAnaliseRow[] = []
+  const falhas: EntrevistaAnaliseRow[] = []
+  // As linhas vêm ordenadas por `created_at` DESC, então a PRIMEIRA vigente de cada
+  // grupo é a vigente dele. As vigentes seguintes do mesmo grupo são as legadas da
+  // população (b) — superadas de fato, sem o marcador escrito.
+  const vigenteJaVista = new Set<string>()
+
+  for (const row of rows) {
+    if (row.superada_em != null) {
+      superadas.push(row)
+      continue
+    }
+    if (!analiseVigente(row)) {
+      falhas.push(row)
+      continue
+    }
+    const grupo = row.tipo ?? GRUPO_SEM_TIPO
+    if (vigenteJaVista.has(grupo)) {
+      superadas.push(row)
+      continue
+    }
+    vigenteJaVista.add(grupo)
+    vigentes.push(row)
   }
+
+  return {
+    vigentes,
+    // Reordena porque a população (b) foi intercalada durante a varredura por grupo.
+    superadas: superadas.sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    falhas,
+    vigenteMaisRecente: vigentes[0] ?? null,
+  }
+}
+
+/**
+ * A análise VIGENTE mais recente de uma candidatura — a que o scorecard pontua e a que
+ * a revisão humana pode confirmar. Retorna null quando nenhuma transcrição produziu
+ * análise que valha.
+ *
+ * ⚠ Até o plano 49-16 esta função devolvia a linha mais nova de QUALQUER estado
+ * (`order('created_at', desc).limit(1)`). Com isso uma análise que falhou passava a ser
+ * «a análise» da tela e do scorecard, escondendo a que tinha funcionado — e a revisão
+ * era oferecida sobre uma linha que a RPC recusa desde o 49-10.
+ */
+export async function getAnalise(
+  candidaturaId: string,
+): Promise<EntrevistaAnaliseRow | null> {
+  const { vigenteMaisRecente } = await getAnalises(candidaturaId)
+  return vigenteMaisRecente
 }
 
 /**
@@ -515,9 +670,30 @@ export async function getScores(candidaturaId: string): Promise<EntrevistaScoreR
 
 // ── Writes — RPC + EF invokes ────────────────────────────────────────────────
 
-/** Maps a Postgres/PostgREST error code to the service error union. */
-function mapRpcError(error: unknown, fallbackMsg: string): EntrevistaServiceError {
+/**
+ * Maps a Postgres/PostgREST error code to the service error union.
+ *
+ * `mensagens` sobrepõe a cópia de UM código para UMA chamada (49-16). Existe porque o
+ * 23514 genérico — «Dados inválidos. Verifique os campos.» — é a frase errada para a
+ * recusa que o `confirmar_revisao_entrevista` passou a fazer no 49-10: não há campo
+ * errado para o RH conferir, a análise é que não é mais a que vale. Escopado à chamada de
+ * propósito: as outras RPCs deste serviço usam 23514 para validação de campo mesmo, e
+ * trocar a frase para todas tornaria a mensagem errada em quatro lugares em vez de um.
+ */
+function mapRpcError(
+  error: unknown,
+  fallbackMsg: string,
+  mensagens?: Partial<Record<string, string>>,
+): EntrevistaServiceError {
   const code = (error as { code?: string }).code ?? ''
+  const propria = mensagens?.[code]
+  if (propria) {
+    return new EntrevistaServiceError(
+      propria,
+      code === '42501' ? 'FORBIDDEN' : 'INVALID_INPUT',
+      error,
+    )
+  }
   if (code === '42501') {
     return new EntrevistaServiceError(
       'Você não tem permissão para esta avaliação.',
@@ -639,10 +815,43 @@ export async function gerarGuia(
   return getGuia(candidaturaId)
 }
 
-/** The EF body for transcript analysis — identifier + raw text ONLY (anti-tamper). */
+/**
+ * The EF body for transcript analysis — identifiers + raw text ONLY (anti-tamper).
+ *
+ * `tipo` (D-41): de QUAL entrevista é esta transcrição. Escolha do RH; a etapa atual é
+ * só o PADRÃO da tela, porque analisar a transcrição da online quando o candidato já
+ * está em presencial é legítimo. O campo é OPCIONAL no schema `.strict()` da EF desde o
+ * 49-10 (a EF saiu antes da tela — D-55), mas a tela sempre o manda: sem ele a EF cai no
+ * padrão dela e, fora de etapa de entrevista, devolve 400 pedindo o tipo.
+ */
 interface AvaliarTranscricaoBody {
   candidatura_id: string
   transcricao: string
+  tipo: TipoEntrevista
+}
+
+/**
+ * O que a EF `avaliar-transcricao-entrevista` devolve (contrato do 49-10) — o que a tela
+ * precisa para NÃO simular uma análise nova que não houve (D-40).
+ */
+export interface AnaliseTranscricaoResultado {
+  /** A análise resultante (nova, reaproveitada ou a linha de falha). */
+  analise_id: string | null
+  /** De qual entrevista a EF registrou a análise. */
+  tipo: TipoEntrevista | null
+  /**
+   * `true` ⇒ este texto JÁ tinha sido analisado com sucesso: nenhuma linha nova, nenhuma
+   * chamada de IA paga. A EF confere o `texto_hash` antes de chamar o modelo.
+   */
+  reaproveitada: boolean
+  /** `true` ⇒ a análise devolvida é a VIGENTE do seu tipo. */
+  vigente: boolean
+  /**
+   * `true` ⇒ a análise não pôde ser concluída (injeção, parse fora do schema, teto de
+   * custo). A linha entra como `falhou`, NÃO supera ninguém, e a vigente anterior
+   * continua valendo (49-10/49-26).
+   */
+  falhou: boolean
 }
 
 /**
@@ -655,15 +864,21 @@ export const MIN_TRANSCRICAO_LEN = 200
 
 /**
  * Invokes the LIVE `avaliar-transcricao-entrevista` EF. The client body carries
- * ONLY `{ candidatura_id, transcricao }` — the transcript is UNTRUSTED text and
+ * ONLY `{ candidatura_id, transcricao, tipo }` — the transcript is UNTRUSTED text and
  * the EF does injection-detect + maskPII server-side. Never a score/band on the
- * body (the 14-01 contract test parses this exact shape). Returns the freshly
- * persisted analysis row.
+ * body (the 14-01 contract test parses this exact shape).
+ *
+ * Devolve o RESULTADO da EF (D-40), não a linha lida de volta: «o texto já tinha sido
+ * analisado» e «a análise não pôde ser concluída» são fatos que só a resposta carrega. A
+ * tela lê a análise por {@link getAnalises} depois da invalidação — ler de volta aqui
+ * diria «pronto» tanto no caso em que nasceu uma análise quanto no caso em que nada
+ * nasceu, que é precisamente a confusão que o D-40 existe para acabar.
  */
 export async function analisarTranscricao(
   candidaturaId: string,
   transcricao: string,
-): Promise<EntrevistaAnaliseRow | null> {
+  tipo: TipoEntrevista,
+): Promise<AnaliseTranscricaoResultado> {
   if (!candidaturaId) {
     throw new EntrevistaServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
@@ -682,6 +897,7 @@ export async function analisarTranscricao(
   const body: AvaliarTranscricaoBody = {
     candidatura_id: candidaturaId,
     transcricao,
+    tipo,
   }
   const { data, error } = await supabase.functions.invoke('avaliar-transcricao-entrevista', {
     body,
@@ -704,8 +920,24 @@ export async function analisarTranscricao(
       error,
     )
   }
-  // The EF persists to entrevista_analises; read it back via the allowlist.
-  return getAnalise(candidaturaId)
+  // A EF devolve 200 mesmo no caminho de FALHA (o payload é que diz `falhou: true`) —
+  // dar 500 a uma injeção detectada ou a um corte por teto de custo transformaria um
+  // controle funcionando em falha do sistema (49-26). Por isso a leitura do resultado é
+  // do CORPO, não do código de status.
+  const res = (data ?? {}) as {
+    analise_id?: string | null
+    tipo?: string | null
+    reaproveitada?: boolean
+    vigente?: boolean
+    falhou?: boolean
+  }
+  return {
+    analise_id: res.analise_id ?? null,
+    tipo: res.tipo === 'online' || res.tipo === 'presencial' ? res.tipo : null,
+    reaproveitada: res.reaproveitada === true,
+    vigente: res.vigente === true,
+    falhou: res.falhou === true,
+  }
 }
 
 /**
@@ -732,7 +964,13 @@ export async function confirmarRevisaoHumana(analiseId: string): Promise<void> {
   })
 
   if (error) {
-    throw mapRpcError(error, 'Não foi possível confirmar a revisão. Tente novamente.')
+    throw mapRpcError(error, 'Não foi possível confirmar a revisão. Tente novamente.', {
+      // 49-10: a RPC recusa com `check_violation` (23514) quando a análise foi SUPERADA
+      // ou FALHOU — ela existe e foi encontrada, só não é mais a que vale. A frase
+      // genérica de 23514 mandaria o RH conferir campos que não existem nesta ação.
+      '23514':
+        'Esta análise não é mais a vigente desta entrevista — a revisão só pode ser confirmada na análise que vale. Recarregue a página para ver a atual.',
+    })
   }
 
   // Readback assertion (WR-07): the RPC returns the updated row carrying

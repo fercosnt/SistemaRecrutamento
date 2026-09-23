@@ -18,7 +18,7 @@ import {
 import {
   getEntrevistaContexto,
   getGuia,
-  getAnalise,
+  getAnalises,
   getScores,
   salvarAvaliacao,
   gerarGuia,
@@ -27,7 +27,7 @@ import {
   confirmarRevisaoHumana,
   type EntrevistaContextoRow,
   type EntrevistaGuiaRow,
-  type EntrevistaAnaliseRow,
+  type AnalisesPorVigencia,
   type EntrevistaScoreRow,
   type SalvarAvaliacaoPayload,
   type TipoEntrevista,
@@ -107,19 +107,24 @@ export function useGuiaEntrevista(
 }
 
 /**
- * The transcript-analysis hook — reads the latest analysis + exposes an
- * `analisar` mutation (paste → analyze) and a `confirmarRevisao` mutation
+ * The transcript-analysis hook — reads the analyses BY VIGÊNCIA (a vigente de cada tipo,
+ * as superadas e as falhas — 49-16/D-39) + exposes an `analisar` mutation (paste →
+ * analyze, agora com o `tipo` que o RH escolheu) and a `confirmarRevisao` mutation
  * (releases the language/accent flag block). Both invalidate the analysis on success.
+ *
+ * ⚠ A leitura é UMA consulta que devolve o agrupamento inteiro, não uma por estado: a
+ * classificação vive em UM lugar (`getAnalises`), com o predicado do banco transcrito
+ * uma vez. Antes o hook lia a linha mais nova de qualquer estado.
  */
 export function useTranscricaoAnalise(
   candidaturaId: string | undefined,
-  options?: Omit<UseQueryOptions<EntrevistaAnaliseRow | null, Error>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<AnalisesPorVigencia, Error>, 'queryKey' | 'queryFn'>,
 ) {
   const queryClient = useQueryClient()
 
   const query = useQuery({
     queryKey: entrevistaKeys.analise(candidaturaId || ''),
-    queryFn: () => getAnalise(candidaturaId!),
+    queryFn: () => getAnalises(candidaturaId!),
     enabled: !!candidaturaId,
     staleTime: STALE,
     gcTime: STALE,
@@ -130,8 +135,11 @@ export function useTranscricaoAnalise(
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: entrevistaKeys.analise(candidaturaId || '') })
 
+  // D-41: `tipo` viaja nas VARS da mutação, não num estado do hook — a tela é que sabe
+  // de qual entrevista é o texto que o RH colou, e o servidor decide o resto.
   const analisar = useMutation({
-    mutationFn: (transcricao: string) => analisarTranscricao(candidaturaId!, transcricao),
+    mutationFn: (vars: { transcricao: string; tipo: TipoEntrevista }) =>
+      analisarTranscricao(candidaturaId!, vars.transcricao, vars.tipo),
     onSuccess: invalidate,
   })
 

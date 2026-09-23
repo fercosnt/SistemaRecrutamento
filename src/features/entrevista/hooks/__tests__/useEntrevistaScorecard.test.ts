@@ -38,7 +38,10 @@ vi.mock('../../services/entrevistaService', () => ({
   // saveGuiaEdits are exercised here).
   getEntrevistaContexto: vi.fn(),
   getGuia: mocks.getGuia,
-  getAnalise: vi.fn(),
+  // 49-16: o hook passou a ler o AGRUPAMENTO por vigência (`getAnalises`) em vez da linha
+  // mais nova de qualquer estado (`getAnalise`). O stub inerte acompanha o import real —
+  // um export ausente num módulo mockado estoura no primeiro acesso ao binding.
+  getAnalises: vi.fn(),
   gerarGuia: vi.fn(),
   saveGuiaEdits: mocks.saveGuiaEdits,
   analisarTranscricao: vi.fn(),

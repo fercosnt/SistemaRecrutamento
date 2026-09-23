@@ -75,10 +75,22 @@ function buildGuiaBody() {
   }
 }
 
+/**
+ * ⚠ MUDOU DE PROPÓSITO no plano 49-16 (D-41/D-56), com proveniência.
+ *
+ * O body que o cliente vivo monta passou a carregar `tipo` — de QUAL entrevista é a
+ * transcrição. O campo é OPCIONAL no schema `.strict()` da EF desde o 49-10, e a ordem é
+ * o motivo (D-55/Pitfall 4): a EF foi deployada ANTES desta tela, e entre os dois deploys
+ * o cliente mandava `{candidatura_id, transcricao}` — com `tipo` obrigatório o `.strict()`
+ * recusaria TODA análise nesse intervalo. Este teste passa a pinar o body NOVO; o caso
+ * abaixo continua pinando que o body SEM `tipo` ainda parseia, porque é o que sustenta a
+ * compatibilidade que tornou aquela ordem de deploy possível.
+ */
 function buildTranscricaoBody() {
   return {
     candidatura_id: '11111111-1111-4111-8111-111111111111',
     transcricao: 'Entrevistador: fale sobre... Candidato: numa ocasião eu... (transcrição).',
+    tipo: 'online' as const,
   }
 }
 
@@ -117,6 +129,22 @@ describe('Entrevista client↔EF body contract (ENTREV-01/03 / Pitfall 5)', () =
   it('an empty transcricao fails (min(1) — server still revalidates length≥200)', () => {
     const body = { ...buildTranscricaoBody(), transcricao: '' }
     expect(AvaliarTranscricaoBodySchema.safeParse(body).success).toBe(false)
+  })
+
+  // ── 49-16 / D-41: o `tipo` no body da transcrição ──────────────────────────────────
+  it('AvaliarTranscricao tipo only accepts online|presencial (a análise com o tipo errado supera a entrevista errada)', () => {
+    const bad = { ...buildTranscricaoBody(), tipo: 'hibrido' }
+    expect(AvaliarTranscricaoBodySchema.safeParse(bad).success).toBe(false)
+  })
+
+  it('o body SEM tipo continua parseando (a EF saiu antes da tela — D-55/Pitfall 4)', () => {
+    const { tipo: _tipo, ...semTipo } = buildTranscricaoBody()
+    expect(AvaliarTranscricaoBodySchema.safeParse(semTipo).success).toBe(true)
+  })
+
+  it('.strict AINDA recusa um campo estranho no body COM tipo (anti-tamper preservado)', () => {
+    const tampered = { ...buildTranscricaoBody(), score_sugerido: 5 }
+    expect(AvaliarTranscricaoBodySchema.safeParse(tampered).success).toBe(false)
   })
 
   it('the SubmitCognitivo candidate body {candidatura_id, raw_responses, shuffle_seed} parses (replica)', () => {

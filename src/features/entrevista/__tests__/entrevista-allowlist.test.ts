@@ -56,3 +56,47 @@ describe('Entrevista service allowlist projection (RED until 14-05)', () => {
     expect(src).toMatch(/\.select\(\s*(?:ENTREVISTA_ALLOWLIST|ENTREVISTA_EMBED|`\$\{ENTREVISTA_ALLOWLIST)/)
   })
 })
+
+// ── Phase 49 / plano 49-16 — as colunas de VIGÊNCIA e de PROVENIÊNCIA ─────────────────
+//
+// ⚠ ACRÉSCIMO DELIBERADO (D-56), com proveniência: a allowlist da análise de entrevista
+// mudou neste plano. Sem `tipo`/`superada_em` a tela não tinha como distinguir a análise
+// que VALE da mais nova de qualquer estado — e era a mais nova que ela mostrava (D-39).
+// Sem `provedor_ia`/`modelo_ia` o selo de contingência não tinha de onde ler (D-27b).
+//
+// O teste que importa aqui é o NEGATIVO: `ai_call_log_id` e `solicitado_por` NÃO entram.
+// O segundo é UUID de FUNCIONÁRIO, e a tentação de projetá-lo «porque está na mesma
+// linha» é exatamente o vazamento que a allowlist existe para impedir (T-49-16-02). Uma
+// allowlist que cresce por conveniência deixa de ser allowlist.
+import { ENTREVISTA_ANALISE_ALLOWLIST } from '../services/entrevistaService'
+
+describe('ENTREVISTA_ANALISE_ALLOWLIST — vigência e proveniência (49-16 / JORN-12)', () => {
+  const colunas = ENTREVISTA_ANALISE_ALLOWLIST.split(',').map((c) => c.trim())
+
+  it('names the vigência columns the screen needs to tell the current analysis apart', () => {
+    for (const col of ['tipo', 'superada_em', 'status_analise', 'competencias']) {
+      expect(colunas).toContain(col)
+    }
+  })
+
+  it('names the provenance columns the contingency badge reads (D-27b)', () => {
+    for (const col of ['provedor_ia', 'modelo_ia', 'texto_hash']) {
+      expect(colunas).toContain(col)
+    }
+  })
+
+  it('keeps the human-review markers (a superada mantém a revisão que teve — D-42)', () => {
+    for (const col of ['scores_humanos', 'notas_humanas', 'revisada_por', 'revisao_confirmada_em']) {
+      expect(colunas).toContain(col)
+    }
+  })
+
+  it('NEVER projects ai_call_log_id nor solicitado_por (T-49-16-02 — dado de funcionário)', () => {
+    expect(colunas).not.toContain('ai_call_log_id')
+    expect(colunas).not.toContain('solicitado_por')
+  })
+
+  it('is star-free', () => {
+    expect(ENTREVISTA_ANALISE_ALLOWLIST).not.toContain('*')
+  })
+})

@@ -40,6 +40,7 @@ import {
   EntrevistaServiceError,
   type BandaCognitiva,
   type EntrevistaScoreRow,
+  type TipoEntrevista,
 } from '../services/entrevistaService'
 
 /** The 4 workspace tabs (Painel is the DEFAULT landing — UI-SPEC §Visuals). */
@@ -75,12 +76,17 @@ export function EntrevistaWorkspace() {
     saveEdits,
   } = useGuiaEntrevista(candidaturaId, vagaId)
 
+  // 49-16: a leitura devolve o AGRUPAMENTO por vigência (a vigente de cada entrevista,
+  // as superadas e as falhas) em UMA consulta. Antes devolvia a linha mais nova de
+  // qualquer estado, que era o defeito do D-39.
   const {
-    data: analise,
+    data: analises,
     isLoading: loadingAnalise,
     analisar,
     confirmarRevisao,
   } = useTranscricaoAnalise(candidaturaId)
+  // A análise que o scorecard pontua e que a revisão humana pode confirmar (49-10).
+  const analiseVigente = analises?.vigenteMaisRecente ?? null
 
   const {
     data: scores,
@@ -100,8 +106,8 @@ export function EntrevistaWorkspace() {
   // 2026-09-06 (E3 do guia de validação): a análise da transcrição falhava com 500 e a
   // tela não dizia NADA — o botão só voltava a "Analisar transcrição", como se nada
   // tivesse acontecido. O serviço já produz a mensagem em pt-BR; faltava mostrá-la.
-  function handleAnalisar(transcricao: string) {
-    analisar.mutate(transcricao, {
+  function handleAnalisar(transcricao: string, tipo: TipoEntrevista) {
+    analisar.mutate({ transcricao, tipo }, {
       onError: (e) =>
         toast.error(
           e instanceof Error ? e.message : 'Não foi possível analisar a transcrição. Tente novamente.',
@@ -203,7 +209,9 @@ export function EntrevistaWorkspace() {
           <TabsContent value="transcricao">
             <Glass variant="white" blur="lg" className="rounded-xl p-6">
               <TranscricaoReviewPanel
-                analise={analise ?? null}
+                analises={analises ?? null}
+                etapaAtual={contexto?.etapa_atual}
+                resultado={analisar.data ?? null}
                 loading={loadingAnalise}
                 analyzing={analisar.isPending}
                 confirming={confirmarRevisao.isPending}
@@ -217,7 +225,11 @@ export function EntrevistaWorkspace() {
           <TabsContent value="avaliacao">
             <Glass variant="white" blur="lg" className="rounded-xl p-6">
               <EntrevistaScorecardInline
-                competenciasIA={analise?.competencias ?? null}
+                // 49-10/49-16: as competências da análise VIGENTE mais recente — a mesma
+                // linha em que `salvar_avaliacao_entrevista` grava a nota humana. Antes
+                // vinham da mais nova de qualquer estado, então uma falha de IA (sem
+                // competências) apagava o scorecard da análise que tinha funcionado.
+                competenciasIA={analiseVigente?.competencias ?? null}
                 saving={salvarAvaliacao.isPending}
                 onSalvar={handleSalvarAvaliacao}
               />
