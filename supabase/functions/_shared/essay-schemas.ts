@@ -16,9 +16,23 @@
  *      NÃO TEM `red_flag_etico`. A PRD `docs/prds/m2-funil-rh/PRD-redacao-fit-cultural.md`
  *      §8.4 é a fonte BINDING — este arquivo a transcreve verbatim.
  *
- * As 4 dimensões D1-D4 mapeiam os 4 valores Beauty Smile (Experiência UAU,
- * Inovação, Atitude de Dono, Sede de Crescimento); `red_flag_etico` é o princípio
- * fundante (Ética) acima das 4 — explícito no output, load-bearing para o cap.
+ * ⚠ CORRIGIDO na Phase 49 / Plan 49-09 (D-24). Até 2026-09-22 este parágrafo
+ * equiparava as quatro chaves D1..D4 aos quatro valores Beauty Smile, um por chave.
+ * **Era falso**, e era a versão mais autoritativa do erro no repositório — ficava no
+ * cabeçalho do arquivo que define o contrato de saída. (A frase antiga não é
+ * reproduzida aqui de propósito: o portão estático do 49-09 procura por ela no
+ * disco, e citá-la verbatim a deixaria encontrável neste mesmo arquivo.)
+ * As 4 dimensões são a rubrica **BARS** do PRD:
+ *   D1 Especificidade da situação · D2 Ação demonstrada · D3 Aprendizado/Reflexão ·
+ *   D4 Alinhamento com os valores Beauty Smile
+ * Os 4 valores (UAU · Inovação · Atitude de Dono · Sede de Crescimento) são o objeto
+ * da **D4** — eles não são as dimensões. A rubrica que vai ao modelo, com as âncoras
+ * 5→1 e os caps, é `_shared/bars-redacao.ts` (`RUBRICA_REDACAO_VERSAO`,
+ * `DIMENSOES_REDACAO`) — a MESMA constante que a tela do RH importa (D-25). Os
+ * `dimension_name` canônicos estão no comentário de `:43` abaixo e vêm de lá.
+ *
+ * `red_flag_etico` é o princípio fundante (Ética) acima das 4 dimensões — explícito
+ * no output, load-bearing para o cap de 30.
  *
  * Pin Zod 3.25.76 na entrada **`/v4`** (igual ao ai-client / analise-schemas): os
  * helpers das SDKs (@anthropic-ai/sdk + openai) fazem `require("zod/v4")` e leem
@@ -27,6 +41,7 @@
  * call real. NÃO copiar a linha v3 plana do `avaliacao-schemas.ts` (SJT, Phase 11).
  *
  * @see docs/prds/m2-funil-rh/PRD-redacao-fit-cultural.md §8.4 (fonte BINDING — verbatim)
+ * @see supabase/functions/_shared/bars-redacao.ts (a rubrica BARS D1-D4 — fonte única, D-24)
  * @see supabase/functions/_shared/analise-schemas.ts (precedente do import `/v4`)
  * @see supabase/functions/_shared/ai-client.ts (consome via callAi schema arg)
  */

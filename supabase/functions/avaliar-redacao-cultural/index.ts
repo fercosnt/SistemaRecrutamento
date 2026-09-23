@@ -16,6 +16,19 @@
  *   EssayScoringV1Schema, deriva score/cor DETERMINISTICAMENTE (computeScoreAndCors —
  *   3 caps + 3 cores, NUNCA o LLM), e UPSERTa UMA linha em `redacoes_candidato`.
  *
+ * ── Phase 49 / Plan 49-09 — JORN-07 / D-24..D-26 / D-28 ─────────────────────────
+ *   O prompt `culture_fit_essay` manda «Use as âncoras BARS fornecidas no input»; até
+ *   2026-09-22 o input levava APENAS a pergunta. O modelo inventava os nomes das 4
+ *   dimensões, e inventou DIFERENTE nas 2 redações já avaliadas em PROD — a nota 0-100
+ *   e o cap `D1 ≤ 2` incidiam sobre dimensões que nada garantia serem as da rubrica.
+ *   Agora: (a) `vagaRubricBlock` é o bloco de `_shared/bars-redacao.ts` (âncoras 5→1 +
+ *   caps + a pergunta SEM o `codigo`, que colide com D1/D2/D3); (b) o conjunto de
+ *   `dimension` devolvido é VALIDADO pós-parse e, se não for exatamente {D1..D4} sem
+ *   repetição, a redação vai para revisão humana com a flag `dimensoes_invalidas` e SEM
+ *   score; (c) `dimension_name` gravado é o da constante, não o que o modelo devolveu;
+ *   (d) a linha registra `rubrica_versao`, `provedor_ia` e `modelo_ia` REAIS, e
+ *   `model_version` passa a ser o modelo que DE FATO respondeu (era o configurado).
+ *
  * INVARIANTE (RNF-07a — T-13-02-03): a EF NUNCA escreve `candidaturas`. Sem
  *   auto-advance nem auto-reject. status_analise='pendente_humano' SEMPRE (revisão
  *   humana obrigatória independente da cor); bloqueio_avanco=true SÓ quando vermelho
@@ -38,6 +51,7 @@
  * @module supabase/functions/avaliar-redacao-cultural
  * @see supabase/functions/analise-candidato-individual/index.ts (static imports + deps wiring)
  * @see supabase/functions/avaliar-redacao/index.ts (skeleton two-client + auth-then-authz)
+ * @see supabase/functions/_shared/bars-redacao.ts (a rubrica BARS versionada — D-24)
  * @see docs/prds/m2-funil-rh/PRD-redacao-fit-cultural.md §8.3 (pseudocódigo)
  */
 
@@ -53,6 +67,15 @@ import {
 import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared/prompt-loader.ts";
 import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import { EssayScoringV1Schema, type EssayScoringV1 } from "../_shared/essay-schemas.ts";
+// Phase 49 / 49-09 — JORN-07 / D-24..D-26: a rubrica BARS que o prompt já mandava
+// «usar no input» e que o input nunca levava. É a MESMA constante que a tela do RH
+// importa (49-15) — uma rubrica, não duas tabelas que divergem em silêncio.
+import {
+  montarBlocoRubricaRedacao,
+  normalizarNomesDimensoes,
+  RUBRICA_REDACAO_VERSAO,
+  validarDimensoesRedacao,
+} from "../_shared/bars-redacao.ts";
 import { AvaliarRedacaoCulturalBodySchema } from "../_shared/redacao-schemas.ts";
 import { computeScoreAndCors, normalizeForHash } from "./_local/compute-score.ts";
 // SDKs como import ESTÁTICO `npm:` — clone de analise-candidato-individual:50-53. O
@@ -103,6 +126,17 @@ function countWords(text: string): number {
   const trimmed = text.trim();
   if (!trimmed) return 0;
   return trimmed.split(/\s+/).length;
+}
+
+/**
+ * D-28: `provedor_ia` do vocabulário FECHADO da coluna. Medido em PROD
+ * (`redacoes_candidato_provedor_ia_check`): só `NULL | 'anthropic' | 'openai'`.
+ * `callAi` devolve `provider: 'none'` quando NENHUM provedor foi chamado (teto de custo
+ * AI-06, injeção detectada) — forçar essa string quebraria o INSERT em 23514, trocando
+ * um buraco de auditoria por uma falha de gravação. NULL é a verdade nesse caso.
+ */
+function provedorIaDaColuna(provider: string | null | undefined): string | null {
+  return provider === "anthropic" || provider === "openai" ? provider : null;
 }
 
 /** Extrai {D1..D4: int|'insufficient_evidence'} dos dimension_scores parseados. */
@@ -241,17 +275,28 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
       throw e;
     }
 
-    const perguntaBlock =
-      `Pergunta (${pergRow.codigo}): ${pergRow.texto}\n` +
-      `Valor primário: ${pergRow.valor_primario ?? ""}` +
-      (pergRow.valor_secundario ? ` | secundário: ${pergRow.valor_secundario}` : "");
+    // ── 6b. A RUBRICA vai ao modelo (JORN-07 / D-24) ──────────────────────────
+    //   Antes: `Pergunta (${codigo}): …` + os dois valores, e mais nada. O prompt
+    //   pedia âncoras BARS que nunca chegavam. Duas mudanças no mesmo bloco:
+    //     - as 4 dimensões com âncoras 5→1 e os caps, da constante versionada;
+    //     - a pergunta SEM o `codigo`. Os códigos vivos incluem D1, D2 e D3
+    //       (medido: C1,C2,C3,D1,D2,D3,F1,PADRAO_BS,R1,R2,R3) e COLIDEM com as chaves
+    //       das dimensões no mesmo bloco (varredura C7 #8). O código não serve ao scoring.
+    //   ⚠ O bloco entra no `requestFingerprint` de `callAi` (`ai-client.ts:464-491`),
+    //     então a chave efetiva de idempotência muda com a rubrica: nenhuma avaliação
+    //     feita sob a rubrica fantasma é replayada sob esta.
+    const rubricaBlock = montarBlocoRubricaRedacao({
+      perguntaTexto: pergRow.texto,
+      valorPrimario: pergRow.valor_primario,
+      valorSecundario: pergRow.valor_secundario,
+    });
 
     const result = await callAi(
       {
         prompt: resolved,
         // Texto da redação UNTRUSTED — callAi mascara + detecta injeção por dentro.
         rawInput: body.texto,
-        vagaRubricBlock: perguntaBlock,
+        vagaRubricBlock: rubricaBlock,
         candidato_id: candRow.candidato_id,
         vaga_id: candRow.vaga_id,
         schema: EssayScoringV1Schema,
@@ -278,17 +323,32 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
       },
     );
 
-    // ── 7. Never-absent + injeção → persiste row de revisão humana, nunca um
-    //      sucesso fabricado (clone de avaliar-redacao:241-273). Mesmo na falha a
-    //      row entra como pendente_humano (revisão humana é o destino de toda redação).
-    const parsedRaw = result.parsed as EssayScoringV1 | null;
-    if (
-      parsedRaw == null ||
-      result.flagged_for_human_review === true ||
-      result.error_code === "prompt_injection_detected"
-    ) {
-      const failFlag = result.error_code ?? (parsedRaw == null ? "ia_sem_resultado" : "flagged_for_human_review");
-      await supabaseAdmin.from("redacoes_candidato").upsert(
+    // D-28 — a proveniência REAL, comum aos dois caminhos de gravação. `result.model`
+    // é o modelo que DE FATO respondeu (`response.model` no Anthropic, o do fallback no
+    // OpenAI, `model_snapshot` no replay); `null` quando nenhum respondeu.
+    const proveniencia = {
+      rubrica_versao: RUBRICA_REDACAO_VERSAO,
+      provedor_ia: provedorIaDaColuna(result.provider),
+      modelo_ia: result.model,
+      // D-28 / Correção 28: ERA `resolved.model_id`, o modelo CONFIGURADO — a linha
+      // dizia «claude-sonnet-4-6» mesmo quando quem respondeu foi o `gpt-4o-mini` do
+      // fallback. Agora é o real, o MESMO valor de `modelo_ia`. NULL quando nenhum
+      // modelo respondeu: carimbar o configurado é afirmar uma proveniência falsa.
+      model_version: result.model,
+    };
+
+    /**
+     * Caminho ÚNICO de revisão humana sem score (never-absent, injeção, e — desde o
+     * 49-09 — dimensões inválidas). Grava `pendente_humano` sem
+     * `score_ponderado_0_100`, sem `analise_ia` e sem cor: um score derivado de
+     * dimensões que não são as da rubrica tem aparência de número legítimo e não é.
+     *
+     * C6 #6: o erro do upsert é DESTRUTURADO e relançado (→ 500 no catch externo).
+     * Antes, uma gravação que falhasse devolvia `{ ok: true }` — a redação desaparecia
+     * sem que ninguém soubesse, e o candidato lia «enviado com sucesso».
+     */
+    const gravarParaRevisaoHumana = async (flag: string): Promise<void> => {
+      const { error: upsertErr } = await supabaseAdmin.from("redacoes_candidato").upsert(
         {
           candidatura_id: body.candidatura_id,
           pergunta_id: body.pergunta_id,
@@ -299,15 +359,35 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
           texto_hash: textoHash,
           tempo_gasto_segundos: tempoGastoSegundos,
           input_hash: inputHash,
-          flags: [failFlag],
+          flags: [flag],
           prompt_version: resolved.prompt_version,
-          model_version: resolved.model_id,
+          ...proveniencia,
           ia_processada_em: new Date().toISOString(),
           status_analise: "pendente_humano",
           bloqueio_avanco: false,
         },
         { onConflict: "candidatura_id,pergunta_id" },
       ).select("id").single();
+      if (upsertErr) {
+        throw new Error(
+          `falha ao gravar redacoes_candidato (${flag}): ${
+            (upsertErr as { message?: string })?.message ?? String(upsertErr)
+          }`,
+        );
+      }
+    };
+
+    // ── 7. Never-absent + injeção → persiste row de revisão humana, nunca um
+    //      sucesso fabricado (clone de avaliar-redacao:241-273). Mesmo na falha a
+    //      row entra como pendente_humano (revisão humana é o destino de toda redação).
+    const parsedRaw = result.parsed as EssayScoringV1 | null;
+    if (
+      parsedRaw == null ||
+      result.flagged_for_human_review === true ||
+      result.error_code === "prompt_injection_detected"
+    ) {
+      const failFlag = result.error_code ?? (parsedRaw == null ? "ia_sem_resultado" : "flagged_for_human_review");
+      await gravarParaRevisaoHumana(failFlag);
       console.log("[avaliar-redacao-cultural] sem-output/injecao", {
         candidatura_id: body.candidatura_id,
         pergunta_id: body.pergunta_id,
@@ -316,9 +396,38 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
       return jsonResponse({ ok: true }, 200);
     }
 
+    // ── 7b. As dimensões devolvidas são as da RUBRICA ENVIADA? (T-49-09-01) ────
+    //   O `z.enum(['D1'..'D4'])` + `.length(4)` do schema garante 4 entradas com chaves
+    //   do vocabulário, mas NÃO que sejam as 4 DISTINTAS — `[D1,D1,D3,D4]` passa pelos
+    //   dois. E `compute-score.ts` faz `dims.find(d => d.dimension === 'D1')` e divide
+    //   a soma por `validDims`: com D1 repetido e D2 ausente, a nota consolidada sai de
+    //   uma média sobre a dimensão errada e o cap `D1 ≤ 2` incide sobre outra coisa.
+    //   Vai para revisão humana SEM score — nunca é gravada como concluída.
+    const validacaoDims = validarDimensoesRedacao(parsedRaw.dimension_scores);
+    if (!validacaoDims.ok) {
+      await gravarParaRevisaoHumana("dimensoes_invalidas");
+      // Log redigido: a causa e as CHAVES devolvidas — nunca o texto da redação.
+      console.log("[avaliar-redacao-cultural] dimensoes_invalidas", {
+        candidatura_id: body.candidatura_id,
+        pergunta_id: body.pergunta_id,
+        rubrica_versao: RUBRICA_REDACAO_VERSAO,
+        motivo: validacaoDims.motivo,
+        chaves_recebidas: (parsedRaw.dimension_scores ?? []).map((d) => d?.dimension),
+      });
+      return jsonResponse({ ok: true }, 200);
+    }
+
+    // D-24 — o `dimension_name` GRAVADO é o da constante, para a chave que o modelo
+    // usou. O nome devolvido pelo modelo é sugestão, e foi exatamente ele que variou
+    // entre as 2 redações antigas ("Cuidado e Empatia com o Outro" vs …).
+    const analiseIa: EssayScoringV1 = {
+      ...parsedRaw,
+      dimension_scores: normalizarNomesDimensoes(parsedRaw.dimension_scores),
+    };
+
     // ── 8. Score/cor DETERMINÍSTICO (computeScoreAndCors — NUNCA o LLM). ───────
     const { scoreGeral, classificacaoCor, flags, redFlagEtico } = computeScoreAndCors(
-      parsedRaw,
+      analiseIa,
       threshold,
       wordCount,
       tempoGastoSegundos, // WR-03 — tempo real do cronômetro do cliente; <90s arma a flag anti-cheat.
@@ -343,7 +452,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
     //       bloqueio_avanco SÓ no vermelho. NUNCA toca candidaturas (RNF-07a).
     //       `.select('id').single()` é OBRIGATÓRIO (CR-03) — sem ele supabase-js v2
     //       não pede representação e o id nunca volta.
-    await supabaseAdmin.from("redacoes_candidato").upsert(
+    const { error: upsertOkErr } = await supabaseAdmin.from("redacoes_candidato").upsert(
       {
         candidatura_id: body.candidatura_id,
         pergunta_id: body.pergunta_id,
@@ -353,15 +462,16 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
         word_count: wordCount,
         texto_hash: textoHash,
         tempo_gasto_segundos: tempoGastoSegundos,
-        analise_ia: parsedRaw,
-        scores_dimensao: extractScoresDim(parsedRaw),
+        // D-24 — com os `dimension_name` da CONSTANTE, não os que o modelo devolveu.
+        analise_ia: analiseIa,
+        scores_dimensao: extractScoresDim(analiseIa),
         score_ponderado_0_100: scoreGeral,
         classificacao_cor: classificacaoCor,
         red_flag_etico: redFlagEtico,
         flags: [...new Set(flags)],
         referencia_match: referenciaMatch,
         prompt_version: resolved.prompt_version,
-        model_version: resolved.model_id,
+        ...proveniencia, // D-26/D-28 — rubrica_versao + provedor/modelo REAIS
         input_hash: inputHash,
         ia_processada_em: new Date().toISOString(),
         status_analise: "pendente_humano", // RNF-07a — SEMPRE revisão humana
@@ -369,6 +479,15 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
       },
       { onConflict: "candidatura_id,pergunta_id" },
     ).select("id").single();
+    // C6 #6 — o erro é DESTRUTURADO e relançado (→ 500). Um `{ ok: true }` depois de
+    // uma gravação falha faz a redação desaparecer com o candidato lendo «sucesso».
+    if (upsertOkErr) {
+      throw new Error(
+        `falha ao gravar redacoes_candidato (avaliada): ${
+          (upsertOkErr as { message?: string })?.message ?? String(upsertOkErr)
+        }`,
+      );
+    }
 
     // Log redigido (LGPD-02 / Pitfall 7) — só ids/counts/status; NUNCA texto/score/nome.
     console.log("[avaliar-redacao-cultural] ok", {
@@ -379,6 +498,10 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
       bloqueio: classificacaoCor === "vermelho",
       flags_count: flags.length,
       provider: result.provider,
+      // D-26/D-28 — o que foi gravado na linha, para o log e a linha concordarem.
+      modelo_ia: result.model,
+      rubrica_versao: RUBRICA_REDACAO_VERSAO,
+      fallback_cause: result.fallback_cause,
     });
 
     // Payload NEUTRO — o candidato nunca recebe o score/cor (RNF-07a).
