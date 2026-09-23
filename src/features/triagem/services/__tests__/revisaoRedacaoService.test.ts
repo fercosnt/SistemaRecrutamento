@@ -77,6 +77,24 @@ describe('revisaoRedacaoService — RH read (allowlist projection)', () => {
     expect(REDACAO_ALLOWLIST).toContain('notas_revisor')
   })
 
+  // Phase 49 / 49-15 (D-26 / D-27b): sem estas três colunas a tela não consegue dizer QUAL
+  // rubrica produziu os números que ela rotula nem QUEM os produziu — e uma linha sem
+  // proveniência ficava indistinguível de uma com proveniência confirmada.
+  it.each(['rubrica_versao', 'provedor_ia', 'modelo_ia', 'analise_ia'])(
+    'REDACAO_ALLOWLIST projeta `%s` (proveniência da rubrica — 49-15)',
+    (coluna) => {
+      expect(REDACAO_ALLOWLIST).toContain(coluna)
+    },
+  )
+
+  it.each(['rubrica_versao', 'provedor_ia', 'modelo_ia'])(
+    'o select() da fila de revisão leva `%s` ao navegador',
+    async (coluna) => {
+      await listRedacoesRevisao('vaga-1')
+      expect(lastSelect.value).toContain(coluna)
+    },
+  )
+
   it('listRedacoesRevisao select() projection contains NO `*`', async () => {
     await listRedacoesRevisao('vaga-1')
     expect(lastSelect.value).not.toContain('*')

@@ -42,7 +42,13 @@ export type RedacaoCor = 'verde' | 'amarelo' | 'vermelho'
 /** The reviewer decision ∈ {aprovado, reprovado, duvida} (duvida escalates to gestor). */
 export type DecisaoRevisor = 'aprovado' | 'reprovado' | 'duvida'
 
-/** The 4 Beauty Smile BARS dimension scores (1-5; the IA suggestion the slider defaults to). */
+/**
+ * The 4 BARS dimension scores by KEY (1-5; the IA suggestion the slider defaults to).
+ *
+ * ⚠ As chaves `D1..D4` são POSIÇÃO na rubrica, não rótulo. O rótulo pt-BR de cada chave
+ * vive em `DIMENSOES_REDACAO` (`supabase/functions/_shared/bars-redacao.ts`) — a MESMA
+ * constante que a Edge Function envia ao modelo (D-25). Nunca rotular aqui.
+ */
 export interface ScoresDimensao {
   D1?: number | string | null
   D2?: number | string | null
@@ -51,9 +57,55 @@ export interface ScoresDimensao {
   [k: string]: unknown
 }
 
+/** Uma citação da redação que a IA usou como evidência (`essay-schemas.ts`). */
+export interface CitacaoIA {
+  text?: string | null
+  /** Onde no texto — «Parágrafo 2», «Frase final», … */
+  location?: string | null
+}
+
+/**
+ * Uma entrada de `analise_ia.dimension_scores` (contrato de `_shared/essay-schemas.ts`:
+ * `{dimension, dimension_name, cited_evidence[{text,location}], reasoning, score, level}`).
+ *
+ * A entrada é achada pela `dimension`, NUNCA por índice do array — o modelo pode devolver
+ * as 4 em qualquer ordem, e ler por posição colocaria o raciocínio de uma dimensão sob o
+ * rótulo de outra (a mesma classe do defeito D-25 que este módulo passa a evitar).
+ */
+export interface DimensionScoreIA {
+  dimension?: string | null
+  dimension_name?: string | null
+  cited_evidence?: CitacaoIA[] | null
+  reasoning?: string | null
+  score?: number | string | null
+  level?: string | null
+}
+
+/**
+ * O JSONB que a EF grava em `redacoes_candidato.analise_ia` (`EssayScoringV1Schema`).
+ *
+ * ⚠ Medido em PROD em 2026-09-23 (só leitura, nas 2 linhas existentes): as chaves
+ * `reasoning` e `citacoes` **NÃO EXISTEM** na RAIZ deste objeto — `analise_ia ? 'reasoning'`
+ * e `analise_ia ? 'citacoes'` devolveram `false` nas duas. O raciocínio e as citações que a
+ * IA escreve vivem POR DIMENSÃO, em `dimension_scores[].reasoning` / `.cited_evidence`, e
+ * os dois estão presentes (`true` nas duas). A tela lia as chaves de raiz e por isso os
+ * blocos «Raciocínio» e «Citações» nunca renderizaram nada: tela vazia não era dado
+ * ausente, era leitura no lugar errado (D-25).
+ */
+export interface AnaliseIARedacao {
+  dimension_scores?: DimensionScoreIA[] | null
+  qualitative_summary?: string | null
+  overall_score?: number | null
+  recommendation?: string | null
+  red_flag_etico?: boolean | null
+  [k: string]: unknown
+}
+
 /**
  * One `redacoes_candidato` review row, projected via the explicit allowlist. Carries
- * the IA verdict (scores/color/red_flag/flags + reasoning) + the reviewer fields.
+ * the IA verdict (scores/color/red_flag/flags + reasoning) + the reviewer fields + the
+ * provenance the Phase-49 plans 49-01/49-09 made writable (`rubrica_versao`,
+ * `provedor_ia`, `modelo_ia`).
  */
 export interface RedacaoReviewRow {
   id: string
@@ -65,7 +117,17 @@ export interface RedacaoReviewRow {
   classificacao_cor: RedacaoCor | null
   red_flag_etico: boolean
   flags: string[]
-  analise_ia: Record<string, unknown> | null
+  analise_ia: AnaliseIARedacao | null
+  /**
+   * Qual rubrica avaliou esta redação (`bars-prd-1.1`, …). NULL = avaliada ANTES de a
+   * rubrica ser enviada ao modelo (as 2 linhas antigas, D-26) — a tela precisa avisar,
+   * porque os números daquelas linhas podem não corresponder a estes rótulos.
+   */
+  rubrica_versao: string | null
+  /** `'anthropic'` | `'openai'` | NULL. `'openai'` = resultado de contingência (D-27b). */
+  provedor_ia: string | null
+  /** O modelo que DE FATO respondeu. NULL = não registrado (D-30). */
+  modelo_ia: string | null
   scores_humanos: ScoresDimensao | null
   notas_revisor: string | null
   decisao_revisor: DecisaoRevisor | null
@@ -83,9 +145,15 @@ export interface RedacaoReviewRow {
  * projection is auditable in one place. The joined `candidaturas`/`candidatos`
  * columns are appended at the call site (PostgREST embed) — the bare-column part
  * is what the no-star contract guards.
+ *
+ * Phase 49 / 49-15 (D-26 / D-27b): `rubrica_versao`, `provedor_ia` e `modelo_ia` entram.
+ * Sem elas a tela não consegue dizer QUAL rubrica produziu os números que ela rotula, nem
+ * QUEM os produziu — e uma linha sem proveniência ficava indistinguível de uma com
+ * proveniência confirmada. As três são do próprio `redacoes_candidato` (nasceram nuláveis
+ * no 49-01) e nenhuma é PII do titular.
  */
 export const REDACAO_ALLOWLIST =
-  'id, candidatura_id, pergunta_id, texto, scores_dimensao, score_ponderado_0_100, classificacao_cor, red_flag_etico, flags, analise_ia, scores_humanos, notas_revisor, decisao_revisor, revisada_por, revisada_em, status_analise, bloqueio_avanco'
+  'id, candidatura_id, pergunta_id, texto, scores_dimensao, score_ponderado_0_100, classificacao_cor, red_flag_etico, flags, analise_ia, rubrica_versao, provedor_ia, modelo_ia, scores_humanos, notas_revisor, decisao_revisor, revisada_por, revisada_em, status_analise, bloqueio_avanco'
 
 /** The PostgREST embed that joins the vaga (for the filter) + the candidate name. */
 const REDACAO_EMBED = `${REDACAO_ALLOWLIST}, candidaturas!inner ( vaga_id, candidatos ( nome_completo ) )`

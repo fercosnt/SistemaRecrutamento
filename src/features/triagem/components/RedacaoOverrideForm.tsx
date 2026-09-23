@@ -40,23 +40,21 @@ import {
   type DecisaoRevisor,
   type RedacaoCor,
 } from '../services/revisaoRedacaoService'
+// ⚠ Phase 49 / 49-15 / D-25 — caminho RELATIVO para `_shared`, de propósito. Até esta fase
+// este arquivo tinha um mapa PRÓPRIO rotulando D1–D4 com os 4 valores Beauty Smile; a EF
+// (plano 49-09) mede a rubrica BARS do PRD, onde os 4 valores são o OBJETO da D4. Duas
+// tabelas de rubrica divergem em silêncio, e foi o que aconteceu. Agora há UMA: a mesma que
+// o modelo recebe. Ver o docblock de `RedacaoReviewPanel.tsx` e os precedentes de import
+// relativo citados lá.
+import {
+  DIMENSOES_REDACAO,
+  type ChaveDimensaoRedacao,
+} from '../../../../supabase/functions/_shared/bars-redacao'
 
-/** The 4 Beauty Smile value dimensions (BARS, 1-5). D1-D4 in fixed order. */
-const DIMENSOES = [
-  { key: 'D1', label: 'Experiência UAU' },
-  { key: 'D2', label: 'Inovação' },
-  { key: 'D3', label: 'Atitude de Dono' },
-  { key: 'D4', label: 'Sede de Crescimento' },
-] as const
+type DimKey = ChaveDimensaoRedacao
 
-type DimKey = (typeof DIMENSOES)[number]['key']
-
-export interface IaScores {
-  D1?: number | null
-  D2?: number | null
-  D3?: number | null
-  D4?: number | null
-}
+/** Nota sugerida pela IA por CHAVE de dimensão (o baseline dos sliders). */
+export type IaScores = Partial<Record<DimKey, number | null>>
 
 /** The per-vaga 3-color threshold (default 40/64 — UI-SPEC). */
 export interface CorThreshold {
@@ -76,7 +74,7 @@ export function recomputeCompositeAndCor(
   threshold: CorThreshold,
   redFlagEtico: boolean,
 ): { composite: number; cor: RedacaoCor } {
-  const dims = DIMENSOES.map((d) => scores[d.key]).filter(
+  const dims = DIMENSOES_REDACAO.map((d) => scores[d.chave]).filter(
     (v): v is number => typeof v === 'number' && !Number.isNaN(v),
   )
   let composite = dims.length > 0
@@ -101,6 +99,13 @@ export function recomputeCompositeAndCor(
 function clampScore(v: number | null | undefined): number {
   if (typeof v !== 'number' || Number.isNaN(v)) return 3
   return Math.min(5, Math.max(1, Math.round(v)))
+}
+
+/** Estado inicial dos sliders, percorrendo a rubrica (nunca uma lista literal de chaves). */
+function scoresIniciais(ia: IaScores): Record<DimKey, number> {
+  const out = {} as Record<DimKey, number>
+  for (const dim of DIMENSOES_REDACAO) out[dim.chave] = clampScore(ia[dim.chave])
+  return out
 }
 
 export interface RedacaoOverrideFormProps {
@@ -132,12 +137,7 @@ export function RedacaoOverrideForm({
   saving = false,
   className,
 }: RedacaoOverrideFormProps) {
-  const [scores, setScores] = useState<Record<DimKey, number>>({
-    D1: clampScore(iaScores.D1),
-    D2: clampScore(iaScores.D2),
-    D3: clampScore(iaScores.D3),
-    D4: clampScore(iaScores.D4),
-  })
+  const [scores, setScores] = useState<Record<DimKey, number>>(() => scoresIniciais(iaScores))
   const [notas, setNotas] = useState('')
   const [decisao, setDecisao] = useState<DecisaoRevisor | ''>('')
   const [confirmFor, setConfirmFor] = useState<'aprovado' | 'reprovado' | null>(null)
@@ -205,22 +205,22 @@ export function RedacaoOverrideForm({
           BARS D1-D4 (escala 1-5). Ética como princípio fundante acima das 4.
         </p>
 
-        {DIMENSOES.map((dim) => (
-          <div key={dim.key} className="space-y-2">
+        {DIMENSOES_REDACAO.map((dim) => (
+          <div key={dim.chave} className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white/90">{dim.label}</span>
+              <span className="text-sm font-semibold text-white/90">{dim.rotulo}</span>
               <span className="text-sm font-semibold text-white/70">
-                {scores[dim.key]} / 5
+                {scores[dim.chave]} / 5
               </span>
             </div>
             <Slider
               min={1}
               max={5}
               step={1}
-              value={[scores[dim.key]]}
-              onValueChange={(v: number[]) => setDim(dim.key, v[0])}
-              aria-label={dim.label}
-              aria-valuetext={`${scores[dim.key]} de 5`}
+              value={[scores[dim.chave]]}
+              onValueChange={(v: number[]) => setDim(dim.chave, v[0])}
+              aria-label={dim.rotulo}
+              aria-valuetext={`${scores[dim.chave]} de 5`}
               disabled={saving}
             />
           </div>

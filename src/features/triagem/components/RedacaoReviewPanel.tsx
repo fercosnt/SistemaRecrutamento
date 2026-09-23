@@ -1,9 +1,27 @@
 /**
  * RedacaoReviewPanel — the RH human-review queue, 1-redação-por-vez (AVAL-07).
  *
+ * ─── Phase 49 / plano 49-15 — D-25/D-26/D-27b (fecha a WINDOWS 52) ──────────────────
+ *
+ * Esta tela rotulava as dimensões D1–D4 com os **4 valores Beauty Smile** («Experiência
+ * UAU», «Inovação», «Atitude de Dono», «Sede de Crescimento») a partir de um mapa próprio.
+ * Depois do plano 49-09 a Edge Function passou a medir a rubrica BARS do PRD — D1
+ * Especificidade da situação · D2 Ação demonstrada · D3 Aprendizado/Reflexão · D4
+ * Alinhamento com os valores Beauty Smile (os 4 valores são o OBJETO da D4, não as
+ * dimensões). Resultado: cada redação avaliada desde aquele deploy mostrava um número
+ * CORRETO sob uma legenda FALSA — «UAU 5/5» sobre um raciocínio de outra coisa.
+ * Agora os rótulos vêm de `DIMENSOES_REDACAO`, a MESMA constante que a EF envia ao modelo,
+ * e são resolvidos PELA CHAVE que a IA devolveu — nunca por posição.
+ *
+ * E o raciocínio: a tela lia `analise_ia.reasoning` e `analise_ia.citacoes`, chaves que
+ * **não existem** no JSONB (medido em PROD nas 2 linhas vivas: `false` nas duas). O que a
+ * IA escreve mora POR DIMENSÃO, em `dimension_scores[].reasoning` / `.cited_evidence` —
+ * presentes nas duas. Os dois blocos nunca renderizaram nada, e o RH nunca leu o
+ * raciocínio que existia desde sempre.
+ *
  * Desktop RH shell (RHLayout + Glass — NOT the candidate glass-over-gradient).
  * Two-column layout: LEFT 35% = the severity-sorted RedacaoSidebar + the "Análise da
- * IA" block (scores/citations/reasoning per the 4 Beauty Smile dimensions, each
+ * IA" block (per-dimension score/reasoning/citations + o resumo qualitativo, each
  * carrying the SugestaoIABadge — every AI-derived block) + the RedacaoOverrideForm
  * (sliders + notas + decisão + Salvar). RIGHT 65% = the full essay text at
  * `text-base leading-relaxed` (≈16px/1.625 — the load-bearing reading panel, PRD
@@ -29,8 +47,9 @@ import { Glass } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from './SugestaoIABadge'
+import { ProvenienciaIABadge } from './ProvenienciaIABadge'
 import { RedacaoSidebar, type RedacaoSidebarItem } from './RedacaoSidebar'
-import { RedacaoOverrideForm } from './RedacaoOverrideForm'
+import { RedacaoOverrideForm, type IaScores } from './RedacaoOverrideForm'
 import { RedacaoVermelhoBadge, regraVermelho } from './RedacaoCorBadge'
 import {
   useRedacaoRevisao,
@@ -39,17 +58,18 @@ import {
 } from '../hooks/useRedacaoRevisao'
 import {
   getVagaIdForCandidatura,
+  type DimensionScoreIA,
   type RedacaoReviewRow,
   type ScoresDimensao,
 } from '../services/revisaoRedacaoService'
-
-/** Labels for the 4 Beauty Smile dimensions (mirrors the override form). */
-const DIM_LABEL: Record<string, string> = {
-  D1: 'Experiência UAU',
-  D2: 'Inovação',
-  D3: 'Atitude de Dono',
-  D4: 'Sede de Crescimento',
-}
+// ⚠ Caminho RELATIVO para `_shared`, de propósito: os rótulos das dimensões têm UMA fonte,
+// e é a MESMA que a Edge Function envia ao modelo (`montarBlocoRubricaRedacao`). O módulo
+// tem contrato de ZERO IMPORTS justamente para poder ser importado daqui sem arrastar um
+// especificador Deno para o bundle do Vite. Precedentes vivos: `exportacaoService.ts:61`
+// (`EXPORT_ALLOWLIST`), `ProvenienciaIABadge.tsx:52` (`CAUSA_FALLBACK_ROTULO`) e
+// `AutorizacoesStep.tsx:50` (`consent-text.json`). Duas tabelas de rubrica divergem em
+// silêncio — e o lado que divergiu foi justamente o que ninguém iria conferir (D-25).
+import { DIMENSOES_REDACAO } from '../../../../supabase/functions/_shared/bars-redacao'
 
 /** Reads a per-dimension AI score (number | 'insufficient_evidence' | null). */
 function dimValue(scores: ScoresDimensao | null, key: string): number | null {
@@ -57,27 +77,79 @@ function dimValue(scores: ScoresDimensao | null, key: string): number | null {
   return typeof v === 'number' ? v : null
 }
 
-/** The "Análise da IA" block — AI scores/reasoning, each AI block carries the badge. */
-function AnaliseIA({ row }: { row: RedacaoReviewRow }) {
-  const analise = (row.analise_ia ?? {}) as { reasoning?: string; citacoes?: unknown[] }
-  const citacoes = Array.isArray(analise.citacoes) ? analise.citacoes : []
+/**
+ * Baseline que os sliders do override herdam, montado percorrendo a rubrica.
+ *
+ * Percorrer a constante em vez de listar `D1..D4` à mão é o que faz uma dimensão nova
+ * chegar ao formulário sem ninguém precisar lembrar de acrescentá-la aqui.
+ */
+function iaScoresPorChave(scores: ScoresDimensao | null): IaScores {
+  const out: IaScores = {}
+  for (const dim of DIMENSOES_REDACAO) out[dim.chave] = dimValue(scores, dim.chave)
+  return out
+}
+
+/**
+ * Acha a entrada de `dimension_scores` de uma chave — PELA `dimension`, nunca por índice.
+ *
+ * O modelo pode devolver as 4 dimensões em qualquer ordem (o schema garante vocabulário e
+ * contagem, não ordem). Ler por posição colocaria o raciocínio de uma dimensão sob o rótulo
+ * de outra: a mesma classe do defeito D-25, dentro de uma linha correta.
+ */
+function dimAnalise(
+  analise: RedacaoReviewRow['analise_ia'],
+  chave: string,
+): DimensionScoreIA | null {
+  const lista = Array.isArray(analise?.dimension_scores) ? analise.dimension_scores : []
+  return lista.find((d) => d?.dimension === chave) ?? null
+}
+
+/** Aviso de rubrica antiga — `rubrica_versao` NULL (D-26). Nenhuma escrita retroativa. */
+export function RedacaoRubricaVersaoAviso({ rubricaVersao }: { rubricaVersao: string | null }) {
+  if (rubricaVersao) return null
+  return (
+    <p
+      data-testid="redacao-rubrica-versao-antiga"
+      className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs leading-relaxed text-amber-100"
+    >
+      Esta redação foi avaliada antes de a rubrica ser enviada ao modelo — os números podem
+      não corresponder a estes rótulos.
+    </p>
+  )
+}
+
+/**
+ * The "Análise da IA" block — score, raciocínio e citações POR DIMENSÃO + o resumo
+ * qualitativo, com o rótulo vindo de `DIMENSOES_REDACAO` (a rubrica que o modelo recebeu).
+ *
+ * Exportada para o teste poder asserir os rótulos contra a constante sem montar a shell do
+ * RH inteira (RHLayout + router + TanStack Query).
+ */
+export function AnaliseIA({ row }: { row: RedacaoReviewRow }) {
+  const analise = row.analise_ia ?? null
+  const resumo = analise?.qualitative_summary ?? null
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xl font-semibold text-white">Análise da IA</h3>
         <SugestaoIABadge variant="full" />
+        <ProvenienciaIABadge provedorIa={row.provedor_ia} modeloIa={row.modelo_ia} />
       </div>
 
-      <ul className="space-y-3">
-        {(['D1', 'D2', 'D3', 'D4'] as const).map((key) => {
-          const v = dimValue(row.scores_dimensao, key)
+      <RedacaoRubricaVersaoAviso rubricaVersao={row.rubrica_versao} />
+
+      <ul className="space-y-4">
+        {DIMENSOES_REDACAO.map((dim) => {
+          const v = dimValue(row.scores_dimensao, dim.chave)
+          const da = dimAnalise(analise, dim.chave)
+          const citacoes = (Array.isArray(da?.cited_evidence) ? da.cited_evidence : []).filter(
+            (c) => typeof c?.text === 'string' && c.text.trim().length > 0,
+          )
           return (
-            <li key={key} className="space-y-1">
+            <li key={dim.chave} className="space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-white/90">
-                  {DIM_LABEL[key]}
-                </span>
+                <span className="text-sm font-semibold text-white/90">{dim.rotulo}</span>
                 <span className="flex items-center gap-2">
                   <SugestaoIABadge variant="compact" />
                   <span className="text-sm font-semibold text-white">
@@ -85,33 +157,37 @@ function AnaliseIA({ row }: { row: RedacaoReviewRow }) {
                   </span>
                 </span>
               </div>
+
+              {da?.reasoning ? (
+                <p className="text-sm leading-relaxed text-white/70">{da.reasoning}</p>
+              ) : null}
+
+              {citacoes.length > 0 ? (
+                <ul className="list-disc space-y-1 pl-5 text-sm text-white/60">
+                  {citacoes.map((c, i) => (
+                    <li key={i}>
+                      “{c.text}”
+                      {c.location ? (
+                        <span className="text-white/40"> — {c.location}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </li>
           )
         })}
       </ul>
 
-      {analise.reasoning ? (
+      {resumo ? (
         <div className="space-y-1 border-t border-white/10 pt-3">
           <div className="flex items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-              Raciocínio
+              Resumo
             </p>
             <SugestaoIABadge variant="compact" />
           </div>
-          <p className="text-sm leading-relaxed text-white/70">{analise.reasoning}</p>
-        </div>
-      ) : null}
-
-      {citacoes.length > 0 ? (
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-            Citações
-          </p>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-white/70">
-            {citacoes.map((c, i) => (
-              <li key={i}>{typeof c === 'string' ? c : JSON.stringify(c)}</li>
-            ))}
-          </ul>
+          <p className="text-sm leading-relaxed text-white/70">{resumo}</p>
         </div>
       ) : null}
     </div>
@@ -287,12 +363,7 @@ export function RedacaoReviewPanel() {
                   <Glass variant="white" blur="lg" className="rounded-xl p-6">
                     <RedacaoOverrideForm
                       key={selected.id}
-                      iaScores={{
-                        D1: dimValue(selected.scores_dimensao, 'D1'),
-                        D2: dimValue(selected.scores_dimensao, 'D2'),
-                        D3: dimValue(selected.scores_dimensao, 'D3'),
-                        D4: dimValue(selected.scores_dimensao, 'D4'),
-                      }}
+                      iaScores={iaScoresPorChave(selected.scores_dimensao)}
                       redFlagEtico={selected.red_flag_etico}
                       saving={salvarRevisao.isPending}
                       onSalvar={handleSalvar}
