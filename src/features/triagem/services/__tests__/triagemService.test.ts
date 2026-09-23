@@ -190,6 +190,29 @@ describe('triagemService — invokeComparativo: as recusas novas da EF (49-13 / 
     )
   })
 
+  it('SEM_RESULTADO_IA ⇒ diz que nenhum modelo foi consultado e que NÃO é conexão (WINDOWS 78)', async () => {
+    // 49-27 criou o código (503). Até o 49-22 ele caía no genérico, e a TELA dizia «Verifique
+    // a conexão» — falso para um corte de gasto. A frase do toast não nomeia a causa exata de
+    // propósito (ver o comentário no mapa): dizer «injeção detectada» ao RH confirmaria a um
+    // atacante que a defesa disparou.
+    invokeMock.mockResolvedValue({
+      data: { ok: false, error_code: 'SEM_RESULTADO_IA', motivo: 'cost_cap_exceeded' },
+      error: null,
+    })
+    await expect(invokeComparativo('vaga-1', ['c1', 'c2'])).rejects.toThrow(
+      /Nenhum modelo de IA foi consultado/,
+    )
+    invokeMock.mockResolvedValue({
+      data: { ok: false, error_code: 'SEM_RESULTADO_IA', motivo: 'prompt_injection_detected' },
+      error: null,
+    })
+    await expect(invokeComparativo('vaga-1', ['c1', 'c2'])).rejects.toThrow(
+      /Não é falha de conexão/,
+    )
+    // A causa exata NÃO vaza para o texto que o RH lê.
+    await expect(invokeComparativo('vaga-1', ['c1', 'c2'])).rejects.not.toThrow(/injec|injeç/i)
+  })
+
   it('a recusa que chega como FunctionsHttpError (4xx) usa a MESMA cópia, não o genérico', async () => {
     // Caminho real de uma recusa 400: o supabase-js devolve `error`, e `data` vem nulo. Se
     // a ramificação vivesse só no bloco `!data.ok`, as quatro recusas caíam no genérico.

@@ -364,6 +364,25 @@ const RECUSA_COMPARATIVO_COPY: Record<string, string> = {
   // Genérica DE PROPÓSITO: a EF responde o MESMO 403 para «não existe» e «não é sua»
   // (49-08 / T-49-08-02). Uma mensagem que os distinguisse viraria oráculo de existência.
   FORBIDDEN: 'Você não tem acesso a uma das candidaturas selecionadas.',
+  /*
+   * 49-27 → WINDOWS 78, fechada pelo 49-22. A EF recusa com 503 quando NENHUM provedor de IA
+   * chegou a ser consultado (teto de gasto estourado ou injeção detectada). Sem esta entrada a
+   * recusa caía no genérico — verdadeiro, mas sem dizer o motivo.
+   *
+   * ⚠ Esta é a frase do TOAST. A frase da TELA (o corpo de erro do `<AsyncState>`) vive em
+   * `ComparativoScreen.SEM_RESULTADO_IA_COPY`, e as duas são deliberadamente DIFERENTES: um
+   * toast é lido de passagem e um corpo de erro é lido parado. O fato afirmado é o mesmo, e é
+   * ele — não a redação — que precisa ser verdade nos dois lugares. (O `MIXED_VAGA` acima, que
+   * é a MESMA frase nos dois arquivos, é a forma pior e só sobrevive por ser pinada verbatim
+   * por um contrato da Phase 10.)
+   *
+   * ⚠ Nenhuma das duas diz QUAL das duas causas foi. A EF devolve o `motivo` no corpo, mas
+   * distinguir «corte de gasto» de «injeção detectada» na tela do recrutador confirmaria a um
+   * atacante que a injeção foi vista. Quem precisa da causa é o administrador, e ela está no
+   * `ai_call_logs` e na linha de `comparativo_solicitado`.
+   */
+  SEM_RESULTADO_IA:
+    'Nenhum modelo de IA foi consultado para este comparativo. Não é falha de conexão — fale com o administrador do sistema.',
 }
 
 /** Cópia genérica de última instância — nunca uma frase específica sobre causa desconhecida. */
