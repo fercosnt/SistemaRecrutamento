@@ -77,3 +77,66 @@ describe('AnaliseIABlock — análise completa da IA (VISRH-02)', () => {
     expect(container.textContent?.toLowerCase()).not.toContain('teste psicológico')
   })
 })
+
+// ── Phase 49 / plano 49-16 — o selo de proveniência na análise da triagem (D-27b) ─────
+//
+// Esta é a análise que abre o hub do candidato: o `score_match` que o RH lê primeiro. As
+// 25 linhas vivas de `analise_candidato_vaga` em PROD têm `provedor_ia`/`modelo_ia` NULL
+// (medido 2026-09-23) — para elas a frase verdadeira é «modelo não registrado» (D-30).
+describe('AnaliseIABlock — selo de proveniência (49-16 / D-27b / JORN-28)', () => {
+  it("provedor_ia='openai' ⇒ selo de CONTINGÊNCIA com o modelo que respondeu", () => {
+    render(
+      <AnaliseIABlock
+        analise={{ ...cheia, provedor_ia: 'openai', modelo_ia: 'gpt-4o-mini' } as never}
+      />,
+    )
+    const selo = screen.getByTestId('proveniencia-ia-badge')
+    expect(selo).toHaveAttribute('data-contingencia', 'true')
+    expect(selo).toHaveTextContent('gpt-4o-mini')
+  })
+
+  it("provedor_ia='anthropic' ⇒ selo neutro", () => {
+    render(
+      <AnaliseIABlock
+        analise={
+          { ...cheia, provedor_ia: 'anthropic', modelo_ia: 'claude-sonnet-4-6' } as never
+        }
+      />,
+    )
+    expect(screen.getByTestId('proveniencia-ia-badge')).toHaveAttribute(
+      'data-contingencia',
+      'false',
+    )
+  })
+
+  it('proveniência NULL ⇒ «modelo não registrado», nunca silêncio (as 25 linhas de PROD)', () => {
+    render(<AnaliseIABlock analise={cheia} />)
+    expect(screen.getByTestId('proveniencia-ia-badge')).toHaveTextContent(
+      'modelo não registrado',
+    )
+  })
+
+  it('a análise que FALHOU também diz de onde veio (ou que não se sabe)', () => {
+    render(
+      <AnaliseIABlock
+        analise={
+          {
+            ...cheia,
+            analise_status: 'falhou',
+            provedor_ia: 'openai',
+            modelo_ia: 'gpt-4o-mini',
+          } as never
+        }
+      />,
+    )
+    expect(screen.getByTestId('proveniencia-ia-badge')).toHaveAttribute(
+      'data-contingencia',
+      'true',
+    )
+  })
+
+  it('sem análise NÃO há selo — não existe proveniência de um resultado que não existe', () => {
+    render(<AnaliseIABlock analise={null} />)
+    expect(screen.queryByTestId('proveniencia-ia-badge')).toBeNull()
+  })
+})

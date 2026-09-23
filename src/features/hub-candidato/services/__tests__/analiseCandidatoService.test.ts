@@ -47,7 +47,26 @@ vi.mock('@/lib/supabase/client', () => {
 
 import { getAnalise, ANALISE_HUB_ALLOWLIST } from '../analiseCandidatoService'
 
-const ALLOWLIST_COLS = ['score_match', 'pontos_fortes', 'gaps', 'flags', 'status']
+/**
+ * ⚠ CRESCEU DE PROPÓSITO no plano 49-16 (D-27b / D-56), com proveniência: as duas colunas
+ * de PROVENIÊNCIA (`provedor_ia`, `modelo_ia`) entraram porque o selo de contingência não
+ * tem de onde ler sem elas — e um resultado que veio do modelo de contingência sem marca
+ * na tela é o defeito de 2026-09-20 (o RH decidiu sobre pessoas achando que lia o modelo
+ * configurado). São 7 colunas agora, e a allowlist segue SEM curinga: RLS é por linha e
+ * não esconde coluna, então `resumo_cv`/`resumo_respostas`/`erro` continuam fora.
+ */
+const ALLOWLIST_COLS = [
+  'score_match',
+  'pontos_fortes',
+  'gaps',
+  'flags',
+  'status',
+  'provedor_ia',
+  'modelo_ia',
+]
+
+/** As internas da IA que a allowlist existe para NÃO projetar (T-34-02-01). */
+const NUNCA_PROJETADAS = ['resumo_cv', 'resumo_respostas', 'erro']
 
 describe('analiseCandidatoService — allowlist read of analise_candidato_vaga (VISRH-02)', () => {
   beforeEach(() => {
@@ -70,11 +89,44 @@ describe('analiseCandidatoService — allowlist read of analise_candidato_vaga (
     }
   })
 
-  it('the exported ANALISE_HUB_ALLOWLIST const is star-free and names the 5 columns', () => {
+  it('the exported ANALISE_HUB_ALLOWLIST const is star-free and names the 7 columns', () => {
     expect(ANALISE_HUB_ALLOWLIST).not.toContain('*')
     for (const col of ALLOWLIST_COLS) {
       expect(ANALISE_HUB_ALLOWLIST).toContain(col)
     }
+  })
+
+  it('NEVER projects the raw AI internals the hub does not need (T-34-02-01)', () => {
+    for (const col of NUNCA_PROJETADAS) {
+      expect(ANALISE_HUB_ALLOWLIST).not.toContain(col)
+    }
+  })
+
+  it('carries the provenance through to the row (D-27b — o selo lê daqui)', async () => {
+    result.data = {
+      score_match: 61,
+      pontos_fortes: [],
+      gaps: [],
+      flags: [],
+      status: 'sucesso',
+      provedor_ia: 'openai',
+      modelo_ia: 'gpt-4o-mini',
+    }
+    const row = await getAnalise('cand-1')
+    expect(row).toMatchObject({ provedor_ia: 'openai', modelo_ia: 'gpt-4o-mini' })
+  })
+
+  it('proveniência ausente na linha ⇒ null, nunca undefined (as 25 linhas vivas de PROD)', async () => {
+    result.data = {
+      score_match: 61,
+      pontos_fortes: [],
+      gaps: [],
+      flags: [],
+      status: 'sucesso',
+    }
+    const row = await getAnalise('cand-1')
+    expect(row?.provedor_ia).toBeNull()
+    expect(row?.modelo_ia).toBeNull()
   })
 
   it('filters by candidatura_id', async () => {

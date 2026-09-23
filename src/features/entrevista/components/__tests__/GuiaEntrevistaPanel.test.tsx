@@ -264,3 +264,51 @@ describe('GuiaEntrevistaPanel — geração: tempo esperado e cooldown (§7.25)'
     expect(screen.getAllByRole('button', { name: /Gerando…/ }).length).toBe(2)
   })
 })
+
+// ── Phase 49 / plano 49-16 — o selo de proveniência no guia (D-27b / JORN-28) ─────────
+//
+// Em 2026-09-20 um resultado de IA que o RH leu na tela saiu do modelo de CONTINGÊNCIA e
+// nada na interface dizia isso. O guia é um dos resultados de IA que o RH lê para decidir
+// como conduzir a entrevista; até este plano ele não dizia qual modelo o escreveu — e as 5
+// linhas vivas de `entrevista_guias` em PROD têm `provedor_ia`/`modelo_ia` NULL (medido em
+// 2026-09-23), o que a tela precisa dizer como «modelo não registrado» (D-30), nunca como
+// silêncio (silêncio é indistinguível de proveniência confirmada).
+describe('GuiaEntrevistaPanel — selo de proveniência do resultado de IA (49-16 / D-27b)', () => {
+  it("provedor_ia='openai' ⇒ selo de CONTINGÊNCIA com o modelo que respondeu", () => {
+    const guia = {
+      ...sampleGuia(),
+      provedor_ia: 'openai',
+      modelo_ia: 'gpt-4o-mini',
+    } as EntrevistaGuiaRow
+    render(<GuiaEntrevistaPanel guia={guia} />)
+    const selo = screen.getByTestId('proveniencia-ia-badge')
+    expect(selo).toHaveAttribute('data-contingencia', 'true')
+    expect(selo).toHaveTextContent('gpt-4o-mini')
+  })
+
+  it("provedor_ia='anthropic' ⇒ selo neutro (o modelo configurado respondeu)", () => {
+    const guia = {
+      ...sampleGuia(),
+      provedor_ia: 'anthropic',
+      modelo_ia: 'claude-sonnet-4-6-20260215',
+    } as EntrevistaGuiaRow
+    render(<GuiaEntrevistaPanel guia={guia} />)
+    expect(screen.getByTestId('proveniencia-ia-badge')).toHaveAttribute(
+      'data-contingencia',
+      'false',
+    )
+  })
+
+  it('modelo_ia NULL ⇒ «modelo não registrado» (as 5 linhas legadas de PROD), nunca silêncio', () => {
+    const guia = { ...sampleGuia(), provedor_ia: null, modelo_ia: null } as EntrevistaGuiaRow
+    render(<GuiaEntrevistaPanel guia={guia} />)
+    expect(screen.getByTestId('proveniencia-ia-badge')).toHaveTextContent(
+      'modelo não registrado',
+    )
+  })
+
+  it('sem guia gerado NÃO há selo — não existe proveniência de um resultado que não existe', () => {
+    render(<GuiaEntrevistaPanel guia={null} />)
+    expect(screen.queryByTestId('proveniencia-ia-badge')).toBeNull()
+  })
+})
