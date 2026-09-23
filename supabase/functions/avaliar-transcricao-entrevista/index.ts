@@ -75,6 +75,7 @@ import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared
 import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import { AvaliarTranscricaoBodySchema } from "../_shared/entrevista-schemas.ts";
 import { TranscriptAnalysisSchema } from "../_shared/interview-output-schemas.ts";
+import { algumProvedorRespondeu } from "../_shared/resultado-de-provedor.ts";
 import {
   deriveLanguageAccentFlag,
   type TranscriptAnalysisSlice,
@@ -366,7 +367,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
       | (TranscriptAnalysisSlice & { competency_evaluations?: Array<{ competency?: string; score?: unknown }> })
       | null;
 
-    // ── 6. Never-absent: parse falho / injeção → persiste a linha com
+    // ── 6. Never-absent: SEM análise utilizável → persiste a linha com
     //      `status_analise='falhou'` e bloqueio_avanco:false (nunca um sucesso
     //      fabricado). Sem scores_candidato (não há análise para gravar), e — Phase 49 /
     //      49-10 — a linha NÃO supera ninguém e NÃO é vigente: a análise boa anterior
@@ -374,7 +375,28 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
     //      ⚠ Até aqui esta linha entrava como `pendente_humano`, e por isso virava «a
     //      mais nova» para todo leitor que ordenava por `created_at` — uma falha de IA
     //      apagava da tela a análise que tinha funcionado.
-    if (parsed == null || result.error_code === "prompt_injection_detected") {
+    //
+    //   Phase 49 / plano 49-26 / WINDOWS 65 — as DUAS perguntas, e por que são duas:
+    //
+    //   (a) `!algumProvedorRespondeu(result)` — ALGUM modelo produziu isto? Quando `callAi`
+    //       corta a chamada antes de tocar provedor nenhum (teto diário de custo, injeção
+    //       detectada no input), ele devolve um `parsed` que NÃO é nulo: um stub que existe
+    //       para preservar a RNF-07a. Por isso perguntar só por (b) era uma guarda que não
+    //       guardava — o stub passava, e o caminho de sucesso gravava uma análise
+    //       `pendente_humano` com competências VAZIAS. Medido: ela também marcava a análise
+    //       boa anterior como SUPERADA, então a tela ficava com a vazia.
+    //   (b) `parsed == null` — o que veio serve? Provedor real ainda pode devolver nada
+    //       aproveitável (parse falho, schema recusado). É ausência de CONTEÚDO, não de
+    //       provedor, e as duas têm diagnósticos diferentes em `error_code`.
+    //
+    //   Até 2026-09-23 o lugar de (a) era ocupado por uma comparação do código de erro do
+    //   resultado contra um único código literal, o da injeção. Era uma lista de um item:
+    //   cobria a injeção e deixava o teto de custo — e todo bloqueio pré-provedor futuro —
+    //   fora da vigilância, com o caminho seguindo verde. A pergunta agora é estrutural e o
+    //   código de erro é só o DIAGNÓSTICO registrado no log, nunca o gatilho. (A forma
+    //   retirada não é reproduzida aqui de propósito: os portões desta fase a procuram NO
+    //   DISCO, e citá-la a deixaria encontrável no arquivo que a removeu.)
+    if (!algumProvedorRespondeu(result) || parsed == null) {
       const { data: falhaRes, error: falhaErr } = await supabaseAdmin.rpc("registrar_analise_entrevista", {
           p_candidatura_id: body.candidatura_id,
           p_tipo: tipo,
