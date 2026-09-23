@@ -29,6 +29,28 @@
  *   · Rótulo pela chave: a resposta leva `posicoes` (`C<n>` → `candidatura_id`) na
  *     MESMA ordem do prompt, e a ordenação ganhou desempate estável.
  *
+ * ── PHASE 49 / PLANO 49-27 — o bloqueio deixa de virar ranking (WINDOWS 68) ───
+ *   · JORN-39: `callAi` tem caminhos que NÃO chamam provedor nenhum (teto HARD de
+ *     gasto diário por vaga, AI-06; detecção de injeção, RF-PL-18). Nos dois ele
+ *     devolve um resultado SEM provedor cujo conteúdo não é nulo — um artefato
+ *     nosso, feito para o chamador não precisar tratar ausência e para preservar a
+ *     RNF-07a. Esta EF não perguntava nada sobre ele: o artefato era gravado em
+ *     `comparativo_solicitado.ranking` como ranking auditado E devolvido ao RH num
+ *     envelope de sucesso. Dos seis sítios da mesma família medidos na fase, é o
+ *     único que chega a uma TELA — a quem decide sobre pessoas. Medido em
+ *     2026-09-23: o corpo saía 200 com o artefato, a linha de auditoria ficava com
+ *     ranking presente e autor ausente, e a tela montava a moldura inteira do
+ *     comparativo em volta de uma tabela vazia.
+ *   · A guarda é ESTRUTURAL e vem da fonte única `_shared/resultado-de-provedor.ts`
+ *     (49-26): «algum provedor respondeu isto?». Comparar o código de erro contra
+ *     os bloqueios conhecidos cobriria os de hoje e deixaria o próximo passar verde
+ *     — a forma «lista literal» do CLAUDE.md §Portões. O código de erro continua
+ *     valendo como DIAGNÓSTICO (vai para `motivo`), nunca como gatilho.
+ *   · JORN-28: o bloqueio CONTINUA auditado. `ranking` é `jsonb NOT NULL` (medido em
+ *     PROD), então a linha registra um marcador de bloqueio explícito — nunca o
+ *     artefato, nunca `{}`, e nada com a forma de um ranking. O erro do INSERT segue
+ *     checado: um bloqueio que não consegue ser auditado não sai como recusa limpa.
+ *
  * ── SINGLE-EVAL V1 (anti-viés de posição) ─────────────────────────────────────
  *   O prompt `comparative_ranking` prescreve dupla-avaliação (swap + média) para
  *   neutralizar viés de posição. Para cumprir o P95 ≤5s (CONTEXT) o V1 faz UMA
@@ -74,6 +96,11 @@ import {
 // Não é uma cópia local: cópias divergem em silêncio, e este critério já errou por olhar só
 // a etapa (o knockout preserva `etapa_atual='inscricao'` e só move o status).
 import { candidaturaEncerrada } from "../_shared/candidaturaEncerrada.ts";
+// JORN-39 / WINDOWS 68: a pergunta «algum modelo respondeu isto?» em UM lugar (49-26), a
+// mesma que `gerar-guia-entrevista` e `avaliar-transcricao-entrevista` consomem. Não é uma
+// cópia local nem uma lista de códigos de bloqueio: o predicado é estrutural, e é isso que
+// faz um bloqueio FUTURO ser pego sem ninguém editar esta EF.
+import { algumProvedorRespondeu } from "../_shared/resultado-de-provedor.ts";
 // SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
 // pacote da lista de dependências do deploy (ERR_MODULE_NOT_FOUND no runtime do EF). Precedente que
 // deploya E passa o `deno test` type-checked: `analise-schemas.ts` importa `npm:zod@3.25.76` estático.
@@ -102,6 +129,11 @@ type ErrorCode =
   | "MIXED_VAGA"
   | "ENCERRADA"
   | "SEM_ANALISE"
+  // Phase 49 / 49-27 (JORN-39): nenhum provedor produziu resultado — o pedido foi cortado
+  // ANTES da chamada (teto de gasto, injeção). Nome na forma pt-BR de `SEM_ANALISE`, o
+  // vocabulário que o 49-08 estabeleceu, e deliberadamente ESTRUTURAL: vale para qualquer
+  // bloqueio pré-provedor, não para a causa que existia no dia em que foi escrito.
+  | "SEM_RESULTADO_IA"
   | "SERVER_ERROR";
 
 function jsonResponse(body: unknown, status: number): Response {
@@ -431,7 +463,28 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
     );
 
     const latencia_ms = Date.now() - start;
-    const ranking = result.parsed ?? null;
+
+    // ── 7b. Bloqueio ANTERIOR a qualquer provedor (WINDOWS 68 / JORN-39) ──────
+    //
+    // Duas perguntas independentes, e colapsá-las numa só perderia informação: «algum
+    // provedor respondeu?» (aqui) e «o que veio serve?» (o `?? null` abaixo, que faz o
+    // INSERT falhar em 23502 e virar 500 — o caminho do 49-08 para parse falho com provedor
+    // REAL). O predicado compartilhado assere, por teste próprio, que não opina sobre
+    // conteúdo; é por isso que as duas continuam existindo.
+    const bloqueado = !algumProvedorRespondeu(result);
+    // O código de erro é o DIAGNÓSTICO — quem ler a auditoria depois precisa saber a causa.
+    // O fallback cobre um bloqueio futuro que chegue aqui sem código: «não sabemos por que,
+    // mas sabemos que ninguém respondeu» é uma verdade registrável; inventar uma causa não.
+    const motivo = bloqueado ? (result.error_code ?? "sem_provedor") : null;
+    // `ranking` é `jsonb NOT NULL` (medido em PROD, 2026-09-23: sem default, sem CHECK de
+    // forma). O bloqueio não pode ser gravado como NULL, e gravá-lo como `{}` seria
+    // indistinguível de «não escrevemos nada» — a mesma confusão entre ausência e vazio que
+    // o 49-26 mediu no upsert de flags. Então a linha carrega um marcador EXPLÍCITO, com
+    // zero chaves em comum com a forma de um ranking real: quem lê a auditoria (e o portão
+    // do 49-18) distingue bloqueio de resultado por presença de chave, sem perícia de forma.
+    const ranking = bloqueado
+      ? { bloqueado: true, motivo }
+      : (result.parsed ?? null);
 
     // ── 8. Persiste UMA linha de auditoria (RF-09) + proveniência (D-28) ──────
     //
@@ -468,6 +521,33 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
       throw new Error(
         `insert de comparativo_solicitado falhou: ${auditErr.code ?? ""} ${auditErr.message ?? ""}`
           .trim(),
+      );
+    }
+
+    // ── 8b. A recusa ao RH (JORN-39) ──────────────────────────────────────────
+    //
+    // Vem DEPOIS do INSERT de propósito: a linha de auditoria do bloqueio é gravada e o seu
+    // erro é checado antes de qualquer resposta, então um bloqueio jamais é comunicado como
+    // se estivesse registrado quando não está (se o INSERT falha, o `throw` acima leva ao
+    // 500 do 49-08).
+    //
+    // 503, e não 200 nem 400: 200 é o envelope de sucesso cuja ambiguidade este conserto
+    // existe para remover; 400 culparia o pedido do RH, que estava correto — é a mesma
+    // classe de diagnóstico falso que o 49-08 removeu ao separar `ENCERRADA` e `SEM_ANALISE`
+    // de `MIXED_VAGA`. O `error_code` viaja no corpo, que é onde `lib/efErrors.ts` o lê
+    // PRIMEIRO num non-2xx (fonte autoritativa), e chega à tela em `details.error_code`.
+    if (bloqueado) {
+      console.log("[comparativo] bloqueado", {
+        vaga_id: body.vaga_id,
+        candidatos_count: ids.length,
+        latencia_ms,
+        motivo,
+      });
+      return errorResponse(
+        "SEM_RESULTADO_IA",
+        "Este comparativo não foi gerado: o pedido foi bloqueado antes de qualquer chamada de IA. O bloqueio está registrado na auditoria.",
+        503,
+        { motivo, latencia_ms },
       );
     }
 
