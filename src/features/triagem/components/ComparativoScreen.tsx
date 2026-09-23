@@ -160,7 +160,20 @@ export function ComparativoScreen({
       const { exportComparativo } = await import('../pdf/exportComparativo')
       // W1: passa os candidatos JÁ RESOLVIDOS (carregam `.nome` real) — a EF
       // anonimiza C1/C2… e não popula `nome` no ranking, então o PDF deve ler daqui.
-      exportComparativo(candidates)
+      // D-27b: e a proveniência vai junto. O PDF sai da empresa; sem esta linha, um
+      // ranking de contingência circularia como saída do modelo configurado. `undefined`
+      // quando o consumidor não fiou a proveniência — o PDF então não afirma nada sobre
+      // ela, em vez de afirmar «não registrado» por conta própria.
+      exportComparativo(
+        candidates,
+        temProveniencia
+          ? {
+              provedorIa: provedorIa ?? null,
+              modeloIa: modeloIa ?? null,
+              fallbackCause: fallbackCause ?? null,
+            }
+          : undefined,
+      )
       toast.success('PDF exportado.')
     } catch {
       toast.error('Não foi possível gerar o PDF. Tente novamente.')

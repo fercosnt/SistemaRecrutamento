@@ -213,7 +213,37 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     // '../../pdf/exportComparativo' intercepts the dynamic import too (same module id).
     // W1: o PDF recebe os candidatos JÁ RESOLVIDOS (com `.nome` real), não o ranking
     // cru da EF (que anonimiza C1/C2… e não popula nome).
-    await waitFor(() => expect(exportComparativo).toHaveBeenCalledWith(candidates))
+    //
+    // ⚠ MUDANÇA DE PROPÓSITO (49-13, dentro do intervalo :191-259 que o D-56 autoriza):
+    // `exportComparativo` ganhou um 2º parâmetro (a proveniência, D-27b). Este consumidor
+    // não fia a proveniência, então o 2º argumento é `undefined` — o PDF então não afirma
+    // nada sobre o modelo, em vez de afirmar «não registrado» por conta própria.
+    await waitFor(() => expect(exportComparativo).toHaveBeenCalledWith(candidates, undefined))
+  })
+
+  it('com proveniência fiada, o PDF recebe a proveniência junto (D-27b — o arquivo sai da empresa)', async () => {
+    const candidates = [
+      makeCandidate({ candidaturaId: '1', rank: 1 }),
+      makeCandidate({ candidaturaId: '2', rank: 2 }),
+    ]
+    render(
+      <ComparativoScreen
+        candidates={candidates}
+        provedorIa="openai"
+        modeloIa="gpt-4o-mini-2024"
+        fallbackCause="anthropic_max_tokens"
+        onAvancar={vi.fn()}
+        onRejeitar={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /exportar pdf/i }))
+    await waitFor(() =>
+      expect(exportComparativo).toHaveBeenCalledWith(candidates, {
+        provedorIa: 'openai',
+        modeloIa: 'gpt-4o-mini-2024',
+        fallbackCause: 'anthropic_max_tokens',
+      }),
+    )
   })
 })
 
