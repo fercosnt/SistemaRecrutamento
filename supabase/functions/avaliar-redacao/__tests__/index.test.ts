@@ -694,6 +694,55 @@ Deno.test("49-23 / JORN-35 — UMA chave inventada entre 4 válidas: só ela sai
   assertEquals(dims.length, 5, "nada é apagado do que a IA devolveu");
 });
 
+// ── Rubrica com PESO torto: a dimensão sai do vocabulário E do bloco ──────────
+// Cenário real: um admin edita a rubrica à mão e um `peso` deixa de ser número.
+// `rubricDimensoesFrom` descarta essa dimensão, então (a) ela NÃO é enviada ao modelo
+// como se fosse pontuável e (b) se o modelo a devolver, ela conta como desconhecida.
+// Pinado porque a alternativa silenciosa seria pesá-la com um número inventado.
+Deno.test("49-23 — dimensão com `peso` não numérico sai do vocabulário e não é enviada ao modelo", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin(
+    { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
+    {
+      id: "perg-1",
+      formato: "caso_aberto",
+      cenario: "Cenário com rubrica editada à mão.",
+      rubric: {
+        dimensoes: [
+          { dimension: "raciocinio_clinico_estetico", peso: 25 },
+          { dimension: "planejamento_decisao", peso: "vinte por cento" },
+        ],
+      },
+    },
+  );
+  const capturados: Record<string, unknown>[] = [];
+  const res = await handler(makeRequest(VALID_BODY), {
+    anthropic: makeMockAnthropicCapturing(
+      {
+        dimension_scores: [
+          { dimension: "raciocinio_clinico_estetico", score: 4 },
+          { dimension: "planejamento_decisao", score: 5 },
+        ],
+        red_flags: [],
+      },
+      capturados,
+    ),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(OWNER),
+  });
+  assertEquals(res.status, 200);
+  // (a) o bloco enviado NÃO oferece a dimensão de peso torto.
+  const bloco = (capturados[0].system as { text: string }[])[1].text;
+  assert(bloco.includes("`raciocinio_clinico_estetico` (peso 25)"), "a válida vai no bloco");
+  assert(!bloco.includes("planejamento_decisao"), "a de peso torto NÃO vai no bloco");
+  // (b) devolvida pelo modelo, ela é desconhecida: fora da soma, e caso para o RH.
+  const { row, metadata } = metadataDoScore(admin);
+  assertEquals(row.score, 20, "composto só pela dimensão de peso válido (25×4 ÷ 25)");
+  assertEquals(metadata.dimensoes_desconhecidas, ["planejamento_decisao"]);
+  assertEquals(row.status, "pendente_humano");
+});
+
 // ── D-68: proveniência real na metadata ───────────────────────────────────────
 Deno.test("49-23 / D-68 — a metadata grava provedor_ia e modelo_ia REAIS (não o configurado)", async () => {
   const { handler } = await loadHandler();
