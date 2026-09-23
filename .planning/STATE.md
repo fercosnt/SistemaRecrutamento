@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-27-PLAN.md
-last_updated: "2026-09-23T18:59:10.501Z"
+stopped_at: Completed 49-28-PLAN.md
+last_updated: "2026-09-23T19:24:25.429Z"
 last_activity: 2026-09-23
-state_head: 107a057154f90bd2164c3df3268c99ecc6da469a
+state_head: d23bb30a7270679c17236f98c054d2f24061d807
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 106
-  completed_plans: 98
-  percent: 92
+  completed_plans: 99
+  percent: 93
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -811,6 +811,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P12 | 50 min | 3 tasks | 5 files |
 | Phase 49 P20 | 45 min | 1 tasks | 2 files |
 | Phase 49 P27 | ~55 min | 1 tasks | 2 files |
+| Phase 49 P28 | 42 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1125,6 +1126,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: O motor de exclusão passa a apagar as respostas, os textos, as transcrições e as citações do titular (JORN-36 / D-48). D-62 aplicado: as quatro tabelas de múltipla escolha perdem a LINHA — o primeiro apagamento de linha deste motor, e a exceção explícita do operador, porque os CHECKs delas não aceitam sentinela (reconfirmado no catálogo vivo). O escopo do apagamento é vigiado por EXTRAÇÃO da lista de tabelas do corpo instalado, não por presença — a mutação M13 prova que uma quinta tabela é pega mesmo quando a fixture não a vê. trg_redacao_rh_only_review_fields ganha janela por GUC: o passo deixa de depender do papel de quem executa (Correção 18 / Pitfall 6), e (B22) prova que fora da janela o trigger ainda morde.
 - [Phase 49]: 49-27: recusa de comparativo bloqueado usa codigo NOVO (SEM_RESULTADO_IA, 503) — nenhum dos 5 codigos do 49-08 e verdadeiro para um corte de gasto; reusar um deles recriaria a mentira de diagnostico que o 49-08 removeu
 - [Phase 49]: 49-27: o bloqueio e gravado em comparativo_solicitado.ranking (jsonb NOT NULL) como marcador explicito {bloqueado, motivo} — NULL e proibido pela coluna e {} seria indistinguivel de 'nada escrito'. Nenhuma migration: o schema vivo ja permitia
+- [Phase 49]: 49-28: as TRES metades de nao-vacuidade de (j) passam a ESTABELECER o estado que medem dentro do envelope, em vez de LER o estado vivo de PROD — e o contador do gate passou a sair do run como LINHA (P46P_REG_CONTADOR), porque a via atual descarta NOTICE
 
 ### Roadmap Evolution
 
@@ -1415,8 +1417,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T18:59:00.545Z
-Stopped at: Completed 49-27-PLAN.md
+Last session: 2026-09-23T19:24:15.648Z
+Stopped at: Completed 49-28-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

@@ -165,7 +165,7 @@ Acrescentados em 2026-09-22 no kickoff da Phase 49 (`49-CONTEXT.md`). Mesma conv
 - [ ] **JORN-25**: Candidatura encerrada não é selecionável no comparativo (a EF também recusa, com mensagem verdadeira); o banco recusa mover candidatura encerrada, exceto transições sancionadas, e o e-mail de avanço não sai para ela; o «Avançar» leva à próxima etapa real; o comparativo da decisão compara quem está em `decisao_final` e não encerrado; o ranking rotula por `candidatura_id`, não por posição (D-34..D-36b)
 - [x] **JORN-12**: Cada análise de entrevista sabe de qual entrevista é (tipo escolhido pelo RH), quem a pediu, qual texto a gerou (hash + vínculo com o log) e se é a vigente; falha nunca é vigente; cache não cria linha; portão de avanço e revisão humana olham só a vigente; análise nova após revisão volta a aguardar revisão sem apagar a anterior (D-37..D-43)
 - [x] **JORN-17**: `etapa_justificativa` é limpa depois de consumida pelo histórico — nenhuma transição herda o texto de outra, e o portão de regressão volta a exigir motivo novo; as 9 grudadas em PROD são limpas com checkpoint (D-46)
-- [ ] **JORN-3b**: Ler a explicação — ou qualquer UPDATE que não muda nada — não versiona a decisão; decisão, ciclo de revisão, reabertura e tombstone continuam arquivando; coluna nova em `decisao_final` não some do arquivo em silêncio (D-44, D-45)
+- [x] **JORN-3b**: Ler a explicação — ou qualquer UPDATE que não muda nada — não versiona a decisão; decisão, ciclo de revisão, reabertura e tombstone continuam arquivando; coluna nova em `decisao_final` não some do arquivo em silêncio (D-44, D-45)
 - [ ] **JORN-32**: A EF do comparativo confere que as análises pertencem à vaga cuja posse foi verificada (IDOR)
 - [ ] **JORN-33**: O Kanban trata candidatura encerrada pelo predicado canônico (hoje ignora `finalizado`) e não a deixa avançar
 - [ ] **JORN-34**: Nenhuma tela reabre candidatura encerrada só mudando o status, sem trilha (`UpdateStatusModal`)
@@ -285,7 +285,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | JORN-25 | Phase 49 | Pending |
 | JORN-12 | Phase 49 | Complete |
 | JORN-17 | Phase 49 | Complete |
-| JORN-3b | Phase 49 | Pending |
+| JORN-3b | Phase 49 | Complete |
 | JORN-32 | Phase 49 | Pending |
 | JORN-33 | Phase 49 | Pending |
 | JORN-34 | Phase 49 | Pending |
