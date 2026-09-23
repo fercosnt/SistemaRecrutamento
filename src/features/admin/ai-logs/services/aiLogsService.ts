@@ -19,9 +19,18 @@ type LlmProvider = Database['public']['Enums']['llm_provider']
 /**
  * ALLOWLIST EXPLÍCITO da listagem (UI-SPEC §/admin/ai-logs).
  * NUNCA inclui PII (system_prompt / user_prompt_template / raw_response).
+ *
+ * Phase 49 / 49-15 (D-27c): `error_code` e `model_snapshot` entram — e SÓ elas.
+ *  - `error_code` é o que separa um resultado de FALLBACK de um sucesso. Sem ele a tela
+ *    pinta de verde «Sucesso» uma chamada em que o modelo configurado não respondeu
+ *    (medido em PROD: 17 de 55 linhas estão nesse estado).
+ *  - `model_snapshot` é o modelo que DE FATO respondeu; `model_id` é o CONFIGURADO. Num
+ *    fallback os dois divergem, e mostrar o configurado é uma afirmação falsa.
+ * Nenhuma das duas carrega conteúdo de prompt ou de resposta: o conteúdo segue exclusivo
+ * do modal de detalhe.
  */
 const AI_LOGS_LIST_COLUMNS =
-  'id, created_at, candidato_id, vaga_id, call_type, provider, model_id, prompt_hash, prompt_version_id, success, parsed_score, cost_usd, latency_ms'
+  'id, created_at, candidato_id, vaga_id, call_type, provider, model_id, model_snapshot, prompt_hash, prompt_version_id, success, error_code, parsed_score, cost_usd, latency_ms'
 
 /** ALLOWLIST do modal de detalhe (campos completos para uma única linha). */
 const AI_LOG_DETAIL_COLUMNS =
@@ -34,10 +43,20 @@ export interface AiLogListRow {
   vaga_id: string | null
   call_type: LlmCallType
   provider: LlmProvider
+  /** O modelo CONFIGURADO. Num fallback, NÃO é o que respondeu — ver `model_snapshot`. */
   model_id: string
+  /** O modelo que DE FATO respondeu, quando registrado. NULL nas linhas mais antigas. */
+  model_snapshot: string | null
   prompt_hash: string
   prompt_version_id: string
   success: boolean
+  /**
+   * Código de erro da chamada. Três leituras, e a terceira é o motivo desta coluna estar
+   * na listagem (D-27c): NULL numa chamada `success` = sucesso limpo; preenchido com
+   * `success=false` = falha; preenchido com `success=true` = resultado de FALLBACK —
+   * utilizável, mas não vindo do modelo que se pediu.
+   */
+  error_code: string | null
   parsed_score: number | null
   cost_usd: number | null
   latency_ms: number

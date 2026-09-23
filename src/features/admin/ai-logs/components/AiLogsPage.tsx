@@ -5,7 +5,21 @@
  * allowlist explícito (sem select('*')). Empty state é o estado default no ship
  * (consumidores de IA chegam na Fase 10+). Copy verbatim do UI-SPEC §Copywriting.
  *
+ * ─── Phase 49 / plano 49-15 — o terceiro estado (D-27c / JORN-28) ────────────────────
+ *
+ * A coluna Status tinha DOIS estados, `success ? 'Sucesso' : 'Falha'`. Medido em PROD em
+ * 2026-09-23 (só leitura): de 55 linhas de `ai_call_logs`, **17 têm `success = true` com
+ * `error_code = 'anthropic_retries_exhausted'`** — o modelo configurado não respondeu e o
+ * resultado veio do de contingência. As 17 apareciam verdes, indistinguíveis das 38
+ * legítimas, e a coluna Modelo mostrava o modelo CONFIGURADO, que não foi quem respondeu.
+ * Agora há «Fallback» (âmbar) com a causa legível, e a coluna Modelo mostra o modelo real.
+ *
+ * O predicado do estado está em `estadoDaChamada` — leia o docblock dele antes de mexer:
+ * ele NÃO é o prefixo `fallback_`, de propósito.
+ *
  * @module features/admin/ai-logs/components/AiLogsPage
+ * @see supabase/functions/_shared/ai-error-codes.ts (o prefixo e as causas — fonte única)
+ * @see src/features/triagem/components/ProvenienciaIABadge.tsx (o mesmo âmbar, no lado do RH)
  */
 
 import { useMemo, useState } from 'react'
@@ -43,7 +57,16 @@ import {
   PaginationItem,
 } from '../../../../components/ui/pagination'
 import { useAiLogs, useAiLogDetail } from '../hooks/useAiLogs'
-import type { AiLogsFilters } from '../services/aiLogsService'
+import type { AiLogListRow, AiLogsFilters } from '../services/aiLogsService'
+// ⚠ Caminho RELATIVO para `_shared`, de propósito: a tabela de causas legíveis e o
+// predicado de fallback têm UMA fonte, e é a mesma que a Edge Function escreve. O módulo tem
+// contrato de ZERO IMPORTS justamente para poder ser importado daqui. Precedentes vivos:
+// `ProvenienciaIABadge.tsx:52`, `exportacaoService.ts:61`, `AutorizacoesStep.tsx:50`.
+import {
+  CAUSA_FALLBACK_ROTULO,
+  causaDoFallback,
+  ehFallback,
+} from '../../../../../supabase/functions/_shared/ai-error-codes'
 
 const PAGE_SIZE = 50
 
@@ -70,6 +93,71 @@ function formatDate(iso: string): string {
 function formatBRL(usd: number | null): string {
   if (usd == null) return '—'
   return `US$ ${usd.toFixed(4)}`
+}
+
+/** Os três estados honestos de uma chamada de IA (D-27c). */
+type EstadoChamada = 'sucesso' | 'falha' | 'fallback'
+
+/**
+ * Qual dos três estados esta linha é.
+ *
+ * ⚠ **`success = true` COM `error_code` é um FALLBACK**, e o predicado é esse — não o prefixo
+ * `fallback_`. O prefixo é a codificação que o plano 49-02 instalou; as 17 linhas vivas de
+ * `ai_call_logs` que estão nesse estado são ANTERIORES a ele e carregam o código CRU
+ * (`anthropic_retries_exhausted`). Um discriminante escrito só sobre `ehFallback()` deixaria
+ * exatamente essas 17 linhas verdes — as MESMAS que motivaram este conserto. É a lição do
+ * CLAUDE.md §«Portões: varra pela FORMA, não pelo sintoma» aplicada ao discriminante: a forma
+ * («há código de erro numa chamada que deu certo») vigia a linha nova e a antiga; a lista de
+ * prefixos conhecidos vigiaria só metade.
+ *
+ * `ehFallback` continua sendo consultado porque é ele que decide se o código tem prefixo a
+ * remover antes de virar causa legível.
+ */
+export function estadoDaChamada(row: {
+  success: boolean
+  error_code: string | null
+}): EstadoChamada {
+  if (!row.success) return 'falha'
+  return row.error_code ? 'fallback' : 'sucesso'
+}
+
+/**
+ * Causa legível do `error_code`, em pt-BR — «não coube», «demorou», «fora do schema», …
+ *
+ * Degrada para o próprio código quando a causa não está na tabela: um código desconhecido na
+ * tela é pior que feio, mas é MUITO melhor que uma célula vazia, que se lê como «sem causa».
+ */
+function causaLegivel(errorCode: string | null): string | null {
+  if (!errorCode) return null
+  const causa = ehFallback(errorCode) ? causaDoFallback(errorCode) : errorCode
+  if (!causa) return null
+  return (CAUSA_FALLBACK_ROTULO as Record<string, string>)[causa] ?? causa
+}
+
+/** O selo de estado + a causa legível ao lado, quando houver. */
+function StatusCell({ row }: { row: AiLogListRow }) {
+  const estado = estadoDaChamada(row)
+  const causa = causaLegivel(row.error_code)
+
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {estado === 'fallback' ? (
+        <Badge
+          data-testid="ai-log-fallback"
+          // Âmbar, não vermelho: o resultado é utilizável. O que o selo diz é que ele NÃO
+          // veio do modelo configurado — mesma cor do selo de proveniência do RH.
+          className="border-amber-400/50 bg-amber-400/15 text-amber-100"
+        >
+          Fallback
+        </Badge>
+      ) : (
+        <Badge variant={estado === 'sucesso' ? 'default' : 'destructive'}>
+          {estado === 'sucesso' ? 'Sucesso' : 'Falha'}
+        </Badge>
+      )}
+      {causa ? <span className="text-sm text-white/60">{causa}</span> : null}
+    </span>
+  )
 }
 
 export function AiLogsPage() {
@@ -238,11 +326,14 @@ export function AiLogsPage() {
                       <TableCell className="font-mono text-sm">{row.vaga_id ?? '—'}</TableCell>
                       <TableCell>{CALL_TYPE_LABELS[row.call_type] ?? row.call_type}</TableCell>
                       <TableCell>{row.provider}</TableCell>
-                      <TableCell className="font-mono text-sm">{row.model_id}</TableCell>
+                      {/* O modelo que DE FATO respondeu; `model_id` (o configurado) é só a
+                          reserva. Num fallback os dois divergem, e mostrar o configurado é
+                          uma afirmação falsa sobre quem produziu aquele resultado. */}
+                      <TableCell className="font-mono text-sm">
+                        {row.model_snapshot ?? row.model_id}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant={row.success ? 'default' : 'destructive'}>
-                          {row.success ? 'Sucesso' : 'Falha'}
-                        </Badge>
+                        <StatusCell row={row} />
                       </TableCell>
                       <TableCell>{row.parsed_score ?? '—'}</TableCell>
                       <TableCell className="font-mono text-sm">{formatBRL(row.cost_usd)}</TableCell>
