@@ -60,21 +60,40 @@ interface ComparativoLocationState {
 }
 
 /**
- * Resolve o `candidate_id` anonimizado (C1/C2…) para a candidatura/nome reais.
- * A EF anonimiza pela ordem de score (RESEARCH), então C{n} → seleção[n-1].
+ * Resolve o rótulo anonimizado (`C1`/`C2`…) para a candidatura/nome reais, PELA CHAVE.
+ *
+ * ⚠ **POR QUE PELA CHAVE, E NÃO PELA POSIÇÃO (JORN-25 / T-49-13-01).** Até o plano 49-13
+ * esta função lia o número do rótulo e indexava a seleção: `C2` → `selection[1]`. Isso
+ * supõe que a ordem em que a Edge Function anonimiza é a mesma em que o painel entregou a
+ * seleção — e as duas divergem sempre que a EF reordena, o que ela faz por score com
+ * desempate por `candidatura_id` (49-08). Num empate de score, o mesmo pedido podia trocar
+ * `C1` e `C2` entre execuções: o RH leria os pontos fortes de uma pessoa sob o nome de
+ * outra, sem nada na tela indicando a troca. É um defeito de repúdio, não de layout.
+ *
+ * A EF passou a devolver `posicoes` (`C<n>` → `candidatura_id`), montado no MESMO laço que
+ * montou o prompt. O lookup é por id, e a ordem da seleção deixa de importar.
+ *
+ * ⚠ **Sem entrada em `posicoes`, mostra o RÓTULO CRU — nunca o vizinho** (Discretion
+ * obrigatória do JORN-25). É o que acontece se a EF publicada for anterior ao 49-08: `C1`
+ * aparece como `C1`, que é visivelmente incompleto, em vez de um nome plausível e errado.
+ *
+ * Exportada para teste direto: é uma função pura e o caso que importa (seleção em ordem
+ * diferente do ranking) é caro de montar pela página inteira.
  */
-function resolveCandidates(
+export function resolveCandidates(
   ranked: RankedCandidate[],
+  posicoes: Record<string, string> | undefined,
   selection: SelectionItem[],
 ): ComparativoCandidate[] {
+  const porId = new Map(selection.map((s) => [s.id, s]))
   return ranked.map((r) => {
-    const idx = Number.parseInt(r.candidate_id.replace(/\D/g, ''), 10) - 1
-    const sel = selection[idx]
+    const candidaturaId = posicoes?.[r.candidate_id]
+    const sel = candidaturaId ? porId.get(candidaturaId) : undefined
     return {
       ...r,
       flags: [],
       nome: sel?.nome ?? r.candidate_id,
-      candidaturaId: sel?.id ?? r.candidate_id,
+      candidaturaId: candidaturaId ?? r.candidate_id,
     }
   })
 }
@@ -108,7 +127,7 @@ export function ComparativoCandidatosPage() {
 
   const candidates = useMemo<ComparativoCandidate[]>(() => {
     if (!data?.ranking?.ranked_candidates) return []
-    return resolveCandidates(data.ranking.ranked_candidates, selection)
+    return resolveCandidates(data.ranking.ranked_candidates, data.posicoes, selection)
   }, [data, selection])
 
   const invalidatePanel = () => {
@@ -162,6 +181,12 @@ export function ComparativoCandidatosPage() {
             // MIXED_VAGA preservado via errorCode (ComparativoScreen ramifica a cópia).
             <ComparativoScreen
               candidates={candidates}
+              // D-27b: a proveniência atravessa a tela até o PDF. Passar `data?.…` (e não um
+              // default local) é o que faz o selo dizer «modelo não registrado» quando a EF
+              // não gravou o modelo, em vez de silenciar.
+              provedorIa={data?.provedor_ia ?? null}
+              modeloIa={data?.modelo_ia ?? null}
+              fallbackCause={data?.fallback_cause ?? null}
               onAvancar={handleAvancar}
               onRejeitar={handleRejeitar}
               isLoading={isPending}

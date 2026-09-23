@@ -217,6 +217,91 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
   })
 })
 
+// ── Phase 49 / plano 49-13 — D-27b: o selo de proveniência acima do ranking ──────────
+describe('ComparativoScreen — selo de proveniência (D-27b / JORN-28)', () => {
+  it('fallback (provedor openai) ⇒ o selo aparece ACIMA do ranking, com o modelo real e a causa', () => {
+    const candidates = [
+      makeCandidate({ candidaturaId: '1', rank: 1 }),
+      makeCandidate({ candidaturaId: '2', rank: 2 }),
+    ]
+    render(
+      <ComparativoScreen
+        candidates={candidates}
+        provedorIa="openai"
+        modeloIa="gpt-4o-mini-2024"
+        fallbackCause="anthropic_max_tokens"
+        onAvancar={vi.fn()}
+        onRejeitar={vi.fn()}
+      />,
+    )
+    const selo = screen.getByTestId('proveniencia-ia-badge')
+    expect(selo).toHaveAttribute('data-contingencia', 'true')
+    expect(selo.textContent).toContain('modelo de contingência')
+    expect(selo.textContent).toContain('gpt-4o-mini-2024')
+    expect(selo.textContent).toContain('não coube')
+
+    // ACIMA do ranking, não depois dele: um aviso abaixo da tabela é lido quando a
+    // decisão já está formada. Comparado por posição no documento.
+    const tabela = screen.getByRole('table')
+    expect(selo.compareDocumentPosition(tabela) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('provedor anthropic ⇒ o selo aparece SEM aviso de contingência (avisar sempre = não avisar)', () => {
+    render(
+      <ComparativoScreen
+        candidates={[makeCandidate({ candidaturaId: '1', rank: 1 })]}
+        provedorIa="anthropic"
+        modeloIa="claude-sonnet-4-6"
+        onAvancar={vi.fn()}
+        onRejeitar={vi.fn()}
+      />,
+    )
+    const selo = screen.getByTestId('proveniencia-ia-badge')
+    expect(selo).toHaveAttribute('data-contingencia', 'false')
+    expect(selo.textContent).not.toContain('contingência')
+    expect(selo.textContent).toContain('claude-sonnet-4-6')
+  })
+
+  it('modelo NULL fiado ⇒ «modelo não registrado» (D-30), nunca silêncio', () => {
+    render(
+      <ComparativoScreen
+        candidates={[makeCandidate({ candidaturaId: '1', rank: 1 })]}
+        provedorIa={null}
+        modeloIa={null}
+        onAvancar={vi.fn()}
+        onRejeitar={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('proveniencia-ia-badge').textContent).toContain(
+      'modelo não registrado',
+    )
+  })
+
+  it('consumidor que NÃO fia a proveniência (embed read-only até o 49-22) não ganha selo inventado', () => {
+    // `undefined` ≠ `null`: dizer «não registrado» a quem nunca passou o dado afirmaria
+    // uma medição que não houve.
+    render(<ComparativoScreen candidates={[makeCandidate({ candidaturaId: '1', rank: 1 })]} />)
+    expect(screen.queryByTestId('proveniencia-ia-badge')).not.toBeInTheDocument()
+    // E o guardrail RNF-07a continua no lugar — os dois selos são independentes.
+    expect(screen.getByText('Sugestão da IA — decisão é sempre humana')).toBeInTheDocument()
+  })
+
+  it('o selo de proveniência NÃO substitui o SugestaoIABadge — os dois convivem no topo', () => {
+    render(
+      <ComparativoScreen
+        candidates={[makeCandidate({ candidaturaId: '1', rank: 1 })]}
+        provedorIa="openai"
+        modeloIa="gpt-4o-mini"
+        fallbackCause="anthropic_timeout"
+        onAvancar={vi.fn()}
+        onRejeitar={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Sugestão da IA — decisão é sempre humana')).toBeInTheDocument()
+    expect(screen.getByTestId('proveniencia-ia-badge')).toBeInTheDocument()
+  })
+})
+
 describe('ComparativoScreen — cópia pt-BR de vagas diferentes (EF 400)', () => {
   it('a cópia exata de MIXED_VAGA do contrato é estável', async () => {
     // A cópia é produzida pelo service (invokeComparativo) e propagada para a UI.

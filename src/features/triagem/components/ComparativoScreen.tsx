@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from './SugestaoIABadge'
+import { ProvenienciaIABadge } from './ProvenienciaIABadge'
 import { RejeitarCandidaturaDialog } from './RejeitarCandidaturaDialog'
 // PERF-03 (Plan 19-02): TYPE-ONLY import at top level — the runtime `exportComparativo`
 // value (which statically pulls in jspdf + jspdf-autotable) is loaded via a call-site
@@ -81,6 +82,18 @@ export interface ComparativoScreenProps {
   onRetry?: () => void
   /** Enquanto true o botão de retry mostra "Tentando…" e fica disabled (sem dupla submissão). */
   retrying?: boolean
+  /**
+   * Proveniência do ranking (D-27b / JORN-28), vinda da EF `comparativo-candidatos`.
+   *
+   * ⚠ `undefined` e `null` significam coisas DIFERENTES aqui, e a distinção é o que
+   * impede o selo de mentir: `undefined` = o consumidor não fiou a proveniência (o embed
+   * read-only da `DecisaoFinalPage`, até o 49-22) ⇒ nenhum selo; `null` = fiou e a EF não
+   * gravou o modelo ⇒ selo dizendo «modelo não registrado» (D-30). Renderizar «não
+   * registrado» para quem nunca passou o dado inventaria uma medição que não houve.
+   */
+  provedorIa?: string | null
+  modeloIa?: string | null
+  fallbackCause?: string | null
 }
 
 /**
@@ -119,10 +132,16 @@ export function ComparativoScreen({
   errorCode,
   onRetry,
   retrying,
+  provedorIa,
+  modeloIa,
+  fallbackCause,
 }: ComparativoScreenProps) {
   const [isGenerating, setIsGenerating] = useState(false)
 
   const ordered = [...candidates].sort((a, b) => a.rank - b.rank)
+
+  // Ver a advertência em `provedorIa`: só `undefined` nos dois campos significa «não fiado».
+  const temProveniencia = provedorIa !== undefined || modeloIa !== undefined
 
   // UX-06: a linha de Ação (Avançar/Rejeitar) só renderiza quando AMBOS os handlers são
   // fornecidos. Consumidores read-only (DecisaoFinalPage) omitem os handlers → nenhum
@@ -161,9 +180,21 @@ export function ComparativoScreen({
       glass={false}
     >
     <div className="space-y-6">
-      {/* Header band: SugestaoIABadge (RNF-07a) + Exportar PDF */}
+      {/* Header band: SugestaoIABadge (RNF-07a) + ProvenienciaIABadge (D-27b) + Exportar PDF.
+          O selo de proveniência fica ACIMA do ranking de propósito: ele qualifica a tabela
+          inteira, e um aviso abaixo dela seria lido depois da decisão já formada. */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <SugestaoIABadge variant="full" />
+        <div className="flex flex-wrap items-center gap-2">
+          <SugestaoIABadge variant="full" />
+          {temProveniencia && (
+            <ProvenienciaIABadge
+              provedorIa={provedorIa ?? null}
+              modeloIa={modeloIa ?? null}
+              fallbackCause={fallbackCause ?? null}
+              variant="full"
+            />
+          )}
+        </div>
         <button
           type="button"
           onClick={handleExport}

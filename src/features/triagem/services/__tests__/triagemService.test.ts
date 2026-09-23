@@ -138,6 +138,133 @@ describe('triagemService — TRIAGEM-03 invokeComparativo', () => {
   })
 })
 
+// ── Phase 49 / plano 49-13 — o contrato novo da EF (49-08) chega ao cliente ───────────
+//
+// ⚠ POR QUE CADA CAUSA TEM DE TER A SUA FRASE. Até o 49-08 a EF colapsava três causas
+// distintas num único MIXED_VAGA, cuja mensagem («vagas diferentes») era FALSA em duas
+// delas: um knockout sem análise e um candidato ainda não analisado são da MESMA vaga. O
+// RH lia «vagas diferentes» e ia caçar um erro que não existia. A EF passou a emitir
+// ENCERRADA e SEM_ANALISE; se este mapa não os conhecesse, os dois cairiam no genérico.
+describe('triagemService — invokeComparativo: as recusas novas da EF (49-13 / D-55)', () => {
+  beforeEach(() => {
+    invokeMock.mockReset()
+  })
+
+  it('ENCERRADA ⇒ diz que uma candidatura está encerrada (NUNCA «vagas diferentes»)', async () => {
+    invokeMock.mockResolvedValue({ data: { ok: false, error_code: 'ENCERRADA' }, error: null })
+    const err = await invokeComparativo('vaga-1', ['c1', 'c2']).catch((e: Error) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect((err as Error).message).toMatch(/encerrada/i)
+    // A metade que importa: a frase FALSA de antes não aparece mais nesta causa.
+    expect((err as Error).message).not.toMatch(/vagas diferentes/i)
+  })
+
+  it('SEM_ANALISE ⇒ diz que falta análise e o que fazer (aguardar ou reprocessar)', async () => {
+    invokeMock.mockResolvedValue({
+      data: { ok: false, error_code: 'SEM_ANALISE', candidaturas_sem_analise: ['c2'] },
+      error: null,
+    })
+    await expect(invokeComparativo('vaga-1', ['c1', 'c2'])).rejects.toThrow(
+      'Ainda não há análise de IA para todos os selecionados. Aguarde a análise ou reprocesse.',
+    )
+  })
+
+  it('VALIDATION ⇒ a mensagem carrega o teto vindo da CONSTANTE da EF, não de um literal paralelo', async () => {
+    invokeMock.mockResolvedValue({ data: { ok: false, error_code: 'VALIDATION' }, error: null })
+    // O número exato é propriedade da constante `COMPARATIVO_MAX_CANDIDATOS`; o que este
+    // teste trava é que a frase o cite (e não um `10` congelado nesta camada).
+    const { COMPARATIVO_MAX_CANDIDATOS } = await import(
+      '../../../../../supabase/functions/_shared/comparativo-config'
+    )
+    await expect(invokeComparativo('vaga-1', ['c1'])).rejects.toThrow(
+      `Selecione entre 2 e ${COMPARATIVO_MAX_CANDIDATOS} candidatos para comparar.`,
+    )
+  })
+
+  it('FORBIDDEN ⇒ mensagem GENÉRICA de propósito: não distingue «não existe» de «não é sua»', async () => {
+    // T-49-08-02: uma frase que os diferenciasse viraria oráculo de existência — por
+    // tentativa, um RH enumeraria ids de candidatura do sistema inteiro.
+    invokeMock.mockResolvedValue({ data: { ok: false, error_code: 'FORBIDDEN' }, error: null })
+    await expect(invokeComparativo('vaga-1', ['c1', 'c2'])).rejects.toThrow(
+      'Você não tem acesso a uma das candidaturas selecionadas.',
+    )
+  })
+
+  it('a recusa que chega como FunctionsHttpError (4xx) usa a MESMA cópia, não o genérico', async () => {
+    // Caminho real de uma recusa 400: o supabase-js devolve `error`, e `data` vem nulo. Se
+    // a ramificação vivesse só no bloco `!data.ok`, as quatro recusas caíam no genérico.
+    invokeMock.mockResolvedValue({
+      data: null,
+      error: {
+        name: 'FunctionsHttpError',
+        message: 'Edge Function returned a non-2xx status code',
+        context: { json: async () => ({ ok: false, error_code: 'ENCERRADA' }) },
+      },
+    })
+    await expect(invokeComparativo('vaga-1', ['c1', 'c2'])).rejects.toThrow(/encerrada/i)
+  })
+
+  it('código desconhecido cai no genérico — nunca numa frase específica sobre causa que não se sabe', async () => {
+    invokeMock.mockResolvedValue({
+      data: { ok: false, error_code: 'ALGO_QUE_NAO_EXISTE' },
+      error: null,
+    })
+    await expect(invokeComparativo('vaga-1', ['c1', 'c2'])).rejects.toThrow(
+      'Não foi possível gerar o comparativo. Tente novamente.',
+    )
+  })
+
+  it('AI_UNAVAILABLE segue chegando à tela pelo `details.error_code` (o <AsyncState> ramifica)', async () => {
+    invokeMock.mockResolvedValue({
+      data: { ok: false, error_code: 'AI_UNAVAILABLE' },
+      error: null,
+    })
+    await expect(invokeComparativo('vaga-1', ['c1', 'c2'])).rejects.toMatchObject({
+      details: { error_code: 'AI_UNAVAILABLE' },
+    })
+  })
+})
+
+describe('triagemService — invokeComparativo: posicoes + proveniência (D-27b / D-28)', () => {
+  beforeEach(() => {
+    invokeMock.mockReset()
+  })
+
+  it('200 devolve `posicoes`, `provedor_ia`, `modelo_ia` e `fallback_cause`', async () => {
+    invokeMock.mockResolvedValue({
+      data: {
+        ok: true,
+        ranking: { ranked_candidates: [] },
+        posicoes: { C1: 'cand-b', C2: 'cand-a' },
+        provedor_ia: 'openai',
+        modelo_ia: 'gpt-4o-mini-2024',
+        fallback_cause: 'anthropic_max_tokens',
+        latencia_ms: 4200,
+      },
+      error: null,
+    })
+    const res = await invokeComparativo('vaga-1', ['cand-a', 'cand-b'])
+    expect(res.posicoes).toEqual({ C1: 'cand-b', C2: 'cand-a' })
+    expect(res.provedor_ia).toBe('openai')
+    expect(res.modelo_ia).toBe('gpt-4o-mini-2024')
+    expect(res.fallback_cause).toBe('anthropic_max_tokens')
+    expect(res.latencia_ms).toBe(4200)
+  })
+
+  it('EF anterior ao 49-08 (sem os campos) ⇒ `posicoes` {} e proveniência null, sem lançar', async () => {
+    // A degradação correta: `{}` faz a tela mostrar o rótulo CRU, nunca o nome do vizinho.
+    invokeMock.mockResolvedValue({
+      data: { ok: true, ranking: { ranked_candidates: [] }, latencia_ms: 1200 },
+      error: null,
+    })
+    const res = await invokeComparativo('vaga-1', ['c1', 'c2'])
+    expect(res.posicoes).toEqual({})
+    expect(res.provedor_ia).toBeNull()
+    expect(res.modelo_ia).toBeNull()
+    expect(res.fallback_cause).toBeNull()
+  })
+})
+
 // ── OPER-01/03: updateCandidaturaEtapa ALWAYS SETs etapa_justificativa ──────
 // Pitfall 3 — the trigger reads NEW.etapa_justificativa; if the UPDATE omits the
 // column the trigger reads a STALE stored value. So etapa_justificativa MUST be in

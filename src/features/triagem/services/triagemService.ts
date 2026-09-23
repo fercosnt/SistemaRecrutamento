@@ -15,6 +15,13 @@
 
 import { supabase } from '@/lib/supabase/client'
 import { extractEfErrorCode } from '@/lib/efErrors'
+// ⚠ O teto do comparativo tem UMA fonte: a constante que a própria Edge Function usa para
+// RECUSAR. Importada por caminho relativo de `_shared` (contrato de zero imports do módulo —
+// precedentes vivos: `exportacaoService.ts:61` com `EXPORT_ALLOWLIST` e
+// `AutorizacoesStep.tsx:50` com `consent-text.json`). O ponto é que a mensagem que o RH lê
+// seja montada do MESMO número que produziu a recusa: um literal paralelo aqui diria «4»
+// enquanto o servidor recusasse em outro valor, e a tela mentiria com aparência de precisão.
+import { COMPARATIVO_MAX_CANDIDATOS } from '../../../../supabase/functions/_shared/comparativo-config'
 import type {
   PaginationParams,
   StatusCandidatura,
@@ -298,14 +305,81 @@ export async function reprocessarAnalise(candidaturaId: string): Promise<void> {
 }
 
 /**
+ * Proveniência do resultado de IA que a EF devolve (D-27b / D-28, plano 49-08).
+ *
+ * Os três campos são ADITIVOS no contrato: a `DecisaoFinalPage` (que consome o mesmo
+ * hook e ainda não os lê) segue compilando e funcionando como hoje até o 49-22.
+ *
+ * `null` em qualquer um deles é informação, não ausência de informação:
+ *   - `provedor_ia = null` ⇒ NENHUM provedor foi chamado (teto de custo, injeção — a EF
+ *     mapeia `provider='none'` para NULL por obrigação do CHECK em PROD);
+ *   - `modelo_ia = null` ⇒ o modelo não foi registrado (D-30 — as linhas antigas);
+ *   - `fallback_cause = null` ⇒ não houve fallback.
+ */
+export interface ProvenienciaIA {
+  /** `'anthropic'` (o primário) | `'openai'` (o de contingência) | `null`. */
+  provedor_ia: string | null
+  /** O modelo que DE FATO respondeu, não o configurado. `null` = não registrado (D-30). */
+  modelo_ia: string | null
+  /** Causa crua do fallback (`anthropic_max_tokens`, `anthropic_timeout`, …) ou `null`. */
+  fallback_cause: string | null
+}
+
+/**
+ * Resultado do comparativo: o ranking, a tabela rótulo→chave e a proveniência.
+ *
+ * `posicoes` mapeia o rótulo anonimizado que a IA devolve (`C1`, `C2`, …) para o
+ * `candidatura_id` REAL, montado pela EF no MESMO laço que montou o prompt (49-08). É o
+ * que permite à tela rotular cada posição pela CHAVE em vez de pela ordem da seleção.
+ */
+export interface ComparativoResponse extends ProvenienciaIA {
+  ranking: unknown
+  /** `C<n>` → `candidatura_id`. Vazio quando a EF publicada ainda não o devolve. */
+  posicoes: Record<string, string>
+  latencia_ms?: number
+}
+
+/**
+ * Cópia pt-BR de cada recusa da EF `comparativo-candidatos`.
+ *
+ * ⚠ **CADA CAUSA COM A SUA MENSAGEM — e é por isso que este mapa existe.** Até o plano
+ * 49-08 a EF colapsava três causas distintas num único `MIXED_VAGA`, cuja frase («vagas
+ * diferentes») era FALSA em duas delas: um knockout sem análise e um candidato ainda não
+ * analisado são da MESMA vaga. O RH lia «vagas diferentes» e ia caçar um erro que não
+ * existia. A EF passou a emitir `ENCERRADA` e `SEM_ANALISE`; se este mapa não os
+ * conhecesse, eles cairiam no genérico — melhor que a mentira anterior, e pior que o alvo.
+ *
+ * `MIXED_VAGA` FICA, com o escopo reduzido ao único caso em que a sua frase é verdadeira
+ * (candidatura da vaga certa cuja ANÁLISE aponta para outra).
+ */
+const RECUSA_COMPARATIVO_COPY: Record<string, string> = {
+  MIXED_VAGA:
+    'Os candidatos selecionados pertencem a vagas diferentes. Compare candidatos de uma mesma vaga.',
+  ENCERRADA:
+    'Uma das candidaturas selecionadas está encerrada e não entra no comparativo.',
+  SEM_ANALISE:
+    'Ainda não há análise de IA para todos os selecionados. Aguarde a análise ou reprocesse.',
+  // O teto vem da constante que a EF usa para recusar — nunca de um literal paralelo.
+  VALIDATION: `Selecione entre 2 e ${COMPARATIVO_MAX_CANDIDATOS} candidatos para comparar.`,
+  // Genérica DE PROPÓSITO: a EF responde o MESMO 403 para «não existe» e «não é sua»
+  // (49-08 / T-49-08-02). Uma mensagem que os distinguisse viraria oráculo de existência.
+  FORBIDDEN: 'Você não tem acesso a uma das candidaturas selecionadas.',
+}
+
+/** Cópia genérica de última instância — nunca uma frase específica sobre causa desconhecida. */
+const COMPARATIVO_FALHA_GENERICA = 'Não foi possível gerar o comparativo. Tente novamente.'
+
+/**
  * Invoca a EF comparativo-candidatos (TRIAGEM-03) com { vaga_id, candidatura_ids }.
- * Mapeia o erro EF de vagas diferentes para a cópia pt-BR exata do contrato UI-SPEC.
- * (A tela de comparativo + PDF chegam no Plan 10-06; aqui fica o client call.)
+ *
+ * Devolve, além do ranking, a tabela `posicoes` (rótulo→chave) e a proveniência do
+ * resultado — os três ADITIVOS ao contrato antigo (plano 49-08 / D-55). Mapeia cada
+ * recusa da EF para a sua própria cópia pt-BR (ver `RECUSA_COMPARATIVO_COPY`).
  */
 export async function invokeComparativo(
   vagaId: string,
   candidaturaIds: string[],
-): Promise<{ ranking: unknown; latencia_ms?: number }> {
+): Promise<ComparativoResponse> {
   const { data, error } = await supabase.functions.invoke('comparativo-candidatos', {
     body: { vaga_id: vagaId, candidatura_ids: candidaturaIds },
   })
@@ -316,32 +390,39 @@ export async function invokeComparativo(
   // (e.g. AI_UNAVAILABLE → "serviço de IA sobrecarregado"); only the code, never PII.
   const error_code = await extractEfErrorCode(data, error)
 
+  // ⚠ O `error` (FunctionsHttpError) chega ANTES de `data.ok` numa recusa 4xx — é por aqui
+  // que passam ENCERRADA, SEM_ANALISE, VALIDATION e FORBIDDEN. Ramificar a cópia só no
+  // bloco `!data.ok` abaixo deixaria as quatro caírem no genérico.
   if (error) {
+    const copy = error_code ? RECUSA_COMPARATIVO_COPY[error_code] : undefined
     throw new TriagemServiceError(
-      'Não foi possível gerar o comparativo. Tente novamente.',
-      'NETWORK_ERROR',
+      copy ?? COMPARATIVO_FALHA_GENERICA,
+      error_code === 'MIXED_VAGA' ? 'MIXED_VAGA' : 'NETWORK_ERROR',
       { error_code, raw: error },
     )
   }
 
   if (!data?.ok) {
-    // PRESERVE MIXED_VAGA behavior (the existing contract) — now routed through the
-    // shared helper's extracted code.
-    if (error_code === 'MIXED_VAGA') {
-      throw new TriagemServiceError(
-        'Os candidatos selecionados pertencem a vagas diferentes. Compare candidatos de uma mesma vaga.',
-        'MIXED_VAGA',
-        { error_code, raw: data },
-      )
-    }
+    const copy = error_code ? RECUSA_COMPARATIVO_COPY[error_code] : undefined
     throw new TriagemServiceError(
-      'Não foi possível gerar o comparativo. Tente novamente.',
-      'NETWORK_ERROR',
+      copy ?? COMPARATIVO_FALHA_GENERICA,
+      // PRESERVE MIXED_VAGA: o `code` do serviço continua sendo o discriminante que a
+      // `ComparativoCandidatosPage.errorCodeOf` lê quando os `details` vêm sem o código.
+      error_code === 'MIXED_VAGA' ? 'MIXED_VAGA' : 'NETWORK_ERROR',
       { error_code, raw: data },
     )
   }
 
-  return { ranking: data.ranking, latencia_ms: data.latencia_ms }
+  return {
+    ranking: data.ranking,
+    // A EF publicada antes do 49-08 não devolvia `posicoes`: um `{}` aqui faz a tela
+    // mostrar o rótulo CRU (`C1`), que é a degradação correta — nunca o nome do vizinho.
+    posicoes: (data.posicoes ?? {}) as Record<string, string>,
+    provedor_ia: data.provedor_ia ?? null,
+    modelo_ia: data.modelo_ia ?? null,
+    fallback_cause: data.fallback_cause ?? null,
+    latencia_ms: data.latencia_ms,
+  }
 }
 
 /**
