@@ -24,6 +24,15 @@
  * Prompt call_type = `work_sample_sjt` (a chave seedada; NÃO a chave órfã que o
  *   CONTEXT cita por engano — ela não tem row/template/enum, RESEARCH Pitfall 1).
  *
+ * FASE 49 / JORN-35 + D-68 (2026-09-22): a rubrica da pergunta passou a EXISTIR no
+ *   input do modelo (`montarBlocoRubricaSjt`, `_shared/sjt-rubrica.ts`) e o composto
+ *   passou a ser pesado PELA CHAVE da dimensão. Antes, `vagaRubricBlock` era só
+ *   `Vaga: <uuid>`, o modelo inventava os nomes das dimensões e o peso-PADRÃO 1 para
+ *   chave desconhecida transformava a ponderação 25/20/25/15/15 em
+ *   média UNIFORME em silêncio. Nome fora da rubrica agora vai para revisão humana
+ *   com a flag `dimensoes_desconhecidas` — nunca peso 1 calado. E cada linha grava
+ *   `provedor_ia`/`modelo_ia` REAIS (do `CallAiResult` do 49-02).
+ *
  * callAi (Phase 9) já faz injection/maskPII/retry/fallback/cost/log — nunca
  *   re-implementar. Injeção/never-absent → throw → persiste 'falhou'.
  *
@@ -50,6 +59,14 @@ import {
   AvaliarRedacaoBodySchema,
   WorkSampleScoringSchema,
 } from "../_shared/avaliacao-schemas.ts";
+// Fase 49 / JORN-35: a rubrica da pergunta passa a EXISTIR no input do modelo, e o
+// rótulo/critério vem da CHAVE da dimensão — não do nome que a IA devolveu.
+// `sjt-rubrica.ts` tem ZERO IMPORTS por contrato (com portão próprio).
+import {
+  chavesDaRubrica,
+  type DimensaoRubricaVaga,
+  montarBlocoRubricaSjt,
+} from "../_shared/sjt-rubrica.ts";
 // SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
 // pacote da lista de dependências do deploy (ERR_MODULE_NOT_FOUND no runtime do EF — AVAL-03 gap).
 // Precedente que deploya E passa o `deno test` type-checked: comparativo-candidatos/index.ts.
@@ -109,50 +126,114 @@ interface DimensionScore {
  * Mapeia os scores 1-5 por dimensão para um composto 0-25 (Pitfall 2).
  *
  * Derivação (documentada): composite_0_25 = (Σ(peso_i · score_i) / Σ peso_i / 5) · 25,
- * onde `peso_i` vem da rubric da pergunta quando disponível, senão peso uniforme
- * (média simples). `insufficient_evidence` NÃO contribui um número fabricado —
- * sinaliza `hasInsufficient=true`, que força `pendente_humano` (sem inventar score).
+ * onde `peso_i` vem da rubric da pergunta, PELA CHAVE da dimensão.
+ * `insufficient_evidence` NÃO contribui um número fabricado — sinaliza
+ * `hasInsufficient=true`, que força `pendente_humano` (sem inventar score).
  *
- * @returns `{ composite, hasInsufficient }` — composite em [0,25].
+ * ── JORN-35 (Fase 49) — POR QUE A CHAVE É VALIDADA AQUI ─────────────────────────
+ * Até 2026-09-22 esta função aplicava um peso-PADRÃO 1 quando a busca do peso pelo
+ * nome devolvido falhava (a expressão não é reproduzida aqui: o portão estático deste
+ * plano procura por ela no disco, e citá-la a deixaria encontrável neste arquivo). A
+ * rubrica
+ * NUNCA era enviada ao modelo, então ele inventava os nomes das dimensões — na única
+ * SJT de caso aberto avaliada em PROD devolveu os 5 itens do ENUNCIADO, 0 casando as
+ * chaves da rubrica. Resultado: TODA dimensão caía no peso 1 e a média ponderada
+ * 25/20/25/15/15 virava média UNIFORME **em silêncio**, com aparência de nota
+ * ponderada (composto 7,00 onde a rubrica daria 6,50).
+ *
+ * Agora: uma `dimension` que não é chave da rubrica NÃO entra na soma, é acumulada em
+ * `desconhecidas` e marca `hasInsufficient` — o que manda a avaliação para revisão
+ * humana (`pendente_humano`), que é onde um nome que o modelo inventou pertence.
+ * Nunca peso 1 calado. RNF-07a intacto: revisão humana não é rejeição.
+ *
+ * @param chavesValidas o vocabulário que a rubrica da vaga declarou. `null` = a
+ *   pergunta não tem rubrica: aí o comportamento é o antigo (peso uniforme), e a EF
+ *   grava `rubrica_ausente: true` na metadata para que isso seja LEGÍVEL em vez de
+ *   indistinguível de uma rubrica que não pegou.
+ * @returns `{ composite, hasInsufficient, desconhecidas }` — composite em [0,25].
  */
 function mapDimensionsToComposite(
   dims: DimensionScore[],
   rubricWeights: Record<string, number> | null,
-): { composite: number; hasInsufficient: boolean } {
+  chavesValidas: Set<string> | null,
+): { composite: number; hasInsufficient: boolean; desconhecidas: string[] } {
   let weightedSum = 0;
   let weightTotal = 0;
   let hasInsufficient = false;
+  const desconhecidas: string[] = [];
 
   for (const d of dims) {
+    const nome = typeof d?.dimension === "string" ? d.dimension : String(d?.dimension);
+    // JORN-35: chave fora do vocabulário da rubrica ⇒ fora da nota, para a mesa do RH.
+    if (chavesValidas && !chavesValidas.has(nome)) {
+      if (!desconhecidas.includes(nome)) desconhecidas.push(nome);
+      hasInsufficient = true;
+      continue;
+    }
     if (d.score === "insufficient_evidence" || typeof d.score !== "number") {
       hasInsufficient = true;
       continue;
     }
-    const w = rubricWeights?.[d.dimension] ?? 1;
+    // Com rubrica, o peso vem SEMPRE da chave (a validação acima garante que existe).
+    // Sem rubrica, peso uniforme — o comportamento anterior, agora declarado na
+    // metadata em vez de indistinguível de uma rubrica ignorada.
+    const w = chavesValidas ? Number(rubricWeights?.[nome] ?? 0) : 1;
     weightedSum += w * d.score;
     weightTotal += w;
   }
 
-  if (weightTotal === 0) return { composite: 0, hasInsufficient };
+  if (weightTotal === 0) return { composite: 0, hasInsufficient, desconhecidas };
   // Normaliza a média ponderada (1-5) para a banda 0-25.
   const composite = (weightedSum / weightTotal / 5) * 25;
-  return { composite: Math.round(composite * 100) / 100, hasInsufficient };
+  return { composite: Math.round(composite * 100) / 100, hasInsufficient, desconhecidas };
 }
 
-/** Extrai os pesos da rubric jsonb da pergunta (`{ dimensoes:[{dimension,peso}] }`). */
-function rubricWeightsFrom(rubric: unknown): Record<string, number> | null {
+/**
+ * Extrai as dimensões da rubric jsonb da pergunta (`{ dimensoes:[{dimension,peso}] }`).
+ *
+ * Devolve a LISTA (não só os pesos): é ela que vira o bloco enviado ao modelo
+ * (`montarBlocoRubricaSjt`) e o vocabulário de chaves válidas. `null` quando a
+ * pergunta não tem rubrica utilizável.
+ */
+function rubricDimensoesFrom(rubric: unknown): DimensaoRubricaVaga[] | null {
   if (!rubric || typeof rubric !== "object") return null;
   const dimensoes = (rubric as { dimensoes?: unknown }).dimensoes;
   if (!Array.isArray(dimensoes)) return null;
-  const out: Record<string, number> = {};
+  const out: DimensaoRubricaVaga[] = [];
   for (const d of dimensoes) {
     if (d && typeof d === "object" && "dimension" in d && "peso" in d) {
       const dim = String((d as { dimension: unknown }).dimension);
       const peso = Number((d as { peso: unknown }).peso);
-      if (Number.isFinite(peso)) out[dim] = peso;
+      if (dim.length > 0 && Number.isFinite(peso)) out.push({ dimension: dim, peso });
     }
   }
-  return Object.keys(out).length > 0 ? out : null;
+  return out.length > 0 ? out : null;
+}
+
+/** Pesos por chave, derivados da lista de dimensões da rubrica. */
+function pesosDe(dimensoes: DimensaoRubricaVaga[] | null): Record<string, number> | null {
+  if (!dimensoes) return null;
+  const out: Record<string, number> = {};
+  for (const d of dimensoes) out[d.dimension] = d.peso;
+  return out;
+}
+
+/**
+ * Proveniência do D-68: provedor e modelo REAIS do `CallAiResult` (49-02).
+ *
+ * `provider === "none"` significa que NENHUM modelo respondeu (teto de custo AI-06 ou
+ * injeção detectada). Gravar a string `"none"` faria um leitor futuro de
+ * `metadata->>'provedor_ia'` confundi-la com um provedor chamado assim; `null` é a
+ * verdade e é o mesmo vocabulário que `redacoes_candidato` usa desde o 49-09.
+ */
+function proveniencia(
+  result: { provider: string; model: string | null },
+): { provedor_ia: string | null; modelo_ia: string | null } {
+  const semProvedor = !result.provider || result.provider === "none";
+  return {
+    provedor_ia: semProvedor ? null : result.provider,
+    modelo_ia: semProvedor ? null : (result.model ?? null),
+  };
 }
 
 /**
@@ -232,7 +313,14 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
       return errorResponse("VALIDATION", "Pergunta de caso aberto inválida.", 400);
     }
     const cenario = typeof pergRow.cenario === "string" ? pergRow.cenario : "";
-    const rubricWeights: Record<string, number> | null = rubricWeightsFrom(pergRow.rubric);
+    // JORN-35: a rubrica da pergunta é UMA fonte para três coisas — o bloco que vai ao
+    // modelo, os pesos do composto e o vocabulário de chaves válidas.
+    const rubricDimensoes: DimensaoRubricaVaga[] | null = rubricDimensoesFrom(pergRow.rubric);
+    const rubricWeights: Record<string, number> | null = pesosDe(rubricDimensoes);
+    const chavesValidas: Set<string> | null = rubricDimensoes
+      ? chavesDaRubrica(rubricDimensoes)
+      : null;
+    const rubricaAusente = rubricDimensoes === null;
 
     // ── 5. Resolve o prompt work_sample_sjt + callAi ──────────────────────────
     let resolved: ResolvedPrompt;
@@ -253,7 +341,13 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
       {
         prompt: resolved,
         rawInput: `${cenario}\n\n---\n\nResposta do candidato:\n${body.texto}`,
-        vagaRubricBlock: `Vaga: ${candRow.vaga_id}`,
+        // JORN-35: era `Vaga: <uuid>` — um identificador opaco onde o prompt esperava a
+        // rubrica. Agora vai a rubrica da vaga, com as chaves, os pesos, os critérios e
+        // a instrução de devolver `dimension` = a CHAVE. O bloco é autoexplicativo
+        // porque `callAi` o entrega sem rótulo e sem ordenação garantida
+        // (`ai-client.ts:827` / `:1043`), e entra no `requestFingerprint` (`:486`) — a
+        // chave de idempotência acompanha a rubrica, sem replay entre rubricas.
+        vagaRubricBlock: montarBlocoRubricaSjt(rubricDimensoes),
         candidato_id: candRow.candidato_id,
         vaga_id: candRow.vaga_id,
         schema: WorkSampleScoringSchema,
@@ -277,8 +371,15 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     const parsed = result.parsed as
       | { dimension_scores?: DimensionScore[]; red_flags?: string[] }
       | null;
+    // D-68: a proveniência REAL acompanha os TRÊS caminhos de gravação. Ela é
+    // conhecida mesmo quando não há score — a rubrica FOI enviada e alguém (ou
+    // ninguém, e aí é `null`) respondeu.
+    const prov = proveniencia(result);
+    // C6 #6: escrita que falha NÃO pode devolver `{ ok: true }`. Antes destes três
+    // `throw`, uma gravação recusada pelo banco fazia o score desaparecer enquanto o
+    // candidato lia «enviado com sucesso» — indistinguível de nunca ter enviado.
     if (parsed == null) {
-      await supabaseAdmin.from("scores_candidato").insert({
+      const { error: insErr } = await supabaseAdmin.from("scores_candidato").insert({
         candidatura_id: body.candidatura_id,
         pergunta_id: body.pergunta_id,
         tipo: "sjt",
@@ -286,15 +387,16 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
         score: null,
         score_max: 25,
         status: "falhou",
-        metadata: { error_code: result.error_code ?? "ia_sem_resultado" },
+        metadata: { error_code: result.error_code ?? "ia_sem_resultado", ...prov },
       });
+      if (insErr) throw new Error(`falha ao gravar score (ia_sem_resultado): ${insErr.message}`);
       return jsonResponse({ ok: true }, 200);
     }
     if (
       result.flagged_for_human_review === true ||
       result.error_code === "prompt_injection_detected"
     ) {
-      await supabaseAdmin.from("scores_candidato").insert({
+      const { error: insErr } = await supabaseAdmin.from("scores_candidato").insert({
         candidatura_id: body.candidatura_id,
         pergunta_id: body.pergunta_id,
         tipo: "sjt",
@@ -302,24 +404,31 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
         score: null,
         score_max: 25,
         status: "pendente_humano",
-        metadata: { error_code: result.error_code ?? "flagged_for_human_review" },
+        metadata: { error_code: result.error_code ?? "flagged_for_human_review", ...prov },
       });
+      if (insErr) throw new Error(`falha ao gravar score (revisão humana): ${insErr.message}`);
       return jsonResponse({ ok: true }, 200);
     }
 
     // ── 7. Mapeia 1-5 → composto 0-25 (Pitfall 2) + threshold (RNF-07a) ───────
     const dims = Array.isArray(parsed.dimension_scores) ? parsed.dimension_scores : [];
     const redFlags = Array.isArray(parsed.red_flags) ? parsed.red_flags : [];
-    const { composite, hasInsufficient } = mapDimensionsToComposite(dims, rubricWeights);
+    const { composite, hasInsufficient, desconhecidas } = mapDimensionsToComposite(
+      dims,
+      rubricWeights,
+      chavesValidas,
+    );
 
     // <13/25 OU ≥1 red_flag OU qualquer insufficient_evidence → pendente_humano.
+    // JORN-35: dimensão desconhecida marca `hasInsufficient`, então ela cai AQUI —
+    // revisão humana. O limiar em si NÃO mudou (RNF-07a: nenhuma rejeição por score).
     const status =
       composite < 13 || redFlags.length > 0 || hasInsufficient
         ? "pendente_humano"
         : "sucesso";
 
     // ── 8. Persiste UMA linha de score (NUNCA toca candidaturas — RNF-07a) ────
-    await supabaseAdmin.from("scores_candidato").insert({
+    const { error: scoreErr } = await supabaseAdmin.from("scores_candidato").insert({
       candidatura_id: body.candidatura_id,
       pergunta_id: body.pergunta_id,
       tipo: "sjt",
@@ -331,10 +440,20 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
         dimension_scores: dims,
         composite_0_25: composite,
         has_insufficient_evidence: hasInsufficient,
+        // D-68: quem produziu esta nota.
+        ...prov,
+        // JORN-35: os nomes que a IA devolveu e a rubrica não reconhece. Presente SÓ
+        // quando houve algum — uma chave sempre presente com `[]` treinaria o leitor a
+        // ignorá-la.
+        ...(desconhecidas.length > 0 ? { dimensoes_desconhecidas: desconhecidas } : {}),
+        // A pergunta não tem rubrica: o composto é média uniforme, e isso fica ESCRITO
+        // em vez de indistinguível de uma rubrica que não pegou.
+        ...(rubricaAusente ? { rubrica_ausente: true } : {}),
       },
       citacoes: (parsed as { cited_evidence?: unknown }).cited_evidence ?? null,
       red_flags: redFlags,
     });
+    if (scoreErr) throw new Error(`falha ao gravar score (sjt): ${scoreErr.message}`);
 
     // Log redigido (Pitfall 7) — só ids/counts/status; NUNCA o texto/score bruto.
     console.log("[avaliar-redacao] ok", {
@@ -342,8 +461,13 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
       pergunta_id: body.pergunta_id,
       dims_count: dims.length,
       red_flags_count: redFlags.length,
+      // JORN-35: só a CONTAGEM no log. O nome que a IA inventou fica na `metadata`
+      // (que só o RH lê), não no log de aplicação.
+      dimensoes_desconhecidas_count: desconhecidas.length,
+      rubrica_ausente: rubricaAusente,
       status,
       provider: result.provider,
+      modelo_ia: prov.modelo_ia,
     });
 
     // Payload NEUTRO — o candidato nunca recebe o score (RNF-07a).
