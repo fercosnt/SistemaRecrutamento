@@ -912,6 +912,32 @@ Ao consertar uma frase falsa, **não a cite verbatim** no comentário, no docblo
 
 > Esta entrada existe porque a lição vivia só num SUMMARY de plano irmão e **não sobreviveu ao plano seguinte**. Um aprendizado de fase pertence ao PATTERNS, que todo plano lê, não ao SUMMARY de um vizinho.
 
+### L. Um harness de mutação uniformemente zero é suspeita de INSTRUMENTO, não prova de portão
+**Source:** medido duas vezes nesta fase — 49-26 (códigos ANSI não descontados na extração da contagem, 3 medições falsas) e 49-15 (`--reporter=basic` não existe no vitest 4; o comando aborta antes de executar teste nenhum e a ausência da linha `Tests N passed` é lida como zero, 8 medições falsas)
+**Apply to:** todo plano que prova mordida por mutação
+Se **várias mutações consecutivas** saem «0 reprovados», pare e meça o instrumento antes de concluir qualquer coisa
+sobre o portão. Um harness que falha em silêncio produz **a conclusão exatamente oposta à verdade**: ele diz «o portão
+não morde» quando o que aconteceu é que nenhum teste rodou. As duas causas já medidas aqui:
+
+- a extração da contagem lê a saída colorida e o número vem embrulhado em escape ANSI — descontar antes de comparar;
+- a flag passada ao runner não existe nessa versão, o comando aborta com erro de uso, e o parser interpreta a ausência
+  da linha de resumo como zero reprovados — **conferir o exit code do runner**, não só a sua saída.
+
+Regra prática: uma mutação que não morde é informação (pode ser ramo inalcançável — ver o que 49-09, 49-23, 49-24 e
+49-25 fizeram com ela). **Oito** que não mordem é o instrumento. Confira à mão antes de escrever qualquer veredito.
+
+### M. Registrar uma janela como `fixed` — o mecanismo real
+**Source:** medido no 49-26 (o motivo é aceito e descartado) e corrigido no 49-15 (não existe `--reason`, e a tabela é gerada)
+**Apply to:** todo plano que fecha uma entrada do `WINDOWS.md`
+`gsd-tools windows fixed <id>` **não aceita `--reason`** (`Error: Unknown flag`), e passar o motivo como argumento
+posicional faz a ferramenta aceitá-lo e **descartá-lo** — a entrada fica `fixed` com razão vazia (aconteceu na 60).
+A tabela Markdown do topo do arquivo é **gerada a partir do bloco JSON**, então editar a célula à mão quebra o ledger
+(`table disagrees with the fenced JSON entries … row id(s): N`).
+
+Via correta: escrever a razão no **bloco JSON** (a fonte de verdade) e sincronizar a célula da tabela **lendo o texto
+de volta do JSON**, nunca redigitando. Conferir com `gsd-tools windows status --raw`, que responde `ok: true` quando os
+dois concordam.
+
 ---
 
 ## No Analog Found
