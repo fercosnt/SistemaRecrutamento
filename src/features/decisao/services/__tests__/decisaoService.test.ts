@@ -20,8 +20,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // ── Mock the supabase client BEFORE importing the service ──────────────────────
 // Capture the select() projections + the invoke()/rpc() calls to assert the
 // allowlist + the EF/RPC contracts without a network round-trip.
-const { selects, invokeMock, rpcMock, fromMock } = vi.hoisted(() => ({
+const { selects, eqs, listaResposta, invokeMock, rpcMock, fromMock } = vi.hoisted(() => ({
   selects: [] as string[],
+  // Phase 49 / plano 49-22 — os pares `.eq()` importam agora: `listFinalistas` passou a LER
+  // `candidaturas` filtrando por `etapa_atual='decisao_final'`, e esse filtro é o contrato.
+  eqs: [] as [string, unknown][],
+  // Resposta da query SEM terminal (`listFinalistas`) — mutável por teste.
+  listaResposta: { data: [] as unknown[], error: null as unknown },
   invokeMock: vi.fn(),
   rpcMock: vi.fn(),
   fromMock: vi.fn(),
@@ -34,13 +39,16 @@ vi.mock('@/lib/supabase/client', () => {
       selects.push(cols)
       return q
     })
-    q.eq = vi.fn(() => q)
+    q.eq = vi.fn((col: string, val: unknown) => {
+      eqs.push([col, val])
+      return q
+    })
     q.is = vi.fn(() => q)
     // `.maybeSingle()` terminal (getDecisaoAtual). Default: no decision row.
     q.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }))
     // Make the query itself awaitable like PostgREST (listFinalistas — no terminal).
-    q.then = (resolve: (v: { data: unknown[]; error: null }) => unknown) =>
-      resolve({ data: [], error: null })
+    q.then = (resolve: (v: { data: unknown[]; error: unknown }) => unknown) =>
+      resolve({ data: listaResposta.data, error: listaResposta.error })
     return q
   }
   fromMock.mockImplementation(() => makeQuery())
@@ -202,15 +210,25 @@ describe('decisaoService — allowlist reads (T-15-09, NEVER select(*))', () => 
     selects.length = 0
   })
 
-  it('listFinalistas projects ONLY candidatura_id + decisao (no *, no PII)', async () => {
+  /*
+   * ⚠ Phase 49 / plano 49-22 — D-36b: esta asserção mudou DE PROPÓSITO. Ela exigia
+   * `candidatura_id` e `decisao`, porque `listFinalistas` lia `decisao_final` — a tabela de
+   * quem JÁ TEM decisão registrada. Isso fazia a aba «Comparativo» da decisão final comparar
+   * candidaturas ENCERRADAS e ignorar quem de fato aguarda decisão. A projeção nova é
+   * `id, etapa_atual, status` sobre `candidaturas`; a allowlist (nunca o curinga, nunca PII)
+   * segue sendo o invariante, e é ele que este teste continua vigiando.
+   */
+  it('listFinalistas projects ONLY id + etapa_atual + status (no *, no PII)', async () => {
     await listFinalistas(VALID_VAGA)
     const proj = selects.join(' | ')
     expect(proj).not.toContain('*')
-    expect(proj).toContain('candidatura_id')
-    expect(proj).toContain('decisao')
+    expect(proj).toContain('id')
+    expect(proj).toContain('etapa_atual')
+    expect(proj).toContain('status')
     // never identity/score columns:
     expect(proj).not.toContain('cpf')
     expect(proj).not.toContain('data_nascimento')
+    expect(proj).not.toContain('nome')
     expect(proj).not.toContain('score')
   })
 
@@ -222,5 +240,87 @@ describe('decisaoService — allowlist reads (T-15-09, NEVER select(*))', () => 
     expect(proj).toContain('justificativa')
     expect(proj).toContain('em')
     expect(proj).not.toContain('cpf')
+  })
+})
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Phase 49 / plano 49-22 — D-36b: os «finalistas» são quem AGUARDA decisão.
+ *
+ * `listFinalistas` lia `decisao_final`, a tabela de quem JÁ TEM decisão registrada. As duas
+ * populações são quase disjuntas: quem tem linha lá é, em regra, encerrado. O resultado era
+ * uma aba «Comparativo» que comparava candidaturas terminadas e não mostrava quem está de
+ * fato em `decisao_final` — enquanto o texto da tela dizia «outros candidatos em decisão
+ * final», que era FALSO.
+ *
+ * ⚠ O filtro de encerrada usa o predicado CANÔNICO, não uma allowlist local, e ele é aplicado
+ * no cliente de propósito: `candidaturaEncerrada` é uma disjunção sobre DUAS colunas
+ * (`etapa_atual` terminal OU `status` terminal) e reescrevê-la em PostgREST seria a segunda
+ * verdade que o 49-03 removeu.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+describe('decisaoService — listFinalistas: quem está em decisao_final e não encerrado (D-36b)', () => {
+  beforeEach(() => {
+    selects.length = 0
+    eqs.length = 0
+    listaResposta.data = []
+    listaResposta.error = null
+    fromMock.mockClear()
+  })
+
+  it('lê `candidaturas` — NÃO `decisao_final`', async () => {
+    await listFinalistas(VALID_VAGA)
+    expect(fromMock).toHaveBeenCalledWith('candidaturas')
+    expect(fromMock).not.toHaveBeenCalledWith('decisao_final')
+  })
+
+  it('filtra pela vaga E por `etapa_atual = decisao_final`', async () => {
+    await listFinalistas(VALID_VAGA)
+    expect(eqs).toEqual(
+      expect.arrayContaining([
+        ['vaga_id', VALID_VAGA],
+        ['etapa_atual', 'decisao_final'],
+      ]),
+    )
+  })
+
+  it('a fixture do <behavior>: só a candidatura em andamento sobra', async () => {
+    listaResposta.data = [
+      { id: 'cand-viva', etapa_atual: 'decisao_final', status: 'em_analise' },
+      // `status='finalizado'` é o TERCEIRO estado terminal (o que o 49-05 encontrou no Kanban):
+      // a etapa ainda é de trabalho, mas a candidatura acabou.
+      { id: 'cand-fin', etapa_atual: 'decisao_final', status: 'finalizado' },
+      { id: 'cand-rej', etapa_atual: 'rejeitado', status: 'rejeitado' },
+    ]
+    const out = await listFinalistas(VALID_VAGA)
+    expect(out.map((f) => f.candidatura_id)).toEqual(['cand-viva'])
+  })
+
+  it('`aprovado_proxima` NÃO é encerrada — continua finalista', async () => {
+    listaResposta.data = [
+      { id: 'cand-apr', etapa_atual: 'decisao_final', status: 'aprovado_proxima' },
+    ]
+    const out = await listFinalistas(VALID_VAGA)
+    expect(out.map((f) => f.candidatura_id)).toEqual(['cand-apr'])
+  })
+
+  it('devolve `etapa_atual` e `status` junto com o id (o que o predicado consumiu)', async () => {
+    listaResposta.data = [
+      { id: 'cand-viva', etapa_atual: 'decisao_final', status: 'em_analise' },
+    ]
+    const out = await listFinalistas(VALID_VAGA)
+    expect(out[0]).toEqual({
+      candidatura_id: 'cand-viva',
+      etapa_atual: 'decisao_final',
+      status: 'em_analise',
+    })
+  })
+
+  it('erro do PostgREST → DecisaoServiceError DATABASE_ERROR (inalterado)', async () => {
+    listaResposta.error = { message: 'boom' }
+    await expect(listFinalistas(VALID_VAGA)).rejects.toMatchObject({
+      name: 'DecisaoServiceError',
+      code: 'DATABASE_ERROR',
+    })
   })
 })
