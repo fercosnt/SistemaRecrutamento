@@ -38,7 +38,7 @@
  * @see .planning/phases/20-refino-rh-editar-guia-de-entrevista-seed-001/20-RESEARCH.md §Pattern 3 (merge-preserve)
  */
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { handler, type GerarGuiaDeps } from "../index.ts";
+import { guiaDeResultado, handler, type GerarGuiaDeps } from "../index.ts";
 
 // ── A pre-existing guide row carrying ONE manual question (the thing that must survive).
 const MANUAL_QUESTION = {
@@ -510,6 +510,38 @@ Deno.test("49-24 / D-28 — FALLBACK OpenAI: o guia registra o gpt-4o-mini, não
 // roteiro), não por uma lista de códigos: enumerar códigos é a forma «iteração sobre lista
 // literal» do CLAUDE.md §Portões — o bloqueio seguinte nasceria fora da vigilância.
 // ═══════════════════════════════════════════════════════════════════════════════════
+
+Deno.test("49-25 / JORN-39 — guiaDeResultado: sem provedor não há roteiro; com provedor o `parsed` passa", () => {
+  const ROTEIRO = { questions: [{ competency: "Comunicação" }] };
+
+  // Quem respondeu produziu roteiro — o `parsed` passa inteiro.
+  assertEquals(guiaDeResultado({ provider: "anthropic", parsed: ROTEIRO }), ROTEIRO);
+  assertEquals(guiaDeResultado({ provider: "openai", parsed: ROTEIRO }), ROTEIRO);
+
+  // Bloqueio anterior ao provedor: o `parsed` NÃO é nulo (é o stub que preserva a
+  // RNF-07a) e ainda assim NÃO há roteiro. Esta é a linha que o conserto do 49-25 é.
+  assertEquals(
+    guiaDeResultado({
+      provider: "none",
+      parsed: { recommendation: "hold", flagged_for_human_review: true },
+    }),
+    null,
+    "um stub de bloqueio nunca é um roteiro, por mais que seja um objeto",
+  );
+
+  // O CINTO: provedor vazio/ausente. Medido em 2026-09-23 como INALCANÇÁVEL hoje — todo
+  // retorno de `callAi` carrega um literal não vazio, e o único de origem externa (o replay
+  // por chave de idempotência) lê a coluna `ai_call_logs.provider`, que é o enum
+  // `llm_provider` NOT NULL. Inalcançável por construção ≠ dispensável: o par
+  // provedor+modelo é lido JUNTO pelo selo do 49-16, e sem o cinto um provedor vazio faria
+  // a EF AFIRMAR que há roteiro. A asserção existe para que a remoção do cinto reprove
+  // aqui, em vez de sair verde e voltar como defeito silencioso.
+  assertEquals(guiaDeResultado({ provider: "", parsed: ROTEIRO }), null);
+  assertEquals(guiaDeResultado({ parsed: ROTEIRO }), null);
+
+  // Parse falho com provedor real: continua sendo ausência de roteiro, pelo caminho antigo.
+  assertEquals(guiaDeResultado({ provider: "anthropic", parsed: null }), null);
+});
 
 // A dimensão fraca que o scorecard descobre. Deliberadamente DIFERENTE da competência da
 // pergunta manual e da pergunta gerada, para que a falta de cobertura seja inequívoca.
