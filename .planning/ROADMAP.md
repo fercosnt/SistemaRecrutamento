@@ -443,7 +443,7 @@ Plans:
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [x] 49-20-PLAN.md — Motor de exclusão, fatia 2: o passo novo `apagar_respostas_e_producoes` — respostas, textos, transcrições e citações, com a exceção D-62 (JORN-36 / D-48, D-62)
-- [ ] 49-22-PLAN.md — Comparativo: encerrada não selecionável, teto da constante, «Avançar» real; decisão final compara quem está em decisão final (JORN-25, JORN-28 / D-34, D-36, D-36b, D-59)
+- [x] 49-22-PLAN.md — Comparativo: encerrada não selecionável, teto da constante, «Avançar» real; decisão final compara quem está em decisão final (JORN-25, JORN-28 / D-34, D-36, D-36b, D-59)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -546,7 +546,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 23/28 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 24/28 | In Progress|  |
 
 ---
 

@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-28-PLAN.md
-last_updated: "2026-09-23T19:24:25.429Z"
+stopped_at: Completed 49-22-PLAN.md
+last_updated: "2026-09-23T20:01:42.773Z"
 last_activity: 2026-09-23
-state_head: d23bb30a7270679c17236f98c054d2f24061d807
+state_head: cb397303e6d315d53f8f2bf39a0d5423f1db69a8
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 106
-  completed_plans: 99
-  percent: 93
+  completed_plans: 100
+  percent: 94
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -812,6 +812,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P20 | 45 min | 1 tasks | 2 files |
 | Phase 49 P27 | ~55 min | 1 tasks | 2 files |
 | Phase 49 P28 | 42 min | 1 tasks | 2 files |
+| Phase 49 P22 | 42 min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -1127,6 +1128,11 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-27: recusa de comparativo bloqueado usa codigo NOVO (SEM_RESULTADO_IA, 503) — nenhum dos 5 codigos do 49-08 e verdadeiro para um corte de gasto; reusar um deles recriaria a mentira de diagnostico que o 49-08 removeu
 - [Phase 49]: 49-27: o bloqueio e gravado em comparativo_solicitado.ranking (jsonb NOT NULL) como marcador explicito {bloqueado, motivo} — NULL e proibido pela coluna e {} seria indistinguivel de 'nada escrito'. Nenhuma migration: o schema vivo ja permitia
 - [Phase 49]: 49-28: as TRES metades de nao-vacuidade de (j) passam a ESTABELECER o estado que medem dentro do envelope, em vez de LER o estado vivo de PROD — e o contador do gate passou a sair do run como LINHA (P46P_REG_CONTADOR), porque a via atual descarta NOTICE
+- [Phase 49]: D-34: a seleção do comparativo trava candidatura encerrada pelo predicado canônico, e retirada a pedido CONTINUA selecionável — o selo «Encerrada» convive com o da Phase 45 em vez de substituí-lo
+- [Phase 49]: D-36: podeAvancar devolve true quando etapa_atual está AUSENTE (inferir «não pode» da ausência esconderia a ação de quem pode); a recusa obrigatória mora na camada que ESCREVE
+- [Phase 49]: D-36b: o filtro de encerrada do listFinalistas roda no CLIENTE de propósito — o predicado é disjunção sobre duas colunas, e reescrevê-lo em PostgREST criaria a segunda verdade que o 49-03 removeu
+- [Phase 49]: WINDOWS 78 fechada nas DUAS superfícies (corpo de erro e toast), com frases DIFERENTES por medium: o que precisa coincidir é o fato, não a redação — e nenhuma das duas nomeia a causa (cost_cap x injeção), para não confirmar a um atacante que a defesa disparou
+- [Phase 49]: Cópia que vive em contêiner não montado pelo ambiente de teste (TooltipContent do Radix fechado) exige DUAS pernas: asserir a constante exportada E asserir o render de uma superfície que existe — uma só dá a impressão de vigiar o que não vê
 
 ### Roadmap Evolution
 
@@ -1417,8 +1423,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T19:24:15.648Z
-Stopped at: Completed 49-28-PLAN.md
+Last session: 2026-09-23T20:01:25.797Z
+Stopped at: Completed 49-22-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
