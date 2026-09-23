@@ -17,12 +17,21 @@ import '@testing-library/jest-dom'
 import { AnaliseIABlock } from '../AnaliseIABlock'
 import { SUGESTAO_IA_COPY } from '@/features/triagem/components/SugestaoIABadge'
 
+/**
+ * ⚠ 49-16: a fixture ganhou `provedor_ia`/`modelo_ia` NULL porque o tipo os exige, e
+ * exigi-los (em vez de deixá-los opcionais) é deliberado: todo lugar que constrói uma
+ * linha de análise passa a DECLARAR de onde ela veio, em vez de poder esquecer. NULL é o
+ * valor honesto aqui — é o estado das 25 linhas vivas em PROD (medido 2026-09-23), e a
+ * tela o traduz para «modelo não registrado» (D-30).
+ */
 const cheia = {
   score_match: 82,
   pontos_fortes: ['Forte 1', 'Forte 2', 'Forte 3', 'Forte 4', 'Forte 5'],
   gaps: ['Gap 1', 'Gap 2', 'Gap 3'],
   flags: ['Sinal A'],
   analise_status: 'sucesso' as const,
+  provedor_ia: null,
+  modelo_ia: null,
 }
 
 describe('AnaliseIABlock — análise completa da IA (VISRH-02)', () => {

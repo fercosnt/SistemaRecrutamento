@@ -23,6 +23,7 @@
 import { Sparkles } from 'lucide-react'
 import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from '@/features/triagem/components/SugestaoIABadge'
+import { ProvenienciaIABadge } from '@/features/triagem/components/ProvenienciaIABadge'
 import type { AnaliseHubRow } from '../services/analiseCandidatoService'
 import { HubSection } from './HubSection'
 
@@ -104,15 +105,31 @@ export function AnaliseIABlock({ analise, isLoading, isError }: AnaliseIABlockPr
       ) : analise.analise_status === 'falhou' ? (
         // Failed — read-only here; reprocess lives on the vaga triagem panel.
         <div className="space-y-3">
-          <SugestaoIABadge />
+          <div className="flex flex-wrap items-center gap-2">
+            <SugestaoIABadge />
+            {/* D-27b: a tentativa que falhou também tem proveniência — e saber que ela
+                veio do modelo de contingência é justamente o que ajuda a entender por quê. */}
+            <ProvenienciaIABadge
+              provedorIa={analise.provedor_ia}
+              modeloIa={analise.modelo_ia}
+              variant="compact"
+            />
+          </div>
           <p className="text-sm text-white/80 leading-relaxed">
             A análise da IA falhou nesta candidatura. Reprocesse pelo painel de triagem da vaga.
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {/* RNF-07a — a IA sugere, a decisão é humana. */}
-          <SugestaoIABadge />
+          {/* RNF-07a — a IA sugere, a decisão é humana. E D-27b: QUAL modelo sugeriu. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <SugestaoIABadge />
+            <ProvenienciaIABadge
+              provedorIa={analise.provedor_ia}
+              modeloIa={analise.modelo_ia}
+              variant="compact"
+            />
+          </div>
 
           {/* Aderência à vaga — band chip (número + cor no mesmo elemento). */}
           <div className="flex items-center gap-3">

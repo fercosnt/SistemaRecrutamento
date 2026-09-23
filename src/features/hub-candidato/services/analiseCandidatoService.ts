@@ -40,7 +40,8 @@ export class AnaliseCandidatoServiceError extends Error {
  * (mapped to `analise_status` on the row). Deliberately EXCLUDES `resumo_cv`,
  * `resumo_respostas`, and `erro` — the raw AI internals the surface does not need.
  */
-export const ANALISE_HUB_ALLOWLIST = 'score_match, pontos_fortes, gaps, flags, status'
+export const ANALISE_HUB_ALLOWLIST =
+  'score_match, pontos_fortes, gaps, flags, status, provedor_ia, modelo_ia'
 
 /** The allowlist-projected IA-analysis row the hub consumes. */
 export interface AnaliseHubRow {
@@ -51,6 +52,15 @@ export interface AnaliseHubRow {
   flags: string[]
   /** Mapped from the DB `status` column ('pendente' | 'sucesso' | 'falhou'). */
   analise_status: string | null
+  /**
+   * Proveniência do resultado (Phase 49 / plano 49-16 / D-27b). `'openai'` ⇒ veio do
+   * modelo de CONTINGÊNCIA — o aviso que faltava quando, em 2026-09-20, um resultado de
+   * fallback chegou à tela registrado como sucesso e sem marca nenhuma. NULL ⇒
+   * desconhecida (as 25 linhas vivas medidas em 2026-09-23), e NULL nunca é silêncio na
+   * tela: é «modelo não registrado» (D-30).
+   */
+  provedor_ia: string | null
+  modelo_ia: string | null
 }
 
 /**
@@ -85,6 +95,8 @@ export async function getAnalise(candidaturaId: string): Promise<AnaliseHubRow |
     gaps: string[] | null
     flags: string[] | null
     status: string | null
+    provedor_ia?: string | null
+    modelo_ia?: string | null
   }
   return {
     score_match: raw.score_match ?? null,
@@ -92,5 +104,11 @@ export async function getAnalise(candidaturaId: string): Promise<AnaliseHubRow |
     gaps: raw.gaps ?? [],
     flags: raw.flags ?? [],
     analise_status: raw.status ?? null,
+    // `?? null` e não `?? undefined`: «não sei qual modelo» é um VALOR que a tela
+    // renderiza («modelo não registrado»), não a ausência de um campo. Um `undefined`
+    // aqui faria o selo desaparecer em vez de dizer que a proveniência é desconhecida —
+    // e um resultado sem proveniência ficaria idêntico a um com proveniência confirmada.
+    provedor_ia: raw.provedor_ia ?? null,
+    modelo_ia: raw.modelo_ia ?? null,
   }
 }

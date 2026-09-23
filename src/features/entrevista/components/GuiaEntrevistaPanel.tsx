@@ -56,6 +56,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from '@/features/triagem/components/SugestaoIABadge'
+import { ProvenienciaIABadge } from '@/features/triagem/components/ProvenienciaIABadge'
 import type {
   EntrevistaGuiaRow,
   GuiaPergunta,
@@ -524,9 +525,22 @@ export function GuiaEntrevistaPanel({
   return (
     <div className={cn('space-y-4', className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold text-white">Guia STAR/PEI</h3>
           <SugestaoIABadge variant="full" />
+          {/* D-27b (49-16): QUAL modelo escreveu este roteiro. Só quando existe roteiro —
+              um resultado que não existe não tem proveniência. `modelo_ia` NULL vira
+              «modelo não registrado» (D-30), nunca silêncio: as 5 linhas vivas de
+              `entrevista_guias` (medidas 2026-09-23) estão exatamente nesse estado, e
+              omitir o selo nelas as faria parecer idênticas a um roteiro cuja
+              proveniência está confirmada. */}
+          {guia ? (
+            <ProvenienciaIABadge
+              provedorIa={guia.provedor_ia}
+              modeloIa={guia.modelo_ia}
+              variant="compact"
+            />
+          ) : null}
         </div>
         {!editing ? (
           <button
