@@ -641,3 +641,28 @@ None — nenhuma configuracao de servico externo. O token do Supabase ja esta no
 ---
 *Phase: 49-consertos-da-jornada-bloco-2*
 *Completed: 2026-09-23*
+
+## Self-Check: PASSED
+
+- `supabase/migrations/20260922000012_p49_motor_logs_e_revisao.sql` — FOUND
+- `supabase/tests/p45_motor_exclusao_smoke.sql` — FOUND (modificado)
+- `.planning/phases/49-consertos-da-jornada-bloco-2/49-14-SUMMARY.md` — FOUND
+- commit `293f86f8` — FOUND · commit `4f956d09` — FOUND
+- `commits: 1` no frontmatter = MEDIDO por `git rev-list --count 9957f076..HEAD` no
+  instante da escrita deste SUMMARY. Re-medido AGORA da **2**, e a diferenca e o proprio
+  commit de metadado — previsto no comentario do `actuals`, nao divergencia.
+- `origin/main..HEAD` = **VAZIO** (push `9957f076..4f956d09`)
+- `<acceptance_criteria>` da Task 1 re-executados:
+  - tabela «origem → acao → asserção» dos tres itens do recibo: **no SUMMARY** (§Passo 1)
+  - PROD contem `revisao_resultado` no tombstone (dois lados), `user_prompt_template` no
+    severar e a redacao `comparative_ranking` por `position('id=' ||` — medido por
+    `pg_get_functiondef`, todos `true`
+  - smoke verde com as assercoes novas, rede estrutural crescida ANTES do re-pin,
+    contador em 30 e proveniencia do re-pin no cabecalho; `p46_purga_smoke` fecha 27/27
+    (ver §Regressao sobre a (j.2) alheia)
+  - mutacoes reprovam (12, tabela no SUMMARY) e o md5 vivo e o do pos-portao
+  - precondicao `config_purga.modo = dry_run` registrada, md5 novos e contador novo no
+    SUMMARY (base do 49-20)
+- `<verification>` de plano re-executada AGORA: `<verify>` #1 = `OK`; ledger
+  `md5(statements[1])` = `34f803a2…` batendo o disco (`true`); `p45_motor_exclusao_smoke`
+  = `P45=30`; `origin/main..HEAD` vazio.
