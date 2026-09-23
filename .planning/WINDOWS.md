@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 28
+open_count: 30
 waived_count: 8
 fixed_count: 39
-total_count: 75
-last_updated: 2026-09-23T14:45:13.350Z
+total_count: 77
+last_updated: 2026-09-23T15:42:18.821Z
 ---
 
 # Broken Windows Ledger
@@ -90,6 +90,8 @@ last_updated: 2026-09-23T14:45:13.350Z
 | 73 | 49 | unmet-truth | src/features/entrevista/services/entrevistaService.ts |  | 49-16 (§Deferred do plano, achado NAO perguntado ao operador): getGuia le entrevista_guias SEM filtro de tipo — order('created_at' desc).limit(1) — entao a aba do guia mostra sempre o roteiro MAIS RECENTE, seja ele da online ou da presencial, e nao ha nada na tela dizendo de qual entrevista aquele roteiro e. Medido em PROD 2026-09-23: das 3 candidaturas com guia, DUAS (a1dd4c42, 0b1c887b) tem os DOIS tipos gravados, entao o roteiro da online e inalcancavel pela tela nessas duas. O selo de proveniencia que este plano acrescentou herda o problema: ele diz corretamente qual modelo escreveu o roteiro EXIBIDO, e o roteiro exibido pode nao ser o da entrevista que o RH esta conduzindo. E a mesma classe do defeito D-41/D-39 que este plano consertou na aba da transcricao (a tela escolhendo por recencia em vez de por tipo/vigencia), um nivel ao lado. Conserto: getGuia(candidaturaId, tipo) com o mesmo seletor da aba da transcricao, ou a aba do guia mostrando os dois roteiros rotulados. Fora de escopo: o plano fixou explicitamente que getGuia segue sem filtro. | open |  | 2026-09-23T13:35:27.952Z |  |
 | 74 | 49 | unmet-truth | supabase/migrations/20260922000010_p49_retro_trilha_bd9.sql |  | BD-9 meio-fechada: D-47 RECUSADA pelo operador em 2026-09-23 (editaria a trilha de auditoria sem a trilha registrar a edicao). A justificativa da decisao final segue em 5 linhas de historico_candidatura.criterio_texto. Tem de aparecer no 49-17 (inventario LGPD) e no fecho do M8. | open |  | 2026-09-23T14:45:13.264Z |  |
 | 75 | 49 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | Asseroes (j.2), (o), (o.6), (o.7) e (p) bloqueadas: o operador RECUSOU abrir a vaga seed 4601d000-...-0003 (fica arquivada). O 4o ramo do guard do motor segue NAO exercitado entrando no 49-19. Conserto e do plano 49-28 (fixture que abre e restaura dentro do proprio envelope). | open |  | 2026-09-23T14:45:13.350Z |  |
+| 76 | 49 | unmet-truth | supabase/migrations/20260922000013_p49_motor_respostas_e_producoes.sql |  | 49-20: as escolhas de multipla escolha da SJT sobrevivem dentro de scores_candidato.metadata->'respostas' (medido: 4 de 5 linhas sjt, com opcao_id/pergunta_id/peso). O recibo promete no item respostas_e_producoes que «as suas respostas das avaliacoes foram apagadas», e a Correcao 14 REJEITOU a opcao (c) («as alternativas que voce marcou ficam»). Nao foi consertado aqui: a migration ja esta aplicada e escriturada, e alargar o escopo do passo de mao unica alem do que o operador enumerou nao e conserto de agente. Conserto cirurgico possivel (metadata - 'respostas', a linha fica), decisao do operador via 49-21. | open |  | 2026-09-23T15:42:18.742Z |  |
+| 77 | 49 | unmet-truth | supabase/migrations/20260922000013_p49_motor_respostas_e_producoes.sql |  | 49-20: resumos do texto removido sobrevivem — redacoes_candidato.texto_hash (NOT NULL, 2 linhas) e input_hash, e entrevista_analises.texto_hash (5 linhas). Nao sao o texto e nao estao entre as 14 origens do recibo, mas permitem CONFIRMAR um texto adivinhado depois de o original ter sido apagado (Art. 12 §1o, meios razoaveis). Registrado, nao consertado: fora do que o operador enumerou no D-48. Avaliar no 49-21. | open |  | 2026-09-23T15:42:18.821Z |  |
 
 ````json
 [
@@ -1022,6 +1024,32 @@ last_updated: 2026-09-23T14:45:13.350Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-23T14:45:13.350Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 76,
+    "kind": "unmet-truth",
+    "phase": "49",
+    "file": "supabase/migrations/20260922000013_p49_motor_respostas_e_producoes.sql",
+    "line": null,
+    "description": "49-20: as escolhas de multipla escolha da SJT sobrevivem dentro de scores_candidato.metadata->'respostas' (medido: 4 de 5 linhas sjt, com opcao_id/pergunta_id/peso). O recibo promete no item respostas_e_producoes que «as suas respostas das avaliacoes foram apagadas», e a Correcao 14 REJEITOU a opcao (c) («as alternativas que voce marcou ficam»). Nao foi consertado aqui: a migration ja esta aplicada e escriturada, e alargar o escopo do passo de mao unica alem do que o operador enumerou nao e conserto de agente. Conserto cirurgico possivel (metadata - 'respostas', a linha fica), decisao do operador via 49-21.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T15:42:18.742Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 77,
+    "kind": "unmet-truth",
+    "phase": "49",
+    "file": "supabase/migrations/20260922000013_p49_motor_respostas_e_producoes.sql",
+    "line": null,
+    "description": "49-20: resumos do texto removido sobrevivem — redacoes_candidato.texto_hash (NOT NULL, 2 linhas) e input_hash, e entrevista_analises.texto_hash (5 linhas). Nao sao o texto e nao estao entre as 14 origens do recibo, mas permitem CONFIRMAR um texto adivinhado depois de o original ter sido apagado (Art. 12 §1o, meios razoaveis). Registrado, nao consertado: fora do que o operador enumerou no D-48. Avaliar no 49-21.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T15:42:18.821Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
