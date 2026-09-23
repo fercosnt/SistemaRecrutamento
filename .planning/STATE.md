@@ -3,10 +3,10 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-15-PLAN.md
-last_updated: "2026-09-23T13:07:38.392Z"
+stopped_at: Completed 49-16-PLAN.md
+last_updated: "2026-09-23T13:36:30.990Z"
 last_activity: 2026-09-23
-state_head: 0442fd0cf6501a572e83b2af03dee08d95220040
+state_head: 2a191b806e64b1a8140fd1eb2800e3ba4f7b47f5
 progress:
   total_phases: 8
   completed_phases: 9
@@ -807,6 +807,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P14 | 88 min | 1 tasks | 2 files |
 | Phase 49 P26 | ~50 min | 2 tasks | 6 files |
 | Phase 49 P15 | 28 min | 2 tasks | 10 files |
+| Phase 49 P16 | 48 min | 2 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -1115,6 +1116,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-26: a pergunta «algum modelo respondeu isto?» vive em UM lugar (_shared/resultado-de-provedor.ts) e as duas EFs a consomem — o MESMO defeito foi medido duas vezes porque a pergunta estava escrita duas vezes
 - [Phase 49]: 49-26: chave AUSENTE vs array vazio é distinção substantiva num upsert — sob onConflict um [] explicito APAGA o valor da execucao anterior, entao 'nada a sinalizar' se escreve pela ausencia da chave
 - [Phase 49]: 49-26: um predicado compartilhado que pergunta 'tem provedor?' NAO e o normalizador que pergunta 'qual provedor, dentro da allowlist do CHECK?' — fundi-los faria o predicado herdar uma allowlist que ele existe para nao ter
+- [Phase 49]: 49-16: getAnalises classifica pelo MESMO predicado do banco (entrevista_analise_vigente), transcrito UMA vez e nomeado — a quinta cópia potencial da regra «qual análise vale» não nasceu solta
+- [Phase 49]: 49-16: fora de etapa de entrevista o seletor de tipo NÃO tem padrão — o RH escolhe antes de analisar, a mesma postura da EF, que recusa gravar um palpite
+- [Phase 49]: 49-16: provedor_ia/modelo_ia entraram como OBRIGATÓRIOS em AnaliseHubRow com valor null — todo construtor de linha DECLARA de onde ela veio em vez de poder esquecer
 
 ### Roadmap Evolution
 
@@ -1405,8 +1409,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T13:07:38.129Z
-Stopped at: Completed 49-15-PLAN.md
+Last session: 2026-09-23T13:36:15.691Z
+Stopped at: Completed 49-16-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
