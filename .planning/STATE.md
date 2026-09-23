@@ -3,10 +3,10 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-10-PLAN.md
-last_updated: "2026-09-23T03:19:07.196Z"
+stopped_at: Completed 49-11-PLAN.md
+last_updated: "2026-09-23T03:45:37.953Z"
 last_activity: 2026-09-23
-state_head: 03359f9ed276caad8298d0022bdc3aac334b82e6
+state_head: 7397524b184ae4eced5896b14c3826ebacf375c2
 progress:
   total_phases: 8
   completed_phases: 9
@@ -801,6 +801,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P24 | 40 min | 1 tasks | 2 files |
 | Phase 49 P07 | 48 min | 2 tasks | 2 files |
 | Phase 49 P10 | 18 min | 2 tasks | 6 files |
+| Phase 49 P11 | 34 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1097,6 +1098,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: O instrumento das chamadas 2..5 de `stamp_explicacao_acessada` é o `ctid` da linha, não o valor da coluna nem a contagem do arquivo — Com a coluna fora do `WHEN`, o arquivo fica em 0 mesmo se a RPC continuar escrevendo a cada leitura — medido: a mutação com o corpo anterior manteve o arquivo em 0 e reescreveu a linha 4 vezes (ctid (0,21) -> (0,27)). Sem o ctid a asserção seria vácua, e o defeito voltaria no dia em que qualquer coluna nova entrasse na comparação.
 - [Phase 49]: A ausência de trigger BEFORE UPDATE em `decisao_final` entrou no pós-portão E no smoke como asserção (y), em vez de ser só uma pré-condição lida uma vez — A lista de exclusão de duas colunas do D-44 só é COMPLETA enquanto nenhum trigger carimba uma coluna de tempo em todo UPDATE. Medido 0 hoje; um carimbador de `updated_at` nascido depois traria o defeito de volta sem erro nenhum. O portão vive no smoke porque a migration roda uma vez.
 - [Phase 49]: 49-10: a análise de entrevista passa a ter dono (tipo/autor/texto_hash/ai_call_log_id/provedor/modelo) e UMA vigente por (candidatura, tipo). A RPC nova `registrar_analise_entrevista` é o único escritor a partir da EF; as duas RPCs de revisão passam a exigir a análise VIGENTE pelo predicado único do 49-01 e o guard de papel virou fail-closed. `anon` perdeu EXECUTE nas duas (tinha por grant DIRETO do pg_default_acl). 8 mutações provam o smoke mordente, uma por cláusula.
+- [Phase 49]: 49-11: a proveniência da análise da triagem só é gravada pelo upsert de SUCESSO — a marca `pendente` e a linha `falhou` não carregam as colunas nem como `null`, porque o `onConflict` sobrescreve toda coluna presente no objeto e um `null` apagaria a proveniência da execução anterior no instante em que o reprocessamento começa — A coluna descreve o CONTEÚDO que está na linha, nunca um estado. Escrever proveniência na marca faria a linha de reprocessamento herdar o modelo da execução anterior; omiti-la do objeto preserva a da execução que de fato produziu o conteúdo até o upsert final substituí-la.
+- [Phase 49]: 49-11: o grep da C6 (escrita de EF sem erro destruturado) passa a devolver ZERO em todo o repositório — as duas últimas escritas da tabela C6 do kickoff (analise-candidato-individual:301,602) foram as fechadas aqui — Medido: 11 achados no kickoff, 11 fechados ao longo da fase (49-02 nos três do _shared, 49-08/09/10/23 nas EFs, 49-11 nas duas últimas). O portão é re-rodável e agora sai vazio.
+- [Phase 49]: 49-11: consolidar-decisao-final NÃO é uma das EFs do contrato do ai-client — medido: ela não tem nenhum import de _shared/ e nenhuma chamada a callAi. O conjunto fecha em SETE, e as sete rodam o contrato novo em PROD — O briefing deste plano a listava como «ainda no contrato antigo», o que sugeria uma oitava EF pendente. Ela nunca embarcou o contrato — não há nada a sincronizar. Medido por fechamento de imports e por marcadores no bundle vivo (0/0/0).
 
 ### Roadmap Evolution
 
@@ -1385,8 +1389,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T03:18:36.866Z
-Stopped at: Completed 49-10-PLAN.md
+Last session: 2026-09-23T03:44:22.510Z
+Stopped at: Completed 49-11-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
