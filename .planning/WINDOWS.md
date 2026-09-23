@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 11
+open_count: 14
 waived_count: 7
 fixed_count: 33
-total_count: 51
-last_updated: 2026-09-23T00:11:20.613Z
+total_count: 54
+last_updated: 2026-09-23T00:40:22.138Z
 ---
 
 # Broken Windows Ledger
@@ -66,6 +66,9 @@ last_updated: 2026-09-23T00:11:20.613Z
 | 49 | 49 | deviation | src/components/__tests__/KanbanBoard.test.tsx |  | 49-05: menu Radix não abre no happy-dom; exigiu 3 mocks (dropdown-menu + os 2 diálogos que ele passaria a montar sem QueryClientProvider) | open |  | 2026-09-22T23:00:36.248Z |  |
 | 50 | 49 | deviation | supabase/functions/_shared/comparativo-config.ts |  | O teto COMPARATIVO_MAX_CANDIDATOS=4 repousa em aritmética (80 s x 45 tok/s = 3600 tok; n=4 = 3140 tok estimados), nao em medicao: a premissa A3 (P ~ 280-410 tok/candidato) e MEDIDA pela prova n=4 do plano 49-18. Se a saida real passar de 3140 tok, o teto volta ao operador antes de fechar a fase (D-59). | open |  | 2026-09-23T00:11:20.528Z |  |
 | 51 | 49 | deviation | .planning/phases/49-consertos-da-jornada-bloco-2/49-08-PLAN.md |  | Dois <verify> do 49-08 embutem uma ESCRITA no comando de verificacao (p46apply.cjs migrate; efdeploy.cjs sem --dry-run). Nao sao re-rodaveis: o primeiro sai nao-zero por desenho (version ja no ledger), o segundo criaria uma version de EF identica. Um portao que nao se pode re-rodar so morde uma vez. | open |  | 2026-09-23T00:11:20.613Z |  |
+| 52 | 49 | deviation | src/features/triagem/components/RedacaoReviewPanel.tsx | 47 | 49-09 deployou a EF v15 avaliando a redacao pela BARS (D1 Especificidade, D2 Acao, D3 Aprendizado, D4 Alinhamento), mas a tela do RH (RedacaoReviewPanel.tsx:47 e RedacaoOverrideForm.tsx:45) rotula D1-D4 como os 4 valores BS (Experiencia UAU, Inovacao, Atitude de Dono, Sede de Crescimento). Toda redacao avaliada entre este deploy e o plano 49-15 aparece com o rotulo ERRADO: o numero e da especificidade da situacao e a tela diz Experiencia UAU. O 49-15 importa a mesma constante e fecha (D-25). | open |  | 2026-09-23T00:40:21.953Z |  |
+| 53 | 49 | unrun-verify | .planning/phases/49-consertos-da-jornada-bloco-2/49-09-PLAN.md |  | O <verify> #3 do 49-09 embute uma ESCRITA no comando de verificacao (node efdeploy.cjs sem --dry-run). Nao e re-rodavel: repeti-lo criaria uma version 16 identica a 15, poluindo o historico de deploy para nao provar nada novo. Re-verificado pelo RESULTADO (version=15/ACTIVE/verify_jwt=true lida de volta da Management API + os marcadores lidos do bundle vivo). Mesma familia da WINDOWS 51 (49-08); e a segunda ocorrencia da fase. | open |  | 2026-09-23T00:40:22.050Z |  |
+| 54 | 49 | deviation | supabase/functions/_shared/bars-redacao.ts |  | A rubrica BARS entra no input com 8476 octetos (~2037 tok, medido) de ancoras, em bloco cacheado (cache_control ephemeral). O culture_fit_essay tem max_tokens 2500 e a maior saida medida foi 1253 tok (50%). O bloco novo alonga o PEDIDO, nao necessariamente a saida, mas a saida real sob a rubrica nova nao foi medida: nenhuma redacao foi avaliada pela v15 ainda. A prova de saida real e do plano 49-18 (premissa C9). Registrado, nao consertado: mexer no max_tokens sem medir e consertar o parametro errado. | open |  | 2026-09-23T00:40:22.138Z |  |
 
 ````json
 [
@@ -686,6 +689,45 @@ last_updated: 2026-09-23T00:11:20.613Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-23T00:11:20.613Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 52,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "src/features/triagem/components/RedacaoReviewPanel.tsx",
+    "line": 47,
+    "description": "49-09 deployou a EF v15 avaliando a redacao pela BARS (D1 Especificidade, D2 Acao, D3 Aprendizado, D4 Alinhamento), mas a tela do RH (RedacaoReviewPanel.tsx:47 e RedacaoOverrideForm.tsx:45) rotula D1-D4 como os 4 valores BS (Experiencia UAU, Inovacao, Atitude de Dono, Sede de Crescimento). Toda redacao avaliada entre este deploy e o plano 49-15 aparece com o rotulo ERRADO: o numero e da especificidade da situacao e a tela diz Experiencia UAU. O 49-15 importa a mesma constante e fecha (D-25).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T00:40:21.953Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 53,
+    "kind": "unrun-verify",
+    "phase": "49",
+    "file": ".planning/phases/49-consertos-da-jornada-bloco-2/49-09-PLAN.md",
+    "line": null,
+    "description": "O <verify> #3 do 49-09 embute uma ESCRITA no comando de verificacao (node efdeploy.cjs sem --dry-run). Nao e re-rodavel: repeti-lo criaria uma version 16 identica a 15, poluindo o historico de deploy para nao provar nada novo. Re-verificado pelo RESULTADO (version=15/ACTIVE/verify_jwt=true lida de volta da Management API + os marcadores lidos do bundle vivo). Mesma familia da WINDOWS 51 (49-08); e a segunda ocorrencia da fase.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T00:40:22.050Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 54,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "supabase/functions/_shared/bars-redacao.ts",
+    "line": null,
+    "description": "A rubrica BARS entra no input com 8476 octetos (~2037 tok, medido) de ancoras, em bloco cacheado (cache_control ephemeral). O culture_fit_essay tem max_tokens 2500 e a maior saida medida foi 1253 tok (50%). O bloco novo alonga o PEDIDO, nao necessariamente a saida, mas a saida real sob a rubrica nova nao foi medida: nenhuma redacao foi avaliada pela v15 ainda. A prova de saida real e do plano 49-18 (premissa C9). Registrado, nao consertado: mexer no max_tokens sem medir e consertar o parametro errado.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T00:40:22.138Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }

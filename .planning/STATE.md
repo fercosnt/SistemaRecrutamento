@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-08-PLAN.md
-last_updated: "2026-09-23T00:10:48.294Z"
+stopped_at: Completed 49-09-PLAN.md
+last_updated: "2026-09-23T00:46:25.006Z"
 last_activity: 2026-09-22
-state_head: 963637f31cbbbc63687ac1aa8419d825c45cec65
+state_head: eb23b73176a0422517e9e015dce694ee378f8023
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 102
-  completed_plans: 83
-  percent: 81
+  completed_plans: 84
+  percent: 82
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -796,6 +796,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P05 | 27 min | 2 tasks | 7 files |
 | Phase 49 P06 | 37 min | 3 tasks | 5 files |
 | Phase 49 P08 | 19 min | 2 tasks | 5 files |
+| Phase 49 P09 | 58 min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -1081,6 +1082,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: JORN-17: `etapa_justificativa` é coluna de EVENTO — `avancar_etapa()` a zera depois de gravar a linha de histórico, e o pós-portão assere que a limpeza vem DEPOIS do INSERT — Deixá-la viva a tornava ESTADO: o histórico da transição seguinte herdava o motivo alheio, e o portão de regressão ficava desarmado por valor residual. Invertida a ordem, o `criterio_texto` sairia NULL em toda transição — o conserto de privacidade viraria apagamento de transparência, e nenhuma asserção de presença perceberia.
 - [Phase 49]: D-47/BD-9: a trilha do titular passa a registrar a constante sem PII «Decisão final registrada.», e o texto da decisão continua em `decisao_final.justificativa` — o dado é MOVIDO, e o pós-portão exige as duas metades — O escopo NÃO se estende a `rejeitar_candidatura` (Correção 28): a justificativa de ETAPA chega ao titular por decisão já tomada e com aviso na tela — é transparência devida. Só a da decisão final é BD-9.
 - [Phase 49]: Prova de mordida precisa de uma inversão POR conserto: cinco mutações em vez das três do plano, porque um smoke é fail-fast e uma mutação que desfaz três consertos de uma vez só prova o primeiro — M1 (trava) reprova em (a) antes de chegar a (e) e (i) — a limpeza e a vigente ficariam sem prova própria, parecendo provadas. Cada conserto ganhou a inversão exata dele sobre o corpo vivo, e todas as cinco reprovaram na asserção esperada, sem vazar para PROD.
+- [Phase 49]: 49-09: a rubrica da redação cultural é a BARS do PRD v1.1 (D1 Especificidade · D2 Ação · D3 Aprendizado · D4 Alinhamento), numa constante versionada sem imports (_shared/bars-redacao.ts, bars-prd-1.1) que a EF envia e a tela do RH vai importar (49-15). Os 4 valores Beauty Smile são o OBJETO da D4, não as dimensões. — Medido em PROD: o prompt manda «use as âncoras BARS fornecidas no input» e o input levava só a pergunta; as 2 redações avaliadas tiveram os nomes das dimensões INVENTADOS pelo modelo, e DIFERENTES entre si. A nota 0-100 e o cap D1<=2 incidiam sobre dimensões que nada garantia serem as da rubrica escrita.
+- [Phase 49]: 49-09: commitar ANTES de mutar. A prova de mordida (D-56) por "git checkout -- <arquivo>" sobre trabalho NÃO commitado apagou as alterações da EF que ela existia para testar; num arquivo não rastreado a restauração falha em silêncio e a mutação fica em disco. — "git checkout --" restaura para o HEAD, não para o disco. O harness passou a exigir commit prévio e "git diff --quiet" por mutação. Custo real: reconstrução completa das 11 edições da EF.
+- [Phase 49]: 49-09: uma checagem redundante é um portão incapaz de falhar. A recusa de dimensão REPETIDA é redundante quanto ao veredito (num array de 4 sobre vocabulário de 4, repetir implica faltar), então só o MOTIVO precisa de asserção — e sem ela a mutação não morde.
 
 ### Roadmap Evolution
 
@@ -1144,6 +1148,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - ✅ **RESOLVIDO 2026-08-23 — B-02 FECHADO E PROVADO EM PROD.** A Saida A (3o ramo nas DUAS metades) esta aplicada via `20260823000008` e a asserção (p.3) do smoke — que ate hoje SO CONSEGUIA FALHAR, por um bug proprio — passa: com item aberto, execucao em `executando` e cerco em `dry_run`, `plano_exclusao_titular` DEVOLVE o plano. ⊖ E a premissa sobre a qual o operador decidiu a Saida A esta MEDIDA e se sustenta: o nome/email/cpf/celular reais do titular nao aparecem no jsonb de 13 chaves, e nao ha padrao de PII nenhum nele. Registro historico: - ⛔ B-02 (46-04, 2026-08-23): public.plano_exclusao_titular(uuid) tem guard PROPRIO de duas metades (20260805000005:201-253) que recusa chamador sem sessao com 42501. anonimizar_candidato a CHAMA no PASSO 0, entao o 4o ramo de D-46-18 NAO basta — o dry-run da purga morre 3 linhas depois de ser autorizado. SECURITY DEFINER nao troca auth.uid(). Exige decisao do operador (Rule 4): Saida A = espelhar o 4o ramo nas DUAS metades daquela funcao, o que implica migration nova e um SEGUNDO re-pin de md5 em (C3) (v_pin_plano).
 - ✅ **RESOLVIDO 2026-08-23 — 46-04 FECHADO, APLICADO EM PROD, PORTAO CUMPRIDO.** QUATRO rodadas de code review bloqueante (r1: 2 BLOCKER+10 · r2: 3 HIGH+6, dois causados pelo proprio conserto · r3: 2 HIGH+6 · r4 dirigida: bloqueio so de DOCUMENTO, zero SQL). As 4 migrations aplicadas na ordem `006 -> 008 -> 009 -> 007` pela via do CLAUDE.md, md5 do ledger conferido por leitura de volta nas quatro. ⊖ Zero linha de pessoa tocada (candidatos 31=31, candidaturas 20=20, auth.users 37=37, CVs 5=5, historico 13=13); ACL identico antes/depois (classe BL-01 fechada por medicao); `modo` segue `off`; nenhum cron de purga existe ainda. Portao: p46_purga 16/16, p45_motor 24/24, p43_previa 9, p43_matriz 11, p42_cron 4 — todos lidos do GUC. Registro historico: - 46-04 (2026-08-22): code review bloqueante REPROVOU a 1a rodada — 2 BLOCKER (BL-01 as migrations revogavam de authenticated o EXECUTE vivo e reintroduziriam DI-45-10-01 em PROD; BL-02 o 4o ramo nao era correlacionado com o chamador e abria CR-01 cen.2 para qualquer authenticated enquanto houvesse item aberto em live), 4 HIGH, 4 MEDIUM, 2 LOW. TODOS tratados no commit 6029f94. ⚠ NOVA rodada de review e pre-condicao do apply — o portao e condicao de fechamento da fase.
 - ✅ RESOLVIDO 2026-09-21 — 48-14 achado: policy «Allow anonymous duplicate check» (anon lia todas as candidaturas) FECHADA por 20260921000016; e SETE views legado sem security_invoker que liam PII para anon/authenticated (v_candidatos_ativos: 42 linhas com CPF) FECHADAS por 20260921000017. Logs (≈48 h de retenção): nenhum acesso anônimo externo. Avaliação de incidente LGPD Art. 48 é do Encarregado. Detalhe em 48 deferred-items.md
+- 49-09 deployou a EF v15 medindo a redação pela BARS, mas a tela do RH (RedacaoReviewPanel.tsx:47, RedacaoOverrideForm.tsx:45) ainda rotula D1-D4 como os 4 valores: toda redação avaliada até o plano 49-15 aparece com legenda FALSA sobre um número correto (WINDOWS 52).
 
 ## Deferred Verification
 
@@ -1367,8 +1372,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T00:10:48.041Z
-Stopped at: Completed 49-08-PLAN.md
+Last session: 2026-09-23T00:45:39.630Z
+Stopped at: Completed 49-09-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
