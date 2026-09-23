@@ -934,6 +934,14 @@ posicional faz a ferramenta aceitá-lo e **descartá-lo** — a entrada fica `fi
 A tabela Markdown do topo do arquivo é **gerada a partir do bloco JSON**, então editar a célula à mão quebra o ledger
 (`table disagrees with the fenced JSON entries … row id(s): N`).
 
+> ⚠ **CORREÇÃO (49-28, medido): `windows status --raw` é o comparador FRACO — não confie nele.**
+> Ele respondeu `ok: true` sobre um `WINDOWS.md` cuja tabela estava inconsistente com o bloco JSON
+> (faltava o `|` de fecho de uma linha). Quem recusou, nomeando as linhas divergentes, foi o
+> **`windows append`**. São dois comparadores diferentes e o mais permissivo é justamente o que se
+> chama «status». Depois de fechar uma janela pelo §M, rode `windows append` — mesmo que não haja
+> nada a acrescentar — para saber se os dois concordam de verdade. Um portão que não consegue
+> verificar e responde «ok» é a mesma classe de defeito um nível acima (CLAUDE.md §Portões).
+
 Via correta: escrever a razão no **bloco JSON** (a fonte de verdade) e sincronizar a célula da tabela **lendo o texto
 de volta do JSON**, nunca redigitando. Conferir com `gsd-tools windows status --raw`, que responde `ok: true` quando os
 dois concordam.
