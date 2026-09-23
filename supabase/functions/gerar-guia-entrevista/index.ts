@@ -375,10 +375,13 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
     //   detectada (`prompt_injection_detected`). As duas últimas chegam aqui por
     //   `guiaDeResultado` — nenhum provedor foi chamado, logo não há roteiro.
     //
-    //   ⚠ A condição era `guide == null || result.error_code === "<código de injeção>"`.
-    //   O segundo termo era uma lista literal de um item: cobria a injeção e deixava o
-    //   teto de custo — e todo bloqueio pré-provedor futuro — fora da vigilância. Hoje a
-    //   pergunta é estrutural (há roteiro?) e o código é só o DIAGNÓSTICO, nunca o gatilho.
+    //   ⚠ Até 2026-09-23 esta condição tinha um SEGUNDO termo, que comparava o código de
+    //   erro do resultado contra um único código literal (o da injeção). Era uma lista
+    //   literal de um item: cobria a injeção e deixava o teto de custo — e todo bloqueio
+    //   pré-provedor futuro — fora da vigilância. Hoje a pergunta é estrutural (há
+    //   roteiro?) e o código é só o DIAGNÓSTICO, nunca o gatilho.
+    //   (A forma retirada não é reproduzida aqui de propósito: os portões desta fase a
+    //   procuram NO DISCO, e citá-la a deixaria encontrável no arquivo que a removeu.)
     const persistFlags: string[] = [];
     if (guide == null) {
       persistFlags.push(result.error_code ?? "ia_sem_resultado");
