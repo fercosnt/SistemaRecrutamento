@@ -417,7 +417,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 49-06-PLAN.md — Trilha: trava de encerrada no `avancar_etapa` com as sanções da reabertura e da decisão, justificativa que não gruda, decisão fora da trilha, portão pela vigente, guarda de reabrir por status (JORN-25, JORN-17, JORN-37, JORN-34, JORN-12)
-- [ ] 49-08-PLAN.md — EF do comparativo: IDOR, encerrada e sem análise com mensagem verdadeira, teto de 4 e `max_tokens` 3600, desempate estável, `posicoes`, proveniência (JORN-32, JORN-25, JORN-28 / D-59)
+- [x] 49-08-PLAN.md — EF do comparativo: IDOR, encerrada e sem análise com mensagem verdadeira, teto de 4 e `max_tokens` 3600, desempate estável, `posicoes`, proveniência (JORN-32, JORN-25, JORN-28 / D-59)
 - [ ] 49-09-PLAN.md — Redação pela rubrica BARS do PRD numa constante única, com checagem pós-parse e proveniência real (JORN-07, JORN-28)
 - [ ] 49-23-PLAN.md — SJT pesando pela chave da rubrica da pergunta, sem peso uniforme silencioso; proveniência na `metadata` (JORN-35, JORN-28 / D-68)
 - [ ] 49-24-PLAN.md — Proveniência real do guia de entrevista (JORN-28 / D-28)
@@ -542,7 +542,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 6/24 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 7/24 | In Progress|  |
 
 ---
 
