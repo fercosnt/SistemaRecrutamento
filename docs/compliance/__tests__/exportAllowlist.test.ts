@@ -167,6 +167,11 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
   })
 
   it('(b) o conjunto achatado `tabela.coluna` está congelado', () => {
+    // ⚠ Phase 49 (49-17, Task 1): este snapshot cresceu DE PROPÓSITO em DUAS chaves —
+    // `entrevista_analises.superada_em` e `.tipo`, as únicas colunas criadas pela fase
+    // com veredito `export: true`. As outras cinco da mesma tabela foram para o
+    // snapshot (j). Nenhuma outra linha se moveu, e o diff de um par de commits é a
+    // prova disso: um snapshot atualizado sem diff auditável é o mesmo que nenhum.
     expect(chavesAchatadas()).toMatchInlineSnapshot(`
       [
         "agendamentos_entrevista.candidatura_id",
@@ -365,6 +370,8 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "entrevista_analises.revisao_confirmada_em",
         "entrevista_analises.scores_humanos",
         "entrevista_analises.status_analise",
+        "entrevista_analises.superada_em",
+        "entrevista_analises.tipo",
         "entrevistas_online.analise_ia",
         "entrevistas_online.avaliacao_candidato_score",
         "entrevistas_online.candidatura_id",
@@ -641,6 +648,14 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     // poderia crescer em silêncio pelo lado da exclusão, e o smoke SQL (que compara
     // contra a UNIÃO) ficaria verde o tempo todo. É o mesmo raciocínio de universos
     // disjuntos que separa este arquivo do smoke, aplicado dentro do artefato.
+    //
+    // ⚠ Phase 49 (49-17, Task 1): cresceu DE PROPÓSITO em CINCO chaves de
+    // `entrevista_analises` — `provedor_ia`, `modelo_ia`, `texto_hash`,
+    // `ai_call_log_id` (as quatro por `decisoes_por_coluna`) e `solicitado_por`
+    // (pela R2, sem veredito próprio). É exatamente o crescimento silencioso «pelo
+    // lado da exclusão» que o parágrafo acima descreve: nenhuma delas jamais
+    // apareceu no snapshot (b), e sem este terceiro snapshot a entrada delas não
+    // moveria um byte de teste nenhum.
     expect(excluidasAchatadas()).toMatchInlineSnapshot(`
       [
         "agendamentos_entrevista.agendado_por",
@@ -665,8 +680,13 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "decisao_final_historico.revisao_por_usuario",
         "devolutivas_candidato.modelo_ia",
         "devolutivas_candidato.prompt_version",
+        "entrevista_analises.ai_call_log_id",
+        "entrevista_analises.modelo_ia",
         "entrevista_analises.prompt_version",
+        "entrevista_analises.provedor_ia",
         "entrevista_analises.revisada_por",
+        "entrevista_analises.solicitado_por",
+        "entrevista_analises.texto_hash",
         "entrevistas_online.agendado_por",
         "entrevistas_online.realizado_por",
         "entrevistas_presenciais.agendado_por",

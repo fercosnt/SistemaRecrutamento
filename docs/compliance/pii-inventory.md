@@ -285,6 +285,13 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `bias_flags` | 🔒 preservar | R5 | Insumo de auditoria de viés |
 | `scores_humanos` | 🔒 preservar | R5 |  |
 | `revisada_por` | 🔒 preservar | uuid | Funcionário |
+| `tipo` | 🔒 preservar | text | Phase 49 (D-41) — de qual entrevista a análise é ('online'|'presencial', CHECK). Estado de processo, sem PII |
+| `solicitado_por` | 🔒 preservar | uuid | Funcionário — mesmo tratamento de revisada_por. Coberto pela R2 (o nome está no padrão), e por isso fora da cópia do titular sem precisar de veredito próprio |
+| `texto_hash` | 🔒 preservar | text | ⚠ RESÍDUO ACEITO (D-70, operador, 2026-09-23). Hash do texto da transcrição analisada. SOBREVIVE à exclusão de propósito: é o vínculo com `ai_call_logs` que os planos 49-10/49-12 construíram e a chave de idempotência de que o D-40 depende — apagá-lo desfaria a proveniência que o JORN-28 exige. O que ele permite é CONFIRMAR um texto adivinhado por quem já tenha acesso ao banco, nunca RECUPERAR o texto. Não é o texto, não é origem de linha nenhuma do recibo, e o recibo não afirma que ele foi apagado. Mesma natureza de `redacoes_candidato.texto_hash` |
+| `ai_call_log_id` | 🔒 preservar | uuid | Phase 49 (D-38) — ponteiro para a linha de `ai_call_logs` que contém o texto analisado. Sem FK de propósito: o log é purgado em 180 dias e o motor o redige antes disso, então depois da purga o ponteiro aponta para o vazio (consequência aceita no D-38) |
+| `provedor_ia` | 🔒 preservar | text | Phase 49 (D-28) — provedor de LLM REAL que produziu a análise. Ficha técnica da execução, não fato sobre a pessoa; sobrevive à purga de 180 dias do `ai_call_logs`, que era a única proveniência existente |
+| `modelo_ia` | 🔒 preservar | text | Phase 49 (D-28) — modelo REAL. Idem provedor_ia |
+| `superada_em` | 🔒 preservar | timestamptz | Phase 49 (D-39) — quando esta análise deixou de ser a vigente porque outra da mesma entrevista a substituiu. Marca, não apagamento (D-02 da 48): a análise superada continua acessível, com a revisão humana anterior visível (D-42) |
 
 ### `redacoes_candidato`
 
@@ -651,8 +658,8 @@ o defeito de verdade, e não a existência da tabela.
 |---------------|--------:|
 | 🎭 anonimizar | 23 |
 | 🗑️ apagar | 68 |
-| 🔒 preservar | 97 |
+| 🔒 preservar | 104 |
 | ⚠️ preservar c/ ressalva | 49 |
-| **Total explícito** | **237** |
+| **Total explícito** | **244** |
 
 Cobertura de tabelas: **65 / 64**.

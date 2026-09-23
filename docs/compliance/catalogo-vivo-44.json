@@ -35,6 +35,23 @@
           "decisao_final_historico.alerta_prazo_enviado_em"
         ],
         "nota": "ACRÉSCIMO, não re-medição. Entram SÓ as colunas criadas pela Phase 48 (migrations 20260921000004 — D-02, 20260921000005 — aviso ao titular, e 20260921000011 — reabertura), com tipo/nulidade/ordem lidos da consulta acima. `medido_em` e `totais` do topo continuam sendo os da medição de 2026-08-04 e NÃO descrevem o schema de hoje. Drift pré-existente NÃO incluído, de propósito (não é desta fase): `candidatos.faixa_etaria_materializada` e `candidaturas.encerrada_a_pedido_em` (acusadas pelo 05-export-allowlist-drift.sql segundo o 48-RESEARCH §F) e 7 colunas de `solicitacoes_dados` MEDIDAS nesta consulta (`executar_em`, `cancelado_em`, `plano`, `storage_concluido_em`, `postgres_concluido_em`, `auth_concluido_em`, `recibo_enviado_em`). Na mesma consulta, as colunas já catalogadas das quatro tabelas bateram em tipo, nulidade e ordem."
+      },
+      {
+        "medido_em": "2026-09-23T21:03:45Z",
+        "fase": 49,
+        "plano": "49-17",
+        "fonte": "information_schema.columns via Management API (node p46apply.cjs sql, SET TRANSACTION READ ONLY), projeto isljnozzlvckrgjjbjwp",
+        "query": "SELECT c.table_name, c.column_name, c.data_type, c.is_nullable, c.ordinal_position FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema=c.table_schema AND t.table_name=c.table_name AND t.table_type='BASE TABLE' WHERE c.table_schema='public' AND c.table_name IN ('analise_candidato_vaga','comparativo_solicitado','entrevista_guias','entrevista_analises','redacoes_candidato') AND c.column_name IN ('provedor_ia','modelo_ia','rubrica_versao','tipo','solicitado_por','texto_hash','ai_call_log_id','superada_em') ORDER BY 1,5",
+        "colunas": [
+          "entrevista_analises.provedor_ia",
+          "entrevista_analises.modelo_ia",
+          "entrevista_analises.tipo",
+          "entrevista_analises.solicitado_por",
+          "entrevista_analises.texto_hash",
+          "entrevista_analises.ai_call_log_id",
+          "entrevista_analises.superada_em"
+        ],
+        "nota": "ACRESCIMO, nao re-medicao — colunas criadas pela Phase 49 (migration 20260922000002, plano 49-01). `medido_em` e `totais` do topo continuam sendo os da medicao de 2026-08-04 e NAO descrevem o schema de hoje. Esta primeira entrada da fase cobre SO `entrevista_analises` (Task 1 do plano 49-17, o tracer que leva uma tabela de ponta a ponta); as 9 colunas restantes das outras quatro tabelas entram na Task 3, na MESMA entrada. A consulta acima devolveu 19 linhas: 16 sao da Phase 49 e TRES sao pre-existentes e ja catalogadas (`comparativo_solicitado.solicitado_por`, `entrevista_guias.tipo`, `redacoes_candidato.texto_hash`) — nomes iguais em tabelas diferentes, conferidos um a um para nao serem duplicados aqui. Drift pre-existente NAO incluido, de proposito (nao e desta fase): as MESMAS 9 colunas que a Phase 48 deixou registradas — `candidatos.faixa_etaria_materializada`, `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados` (`executar_em`, `cancelado_em`, `plano`, `storage_concluido_em`, `postgres_concluido_em`, `auth_concluido_em`, `recibo_enviado_em`), re-medidas em 2026-09-23 pelo `05-export-allowlist-drift.sql` (21 linhas = 9 pre-existentes + 12 da fase em tabela EM ESCOPO; as outras 4 da fase vivem em tabela fora de escopo, que essa consulta nao varre)."
       }
     ]
   },
@@ -2307,6 +2324,55 @@
       "tipo": "timestamp with time zone",
       "nullable": false,
       "ordem": 13
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "provedor_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "modelo_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "tipo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "solicitado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "texto_hash",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "ai_call_log_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "superada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 20
     },
     {
       "tabela": "entrevista_guias",

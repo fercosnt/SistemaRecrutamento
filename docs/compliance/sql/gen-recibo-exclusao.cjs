@@ -702,6 +702,32 @@ const FORA_DO_RECIBO = Object.assign(
     'conteudo_do_produto',
   ),
   mapa(q('entrevista_analises', ['revisada_por']), 'dado_de_funcionario'),
+  // ⚠ Phase 49 (49-17) — as SETE colunas que o plano 49-01 criou em
+  // `entrevista_analises`. Nenhuma é conteúdo do titular e nenhuma é `apagar`
+  // no inventário: são estado da análise, chave técnica e ficha técnica da
+  // execução. Por isso as sete recebem RAZÃO aqui em vez de linha de recibo —
+  // e é `FORA_DO_RECIBO`, não omissão: sem razão nomeada o fecho de COBERTURA
+  // reprovaria a geração, que é o ponto.
+  //
+  // `solicitado_por` segue o precedente literal de `revisada_por` (mesma
+  // tabela, mesma natureza): UUID de funcionário, fora da cópia do titular
+  // pela R2 e `dado_de_funcionario` aqui. É o item 10 do D-57.
+  mapa(q('entrevista_analises', ['solicitado_por']), 'dado_de_funcionario'),
+  // `texto_hash` é o RESÍDUO ACEITO do D-70, e a razão é a mesma de
+  // `redacoes_candidato.texto_hash` logo abaixo: chave técnica. A coluna
+  // sobrevive à exclusão de propósito (é o vínculo com `ai_call_logs` e a chave
+  // de idempotência), e o recibo NÃO afirma em lugar nenhum que ela foi
+  // apagada — o que ela permite é confirmar um texto adivinhado, não recuperar
+  // um. O registro completo está na nota da coluna no `pii-inventory.yaml`.
+  // `ai_call_log_id` é ponteiro para tabela fora do escopo do titular, idem
+  // `candidate_ai_decisions.ai_call_log_ids`.
+  mapa(q('entrevista_analises', ['texto_hash', 'ai_call_log_id']), 'chave_tecnica'),
+  // `tipo` e `superada_em` são estado da análise — de qual entrevista ela é, e
+  // se outra a substituiu. O motor não as toca e não há promessa a fazer sobre
+  // elas; o titular as recebe é na CÓPIA (as duas têm `export: true`), que é
+  // outro artefato e outra pergunta. `provedor_ia`/`modelo_ia` são a ficha
+  // técnica da execução, a mesma natureza de `entrevistas_online.gravacao_tamanho_mb`.
+  mapa(q('entrevista_analises', ['tipo', 'superada_em', 'provedor_ia', 'modelo_ia']), 'estado_do_processo'),
   mapa(q('redacoes_candidato', ['revisada_por']), 'dado_de_funcionario'),
   mapa(q('redacoes_candidato', ['texto_hash']), 'chave_tecnica'),
   mapa(q('redacoes_candidato', ['decisao_revisor']), 'estado_do_processo'),

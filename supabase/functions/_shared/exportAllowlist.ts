@@ -69,16 +69,16 @@ export const EXPORT_ALLOWLIST = {
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-09-23T20:35:21.691Z",
+    "gerado_em": "2026-09-23T21:12:51.403Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-04T01:34:27Z",
     "padrao_nome_de_endereco": "(^|_)(url|urls|uri|uris|link|links)($|_)",
     "requirement": "EXPORT-02",
     "totais": {
-      "colunas_colhidas": 747,
-      "colunas_com_veredito_em_escopo": 415,
-      "colunas_excluidas_em_escopo": 39,
-      "colunas_exportadas": 376,
+      "colunas_colhidas": 754,
+      "colunas_com_veredito_em_escopo": 422,
+      "colunas_excluidas_em_escopo": 44,
+      "colunas_exportadas": 378,
       "colunas_fora_do_arquivo_legivel": 4,
       "tabelas_catalogadas": 69,
       "tabelas_com_colunas_colhidas": 51,
@@ -90,7 +90,7 @@ export const EXPORT_ALLOWLIST = {
       "fks_public": 105,
       "tabelas_base_public": 69
     },
-    "versao": "1.2.0"
+    "versao": "1.3.0"
   },
   "tabelas": {
     "agendamentos_entrevista": {
@@ -643,11 +643,18 @@ export const EXPORT_ALLOWLIST = {
         "notas_humanas",
         "revisao_confirmada_em",
         "scores_humanos",
-        "status_analise"
+        "status_analise",
+        "superada_em",
+        "tipo"
       ],
       "colunas_excluidas": {
+        "ai_call_log_id": "decisoes_por_coluna: (i) telemetria_interna — ponteiro para a linha de `ai_call_logs` que contém o texto analisado (D-38). A tabela apontada está FORA do escopo do titular no nível de tabela, por decisão travada na 44-CONTEXT §Área 2; exportar o ponteiro entregaria ao titular um endereço para dentro de um universo que a cópia não cobre. Idem `candidate_ai_decisions.ai_call_log_ids`, que sai pela MESMA razão e cuja exclusão veio da asserção (c) do `exportAllowlist.test.ts`, não do fecho. ⚠ Entraria SOZINHO por R1 (`*_id`) sem este veredito.",
+        "modelo_ia": "decisoes_por_coluna: (i) telemetria_interna — qual modelo rodou. Idem `entrevista_analises.provedor_ia` e `devolutivas_candidato.modelo_ia`.",
         "prompt_version": "decisoes_por_coluna: (i) telemetria_interna — idem `redacoes_candidato.prompt_version`.",
-        "revisada_por": "pii_de_terceiro (R2)"
+        "provedor_ia": "decisoes_por_coluna: (i) telemetria_interna — qual provedor de LLM produziu a análise (D-28, proveniência REAL em vez da configurada). Descreve COMO O SISTEMA RODOU, não a pessoa. Idem `devolutivas_candidato.modelo_ia`, cuja razão é literalmente esta: «o RESULTADO entregue à pessoa entra; a ficha técnica de como ele foi produzido, não» — decisão travada na 44-CONTEXT §Área 2, e a mesma família de `redacoes_candidato.model_version`/`prompt_version`. ⚠ Tensão registrada, e é decisão do planejador revisável pelo operador com uma palavra: o D-27 tornou a troca de modelo VISÍVEL AO RH na tela do resultado, e o critério «se o RH enxerga sobre a pessoa, aparece na cópia» puxaria para `true`. O precedente específico e mais recente puxa para `false`, e foi o seguido.",
+        "revisada_por": "pii_de_terceiro (R2)",
+        "solicitado_por": "pii_de_terceiro (R2)",
+        "texto_hash": "decisoes_por_coluna: (i) telemetria_interna — hash do texto da transcrição analisada, usado como chave de idempotência/cache (D-38, D-40). É identificador interno de execução, idem `redacoes_candidato.input_hash`; não é fato sobre a pessoa e nada acrescenta à cópia dela. ⚠ A coluna SOBREVIVE à exclusão por decisão do operador (D-70): ela é o vínculo com `ai_call_logs` de que a proveniência do JORN-28 depende. O resíduo está registrado no `pii-inventory.yaml` e no recibo (`chave_tecnica`) — o hash permite CONFIRMAR um texto adivinhado, nunca recuperá-lo."
       },
       "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
@@ -662,7 +669,9 @@ export const EXPORT_ALLOWLIST = {
         "notas_humanas": "inventario:preservar_com_ressalva",
         "revisao_confirmada_em": "R1",
         "scores_humanos": "inventario:preservar",
-        "status_analise": "decisoes_por_coluna"
+        "status_analise": "decisoes_por_coluna",
+        "superada_em": "decisoes_por_coluna",
+        "tipo": "decisoes_por_coluna"
       },
       "razao": "Análise da entrevista, incluindo citações da fala da pessoa."
     },

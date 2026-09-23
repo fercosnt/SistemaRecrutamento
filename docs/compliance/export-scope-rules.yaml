@@ -32,12 +32,22 @@ meta:
   requirement: EXPORT-02
   fase: 44
   plano: 44-01
-  versao: "1.2.0"
+  versao: "1.3.0"
   # 1.1.0 → 1.2.0 (Phase 48 / 48-17, 2026-09-21): o CONJUNTO de colunas
   # exportadas mudou — entram as colunas criadas pela fase com veredito `true`
   # (marca do D-02 em `analise_candidato_vaga`; reabertura em `decisao_final`
   # e no histórico) e ficam fora, com razão, as de telemetria de envio. Ver os
   # blocos marcados «PHASE 48» em `decisoes_por_coluna`.
+  #
+  # 1.2.0 → 1.3.0 (Phase 49 / 49-17, 2026-09-23): o CONJUNTO mudou de novo —
+  # entram `entrevista_analises.tipo` e `entrevista_analises.superada_em`, e
+  # ficam fora, com razão, quatro de telemetria/chave técnica da mesma tabela.
+  # Ver o bloco «PHASE 49» em `decisoes_por_coluna`.
+  # ⚠ O bump vive na MESMA entrega que muda o conjunto, e não na entrega
+  # seguinte: entre os dois momentos a versão descreveria um artefato que já
+  # não é o dela. As 9 colunas restantes da fase (as outras quatro tabelas)
+  # entram no mesmo `1.3.0`, porque nenhuma delas é exportada — nem a versão
+  # nem o conjunto se movem por causa delas.
   fonte: |
     Decisão de escopo do titular, escrita à mão e revisável. NÃO é derivada de
     código nem inferida do schema: é o julgamento jurídico/de produto que o
@@ -820,6 +830,75 @@ decisoes_por_coluna:
   decisao_final_historico.alerta_prazo_enviado_em:
     export: false
     razao: "Herda `decisao_final.alerta_prazo_enviado_em` (excluída neste mesmo bloco): telemetria de entrega de alerta ao funcionário, também na versão arquivada."
+
+  # =========================================================================
+  # PHASE 49 (49-17) — as colunas que a fase criou, TODAS com veredito escrito
+  # =========================================================================
+  # Fecho obrigatório do EXPORT-06, pela terceira fase seguida. Entre o apply do
+  # plano 49-01 (2026-09-22) e este bloco, as colunas existiam em PROD SEM
+  # veredito: a cópia do titular exporta por ALLOWLIST, então elas ficaram fora
+  # por fail-safe — o mesmo estado que a Phase 48 atravessou entre 48-11 e 48-17.
+  # Medido em 2026-09-23 pelo `05-export-allowlist-drift.sql`: 21 linhas, sendo
+  # 12 da fase em tabela em escopo e as 9 de drift pré-existente da 48.
+  #
+  # E aqui o risco tinha as DUAS direções, não uma:
+  #   · `superada_em` sairia SOZINHA por R1 (`*_em`) e `ai_call_log_id` sairia
+  #     SOZINHA por R1 (`*_id`) — sem veredito, um ponteiro para tabela fora do
+  #     escopo entraria na cópia com proveniência "R1" sem ninguém ter decidido;
+  #   · `tipo`, `provedor_ia`, `modelo_ia` e `texto_hash` são `text` e
+  #     reprovariam o fecho.
+  # `solicitado_por` não tem veredito próprio de propósito: o nome está na R2 do
+  # `pii-inventory.yaml` e em `ponteiros.de_terceiro` deste arquivo, e é por lá
+  # que ele fica fora — veredito explícito aqui seria uma segunda fonte para a
+  # mesma decisão. A asserção que prova isso vive no `<verify>` do plano: a razão
+  # de exclusão dele TEM de citar a R2.
+  #
+  # Critério dos vereditos abaixo (o do cabeçalho, sem novidade):
+  # (i) RESULTADO e EXPLICAÇÃO entram; PROMPT e TELEMETRIA não.
+  # (ii) Estado de processo é R3 em espírito; `text` no DDL é acidente.
+  #
+  # ⚠ MEDIDO EM 2026-09-23, E O CONTRÁRIO DO QUE SE ESPERARIA: DEPOIS QUE ESTAS
+  # COLUNAS GANHARAM ENTRADA EXPLÍCITA NO `pii-inventory.yaml`, O FECHO DESTE
+  # ARQUIVO DEIXOU DE PROTEGÊ-LAS. Apagar os seis vereditos abaixo NÃO reprova a
+  # geração — ela sai com `exit 0` — porque o passo 4 do gerador (entrada
+  # explícita do inventário) resolve a coluna ANTES de o fecho poder sobrar, e
+  # `preservar` empurra a coluna PARA DENTRO da cópia. Mutação executada: os seis
+  # vereditos removidos ⇒ `texto_hash`, `ai_call_log_id`, `provedor_ia` e
+  # `modelo_ia` ENTRAM na cópia do titular com proveniência
+  # `inventario:preservar`, e nada no gerador reclama.
+  #
+  # Quem reprova, medido na mesma mutação, são as asserções (b), (j) e (k) de
+  # `docs/compliance/__tests__/exportAllowlist.test.ts` — os dois snapshots
+  # congelados e a sincronia com o `05-export-allowlist-drift.sql`. É a divisão de
+  # universos que aquele arquivo declara, funcionando: o fecho pega COLUNA SEM
+  # FONTE, o snapshot pega MUDANÇA DE CONJUNTO. Escrito aqui porque a leitura
+  # natural («coluna `text` sem veredito reprova o fecho») é verdadeira só
+  # ENQUANTO a coluna não tem entrada no inventário, e as seis têm.
+  #
+  # `solicitado_por` é a exceção e por construção: a R2 roda ANTES do passo 4, e
+  # na mesma mutação ele continuou FORA. O que o inverte é um veredito explícito
+  # `export: true` — mutação também executada, e a asserção da R2 mordeu
+  # nomeando a coluna. Por isso não existe veredito para ele aqui.
+
+  # --- entrevista_analises · o dono da análise de entrevista (49-01, D-38..D-41)
+  entrevista_analises.tipo:
+    export: true
+    razao: "(ii) De QUAL entrevista esta análise é ('online' | 'presencial', CHECK `entrevista_analises_tipo_check`). Contexto do evento de que a PRÓPRIA PESSOA participou, e o que liga a análise à entrevista (D-41). Vocabulário fechado, sem texto livre e sem terceiro; é o mesmo critério (ii) de `entrevistas_online.plataforma`, que também entra. Sem ele, duas análises da mesma candidatura chegam ao titular indistinguíveis — e, desde o D-39, uma delas pode estar superada exatamente porque é de outra entrevista."
+  entrevista_analises.superada_em:
+    export: true
+    razao: "(ii) QUANDO esta análise deixou de ser a vigente porque outra, da mesma entrevista, a substituiu (D-39 — marcar, não apagar). Mesmo veredito e MESMO argumento de `analise_candidato_vaga.descartada_em`: o titular pode já ter recebido esta análise numa cópia anterior, e a marca é o que lhe mostra, na cópia seguinte, que ela foi SUPERADA. Entregar sem ela seria entregar uma análise vencida como se valesse."
+  entrevista_analises.texto_hash:
+    export: false
+    razao: "(i) telemetria_interna — hash do texto da transcrição analisada, usado como chave de idempotência/cache (D-38, D-40). É identificador interno de execução, idem `redacoes_candidato.input_hash`; não é fato sobre a pessoa e nada acrescenta à cópia dela. ⚠ A coluna SOBREVIVE à exclusão por decisão do operador (D-70): ela é o vínculo com `ai_call_logs` de que a proveniência do JORN-28 depende. O resíduo está registrado no `pii-inventory.yaml` e no recibo (`chave_tecnica`) — o hash permite CONFIRMAR um texto adivinhado, nunca recuperá-lo."
+  entrevista_analises.ai_call_log_id:
+    export: false
+    razao: "(i) telemetria_interna — ponteiro para a linha de `ai_call_logs` que contém o texto analisado (D-38). A tabela apontada está FORA do escopo do titular no nível de tabela, por decisão travada na 44-CONTEXT §Área 2; exportar o ponteiro entregaria ao titular um endereço para dentro de um universo que a cópia não cobre. Idem `candidate_ai_decisions.ai_call_log_ids`, que sai pela MESMA razão e cuja exclusão veio da asserção (c) do `exportAllowlist.test.ts`, não do fecho. ⚠ Entraria SOZINHO por R1 (`*_id`) sem este veredito."
+  entrevista_analises.provedor_ia:
+    export: false
+    razao: "(i) telemetria_interna — qual provedor de LLM produziu a análise (D-28, proveniência REAL em vez da configurada). Descreve COMO O SISTEMA RODOU, não a pessoa. Idem `devolutivas_candidato.modelo_ia`, cuja razão é literalmente esta: «o RESULTADO entregue à pessoa entra; a ficha técnica de como ele foi produzido, não» — decisão travada na 44-CONTEXT §Área 2, e a mesma família de `redacoes_candidato.model_version`/`prompt_version`. ⚠ Tensão registrada, e é decisão do planejador revisável pelo operador com uma palavra: o D-27 tornou a troca de modelo VISÍVEL AO RH na tela do resultado, e o critério «se o RH enxerga sobre a pessoa, aparece na cópia» puxaria para `true`. O precedente específico e mais recente puxa para `false`, e foi o seguido."
+  entrevista_analises.modelo_ia:
+    export: false
+    razao: "(i) telemetria_interna — qual modelo rodou. Idem `entrevista_analises.provedor_ia` e `devolutivas_candidato.modelo_ia`."
 
 # ---------------------------------------------------------------------------
 # 6b · PONTEIROS DE INFRAESTRUTURA — o que sai do ARQUIVO LEGÍVEL

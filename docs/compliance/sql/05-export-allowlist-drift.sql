@@ -74,12 +74,13 @@
 -- ------------------------------------------------------------------------------
 -- Os DOIS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS**:
 --
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 376 pares
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 39  pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 378 pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 44  pares
 --
--- Soma: **415 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
+-- Soma: **422 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
 -- `export-allowlist.json` derivado do catálogo medido em **2026-08-04T01:34:27Z**
--- (69 tabelas base / 1025 colunas / 105 FKs em `public`).
+-- (69 tabelas base / 1025 colunas / 105 FKs em `public`), com os `meta.acrescimos`
+-- das Phases 48 e 49.
 --
 -- ⚠ ESTES NÚMEROS MUDARAM NO PLANO 44-04, e a mudança é o caso de uso deste
 -- arquivo, não uma manutenção dele. A geração anterior media 358 + 34 = 392 sobre
@@ -106,6 +107,22 @@
 -- A outra tabela nova do 44-04, `config_sla_dados`, é configuração e foi absorvida
 -- pela regra FE1 (`config_*`) sem intervenção nenhuma — por isso as colunas com
 -- veredito subiram 7 e não 12.
+--
+-- ⚠ E MUDARAM DE NOVO NA PHASE 49 (49-17, 2026-09-23), terceira vez pelo mesmo
+-- caso de uso: 376 + 39 = 415 → 378 + 44 = 422. Esta consulta, rodada contra PROD
+-- ANTES da edição, devolveu **21 linhas**: as 9 de drift pré-existente e **12
+-- colunas criadas pela Phase 49** em tabela em escopo. A Task 1 do plano 49-17
+-- resolve as **7 de `entrevista_analises`** (2 entram na cópia — `tipo` e
+-- `superada_em`; 5 ficam fora com razão — `provedor_ia`, `modelo_ia`, `texto_hash`,
+-- `ai_call_log_id` e `solicitado_por`, este último pela R2 e não por veredito
+-- próprio). As 5 restantes em tabela em escopo (`analise_candidato_vaga` ×2 e
+-- `redacoes_candidato` ×3) são da Task 3 e, até ela, CONTINUAM aparecendo aqui —
+-- corretamente: é a consulta fazendo o seu trabalho, não drift novo.
+--
+-- ⚠ E as outras 4 colunas da fase (`comparativo_solicitado` ×2, `entrevista_guias`
+-- ×2) NUNCA aparecem aqui, e isso é o «ESCOPO DELIBERADO: COLUNA, NÃO TABELA»
+-- abaixo: as duas tabelas estão fora do escopo do titular no nível de TABELA, e o
+-- predicado só varre as tabelas que a allowlist declara. 12 + 4 = as 16 da fase.
 --
 -- ⚠ Toda regeração da allowlist obriga a regerar os DOIS blocos. Essa obrigação
 -- deixou de ser promessa em prosa: a asserção (k) de `exportAllowlist.test.ts`
@@ -330,6 +347,8 @@ WITH allowlist(tabela, coluna) AS (
     ('entrevista_analises','revisao_confirmada_em'),
     ('entrevista_analises','scores_humanos'),
     ('entrevista_analises','status_analise'),
+    ('entrevista_analises','superada_em'),
+    ('entrevista_analises','tipo'),
     ('entrevistas_online','analise_ia'),
     ('entrevistas_online','avaliacao_candidato_score'),
     ('entrevistas_online','candidatura_id'),
@@ -538,8 +557,13 @@ excluidas(tabela, coluna) AS (
     ('decisao_final_historico','revisao_por_usuario'),
     ('devolutivas_candidato','modelo_ia'),
     ('devolutivas_candidato','prompt_version'),
+    ('entrevista_analises','ai_call_log_id'),
+    ('entrevista_analises','modelo_ia'),
     ('entrevista_analises','prompt_version'),
+    ('entrevista_analises','provedor_ia'),
     ('entrevista_analises','revisada_por'),
+    ('entrevista_analises','solicitado_por'),
+    ('entrevista_analises','texto_hash'),
     ('entrevistas_online','agendado_por'),
     ('entrevistas_online','realizado_por'),
     ('entrevistas_presenciais','agendado_por'),
