@@ -25,6 +25,12 @@
  * constructs a real SDK client. `zodOutputFormat`/`zodResponseFormat` are OMITTED so the
  * real callAi path is exercised against the mock anthropic.
  *
+ * ── TAMBÉM cobre, desde a Phase 49 / Plano 49-24 (JORN-28 / D-28) ──
+ * A PROVENIÊNCIA do roteiro: `entrevista_guias.provedor_ia` / `.modelo_ia` no objeto do
+ * upsert. Mora aqui porque o ativo é o mesmo — `makeMockSupabaseAdmin` captura cada
+ * escrita em `writes[]`, e é sobre esse objeto que as duas famílias de asserção falam.
+ * Ver o cabeçalho da seção «Phase 49 / Plano 49-24» no fim do arquivo.
+ *
  * Run: deno test --allow-read --allow-env supabase/functions/gerar-guia-entrevista/
  *
  * @see supabase/functions/analise-candidato-individual/__tests__/index.test.ts:35-105 (makeMockSupabase capturing .upsert)
@@ -43,14 +49,28 @@ const MANUAL_QUESTION = {
   origem: "manual" as const,
 };
 
+// ── Phase 49 / D-28: o modelo que DE FATO responde é a versão DATADA, e ela DIVERGE do
+//    alias configurado em `prompt_versions.model_id` (`PROMPT_ROW_FIXTURE.model_id` abaixo).
+//    É essa divergência que faz `modelo_ia` valer algo: gravar o configurado seria repetir
+//    a configuração e chamá-la de medição. Os testes de proveniência asseguram a distinção
+//    EXPLICITAMENTE, para que um dia em que alias e snapshot coincidam não faça o teste
+//    passar por acaso.
+const MODELO_REAL_DATADO = "claude-sonnet-4-6-20260514";
+
 // ── Mock anthropic: messages.parse returns the injected parsed guide (or null on fail).
-//    Mirrors callAi's consumed surface ({ parsed_output, usage }) — same as the analise test.
-function makeMockAnthropic(parsed: Record<string, unknown> | null) {
+//    Mirrors callAi's consumed surface ({ parsed_output, usage, model }) — same as the
+//    analise test. `model` é lido por `callAi` (`ai-client.ts:935`) como a proveniência
+//    real (D-28); antes do 49-24 nenhum teste desta EF o exercitava.
+function makeMockAnthropic(
+  parsed: Record<string, unknown> | null,
+  model: string | undefined = MODELO_REAL_DATADO,
+) {
   return {
     messages: {
       parse: () =>
         Promise.resolve({
           parsed_output: parsed,
+          model,
           usage: { input_tokens: 800, cache_read_input_tokens: 0, output_tokens: 200 },
         }),
     },
@@ -91,6 +111,12 @@ function makeMockSupabaseAdmin(
   // WR-04: when set, the entrevista_guias upsert resolves with this error so the test
   // can assert the EF surfaces a failed persist instead of returning a fabricated ok.
   upsertError: { message: string } | null = null,
+  // Phase 49 / D-28: gasto do dia em `ai_call_logs` para a vaga. Quando `> 0`, o
+  // kill-switch de custo de `callAi` (`isDailyCostCapExceeded`, teto default US$ 50)
+  // corta a chamada ANTES de tocar qualquer provedor e devolve `provider: "none"`.
+  // É o único caminho `none` ALCANÇÁVEL nesta EF: `rawInput` aqui é montado pela
+  // própria função (sem texto do usuário), então a detecção de injeção nunca dispara.
+  custoDiarioUsd: number = 0,
 ) {
   const writes: { table: string; row: Record<string, unknown>; onConflict?: string }[] = [];
 
@@ -134,12 +160,22 @@ function makeMockSupabaseAdmin(
         is() {
           return this;
         },
+        // D-28: `isDailyCostCapExceeded` encadeia `.select("cost_usd").eq().gte()`. Sem
+        // este método o encadeamento lançava e o helper caía no fail-open — o caminho
+        // `provider: "none"` era INALCANÇÁVEL por mock, não por construção.
+        gte() {
+          return this;
+        },
         maybeSingle() {
           return Promise.resolve({ data: rowFor(table), error: null });
         },
         // scores_candidato read: `await select().eq()` (thenable, resolves to rows[]).
+        // `ai_call_logs`: a soma do gasto do dia (D-28) — vazia por default.
         then(resolve: (v: { data: unknown[]; error: null }) => unknown) {
-          return resolve({ data: [], error: null });
+          const rows = table === "ai_call_logs" && custoDiarioUsd > 0
+            ? [{ cost_usd: custoDiarioUsd }]
+            : [];
+          return resolve({ data: rows, error: null });
         },
         insert(row: Record<string, unknown>) {
           writes.push({ table, row });
@@ -172,13 +208,21 @@ function makeRequest(): Request {
   });
 }
 
+// Pull the LAST row upserted into entrevista_guias (Phase 49 / D-28: os testes de
+// proveniência asseveram sobre o OBJETO DO UPSERT, não sobre as perguntas).
+function persistedGuiaRow(
+  writes: { table: string; row: Record<string, unknown> }[],
+): Record<string, unknown> {
+  const guiaWrite = writes.filter((w) => w.table === "entrevista_guias").at(-1);
+  assert(guiaWrite, "the EF must persist to entrevista_guias");
+  return guiaWrite!.row;
+}
+
 // Pull the persisted guia (questions/perguntas array) out of the LAST capture.
 function persistedQuestions(
   writes: { table: string; row: Record<string, unknown> }[],
 ): Array<Record<string, unknown>> {
-  const guiaWrite = writes.filter((w) => w.table === "entrevista_guias").at(-1);
-  assert(guiaWrite, "the EF must persist to entrevista_guias");
-  const guia = guiaWrite!.row.guia as Record<string, unknown> | undefined;
+  const guia = persistedGuiaRow(writes).guia as Record<string, unknown> | undefined;
   const qs = (guia?.questions ?? guia?.perguntas ?? []) as Array<Record<string, unknown>>;
   return qs;
 }
@@ -271,4 +315,95 @@ Deno.test("WR-04 — a FAILED upsert returns a non-200 error_code, NOT a fabrica
   const body = (await res.json()) as { ok?: boolean; error_code?: string };
   assertEquals(body.ok, false, "a failed persist must NOT report { ok: true }");
   assertEquals(body.error_code, "SERVER_ERROR");
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// Phase 49 / Plano 49-24 — JORN-28 / D-28: o guia diz QUAL MODELO o escreveu
+//
+// Por que aqui e não num arquivo novo: o ativo destes testes é o `makeMockSupabaseAdmin`
+// acima, que CAPTURA o objeto do upsert em `writes[]`. Duplicá-lo criaria uma segunda
+// fonte de verdade para a superfície mockada do handler — a próxima mudança de contrato
+// consertaria uma cópia e deixaria a outra verde. `persistedGuiaRow` é o acessório que
+// faltava, e passou a servir os dois grupos.
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+Deno.test("49-24 / D-28 — o upsert grava o modelo que DE FATO respondeu, não o configurado", async () => {
+  const supabaseAdmin = makeMockSupabaseAdmin({ questions: [MANUAL_QUESTION] });
+  const deps: GerarGuiaDeps = {
+    anthropic: makeMockAnthropic({
+      questions: [{ question: "Pergunta gerada pela IA.", competency: "Comunicação" }],
+    }),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    supabaseUser,
+  };
+
+  const res = await handler(makeRequest(), deps);
+  assertEquals(res.status, 200);
+
+  const row = persistedGuiaRow(supabaseAdmin.writes);
+  assertEquals(row.provedor_ia, "anthropic", "o provedor REAL vai para a coluna");
+  assertEquals(
+    row.modelo_ia,
+    MODELO_REAL_DATADO,
+    "modelo_ia tem de ser `response.model` (a versão datada que respondeu)",
+  );
+  // O ponto do requisito: o campo mede o que RESPONDEU, não o que está configurado.
+  // Se esta asserção começar a falhar porque os dois coincidem, o teste perdeu a
+  // capacidade de distinguir e a fixture precisa mudar — não a asserção.
+  assert(
+    row.modelo_ia !== PROMPT_ROW_FIXTURE.model_id,
+    "modelo_ia NÃO pode ser o alias configurado em prompt_versions.model_id",
+  );
+  // O `prompt_version` continua sendo gravado: proveniência ACRESCENTA, não substitui.
+  assertEquals(row.prompt_version, PROMPT_ROW_FIXTURE.semver);
+});
+
+Deno.test("49-24 / D-28 — guia INCOMPLETO (parse falho) também leva proveniência", async () => {
+  // `parsed_output: null` → `guide == null` → persiste `{ incompleto: true, … }`. Um
+  // modelo RESPONDEU (a resposta é que não era aproveitável), então a proveniência é
+  // conhecida e é dele que veio o conteúdo da linha. Deixar NULL aqui faria a linha
+  // mentir por omissão — e, pior, ficaria indistinguível dos 5 guias antigos.
+  const supabaseAdmin = makeMockSupabaseAdmin({ questions: [MANUAL_QUESTION] });
+  const deps: GerarGuiaDeps = {
+    anthropic: makeMockAnthropic(null),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    supabaseUser,
+  };
+
+  const res = await handler(makeRequest(), deps);
+  assertEquals(res.status, 200);
+
+  const row = persistedGuiaRow(supabaseAdmin.writes);
+  const guia = row.guia as Record<string, unknown>;
+  assertEquals(guia.incompleto, true, "a fixture tem de exercitar o caminho incompleto");
+  assertEquals(row.provedor_ia, "anthropic");
+  assertEquals(row.modelo_ia, MODELO_REAL_DATADO);
+});
+
+Deno.test("49-24 / D-28 — nenhum provedor chamado (teto de custo) ⇒ os DOIS campos NULL", async () => {
+  // Gasto do dia acima do teto default (US$ 50) → `callAi` corta ANTES de tocar provedor
+  // e devolve `provider: "none"`, `model: null`. O CHECK vivo da tabela aceita só
+  // `anthropic|openai|NULL`: gravar a string "none" violaria o CHECK e transformaria uma
+  // chamada barrada por gasto num 500 de persistência.
+  const supabaseAdmin = makeMockSupabaseAdmin({ questions: [MANUAL_QUESTION] }, null, 999);
+  const deps: GerarGuiaDeps = {
+    anthropic: makeMockAnthropic({
+      questions: [{ question: "Esta resposta NÃO deve existir.", competency: "Comunicação" }],
+    }),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    supabaseUser,
+  };
+
+  const res = await handler(makeRequest(), deps);
+  assertEquals(res.status, 200);
+
+  const row = persistedGuiaRow(supabaseAdmin.writes);
+  assertEquals(row.provedor_ia, null, "`none` não é provedor — NULL é a verdade (D-30)");
+  assertEquals(row.modelo_ia, null, "nenhum modelo respondeu");
+  // A forma exata que o CHECK recusaria, asserida por nome: se alguém gravar o provider
+  // cru, este teste reprova aqui e não em PROD com um 23514.
+  assert(row.provedor_ia !== "none", "a string 'none' NUNCA vai para a coluna");
 });

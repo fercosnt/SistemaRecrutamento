@@ -26,6 +26,10 @@
  * INVARIANTE (RNF-07a): a EF NUNCA escreve `candidaturas`. Sem auto-advance nem
  *   auto-reject. Só persiste o roteiro + (quando descoberto) uma flag de revisão.
  *
+ * Phase 49 / JORN-28 / D-28 — PROVENIÊNCIA: o upsert de `entrevista_guias` passa a gravar
+ *   `provedor_ia` e `modelo_ia` REAIS (do `CallAiResult` do 49-02), não os configurados.
+ *   Ver o bloco §8b para o porquê de `none` virar NULL e de `result` ser a última passada.
+ *
  * ── SDK imports ESTÁTICOS `npm:` (clone de avaliar-redacao-cultural:54-60) ──
  *   O `await import(["npm:",pkg].join(""))` escondia o pacote do bundler do deploy
  *   → ERR_MODULE_NOT_FOUND no runtime. Aqui os imports são estáticos e os builders
@@ -354,6 +358,40 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
     }));
     const mergedQuestions = [...manualQs, ...freshIaQs];
 
+    // ── 8b. PROVENIÊNCIA REAL do roteiro (Phase 49 / JORN-28 / D-28) ──────────
+    //   `entrevista_guias` guardava QUAL prompt gerou o roteiro (`prompt_version`) e
+    //   nunca QUEM o escreveu. Com o fallback OpenAI em pé (17 fallbacks medidos em
+    //   PROD, 49-02), um roteiro produzido pelo `gpt-4o-mini` era indistinguível de um
+    //   produzido pelo Sonnet configurado — e o RH decide entrevista com base nele.
+    //
+    //   `result` aqui é a ÚLTIMA passada: o re-prompt do passo 7 REATRIBUI `result`, e é
+    //   o modelo dessa passada que escreveu o `guide` que está sendo persistido. Gravar a
+    //   primeira atribuiria o roteiro a um modelo que não o produziu.
+    //
+    //   `modelo_ia` vem de `result.model` = `response.model` do provedor, a versão DATADA,
+    //   que diverge do ALIAS configurado em `prompt_versions.model_id` — é justamente
+    //   essa divergência que faz o campo valer algo (gravar o configurado seria repetir a
+    //   configuração e chamá-la de medição).
+    //
+    //   `provedor_ia`: o CHECK vivo da tabela aceita `anthropic | openai | NULL` (medido
+    //   em PROD, 2026-09-22). `result.provider` também pode valer `none` — teto de custo
+    //   diário e injeção detectada, casos em que NENHUM provedor foi chamado. Gravá-lo cru
+    //   violaria o CHECK e transformaria uma chamada barrada por gasto num 500 de
+    //   persistência; e `none` não é nome de provedor para quem lê a coluna depois. NULL é
+    //   a verdade e é o vocabulário que `redacoes_candidato`/`scores_candidato` já usam
+    //   (49-09, 49-23), para que uma consulta que cruze as tabelas não precise de dois
+    //   dialetos. NULL = «não registrado» (D-30) — os 5 guias anteriores ficam assim, sem
+    //   escrita retroativa.
+    const provedorIa = result.provider === "anthropic" || result.provider === "openai"
+      ? result.provider
+      : null;
+    //   O par é lido JUNTO (o selo do 49-16): um modelo sem provedor é um selo incoerente.
+    //   Redundante HOJE — os dois retornos `provider: "none"` do `ai-client` já devolvem
+    //   `model: null` (medido) —, mantido como segunda linha de defesa e nomeado aqui em
+    //   vez de escondido: se um caminho futuro devolver modelo sem provedor, a coluna
+    //   continua coerente em vez de afirmar que um modelo desconhecido escreveu o roteiro.
+    const modeloIa = provedorIa === null ? null : result.model;
+
     // WR-04: CHECK the upsert error. A swallowed write error is an anti-silent-discard
     // hole at the persistence layer — the regen would appear to succeed (ok:true) while
     // the new guide was never persisted, and the client reads back the STALE guide. The
@@ -367,6 +405,9 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
           ? { ...guide, questions: mergedQuestions }
           : { incompleto: true, flags: persistFlags, questions: manualQs },
         prompt_version: resolved.prompt_version,
+        // D-28 — quem escreveu este roteiro (ver §8b acima).
+        provedor_ia: provedorIa,
+        modelo_ia: modeloIa,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "candidatura_id,tipo" },
@@ -389,6 +430,9 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
       questions_count: guide?.questions?.length ?? 0,
       needs_human: needsHumanFlag || guide == null,
       provider: result.provider,
+      // D-28: o modelo REAL, no rastro de runtime. É infraestrutura (nome de modelo, não
+      // conteúdo da avaliação), então pode ir ao log — ao contrário do roteiro em si.
+      modelo: result.model,
     });
 
     // Payload NEUTRO (RH-facing) — o RH abre o roteiro pela UI/serviço (allowlist).
