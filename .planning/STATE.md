@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-24-PLAN.md (EF gerar-guia-entrevista v18 em PROD)
-last_updated: "2026-09-23T01:44:49.255Z"
+stopped_at: Completed 49-07-PLAN.md
+last_updated: "2026-09-23T02:30:59.100Z"
 last_activity: 2026-09-22
-state_head: f8abb13df0d3ccd7dbf39371e0989d1f34f72472
+state_head: 18f28f7451bf74c26962a76d933b71a74685a441
 progress:
   total_phases: 8
   completed_phases: 9
-  total_plans: 102
+  total_plans: 103
   completed_plans: 86
-  percent: 84
+  percent: 83
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -799,6 +799,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P09 | 58 min | 1 tasks | 5 files |
 | Phase 49 P23 | 74 min | 1 tasks | 4 files |
 | Phase 49 P24 | 40 min | 1 tasks | 2 files |
+| Phase 49 P07 | 48 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1091,6 +1092,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-23: quando duas causas levam ao mesmo roteamento mas pedem consertos OPOSTOS, elas precisam de campos separados — metadata.motivos_revisao (lista completa, ausente em sucesso) separa dimensao_desconhecida de insufficient_evidence, red_flag e abaixo_do_corte
 - [Phase 49]: 49-24 / D-28: o guia de entrevista grava provedor_ia/modelo_ia REAIS (CallAiResult do 49-02); provider 'none' vira NULL nos dois campos — o CHECK vivo exclui 'none' e o erro de upsert é checado, então o valor cru converteria um corte de custo num 500
 - [Phase 49]: 49-24: a mutação que NÃO morde (M5, cinto inalcançável por construção) apontou que o fallback OpenAI — o caminho que o JORN-28 existe para cobrir, 17 ocorrências em PROD — não tinha teste nenhum nesta EF; o conserto foi dar vigilância ao alcançável, não relaxar o portão
+- [Phase 49]: O `WHEN` do snapshot compara a linha INTEIRA por `to_jsonb` menos as duas exclusões do D-44, e não uma lista de colunas — coluna nova nasce DENTRO da vigilância — Uma tupla `(OLD.a, OLD.b, …) IS DISTINCT FROM (NEW.a, NEW.b, …)` é fotografia do schema: a coluna acrescentada depois fica fora da comparação e passa a mudar sem arquivar, em silêncio. A asserção de paridade (g) do smoke é a outra metade da mesma decisão, e foi provada mordente por `ADD COLUMN`.
+- [Phase 49]: O instrumento das chamadas 2..5 de `stamp_explicacao_acessada` é o `ctid` da linha, não o valor da coluna nem a contagem do arquivo — Com a coluna fora do `WHEN`, o arquivo fica em 0 mesmo se a RPC continuar escrevendo a cada leitura — medido: a mutação com o corpo anterior manteve o arquivo em 0 e reescreveu a linha 4 vezes (ctid (0,21) -> (0,27)). Sem o ctid a asserção seria vácua, e o defeito voltaria no dia em que qualquer coluna nova entrasse na comparação.
+- [Phase 49]: A ausência de trigger BEFORE UPDATE em `decisao_final` entrou no pós-portão E no smoke como asserção (y), em vez de ser só uma pré-condição lida uma vez — A lista de exclusão de duas colunas do D-44 só é COMPLETA enquanto nenhum trigger carimba uma coluna de tempo em todo UPDATE. Medido 0 hoje; um carimbador de `updated_at` nascido depois traria o defeito de volta sem erro nenhum. O portão vive no smoke porque a migration roda uma vez.
 
 ### Roadmap Evolution
 
@@ -1378,8 +1382,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T01:44:48.974Z
-Stopped at: Completed 49-24-PLAN.md (EF gerar-guia-entrevista v18 em PROD)
+Last session: 2026-09-23T02:30:43.073Z
+Stopped at: Completed 49-07-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
