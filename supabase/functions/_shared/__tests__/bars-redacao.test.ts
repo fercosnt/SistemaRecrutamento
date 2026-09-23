@@ -207,6 +207,27 @@ Deno.test("49-09 / T-49-09-01 — faltando, repetida ou fora do vocabulário ⇒
   }
 });
 
+Deno.test("49-09 — a recusa NOMEIA a causa certa: repetida ≠ ausente", () => {
+  // ⚠ Medido por mutação: com a checagem de repetição desativada, `[D1,D1,D3,D4]`
+  //   AINDA é recusado — pela checagem de completude, porque num array de tamanho 4
+  //   sobre um vocabulário de 4 toda repetição implica uma chave faltando. O veredito
+  //   é redundante; o que NÃO é redundante é o MOTIVO. Sem esta asserção a checagem de
+  //   repetição é um portão incapaz de falhar, e um diagnóstico errado («faltou a D2»
+  //   quando o defeito é «a D1 veio duas vezes») manda o leitor procurar a coisa errada.
+  assertEquals(
+    validarDimensoesRedacao([d("D1"), d("D1"), d("D3"), d("D4")]).motivo,
+    "dimension repetida: D1",
+  );
+  assertEquals(
+    validarDimensoesRedacao([d("D1"), d("D2"), d("D3")]).motivo,
+    "esperava 4 dimensões, recebi 3",
+  );
+  assertEquals(
+    validarDimensoesRedacao([d("D1"), d("D2"), d("D3"), d("D5")]).motivo,
+    "dimension fora da rubrica: D5",
+  );
+});
+
 Deno.test("49-09 — entrada malformada nunca lança (a avaliação é never-absent)", () => {
   for (const entrada of [null, undefined, [], "x" as unknown as []]) {
     const r = validarDimensoesRedacao(entrada as never);
