@@ -41,6 +41,28 @@
 --        valor ANTIGO. É a asserção que prova que a exclusão do D-44 não passou do ponto:
 --        ali a ordem «arquiva a linha viva, depois raspa o arquivo» é o mecanismo, e um
 --        `WHEN` largo demais a desligaria sem nenhum erro.
+--
+-- PARTE 2 (o que tem de CONTINUAR arquivando — a metade que mantém o conserto honesto):
+--   (e)  REDECISÃO: `registrar_decisao` sobre linha existente (o `ON CONFLICT DO UPDATE`)
+--        ⇒ UMA linha nova, com a decisão e a justificativa ANTERIORES. É o histórico de
+--        emendas da decisão, e é o que o titular recebe.
+--   (f)  CICLO DE REVISÃO (Art. 20): `solicitar_revisao_decisao` (JWT do titular) ⇒ 1 ·
+--        `responder_revisao_decisao('mantida')` (revisor B ≠ decisor A) ⇒ 1. Cada linha
+--        arquivada guarda o estado ANTES (o snapshot lê OLD), o que é conferido coluna a
+--        coluna: o arquivo do pedido vem com `revisao_solicitada_em` NULL.
+--   (f2) REABERTURA (`responder_revisao_decisao('revertida')`) ⇒ 1, com `reaberta_em`
+--        preenchido na linha viva e NULL no arquivo, e a candidatura em
+--        `decisao_final/em_analise` (reabrir, NUNCA aprovar — D-01/RNF-07a). É a transição
+--        mais cara de perder: veredito, reabertura e prazo vão no MESMO UPDATE, então um
+--        snapshot suprimido apaga os três de uma vez.
+--   (g)  PARIDADE DE COLUNAS, lida na EXECUÇÃO de TRÊS fontes independentes:
+--          A = colunas(decisao_final) − {id, em} ∪ {decidido_em}
+--          B = colunas(decisao_final_historico) − {id, arquivado_em}
+--          C = a lista do INSERT no corpo VIVO de `snapshot_decisao_final()`
+--        A = B = C, e a reprovação NOMEIA a coluna que falta de qual lado. ⚠ Não existe
+--        nenhuma lista literal de colunas neste arquivo: é a forma que não envelhece.
+--        Uma coluna nova em `decisao_final` que não entre no arquivo passa a REPROVAR em
+--        vez de sumir em silêncio — o ponto cego que o CLAUDE.md §«Portões» nomeia.
 -- NEGATIVA:
 --   (z)  nada das fixtures sobrevive (candidaturas, titulares, decisão, arquivo, histórico,
 --        fila) e as contagens globais são as de antes.
@@ -49,8 +71,10 @@
 -- estar exercitando as contas `+claude` em PROD, e um UPDATE nelas — mesmo revertido —
 -- disputa lock de linha com o fluxo vivo. Titular sintético `@invalido.local`; candidatura
 -- que nasce `status='rejeitado'` (desarma `trg_notif_confirmacao`) e vai a `em_analise` por
--- UPDATE só de `status`. O ATOR é real — administrador ATIVO lido NA EXECUÇÃO (FK de
--- `decisao_final.por_usuario`), nunca conta fixa.
+-- UPDATE só de `status`. Os ATORES são reais — RH/admin ATIVOS lidos NA EXECUÇÃO (FK de
+-- `decisao_final.por_usuario` e `revisao_por_usuario`), nunca contas fixas:
+--   A decide (administrador), B responde a revisão (RH/admin ≠ A — revisor ≠ decisor,
+--   REVISAO-05).
 --
 -- ⚠ ESTE SMOKE ESCREVE — e TODA escrita acontece dentro de uma subtransação PL/pgSQL
 -- encerrada por `RAISE EXCEPTION` com SQLSTATE próprio (`P49S1`), capturado logo acima:
@@ -70,7 +94,10 @@
 -- FAIL é `RAISE EXCEPTION` e o `p46apply` sai com código ≠ 0.
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de asserções DESTE arquivo
--- (escopo deliberado), não uma fotografia do banco. Hoje: 7 — y, a, a2, b, c, d, z.
+-- (escopo deliberado), não uma fotografia do banco. Hoje: 11 — y, a, a2, b, c, d, e, f,
+-- f2, g, z.
+-- ⚠ BUMP registrado: nasceu 7 (y, a, a2, b, c, d, z) na Task 1 do plano 49-07, com a
+-- migration `…000006`; subiu a 11 na Task 2 (e, f, f2, g).
 -- =============================================================================
 
 RESET ROLE;
@@ -86,6 +113,7 @@ SELECT set_config('smoke49s.fixtures', '', false);
 DO $baseline$
 DECLARE
   v_a    uuid;
+  v_b    uuid;
   v_vaga uuid;
 BEGIN
   -- A decide: administrador ATIVO (registrar_decisao exige dona da vaga para 'rh';
@@ -98,6 +126,17 @@ BEGIN
   IF v_a IS NULL THEN
     RAISE EXCEPTION 'P49S FAIL (baseline): nenhum administrador ATIVO para assinar a decisão da fixture';
   END IF;
+  -- B revisa: qualquer RH/admin ativo distinto de A (revisor ≠ decisor, REVISAO-05 —
+  -- `responder_revisao_decisao` recusa com 42501 se v_uid = por_usuario).
+  SELECT u.user_id INTO v_b
+    FROM public.usuarios_rh u
+   WHERE u.role IN ('administrador', 'recrutador') AND u.ativo AND u.deleted_at IS NULL
+     AND u.user_id IS NOT NULL AND u.user_id <> v_a
+   ORDER BY u.created_at, u.user_id
+   LIMIT 1;
+  IF v_b IS NULL THEN
+    RAISE EXCEPTION 'P49S FAIL (baseline): falta um 2o RH/admin ATIVO distinto de A (%) — sem revisor ≠ decisor o ciclo de revisão de (f)/(f2) não roda', v_a;
+  END IF;
 
   SELECT v.id INTO v_vaga FROM public.vagas v ORDER BY v.created_at LIMIT 1;
   IF v_vaga IS NULL THEN
@@ -105,6 +144,11 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke49s.a',    v_a::text, false);
+  PERFORM set_config('smoke49s.b',    v_b::text, false);
+  -- vocabulário do JWT (o hook mapeia recrutador → rh), nunca o da coluna
+  PERFORM set_config('smoke49s.b_role',
+    (SELECT CASE WHEN u.role = 'administrador' THEN 'administrador' ELSE 'rh' END
+       FROM public.usuarios_rh u WHERE u.user_id = v_b), false);
   PERFORM set_config('smoke49s.vaga', v_vaga::text, false);
 
   PERFORM set_config('smoke49s.n_cand',  (SELECT count(*) FROM public.candidaturas)::text, false);
@@ -337,6 +381,254 @@ $p1$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- PARTE 2 — o que tem de CONTINUAR arquivando: (e) (f) (f2).
+--   Numa subtransação que reverte (`P49S1`). É a metade que mantém o conserto
+--   honesto: suprimir o snapshot de uma mudança REAL é repúdio (T-49-07-01), e
+--   nenhuma asserção da Parte 1 o perceberia.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $p2$
+DECLARE
+  v_a        uuid := current_setting('smoke49s.a')::uuid;
+  v_b        uuid := current_setting('smoke49s.b')::uuid;
+  v_b_role   text := current_setting('smoke49s.b_role');
+  v_vaga     uuid := current_setting('smoke49s.vaga')::uuid;
+  v_claims_a text;
+  v_claims_b text;
+  v_ids      text := '';
+  v_ran      boolean := false;
+  v_err      text;
+  v_user     uuid;
+  v_email    text;
+  v_cand     uuid;
+  v_i        int;
+  v_f2 uuid;  v_f3 uuid;  v_u3 uuid;  v_f4 uuid;  v_u4 uuid;
+  c_j_rej constant text := 'Decisao final sintetica do smoke P49S (F2) — a PRIMEIRA, rejeitado, mais de 50 caracteres.';
+  c_j_apr constant text := 'Decisao final sintetica do smoke P49S (F2) — a SEGUNDA, aprovado, mais de 50 caracteres.';
+  -- (e)
+  e_h0 bigint;  e_hfim bigint;  e_arq_dec text;  e_arq_just text;  e_viva_dec text;
+  -- (f)
+  f_h0 bigint;  f_h1 bigint;  f_h2 bigint;
+  f_arq_sol timestamptz;  f_arq_ver text;  f_viva_ver text;
+  -- (f2)
+  f2_h0 bigint;  f2_hfim bigint;  f2_reab timestamptz;  f2_etapa text;  f2_status text;
+  f2_arq_reab timestamptz;
+BEGIN
+  v_claims_a := json_build_object('sub', v_a::text, 'app_metadata', json_build_object('role', 'administrador'))::text;
+  v_claims_b := json_build_object('sub', v_b::text, 'app_metadata', json_build_object('role', v_b_role))::text;
+
+  BEGIN
+    -- ── fixtures F2, F3, F4 — três titulares sintéticos, num laço ──────────────
+    FOR v_i IN 2..4 LOOP
+      v_user  := gen_random_uuid();
+      v_email := 'p49ssmoke-' || replace(v_user::text, '-', '') || '@invalido.local';
+      INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+      VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+              v_email, '', now(), now(),
+              '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+      INSERT INTO public.candidatos
+        (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
+      VALUES
+        (v_user, 'SMOKE P49S Titular F' || v_i, v_email,
+         '(11) 95555-57' || lpad(v_i::text, 2, '0'),
+         DATE '1990-01-15', 'Santos', 'SP', 'site')
+      RETURNING id INTO v_cand;
+      INSERT INTO public.candidaturas (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+      VALUES (v_cand, v_vaga, 'decisao_final', 'rejeitado', false, now() - interval '20 days')
+      RETURNING id INTO v_cand;
+      UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_cand;
+      v_ids := v_ids || v_cand::text || ',';
+      IF v_i = 2 THEN v_f2 := v_cand;
+      ELSIF v_i = 3 THEN v_f3 := v_cand; v_u3 := v_user;
+      ELSE v_f4 := v_cand; v_u4 := v_user;
+      END IF;
+    END LOOP;
+
+    -- ── (e) · REDECISÃO — o upsert de `registrar_decisao` sobre linha existente ──
+    -- A 1ª chamada INSERE (ON CONFLICT não é alcançado) e não arquiva nada. A 2ª cai
+    -- no DO UPDATE e tem de arquivar a decisão ANTERIOR: é o histórico de emendas que
+    -- o titular recebe.
+    PERFORM set_config('request.jwt.claims', v_claims_a, false);
+    PERFORM public.registrar_decisao(v_f2, 'rejeitado', c_j_rej);
+    SELECT count(*) INTO e_h0 FROM public.decisao_final_historico WHERE candidatura_id = v_f2;
+    PERFORM public.registrar_decisao(v_f2, 'aprovado', c_j_apr);
+    SELECT count(*) INTO e_hfim FROM public.decisao_final_historico WHERE candidatura_id = v_f2;
+    SELECT h.decisao::text, h.justificativa INTO e_arq_dec, e_arq_just
+      FROM public.decisao_final_historico h
+     WHERE h.candidatura_id = v_f2
+     ORDER BY h.arquivado_em DESC, h.id DESC LIMIT 1;
+    SELECT d.decisao::text INTO e_viva_dec FROM public.decisao_final d WHERE d.candidatura_id = v_f2;
+
+    -- ── (f) · O CICLO DE REVISÃO (Art. 20) — pedido e resposta `mantida` ────────
+    PERFORM public.registrar_decisao(v_f3, 'rejeitado',
+      'Decisao final sintetica do smoke P49S (F3), rejeitado pelo administrador A, mais de 50 caracteres.');
+    SELECT count(*) INTO f_h0 FROM public.decisao_final_historico WHERE candidatura_id = v_f3;
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_u3::text, 'app_metadata', json_build_object('role', 'candidato'))::text, false);
+    PERFORM public.solicitar_revisao_decisao(v_f3);
+    SELECT count(*) INTO f_h1 FROM public.decisao_final_historico WHERE candidatura_id = v_f3;
+    SELECT h.revisao_solicitada_em INTO f_arq_sol
+      FROM public.decisao_final_historico h
+     WHERE h.candidatura_id = v_f3
+     ORDER BY h.arquivado_em DESC, h.id DESC LIMIT 1;
+    PERFORM set_config('request.jwt.claims', v_claims_b, false);
+    PERFORM public.responder_revisao_decisao(v_f3, 'mantida',
+      'Revisao sintetica do smoke P49S (f) pelo revisor B: a rejeicao se sustenta, veredito mantido.');
+    SELECT count(*) INTO f_h2 FROM public.decisao_final_historico WHERE candidatura_id = v_f3;
+    SELECT h.revisao_veredito INTO f_arq_ver
+      FROM public.decisao_final_historico h
+     WHERE h.candidatura_id = v_f3
+     ORDER BY h.arquivado_em DESC, h.id DESC LIMIT 1;
+    SELECT d.revisao_veredito INTO f_viva_ver FROM public.decisao_final d WHERE d.candidatura_id = v_f3;
+
+    -- ── (f2) · A REABERTURA (`revertida`) — a transição mais cara de perder ─────
+    PERFORM set_config('request.jwt.claims', v_claims_a, false);
+    PERFORM public.registrar_decisao(v_f4, 'rejeitado',
+      'Decisao final sintetica do smoke P49S (F4), rejeitado pelo administrador A, mais de 50 caracteres.');
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_u4::text, 'app_metadata', json_build_object('role', 'candidato'))::text, false);
+    PERFORM public.solicitar_revisao_decisao(v_f4);
+    SELECT count(*) INTO f2_h0 FROM public.decisao_final_historico WHERE candidatura_id = v_f4;
+    PERFORM set_config('request.jwt.claims', v_claims_b, false);
+    PERFORM public.responder_revisao_decisao(v_f4, 'revertida',
+      'Revisao sintetica do smoke P49S (f2) pelo revisor B: a rejeicao nao se sustenta, reabrir o caso.');
+    SELECT count(*) INTO f2_hfim FROM public.decisao_final_historico WHERE candidatura_id = v_f4;
+    SELECT d.reaberta_em INTO f2_reab FROM public.decisao_final d WHERE d.candidatura_id = v_f4;
+    SELECT h.reaberta_em INTO f2_arq_reab
+      FROM public.decisao_final_historico h
+     WHERE h.candidatura_id = v_f4
+     ORDER BY h.arquivado_em DESC, h.id DESC LIMIT 1;
+    SELECT c.etapa_atual::text, c.status::text INTO f2_etapa, f2_status
+      FROM public.candidaturas c WHERE c.id = v_f4;
+    PERFORM set_config('request.jwt.claims', '', false);
+
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P49S1';
+  EXCEPTION
+    WHEN SQLSTATE 'P49S1' THEN NULL;
+    WHEN OTHERS THEN
+      v_err := SQLSTATE || ': ' || SQLERRM;
+  END;
+  PERFORM set_config('request.jwt.claims', '', false);
+  PERFORM set_config('smoke49s.fixtures', current_setting('smoke49s.fixtures') || v_ids, false);
+
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P49S FAIL (parte 2): a fixture/o ciclo não rodou até o fim — %', coalesce(v_err, 'sem erro, mas sem marca de execução');
+  END IF;
+
+  -- ── (e) julgamento ──────────────────────────────────────────────────────────
+  IF e_hfim - e_h0 IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P49S FAIL (e): a REDECISÃO (registrar_decisao sobre linha existente) criou % linha(s) no arquivo (esperado EXATAMENTE 1). Zero = o WHEN suprimiu o histórico de emendas da decisão, que é o que o titular recebe — repúdio (T-49-07-01)', e_hfim - e_h0;
+  END IF;
+  IF e_arq_dec IS DISTINCT FROM 'rejeitado' OR e_arq_just IS DISTINCT FROM c_j_rej THEN
+    RAISE EXCEPTION 'P49S FAIL (e): a linha arquivada guardou decisao=% justificativa=«%» (esperado a decisão ANTERIOR, rejeitado, com a 1ª justificativa)',
+      coalesce(e_arq_dec, '<NULL>'), left(coalesce(e_arq_just, '<NULL>'), 60);
+  END IF;
+  IF e_viva_dec IS DISTINCT FROM 'aprovado' THEN
+    RAISE EXCEPTION 'P49S FAIL (e): a linha VIVA ficou com decisao=% (esperado aprovado)', coalesce(e_viva_dec, '<NULL>');
+  END IF;
+  PERFORM set_config('smoke49s.pass', (current_setting('smoke49s.pass')::int + 1)::text, false);
+
+  -- ── (f) julgamento ──────────────────────────────────────────────────────────
+  IF f_h1 - f_h0 IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P49S FAIL (f): o PEDIDO de revisão do titular criou % linha(s) no arquivo (esperado 1). `revisao_solicitada_em` NÃO está entre as duas colunas excluídas do D-44 — pedir revisão é um evento do ciclo, e o titular tem direito ao registro dele (Art. 20)', f_h1 - f_h0;
+  END IF;
+  IF f_arq_sol IS NOT NULL THEN
+    RAISE EXCEPTION 'P49S FAIL (f): a linha arquivada no pedido já traz revisao_solicitada_em = % (esperado NULL — o snapshot lê OLD, o estado ANTES do pedido)', f_arq_sol;
+  END IF;
+  IF f_h2 - f_h1 IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P49S FAIL (f): a RESPOSTA da revisão (mantida) criou % linha(s) no arquivo (esperado 1)', f_h2 - f_h1;
+  END IF;
+  IF f_arq_ver IS NOT NULL OR f_viva_ver IS DISTINCT FROM 'mantida' THEN
+    RAISE EXCEPTION 'P49S FAIL (f): arquivo com revisao_veredito=% e linha viva com % (esperado NULL no arquivo — o estado ANTES — e «mantida» na viva)',
+      coalesce(f_arq_ver, '<NULL>'), coalesce(f_viva_ver, '<NULL>');
+  END IF;
+  PERFORM set_config('smoke49s.pass', (current_setting('smoke49s.pass')::int + 1)::text, false);
+
+  -- ── (f2) julgamento ─────────────────────────────────────────────────────────
+  IF f2_hfim - f2_h0 IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P49S FAIL (f2): a REABERTURA (revertida) criou % linha(s) no arquivo (esperado 1). É a transição mais cara de perder: o veredito, a reabertura e o prazo entram no MESMO UPDATE, então um snapshot suprimido apaga os três de uma vez', f2_hfim - f2_h0;
+  END IF;
+  IF f2_reab IS NULL THEN
+    RAISE EXCEPTION 'P49S FAIL (f2): a linha viva ficou sem reaberta_em — a reabertura não aconteceu e a asserção acima mediu outra coisa';
+  END IF;
+  IF f2_arq_reab IS NOT NULL THEN
+    RAISE EXCEPTION 'P49S FAIL (f2): a linha arquivada já traz reaberta_em = % (esperado NULL — o snapshot lê OLD)', f2_arq_reab;
+  END IF;
+  IF f2_etapa IS DISTINCT FROM 'decisao_final' OR f2_status IS DISTINCT FROM 'em_analise' THEN
+    RAISE EXCEPTION 'P49S FAIL (f2): a reabertura deixou a candidatura %/% (esperado decisao_final/em_analise — reabrir, NUNCA aprovar, D-01/RNF-07a)', f2_etapa, f2_status;
+  END IF;
+  PERFORM set_config('smoke49s.pass', (current_setting('smoke49s.pass')::int + 1)::text, false);
+END
+$p2$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (g) PARIDADE DE COLUNAS — lida na EXECUÇÃO, de três fontes independentes.
+--   Só leitura. É a asserção que não envelhece: nenhuma lista literal de colunas
+--   vive neste arquivo. Uma coluna nova em `decisao_final` que não entre no arquivo
+--   passa a REPROVAR aqui em vez de sumir em silêncio — o modo de falha que o
+--   CLAUDE.md §«Portões» nomeia (a lista literal que não vigia nada).
+--     A = colunas(decisao_final) − {id, em} ∪ {decidido_em}
+--     B = colunas(decisao_final_historico) − {id, arquivado_em}
+--     C = a lista do INSERT no corpo VIVO de snapshot_decisao_final()
+--   `em → decidido_em` é o único renome do mapeamento (o trigger grava `OLD.em` em
+--   `decidido_em`); `arquivado_em` é do arquivo e não tem par na linha viva.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $g$
+DECLARE
+  g_a     text[];
+  g_b     text[];
+  g_c     text[];
+  v_src   text;
+  v_lista text;
+  v_d1    text[];  v_d2 text[];  v_d3 text[];  v_d4 text[];
+BEGIN
+  SELECT array_agg(c ORDER BY c) INTO g_a FROM (
+    SELECT column_name::text AS c FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = 'decisao_final'
+       AND column_name NOT IN ('id', 'em')
+    UNION SELECT 'decidido_em'
+  ) s;
+
+  SELECT array_agg(column_name::text ORDER BY column_name::text) INTO g_b
+    FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'decisao_final_historico'
+     AND column_name NOT IN ('id', 'arquivado_em');
+
+  SELECT p.prosrc INTO v_src
+    FROM pg_catalog.pg_proc p
+   WHERE p.oid = 'public.snapshot_decisao_final()'::regprocedure;
+  v_lista := substring(v_src from 'decisao_final_historico[[:space:]]*\(([^)]*)\)');
+  IF v_lista IS NULL THEN
+    RAISE EXCEPTION 'P49S FAIL (g): não foi possível extrair a lista de colunas do INSERT no corpo VIVO de snapshot_decisao_final. O corpo mudou de forma — reler antes de confiar em qualquer paridade';
+  END IF;
+  SELECT array_agg(btrim(x, E' \n\r\t') ORDER BY btrim(x, E' \n\r\t')) INTO g_c
+    FROM regexp_split_to_table(v_lista, ',') AS x;
+
+  IF g_a IS DISTINCT FROM g_b THEN
+    SELECT array_agg(x ORDER BY x) INTO v_d1 FROM (SELECT unnest(g_a) EXCEPT SELECT unnest(g_b)) q(x);
+    SELECT array_agg(x ORDER BY x) INTO v_d2 FROM (SELECT unnest(g_b) EXCEPT SELECT unnest(g_a)) q(x);
+    RAISE EXCEPTION 'P49S FAIL (g): decisao_final e decisao_final_historico DIVERGEM de colunas. Em decisao_final e NÃO no arquivo: %. No arquivo e NÃO em decisao_final: %. A primeira lista é o que o titular deixa de receber no histórico da decisão dele — coluna nova sem par no arquivo',
+      coalesce(v_d1::text, '{}'), coalesce(v_d2::text, '{}');
+  END IF;
+
+  IF g_a IS DISTINCT FROM g_c THEN
+    SELECT array_agg(x ORDER BY x) INTO v_d3 FROM (SELECT unnest(g_a) EXCEPT SELECT unnest(g_c)) q(x);
+    SELECT array_agg(x ORDER BY x) INTO v_d4 FROM (SELECT unnest(g_c) EXCEPT SELECT unnest(g_a)) q(x);
+    RAISE EXCEPTION 'P49S FAIL (g): o INSERT de snapshot_decisao_final não grava todas as colunas. Falta no INSERT: %. No INSERT e sem origem em decisao_final: %. A tabela pode até ter a coluna — se o trigger não a copia, o arquivo guarda NULL e ninguém erra',
+      coalesce(v_d3::text, '{}'), coalesce(v_d4::text, '{}');
+  END IF;
+
+  PERFORM set_config('smoke49s.pass', (current_setting('smoke49s.pass')::int + 1)::text, false);
+  PERFORM set_config('smoke49s.n_paridade', cardinality(g_a)::text, false);
+END
+$g$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (z) NEGATIVA — nada das fixtures sobreviveu; contagens globais iguais às de antes.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
@@ -388,8 +680,8 @@ $z$;
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $gate$
 BEGIN
-  IF current_setting('smoke49s.pass')::int <> 7 THEN
-    RAISE EXCEPTION 'P49S FAIL (gate): pass = % de 7 — alguma asserção não incrementou o contador', current_setting('smoke49s.pass');
+  IF current_setting('smoke49s.pass')::int <> 11 THEN
+    RAISE EXCEPTION 'P49S FAIL (gate): pass = % de 11 — alguma asserção não incrementou o contador', current_setting('smoke49s.pass');
   END IF;
 END
 $gate$;
@@ -399,7 +691,8 @@ SELECT set_config('request.jwt.claims', '', false);
 SELECT json_build_object(
   'smoke',    'p49_snapshot',
   'pass',     current_setting('smoke49s.pass')::int,
-  'esperado', 7,
+  'esperado', 11,
+  'paridade', current_setting('smoke49s.n_paridade')::int,
   'n_cand',   current_setting('smoke49s.n_cand')::int,
   'n_hist',   current_setting('smoke49s.n_hist')::int,
   'n_df',     current_setting('smoke49s.n_df')::int,
