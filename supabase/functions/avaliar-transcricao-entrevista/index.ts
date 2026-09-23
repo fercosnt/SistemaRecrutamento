@@ -375,9 +375,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
     //      mais nova» para todo leitor que ordenava por `created_at` — uma falha de IA
     //      apagava da tela a análise que tinha funcionado.
     if (parsed == null || result.error_code === "prompt_injection_detected") {
-      const { data: falhaRes, error: falhaErr } = await supabaseAdmin.rpc(
-        "registrar_analise_entrevista",
-        {
+      const { data: falhaRes, error: falhaErr } = await supabaseAdmin.rpc("registrar_analise_entrevista", {
           p_candidatura_id: body.candidatura_id,
           p_tipo: tipo,
           p_solicitado_por: user.id,
@@ -392,8 +390,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
           p_bias_flags: null,
           p_bloqueio_avanco: false,
           p_score_metadata: null,
-        },
-      );
+      });
       if (falhaErr) {
         throw new Error(
           `registrar_analise_entrevista (falhou) recusou a gravacao: ${falhaErr.code ?? ""} ${falhaErr.message ?? ""}`
@@ -437,9 +434,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
     // inserir esta, e devolver a nota consolidada a `pendente_humano` são três escritas que
     // só fazem sentido juntas. Até aqui eram um INSERT e um upsert soltos, sem nenhum
     // `superada_em` — e sem erro checado, então uma escrita recusada saía como `{ok:true}`.
-    const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
-      "registrar_analise_entrevista",
-      {
+    const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc("registrar_analise_entrevista", {
         p_candidatura_id: body.candidatura_id,
         p_tipo: tipo,
         p_solicitado_por: user.id,
@@ -461,8 +456,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
           bloqueio_avanco: derived.flag,
           blocked_competencies: derived.blockedCompetencies,
         },
-      },
-    );
+    });
     if (rpcErr) {
       throw new Error(
         `registrar_analise_entrevista recusou a gravacao: ${rpcErr.code ?? ""} ${rpcErr.message ?? ""}`
