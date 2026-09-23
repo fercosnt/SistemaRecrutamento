@@ -666,3 +666,102 @@ Deno.test("49-25 / JORN-39 — re-prompt barrado pelo teto NÃO apaga o roteiro 
   );
   assertEquals(row.modelo_ia, MODELO_REAL_DATADO);
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// Phase 49 / Plano 49-26 — WINDOWS 64 · ENTREV-01
+//
+// A flag de revisão humana que o passo 7 COMPUTA tem de CHEGAR ao banco.
+//
+// O passo 7 detecta que uma dimensão fraca do scorecard seguiu descoberta DEPOIS do
+// re-prompt e levanta `needsHumanFlag`. O objeto do upsert, porém, só carregava `flags` no
+// ramo em que NÃO há roteiro. Logo, no caminho de SUCESSO — o único em que essa flag pode
+// existir — ela era calculada e descartada: o rastro de runtime dizia `needs_human: true` e
+// a linha não dizia nada. Quem lê a tabela depois (o selo do 49-16) não tinha como saber.
+//
+// A segunda asserção é o par obrigatório da primeira: quando NÃO há nada a sinalizar, a
+// chave tem de ficar AUSENTE, e não `[]`. Um array vazio e «não havia flag» têm de ser
+// distinguíveis, e um `[]` explícito sob `onConflict` apagaria a flag da execução anterior
+// no instante do reprocessamento (precedente medido no 49-11).
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+Deno.test("49-26 / WINDOWS 64 — roteiro com dimensão fraca DESCOBERTA é gravado COM a flag", async () => {
+  // Gasto do dia ZERO: nada é barrado. Este é o caminho de SUCESSO, que é exatamente onde a
+  // flag era computada e perdida. O scorecard descobre `Negociação`; o roteiro devolvido
+  // pelas DUAS passadas só cobre `Comunicação`, então depois do re-prompt a dimensão fraca
+  // SEGUE descoberta e o passo 7 levanta `needsHumanFlag`.
+  const supabaseAdmin = makeMockSupabaseAdmin(
+    { questions: [MANUAL_QUESTION] },
+    null,
+    0,
+    SCORE_ROWS_COM_DIM_FRACA,
+  );
+  const deps: GerarGuiaDeps = {
+    anthropic: makeMockAnthropic({
+      questions: [{ question: "Fale de um conflito que você mediou.", competency: "Comunicação" }],
+    }),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    supabaseUser,
+  };
+
+  const res = await handler(makeRequest(), deps);
+  assertEquals(res.status, 200);
+
+  const row = persistedGuiaRow(supabaseAdmin.writes);
+  const guia = row.guia as Record<string, unknown>;
+
+  // 1. O roteiro EXISTE. Sem isto o teste estaria medindo o caminho `incompleto` do 49-25,
+  //    onde a flag já chegava — e o defeito deste plano ficaria invisível.
+  assertEquals(
+    guia.incompleto,
+    undefined,
+    "há roteiro: este é o caminho de sucesso, não o de bloqueio",
+  );
+  const qs = persistedQuestions(supabaseAdmin.writes);
+  assertEquals(qs.filter((q) => q.origem === "ia").length, 1, "o roteiro gerado está na linha");
+  assertEquals(qs.filter((q) => q.origem === "manual").length, 1, "e a pergunta manual também");
+
+  // 2. E a linha DECLARA que uma dimensão fraca ficou descoberta. É a única coisa que
+  //    distingue «roteiro completo» de «roteiro que o RH precisa completar à mão».
+  const flags = (guia.flags ?? []) as string[];
+  assert(
+    flags.includes("weak_dim_uncovered"),
+    `a flag computada pelo passo 7 tem de chegar ao banco; veio ${JSON.stringify(guia.flags)}`,
+  );
+
+  // 3. E NADA além dela: não houve bloqueio, então nenhum código de erro entra aqui.
+  assertEquals(
+    flags.length,
+    1,
+    `só a cobertura foi sinalizada; veio ${JSON.stringify(guia.flags)}`,
+  );
+
+  // 4. A proveniência do 49-24 segue intacta: quem escreveu o roteiro é quem a linha registra.
+  assertEquals(row.provedor_ia, "anthropic");
+  assertEquals(row.modelo_ia, MODELO_REAL_DATADO);
+});
+
+Deno.test("49-26 / T-49-26-03 — sem nada a sinalizar, a chave `flags` fica AUSENTE (não `[]`)", async () => {
+  // Nenhuma dimensão fraca (scorecard vazio) e nenhum bloqueio: não há o que sinalizar.
+  const supabaseAdmin = makeMockSupabaseAdmin({ questions: [MANUAL_QUESTION] });
+  const deps: GerarGuiaDeps = {
+    anthropic: makeMockAnthropic({
+      questions: [{ question: "Descreva um projeto que você entregou.", competency: "Execução" }],
+    }),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    supabaseUser,
+  };
+
+  const res = await handler(makeRequest(), deps);
+  assertEquals(res.status, 200);
+
+  const guia = persistedGuiaRow(supabaseAdmin.writes).guia as Record<string, unknown>;
+  assertEquals(guia.incompleto, undefined, "há roteiro");
+  assert(
+    !("flags" in guia),
+    `«não havia flag» se escreve pela AUSÊNCIA da chave, nunca por um array vazio; veio ${
+      JSON.stringify(guia.flags)
+    }`,
+  );
+});
