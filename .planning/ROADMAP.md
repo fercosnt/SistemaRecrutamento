@@ -425,6 +425,7 @@ Plans:
 - [x] 49-26-PLAN.md — Predicado «algum provedor respondeu?» em `_shared`; a flag de revisão humana para de ser descartada no caminho de sucesso e a análise da transcrição não chama bloqueio de «pendente» (JORN-28, JORN-39 — WINDOWS 64/65, acrescentado 2026-09-23 por decisão do operador)
 - [x] 49-27-PLAN.md — Comparativo bloqueado por custo/injeção recusa com motivo em vez de entregar ranking-stub ao RH; bloqueio fica auditado (JORN-28, JORN-39 — WINDOWS 68, acrescentado 2026-09-23 por decisão do operador)
 - [x] 49-28-PLAN.md — (j.2) do `p46_purga_smoke` estabelece o estado que mede, em vez de ler o de PROD; desbloqueia (o)/(o.6)/(o.7)/(p) sem publicar vaga sintética (JORN-3b — decisão do operador no checkpoint do 49-12, 2026-09-23)
+- [ ] 49-29-PLAN.md — O motor desidentifica os textos livres do titular em `analise_candidato_vaga` (tabela que ele NÃO citava), inclusive retroativamente: 8 linhas de titulares já anonimizados com `resumo_cv` preenchido. Faz a promessa existente do recibo («sem ligação com você») voltar a ser verdadeira (JORN-36 — decisão (c) do operador no checkpoint do 49-17, 2026-09-23)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
