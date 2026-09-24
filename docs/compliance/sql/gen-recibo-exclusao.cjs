@@ -427,12 +427,22 @@ const ITENS_SAI = [
     ),
   },
   {
+    // ⚠⚠ Phase 49 (49-17, Task 3) · WINDOWS 82, a OUTRA metade.
+    // As origens desta linha são SÓ o par `decisao_final`/`decisao_final_historico`
+    // — exatamente as duas que o passo `tombstone_decisao_final` sobrescreve com um
+    // valor fixo. Ou seja: aqui a afirmação anterior («o texto continua guardado»)
+    // não era falsa para uma origem entre três, era falsa para TODAS as origens da
+    // linha. Consertar só a linha obrigatória e deixar esta de pé fecharia a
+    // WINDOWS 82 no papel com o defeito vivo um item acima, na mesma tela.
+    // O texto novo descreve o que o motor de fato faz — no lugar do texto fica um
+    // aviso padrão — e continua sem citar o valor fixo (§K, ver o bloco da linha
+    // `justificativa_do_recrutador`).
     item_id: 'ligacao_com_a_justificativa',
     rotulo: 'A ligação entre você e a justificativa escrita sobre a sua candidatura',
     texto_futuro:
-      'Vai ser cortada: o texto continua guardado como prova de que a decisão não foi discriminatória, sem ligação com você.',
+      'Vai ser cortada: no lugar do que o recrutador escreveu fica um aviso padrão, e é ele que permanece como prova de que a decisão não foi discriminatória, sem ligação com você.',
     texto_passado:
-      'Foi cortada: o texto continua guardado como prova de que a decisão não foi discriminatória, sem ligação com você.',
+      'Foi cortada: no lugar do que o recrutador escreveu ficou um aviso padrão, e é ele que permanece como prova de que a decisão não foi discriminatória, sem ligação com você.',
     aplicavel_quando: 'tem_decisao_registrada',
     passo_motor: 'tombstone_decisao_final',
     origens: flat(q('decisao_final', ['justificativa']), q('decisao_final_historico', ['justificativa'])),
@@ -499,10 +509,39 @@ const OBRIGATORIAS_MANTEM = ['justificativa_do_recrutador', 'historico_das_etapa
 
 const ITENS_MANTEM = [
   {
+    // ⚠⚠ Phase 49 (49-17, Task 3) · WINDOWS 82 — ESTA LINHA DIZIA MENOS DO QUE O
+    // MOTOR FAZ, E DIZIA IGUAL PARA TRÊS ORIGENS DIFERENTES.
+    // A linha tem TRÊS origens e o motor as trata de DUAS maneiras opostas.
+    // Medido no corpo vivo de `anonimizar_candidato` em 2026-09-24 (md5
+    // `1d8f96c8f21a755ded0505a0b652113a`, 78 301 octetos — o mesmo pin do 49-21):
+    //   · `candidaturas.motivo_rejeicao`        → `position(...) = 0`: o motor NÃO
+    //     a cita. O texto do recrutador realmente sobrevive.
+    //   · `avaliacoes_rh.justificativa_recomendacao` → `position(...) = 0` (e a
+    //     própria tabela não é citada). Idem: sobrevive.
+    //   · `decisao_final.justificativa` (e a cópia arquivada) → o passo
+    //     `tombstone_decisao_final` faz um UPDATE INCONDICIONAL que põe um valor
+    //     FIXO no lugar do que o recrutador escreveu, e esse valor anuncia, ele
+    //     mesmo, que o texto original saiu. O que sobrevive aqui é o aviso, não o
+    //     texto.
+    // O texto anterior prometia, com uma frase só, que a justificativa «fica
+    // guardada» — verdadeiro para duas origens e FALSO para a terceira, numa das
+    // TRÊS linhas obrigatórias da UI-SPEC (regra 4, prova de não-discriminação).
+    // O conserto muda o que a linha DIZ, nunca se ela existe: ela continua em
+    // `OBRIGATORIAS_MANTEM`, continua reivindicando as mesmas quatro colunas, e a
+    // classificação no inventário segue `preservar_com_ressalva` — a direção do
+    // erro era a segura (o recibo dizia MENOS do que o motor apaga) e o que faltava
+    // era distinguir as origens, não reclassificar a coluna.
+    // ⚠ O valor fixo NÃO é citado aqui nem em lugar nenhum deste arquivo, de
+    // propósito (49-PATTERNS §K): os portões desta fase procuram expressões NO
+    // DISCO, e uma citação «para registro» as deixa encontráveis exatamente no
+    // arquivo que acabou de ser consertado. Quem precisar do literal lê o corpo da
+    // função em PROD, que é a fonte.
     item_id: 'justificativa_do_recrutador',
     rotulo: 'A justificativa escrita pelo recrutador sobre a decisão',
-    texto_futuro: 'Fica guardada sem ligação com você. Ela é a prova de que a decisão não foi discriminatória.',
-    texto_passado: 'Ficou guardada sem ligação com você. Ela é a prova de que a decisão não foi discriminatória.',
+    texto_futuro:
+      'Fica guardada sem ligação com você — o motivo registrado na sua candidatura e a recomendação escrita por quem avaliou. Só no campo da decisão final o que o recrutador escreveu é trocado por um aviso padrão. O que fica é a prova de que a decisão não foi discriminatória.',
+    texto_passado:
+      'Ficou guardada sem ligação com você — o motivo registrado na sua candidatura e a recomendação escrita por quem avaliou. Só no campo da decisão final o que o recrutador escreveu foi trocado por um aviso padrão. O que ficou é a prova de que a decisão não foi discriminatória.',
     aplicavel_quando: 'tem_decisao_registrada',
     base_legal: 'LGPD, Art. 7º, VI',
     origens: flat(
@@ -731,6 +770,13 @@ const FORA_DO_RECIBO = Object.assign(
   mapa(q('redacoes_candidato', ['revisada_por']), 'dado_de_funcionario'),
   mapa(q('redacoes_candidato', ['texto_hash']), 'chave_tecnica'),
   mapa(q('redacoes_candidato', ['decisao_revisor']), 'estado_do_processo'),
+  // ⚠ Phase 49 (49-17, Task 3) — a ficha técnica da avaliação da redação
+  // (`provedor_ia`, `modelo_ia`) e a versão do instrumento que a produziu
+  // (`rubrica_versao`), criadas pelo plano 49-01 (D-28). Nenhuma é conteúdo do
+  // titular e nenhuma é `apagar` no inventário: o motor não as toca, e não há
+  // promessa a fazer sobre elas. A razão é a MESMA de `entrevista_analises`
+  // logo acima — é a natureza de `entrevistas_online.gravacao_tamanho_mb`.
+  mapa(q('redacoes_candidato', ['provedor_ia', 'modelo_ia', 'rubrica_versao']), 'estado_do_processo'),
   mapa(q('respostas_formulario', ['resposta_numerica']), 'estado_do_processo'),
   // ⚠ Phase 49 (D-61): `user_prompt_template` SAIU desta linha. O `system_prompt` é o
   // molde (igual para todo mundo, não é fato sobre a pessoa) e fica; o outro carrega o
@@ -748,6 +794,14 @@ const FORA_DO_RECIBO = Object.assign(
   mapa(q('cognitivo_respostas', ['shuffle_seed']), 'chave_tecnica'),
   mapa(q('comparativo_solicitado', ['candidatura_ids']), 'chave_tecnica'),
   mapa(q('comparativo_solicitado', ['solicitado_por']), 'dado_de_funcionario'),
+  // ⚠ Phase 49 (49-17, Task 3) — a ficha técnica do comparativo (D-28). A tabela
+  // está excluída no nível de TABELA no `export-scope-rules.yaml`
+  // (`pii_de_terceiro`), e é por isso que estas duas NÃO têm veredito de export;
+  // mas o RECIBO trata esta tabela como em escopo (ela não está no
+  // `FORA_DO_ESCOPO_DO_TITULAR` deste arquivo, e `ranking` é origem de uma linha),
+  // então aqui a razão não é inerte: sem ela o fecho de COBERTURA reprovaria.
+  // Os dois escopos são artefatos diferentes e não têm de coincidir.
+  mapa(q('comparativo_solicitado', ['provedor_ia', 'modelo_ia']), 'estado_do_processo'),
 );
 
 function mapa(chaves, razao) {

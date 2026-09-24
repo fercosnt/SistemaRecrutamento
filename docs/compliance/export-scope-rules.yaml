@@ -900,6 +900,39 @@ decisoes_por_coluna:
     export: false
     razao: "(i) telemetria_interna — qual modelo rodou. Idem `entrevista_analises.provedor_ia` e `devolutivas_candidato.modelo_ia`."
 
+  # --- a proveniência REAL nas outras tabelas (49-01, D-28) -----------------
+  # MEDIDAS em PROD em 2026-09-24 (`information_schema.columns`, só leitura): as
+  # cinco são `text` e nuláveis. As cinco recebem o MESMO veredito e a MESMA
+  # família de razão das duas de `entrevista_analises` acima — não há decisão nova
+  # a tomar aqui, só a de escrevê-la para cada coluna, porque `decisoes_por_coluna`
+  # é consultado por `tabela.coluna` LITERAL e um veredito por família não existe.
+  #
+  # ⚠ E as outras QUATRO colunas que a fase criou (`provedor_ia`/`modelo_ia` em
+  # `comparativo_solicitado` e em `entrevista_guias`) NÃO recebem veredito aqui, de
+  # propósito e não por esquecimento: as duas tabelas estão excluídas no nível de
+  # TABELA neste mesmo arquivo (`pii_de_terceiro` e `configuracao_do_produto`), e o
+  # fecho inverso deste gerador diz por escrito que uma decisão de coluna sobre
+  # tabela excluída é INERTE, não órfã — ele a ignora em silêncio. Escrever as
+  # quatro produziria quatro linhas que parecem proteger algo e não protegem nada,
+  # e que nenhum portão jamais reprovaria por envelhecer. Elas seguem o destino da
+  # tabela, que é a decisão já travada. É também por isso que elas nunca aparecem
+  # no `05-export-allowlist-drift.sql`: o predicado dele não varre tabela excluída.
+  analise_candidato_vaga.provedor_ia:
+    export: false
+    razao: "(i) telemetria_interna — qual provedor de LLM rodou a análise de triagem (D-28, proveniência REAL em vez da configurada). Ficha técnica da execução, não fato sobre a pessoa: o RESULTADO da triagem entra na cópia (`resumo_cv`, `pontos_fortes`, `gaps`, `score_match` são todos `true` logo acima), e é exatamente por isso que a ficha técnica de COMO ele foi produzido não entra. Mesma família de `devolutivas_candidato.modelo_ia` (44-CONTEXT §Área 2) e idem `entrevista_analises.provedor_ia`, com a MESMA tensão do D-27 registrada lá e resolvida da mesma maneira."
+  analise_candidato_vaga.modelo_ia:
+    export: false
+    razao: "(i) telemetria_interna — qual modelo rodou. Idem `analise_candidato_vaga.provedor_ia`."
+  redacoes_candidato.provedor_ia:
+    export: false
+    razao: "(i) telemetria_interna — qual provedor de LLM avaliou a redação (D-28). Idem `entrevista_analises.provedor_ia`, e a família desta tabela já estava decidida assim: `model_version` e `prompt_version`, vizinhas dela, saem pela mesma razão desde a 44-01."
+  redacoes_candidato.modelo_ia:
+    export: false
+    razao: "(i) telemetria_interna — qual modelo rodou. Idem `redacoes_candidato.provedor_ia` e `redacoes_candidato.model_version`."
+  redacoes_candidato.rubrica_versao:
+    export: false
+    razao: "(i) qual VERSÃO da rubrica de correção a avaliação usou. Descreve COMO O SISTEMA AVALIOU, não a pessoa — é literalmente o argumento de `redacoes_candidato.prompt_version`, a vizinha de que ela é irmã: a nota e a explicação entregues ao titular entram (`scores_dimensao`, `analise_ia`), o identificador interno do instrumento que as produziu, não. ⚠ Tensão registrada, e é a mesma do D-27 em outra roupa: a versão da rubrica é o que explicaria ao titular por que duas redações comparáveis receberam notas diferentes em meses diferentes. O critério do arquivo resolve isso pela EXPLICAÇÃO (que entra, e é texto sobre a pessoa), não pelo número de versão do instrumento (que é ficha técnica) — e é essa a decisão, revisável pelo operador com uma palavra."
+
 # ---------------------------------------------------------------------------
 # 6b · PONTEIROS DE INFRAESTRUTURA — o que sai do ARQUIVO LEGÍVEL
 # ---------------------------------------------------------------------------

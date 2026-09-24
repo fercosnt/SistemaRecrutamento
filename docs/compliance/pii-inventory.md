@@ -306,6 +306,9 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `scores_humanos` | 🔒 preservar | R5 |  |
 | `decisao_revisor` | 🔒 preservar | text |  |
 | `revisada_por` | 🔒 preservar | uuid | Funcionário |
+| `provedor_ia` | 🔒 preservar | text | Phase 49 (D-28) — provedor de LLM REAL que avaliou a redação. Ficha técnica da execução, não fato sobre a pessoa; sobrevive à purga de 180 dias do `ai_call_logs`, que era a única proveniência existente. Idem `entrevista_analises.provedor_ia` |
+| `modelo_ia` | 🔒 preservar | text | Phase 49 (D-28) — modelo REAL. Idem provedor_ia |
+| `rubrica_versao` | 🔒 preservar | text | Phase 49 — qual versão da rubrica de correção a avaliação usou. Descreve o INSTRUMENTO, não a pessoa: mesma natureza da vizinha `prompt_version`, que a 44-01 já classificou assim |
 
 ### `redacoes_candidato_em_progresso`
 
@@ -500,6 +503,8 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `ranking` | ⚠️ preservar c/ ressalva | R5 | Pode embutir nomes |
 | `candidatura_ids` | 🔒 preservar | array |  |
 | `solicitado_por` | 🔒 preservar | uuid | Funcionário |
+| `provedor_ia` | 🔒 preservar | text | Phase 49 (D-28) — provedor de LLM REAL que montou o comparativo. Ficha técnica da execução, não fato sobre a pessoa |
+| `modelo_ia` | 🔒 preservar | text | Phase 49 (D-28) — modelo REAL. Idem provedor_ia |
 
 ### `historico_acoes`
 
@@ -582,7 +587,7 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 
 ## Tabelas sem PII de titular
 
-Cobertas integralmente pela regra **R4** — Conteúdo do produto, catálogo de itens de teste ou configuração de vaga. ⚠ DUAS ENTRADAS DESTA LISTA TÊM RESSALVA ABERTA E MEDIDA (Phase 49, D-66): `analise_candidato_vaga` e `entrevista_guias` contêm o primeiro nome do titular dentro de texto livre — 13 de 24 análises e 2 de 5 guias, medido em 2026-09-22 e reconfirmado em 2026-09-23. `anonimizar_candidato` NÃO as desidentifica, e o operador deixou esse apagamento fora do escopo desta fase (é escopo novo). A permanência delas nesta lista é, portanto, DESCRITIVA do estado do motor, não uma afirmação de ausência de PII: até o apagamento existir, mover as duas para `tabelas:` obrigaria o recibo a dar um veredito por coluna, e o único veredito honesto disponível hoje seria uma linha nova dizendo ao titular que o seu nome continua nesses textos — texto de produto, que é decisão do operador e não da engenharia. Registrado em `WINDOWS.md` e no SUMMARY do plano 49-21.
+Cobertas integralmente pela regra **R4** — Conteúdo do produto, catálogo de itens de teste ou configuração de vaga. ⚠ UMA ENTRADA DESTA LISTA TEM RESSALVA ABERTA E MEDIDA (Phase 49, D-66): `analise_candidato_vaga` contém o primeiro nome do titular dentro de texto livre — 9 de 25 linhas, RE-MEDIDO em 2026-09-23, e esse 9 é LIMITE INFERIOR. O número escrito aqui até 2026-09-24 era 13 de 24 e estava errado nos dois sentidos; a correção e a causa de cada erro estão em `WINDOWS.md` (83). O que torna o 9 um limite inferior é estrutural, não estatístico: casar contra o nome ATUAL é cego ao titular que JÁ exerceu a exclusão, porque o nome dele foi substituído em `candidatos` — e medido diretamente na linha dele, `resumo_cv` guarda o nome COMPLETO original (três partes, 132 caracteres) DEPOIS da exclusão concluída. `anonimizar_candidato` não cita esta tabela no corpo vivo (`position(...) = 0`). ⚠ A SEGUNDA ENTRADA QUE ESTE CAMPO ACUSAVA — `entrevista_guias` — NÃO tem PII do titular medida: zero de 5 guias contêm o primeiro nome dele. Os dois «achados» de 2026-09-22 eram a palavra portuguesa comum `candidato` dentro do `rationale` do próprio guia, casando por acidente porque a conta de teste se chama «Candidato Funil Teste»; e não existe hoje nenhum guia pertencente a titular anonimizado (medido em 2026-09-24: 0 de 5), logo o ponto cego do probe também não a alcança. A capacidade estrutural permanece (o guia é derivado do currículo), e é por isso que a entrada fica nesta lista com ressalva em vez de sair dela em silêncio. A permanência das duas nesta lista é, portanto, DESCRITIVA do estado do motor, não uma afirmação de ausência de PII — e a saída delas pertence a QUEM CONSERTAR O MOTOR, não a quem reclassificar o registro: mover `analise_candidato_vaga` para `tabelas:` hoje obrigaria o recibo a dar um veredito por coluna, e o único disponível sem mentir seria uma linha nova dizendo ao titular que o seu nome continua nesses textos. O operador decidiu o contrário em 2026-09-23 (checkpoint do 49-17, opção (c)): o texto do recibo NÃO muda, o MOTOR passa a cumpri-lo. Dono: plano 49-29 (onda 8), que desidentifica os textos livres e trata as 8 linhas de titulares já anonimizados; a reclassificação desta lista vai com ele. Registrado em `WINDOWS.md` (83, `open`, dono 49-29) e no SUMMARY do plano 49-17.
 
 - `ai_cost_daily`
 - `analise_candidato_vaga`
@@ -658,8 +663,8 @@ o defeito de verdade, e não a existência da tabela.
 |---------------|--------:|
 | 🎭 anonimizar | 23 |
 | 🗑️ apagar | 68 |
-| 🔒 preservar | 104 |
+| 🔒 preservar | 109 |
 | ⚠️ preservar c/ ressalva | 49 |
-| **Total explícito** | **244** |
+| **Total explícito** | **249** |
 
 Cobertura de tabelas: **65 / 64**.

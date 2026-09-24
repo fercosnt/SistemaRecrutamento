@@ -51,15 +51,15 @@
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-09-23T21:12:51.403Z",
+    "gerado_em": "2026-09-24T05:24:24.587Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-04T01:34:27Z",
     "padrao_nome_de_endereco": "(^|_)(url|urls|uri|uris|link|links)($|_)",
     "requirement": "EXPORT-02",
     "totais": {
-      "colunas_colhidas": 754,
-      "colunas_com_veredito_em_escopo": 422,
-      "colunas_excluidas_em_escopo": 44,
+      "colunas_colhidas": 763,
+      "colunas_com_veredito_em_escopo": 427,
+      "colunas_excluidas_em_escopo": 49,
       "colunas_exportadas": 378,
       "colunas_fora_do_arquivo_legivel": 4,
       "tabelas_catalogadas": 69,
@@ -133,7 +133,9 @@
         "vaga_id"
       ],
       "colunas_excluidas": {
-        "erro": "decisoes_por_coluna: (i) telemetria_interna — mensagem de FALHA do pipeline. Pode carregar payload de provedor, stack e identificador interno de infraestrutura, e a 44-UI-SPEC §Arquivos proíbe literalmente 'qualquer chave, token ou identificador interno de infraestrutura' nos dois arquivos entregues. O titular não fica sem o fato: `status` ENTRA e diz que a análise falhou — o que se omite é o payload interno, não a informação."
+        "erro": "decisoes_por_coluna: (i) telemetria_interna — mensagem de FALHA do pipeline. Pode carregar payload de provedor, stack e identificador interno de infraestrutura, e a 44-UI-SPEC §Arquivos proíbe literalmente 'qualquer chave, token ou identificador interno de infraestrutura' nos dois arquivos entregues. O titular não fica sem o fato: `status` ENTRA e diz que a análise falhou — o que se omite é o payload interno, não a informação.",
+        "modelo_ia": "decisoes_por_coluna: (i) telemetria_interna — qual modelo rodou. Idem `analise_candidato_vaga.provedor_ia`.",
+        "provedor_ia": "decisoes_por_coluna: (i) telemetria_interna — qual provedor de LLM rodou a análise de triagem (D-28, proveniência REAL em vez da configurada). Ficha técnica da execução, não fato sobre a pessoa: o RESULTADO da triagem entra na cópia (`resumo_cv`, `pontos_fortes`, `gaps`, `score_match` são todos `true` logo acima), e é exatamente por isso que a ficha técnica de COMO ele foi produzido não entra. Mesma família de `devolutivas_candidato.modelo_ia` (44-CONTEXT §Área 2) e idem `entrevista_analises.provedor_ia`, com a MESMA tensão do D-27 registrada lá e resolvida da mesma maneira."
       },
       "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
@@ -868,9 +870,12 @@
         "cost_tokens_output": "decisoes_por_coluna: (i) telemetria_interna — idem, tokens de saída.",
         "input_hash": "decisoes_por_coluna: (i) telemetria_interna — hash do insumo enviado ao modelo, usado para deduplicação/cache. É identificador interno de execução; não é fato sobre a pessoa e nada acrescenta à cópia dela.",
         "model_version": "decisoes_por_coluna: (i) telemetria_interna — qual modelo rodou. Idem.",
+        "modelo_ia": "decisoes_por_coluna: (i) telemetria_interna — qual modelo rodou. Idem `redacoes_candidato.provedor_ia` e `redacoes_candidato.model_version`.",
         "prompt_version": "decisoes_por_coluna: (i) telemetria_interna — versão do prompt que rodou. Descreve o SISTEMA, não a pessoa. Mesma família de `ai_call_logs`, fora do escopo por decisão travada na 44-CONTEXT §Área 2.",
+        "provedor_ia": "decisoes_por_coluna: (i) telemetria_interna — qual provedor de LLM avaliou a redação (D-28). Idem `entrevista_analises.provedor_ia`, e a família desta tabela já estava decidida assim: `model_version` e `prompt_version`, vizinhas dela, saem pela mesma razão desde a 44-01.",
         "referencia_match": "decisoes_por_coluna: pii_de_terceiro — E ESTE É O ACHADO QUE JUSTIFICA O FECHO COLUNA A COLUNA.\nO DDL (20260623100003_redacoes_candidato.sql:70) é literal: `uuid[] NOT NULL\n-- candidatura_ids match no hash`. São os identificadores das candidaturas\nde OUTRAS PESSOAS cuja redação bateu no mesmo hash anti-plágio (RF-R-18).\nExportá-lo entregaria ao titular uma lista de candidaturas alheias — a mesma\n`pii_de_terceiro` por que `comparativo_solicitado` está fora no nível da\ntabela. A regra R2 de `ponteiros` não o pega porque o nome não termina em\n`_id`; foi o ERRO DE FECHAMENTO que o trouxe à mesa. É exatamente o vazamento\nque uma allowlist \"gerada por regra\" teria produzido em silêncio.\nO titular não perde o fato: `flags` ENTRA e carrega\n`possivel_plagio_intercandidato` — ele fica sabendo da suspeita levantada\nsobre ele sem receber a identidade de quem mais foi apanhado no mesmo hash.\n",
-        "revisada_por": "pii_de_terceiro (R2)"
+        "revisada_por": "pii_de_terceiro (R2)",
+        "rubrica_versao": "decisoes_por_coluna: (i) qual VERSÃO da rubrica de correção a avaliação usou. Descreve COMO O SISTEMA AVALIOU, não a pessoa — é literalmente o argumento de `redacoes_candidato.prompt_version`, a vizinha de que ela é irmã: a nota e a explicação entregues ao titular entram (`scores_dimensao`, `analise_ia`), o identificador interno do instrumento que as produziu, não. ⚠ Tensão registrada, e é a mesma do D-27 em outra roupa: a versão da rubrica é o que explicaria ao titular por que duas redações comparáveis receberam notas diferentes em meses diferentes. O critério do arquivo resolve isso pela EXPLICAÇÃO (que entra, e é texto sobre a pessoa), não pelo número de versão do instrumento (que é ficha técnica) — e é essa a decisão, revisável pelo operador com uma palavra."
       },
       "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",

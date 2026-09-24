@@ -65,8 +65,8 @@ export const RECIBO_EXCLUSAO = {
       "item_id": "justificativa_do_recrutador",
       "obrigatorio": true,
       "rotulo": "A justificativa escrita pelo recrutador sobre a decisão",
-      "texto_futuro": "Fica guardada sem ligação com você. Ela é a prova de que a decisão não foi discriminatória.",
-      "texto_passado": "Ficou guardada sem ligação com você. Ela é a prova de que a decisão não foi discriminatória."
+      "texto_futuro": "Fica guardada sem ligação com você — o motivo registrado na sua candidatura e a recomendação escrita por quem avaliou. Só no campo da decisão final o que o recrutador escreveu é trocado por um aviso padrão. O que fica é a prova de que a decisão não foi discriminatória.",
+      "texto_passado": "Ficou guardada sem ligação com você — o motivo registrado na sua candidatura e a recomendação escrita por quem avaliou. Só no campo da decisão final o que o recrutador escreveu foi trocado por um aviso padrão. O que ficou é a prova de que a decisão não foi discriminatória."
     },
     {
       "aplicavel_quando": "sempre",
@@ -491,8 +491,8 @@ export const RECIBO_EXCLUSAO = {
       "passo_motor": "tombstone_decisao_final",
       "passo_motor_onde": "RPC SECURITY DEFINER de anonimização — plano 45-07 (D-45-02/03), com a resposta ao pedido de revisão desde o plano 49-14 (D-60)",
       "rotulo": "A ligação entre você e a justificativa escrita sobre a sua candidatura",
-      "texto_futuro": "Vai ser cortada: o texto continua guardado como prova de que a decisão não foi discriminatória, sem ligação com você.",
-      "texto_passado": "Foi cortada: o texto continua guardado como prova de que a decisão não foi discriminatória, sem ligação com você."
+      "texto_futuro": "Vai ser cortada: no lugar do que o recrutador escreveu fica um aviso padrão, e é ele que permanece como prova de que a decisão não foi discriminatória, sem ligação com você.",
+      "texto_passado": "Foi cortada: no lugar do que o recrutador escreveu ficou um aviso padrão, e é ele que permanece como prova de que a decisão não foi discriminatória, sem ligação com você."
     },
     {
       "aplicavel_quando": "tem_decisao_registrada",
@@ -559,6 +559,8 @@ export const RECIBO_EXCLUSAO = {
     "candidaturas.origem_candidatura": "estado_do_processo",
     "cognitivo_respostas.shuffle_seed": "chave_tecnica",
     "comparativo_solicitado.candidatura_ids": "chave_tecnica",
+    "comparativo_solicitado.modelo_ia": "estado_do_processo",
+    "comparativo_solicitado.provedor_ia": "estado_do_processo",
     "comparativo_solicitado.solicitado_por": "dado_de_funcionario",
     "decisao_final.alerta_prazo_enviado_em": "estado_do_processo",
     "decisao_final.candidatura_id": "chave_tecnica",
@@ -590,7 +592,10 @@ export const RECIBO_EXCLUSAO = {
     "notificacoes_enviadas.status": "estado_do_processo",
     "notificacoes_enviadas.template": "conteudo_do_produto",
     "redacoes_candidato.decisao_revisor": "estado_do_processo",
+    "redacoes_candidato.modelo_ia": "estado_do_processo",
+    "redacoes_candidato.provedor_ia": "estado_do_processo",
     "redacoes_candidato.revisada_por": "dado_de_funcionario",
+    "redacoes_candidato.rubrica_versao": "estado_do_processo",
     "redacoes_candidato.texto_hash": "chave_tecnica",
     "respostas_formulario.resposta_numerica": "estado_do_processo",
     "sessoes_ativas.revogado_por": "linha_removida_com_a_conta",
@@ -634,16 +639,16 @@ export const RECIBO_EXCLUSAO = {
       "arquivo": "supabase/functions/_shared/exportAllowlist.ts",
       "razao": "Cobre 30 de 69 tabelas (45-RESEARCH §C2) e exclui, como telemetria_interna, oito tabelas com PII do titular — inclusive ai_call_logs e logs_acesso, duas das cinco do ERASE-09. Um recibo derivado dele seria omisso sobre o que não diz (§Pitfall 5)."
     },
-    "gerado_em": "2026-09-23T21:12:51.469Z",
+    "gerado_em": "2026-09-24T05:24:24.651Z",
     "gerador": "docs/compliance/sql/gen-recibo-exclusao.cjs",
     "inventario_coletado_em": "2026-07-29T14:08:18Z",
     "plano": "45-02",
     "requirement": "ERASE-07",
     "totais": {
       "colunas_com_linha_no_recibo": 177,
-      "colunas_com_razao_de_silencio": 53,
-      "colunas_com_veredito": 230,
-      "colunas_em_escopo_do_titular": 230,
+      "colunas_com_razao_de_silencio": 58,
+      "colunas_com_veredito": 235,
+      "colunas_em_escopo_do_titular": 235,
       "linhas_mantem": 9,
       "linhas_sai": 12,
       "tabelas_em_escopo_do_titular": 38,

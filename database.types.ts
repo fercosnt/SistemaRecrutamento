@@ -5998,6 +5998,25 @@ export type Database = {
         }
         Returns: string
       }
+      registrar_analise_entrevista: {
+        Args: {
+          p_ai_call_log_id: string
+          p_bias_flags: Json
+          p_bloqueio_avanco: boolean
+          p_candidatura_id: string
+          p_citacoes: Json
+          p_competencias: Json
+          p_modelo_ia: string
+          p_prompt_version: string
+          p_provedor_ia: string
+          p_score_metadata: Json
+          p_solicitado_por: string
+          p_status_analise: string
+          p_texto_hash: string
+          p_tipo: string
+        }
+        Returns: Json
+      }
       registrar_decisao: {
         Args: {
           p_candidatura_id: string

@@ -49,9 +49,19 @@
           "entrevista_analises.solicitado_por",
           "entrevista_analises.texto_hash",
           "entrevista_analises.ai_call_log_id",
-          "entrevista_analises.superada_em"
+          "entrevista_analises.superada_em",
+          "analise_candidato_vaga.provedor_ia",
+          "analise_candidato_vaga.modelo_ia",
+          "comparativo_solicitado.provedor_ia",
+          "comparativo_solicitado.modelo_ia",
+          "entrevista_guias.provedor_ia",
+          "entrevista_guias.modelo_ia",
+          "redacoes_candidato.provedor_ia",
+          "redacoes_candidato.modelo_ia",
+          "redacoes_candidato.rubrica_versao"
         ],
-        "nota": "ACRESCIMO, nao re-medicao — colunas criadas pela Phase 49 (migration 20260922000002, plano 49-01). `medido_em` e `totais` do topo continuam sendo os da medicao de 2026-08-04 e NAO descrevem o schema de hoje. Esta primeira entrada da fase cobre SO `entrevista_analises` (Task 1 do plano 49-17, o tracer que leva uma tabela de ponta a ponta); as 9 colunas restantes das outras quatro tabelas entram na Task 3, na MESMA entrada. A consulta acima devolveu 19 linhas: 16 sao da Phase 49 e TRES sao pre-existentes e ja catalogadas (`comparativo_solicitado.solicitado_por`, `entrevista_guias.tipo`, `redacoes_candidato.texto_hash`) — nomes iguais em tabelas diferentes, conferidos um a um para nao serem duplicados aqui. Drift pre-existente NAO incluido, de proposito (nao e desta fase): as MESMAS 9 colunas que a Phase 48 deixou registradas — `candidatos.faixa_etaria_materializada`, `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados` (`executar_em`, `cancelado_em`, `plano`, `storage_concluido_em`, `postgres_concluido_em`, `auth_concluido_em`, `recibo_enviado_em`), re-medidas em 2026-09-23 pelo `05-export-allowlist-drift.sql` (21 linhas = 9 pre-existentes + 12 da fase em tabela EM ESCOPO; as outras 4 da fase vivem em tabela fora de escopo, que essa consulta nao varre)."
+        "nota": "ACRESCIMO, nao re-medicao — colunas criadas pela Phase 49 (migration 20260922000002, plano 49-01). `medido_em` e `totais` do topo continuam sendo os da medicao de 2026-08-04 e NAO descrevem o schema de hoje. A entrada cobre as 16 colunas da fase em DUAS medicoes na MESMA entrada: as 7 de `entrevista_analises` medidas em 2026-09-23 (Task 1, o tracer que leva uma tabela de ponta a ponta) e as 9 restantes das outras quatro tabelas medidas em 2026-09-24T05:24:14Z (Task 3, campo `medido_em_task_3`, lido do proprio banco com now() na mesma consulta que as reconfirmou — nao arredondado). As 9 sao todas `text` e nulaveis: `provedor_ia`/`modelo_ia` em `analise_candidato_vaga` (16,17), `comparativo_solicitado` (8,9), `entrevista_guias` (8,9) e `redacoes_candidato` (31,32), mais `redacoes_candidato.rubrica_versao` (33). A consulta acima devolveu 19 linhas: 16 sao da Phase 49 e TRES sao pre-existentes e ja catalogadas (`comparativo_solicitado.solicitado_por`, `entrevista_guias.tipo`, `redacoes_candidato.texto_hash`) — nomes iguais em tabelas diferentes, conferidos um a um para nao serem duplicados aqui. Drift pre-existente NAO incluido, de proposito (nao e desta fase): as MESMAS 9 colunas que a Phase 48 deixou registradas — `candidatos.faixa_etaria_materializada`, `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados` (`executar_em`, `cancelado_em`, `plano`, `storage_concluido_em`, `postgres_concluido_em`, `auth_concluido_em`, `recibo_enviado_em`), re-medidas em 2026-09-23 pelo `05-export-allowlist-drift.sql` (21 linhas = 9 pre-existentes + 12 da fase em tabela EM ESCOPO; as outras 4 da fase vivem em tabela fora de escopo, que essa consulta nao varre).",
+        "medido_em_task_3": "2026-09-24T05:24:14Z"
       }
     ]
   },
@@ -5404,6 +5414,69 @@
       "tipo": "timestamp with time zone",
       "nullable": true,
       "ordem": 10
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "provedor_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "modelo_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "comparativo_solicitado",
+      "coluna": "provedor_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "comparativo_solicitado",
+      "coluna": "modelo_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "entrevista_guias",
+      "coluna": "provedor_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "entrevista_guias",
+      "coluna": "modelo_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "provedor_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 31
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "modelo_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 32
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "rubrica_versao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 33
     }
   ]
 }

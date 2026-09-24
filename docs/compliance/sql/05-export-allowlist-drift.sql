@@ -75,9 +75,9 @@
 -- Os DOIS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS**:
 --
 --     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 378 pares
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 44  pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 49   pares
 --
--- Soma: **422 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
+-- Soma: **427 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
 -- `export-allowlist.json` derivado do catálogo medido em **2026-08-04T01:34:27Z**
 -- (69 tabelas base / 1025 colunas / 105 FKs em `public`), com os `meta.acrescimos`
 -- das Phases 48 e 49.
@@ -539,6 +539,8 @@ excluidas(tabela, coluna) AS (
     ('agendamentos_entrevista','entrevistador'),
     ('agendamentos_entrevista','updated_by'),
     ('analise_candidato_vaga','erro'),
+    ('analise_candidato_vaga','modelo_ia'),
+    ('analise_candidato_vaga','provedor_ia'),
     ('avaliacoes_rh','avaliador_id'),
     ('candidate_ai_decisions','ai_call_log_ids'),
     ('candidate_ai_decisions','review_requested_by'),
@@ -574,9 +576,12 @@ excluidas(tabela, coluna) AS (
     ('redacoes_candidato','cost_tokens_output'),
     ('redacoes_candidato','input_hash'),
     ('redacoes_candidato','model_version'),
+    ('redacoes_candidato','modelo_ia'),
     ('redacoes_candidato','prompt_version'),
+    ('redacoes_candidato','provedor_ia'),
     ('redacoes_candidato','referencia_match'),
     ('redacoes_candidato','revisada_por'),
+    ('redacoes_candidato','rubrica_versao'),
     ('solicitacoes_dados','aviso_cancelamento_enviado_em'),
     ('solicitacoes_dados','aviso_pedido_enviado_em')
 ),

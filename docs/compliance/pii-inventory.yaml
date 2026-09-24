@@ -322,6 +322,13 @@ tabelas:
       scores_humanos: { classificacao: preservar, regra: R5 }
       decisao_revisor: { classificacao: preservar, tipo: text }
       revisada_por:   { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+      # --- Phase 49 (plano 49-01, migration 20260922000002; classificadas no 49-17) ---
+      # MEDIDAS em PROD em 2026-09-24 (só leitura): as três `text` e nuláveis.
+      # Nenhuma é conteúdo do titular — são a ficha técnica de como a redação foi
+      # avaliada — e as três têm razão nomeada em `FORA_DO_RECIBO`.
+      provedor_ia:    { classificacao: preservar, tipo: text, nota: "Phase 49 (D-28) — provedor de LLM REAL que avaliou a redação. Ficha técnica da execução, não fato sobre a pessoa; sobrevive à purga de 180 dias do `ai_call_logs`, que era a única proveniência existente. Idem `entrevista_analises.provedor_ia`" }
+      modelo_ia:      { classificacao: preservar, tipo: text, nota: "Phase 49 (D-28) — modelo REAL. Idem provedor_ia" }
+      rubrica_versao: { classificacao: preservar, tipo: text, nota: "Phase 49 — qual versão da rubrica de correção a avaliação usou. Descreve o INSTRUMENTO, não a pessoa: mesma natureza da vizinha `prompt_version`, que a 44-01 já classificou assim" }
 
   redacoes_candidato_em_progresso:
     colunas:
@@ -444,6 +451,15 @@ tabelas:
       ranking:         { classificacao: preservar_com_ressalva, regra: R5, nota: "Pode embutir nomes" }
       candidatura_ids: { classificacao: preservar, tipo: array }
       solicitado_por:  { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+      # --- Phase 49 (plano 49-01, migration 20260922000002; classificadas no 49-17) ---
+      # MEDIDAS em PROD em 2026-09-24 (só leitura): as duas `text` e nuláveis.
+      # ⚠ As duas ficam SEM veredito de export, de propósito: `comparativo_solicitado`
+      # está excluída no nível de TABELA no `export-scope-rules.yaml`
+      # (`pii_de_terceiro`), e o fecho inverso daquele gerador declara que uma decisão
+      # de coluna sobre tabela excluída é INERTE. A classificação aqui, porém, NÃO é
+      # inerte: é o recibo que a consome, e o recibo trata esta tabela como em escopo.
+      provedor_ia:     { classificacao: preservar, tipo: text, nota: "Phase 49 (D-28) — provedor de LLM REAL que montou o comparativo. Ficha técnica da execução, não fato sobre a pessoa" }
+      modelo_ia:       { classificacao: preservar, tipo: text, nota: "Phase 49 (D-28) — modelo REAL. Idem provedor_ia" }
 
   historico_acoes:
     colunas:
@@ -530,22 +546,49 @@ tabelas_sem_pii_titular:
   regra_aplicada: R4
   nota: >-
     Conteúdo do produto, catálogo de itens de teste ou configuração de vaga.
-    ⚠ DUAS ENTRADAS DESTA LISTA TÊM RESSALVA ABERTA E MEDIDA (Phase 49, D-66):
-    `analise_candidato_vaga` e `entrevista_guias` contêm o primeiro nome do titular
-    dentro de texto livre — 13 de 24 análises e 2 de 5 guias, medido em 2026-09-22 e
-    reconfirmado em 2026-09-23. `anonimizar_candidato` NÃO as desidentifica, e o
-    operador deixou esse apagamento fora do escopo desta fase (é escopo novo). A
-    permanência delas nesta lista é, portanto, DESCRITIVA do estado do motor, não uma
-    afirmação de ausência de PII: até o apagamento existir, mover as duas para
-    `tabelas:` obrigaria o recibo a dar um veredito por coluna, e o único veredito
-    honesto disponível hoje seria uma linha nova dizendo ao titular que o seu nome
-    continua nesses textos — texto de produto, que é decisão do operador e não da
-    engenharia. Registrado em `WINDOWS.md` e no SUMMARY do plano 49-21.
+    ⚠ UMA ENTRADA DESTA LISTA TEM RESSALVA ABERTA E MEDIDA (Phase 49, D-66):
+    `analise_candidato_vaga` contém o primeiro nome do titular dentro de texto livre —
+    9 de 25 linhas, RE-MEDIDO em 2026-09-23, e esse 9 é LIMITE INFERIOR. O número
+    escrito aqui até 2026-09-24 era 13 de 24 e estava errado nos dois sentidos; a
+    correção e a causa de cada erro estão em `WINDOWS.md` (83). O que torna o 9 um
+    limite inferior é estrutural, não estatístico: casar contra o nome ATUAL é cego ao
+    titular que JÁ exerceu a exclusão, porque o nome dele foi substituído em
+    `candidatos` — e medido diretamente na linha dele, `resumo_cv` guarda o nome
+    COMPLETO original (três partes, 132 caracteres) DEPOIS da exclusão concluída.
+    `anonimizar_candidato` não cita esta tabela no corpo vivo (`position(...) = 0`).
+    ⚠ A SEGUNDA ENTRADA QUE ESTE CAMPO ACUSAVA — `entrevista_guias` — NÃO tem PII do
+    titular medida: zero de 5 guias contêm o primeiro nome dele. Os dois «achados» de
+    2026-09-22 eram a palavra portuguesa comum `candidato` dentro do `rationale` do
+    próprio guia, casando por acidente porque a conta de teste se chama «Candidato
+    Funil Teste»; e não existe hoje nenhum guia pertencente a titular anonimizado
+    (medido em 2026-09-24: 0 de 5), logo o ponto cego do probe também não a alcança.
+    A capacidade estrutural permanece (o guia é derivado do currículo), e é por isso
+    que a entrada fica nesta lista com ressalva em vez de sair dela em silêncio.
+    A permanência das duas nesta lista é, portanto, DESCRITIVA do estado do motor, não
+    uma afirmação de ausência de PII — e a saída delas pertence a QUEM CONSERTAR O
+    MOTOR, não a quem reclassificar o registro: mover `analise_candidato_vaga` para
+    `tabelas:` hoje obrigaria o recibo a dar um veredito por coluna, e o único
+    disponível sem mentir seria uma linha nova dizendo ao titular que o seu nome
+    continua nesses textos. O operador decidiu o contrário em 2026-09-23 (checkpoint
+    do 49-17, opção (c)): o texto do recibo NÃO muda, o MOTOR passa a cumpri-lo.
+    Dono: plano 49-29 (onda 8), que desidentifica os textos livres e trata as 8 linhas
+    de titulares já anonimizados; a reclassificação desta lista vai com ele.
+    Registrado em `WINDOWS.md` (83, `open`, dono 49-29) e no SUMMARY do plano 49-17.
   lista:
     - ai_cost_daily
-    - analise_candidato_vaga        # ⚠ RESSALVA ABERTA (D-66): 13/24 análises contêm o primeiro nome do
-                                    # titular em resumo_cv/resumo_respostas/gaps/pontos_fortes, e o motor
-                                    # não as toca. Ver a `nota` desta seção.
+    - analise_candidato_vaga        # ⚠ RESSALVA ABERTA (D-66, WINDOWS 83, dono: plano 49-29): 9 de 25
+                                    # análises contêm o primeiro nome ATUAL do titular em
+                                    # resumo_cv/resumo_respostas/gaps/pontos_fortes, e o motor não as
+                                    # toca. O 9 é LIMITE INFERIOR: na linha do único titular já
+                                    # anonimizado, resumo_cv guarda o nome COMPLETO original depois da
+                                    # exclusão. Ver a `nota` desta seção.
+                                    # Phase 49 (49-01, D-28): provedor_ia e modelo_ia nasceram aqui e
+                                    # NÃO têm entrada explícita — a tabela é coberta em bloco pela R4
+                                    # nesta lista, e uma coluna não pode ser classificada nos dois
+                                    # lugares. As duas têm veredito de export escrito
+                                    # (`export: false`, telemetria) no `export-scope-rules.yaml`, que é
+                                    # o artefato onde essa decisão morde. Quando o 49-29 tirar a tabela
+                                    # daqui, as duas ganham entrada em `tabelas:` junto das vizinhas.
                                     # Phase 48 (48-17): descartada_em (R1) e descartada_motivo (R3 em espírito —
                                     # vocabulário fechado `knockout_automatico`) = preservar. A marca do D-02
                                     # segue o destino da LINHA, como `status`: sem PII, e existe para provar a
@@ -555,8 +598,19 @@ tabelas_sem_pii_titular:
     - bigfive_itens
     - cognitivo_itens
     - config_sla_etapa
-    - entrevista_guias              # ⚠ RESSALVA ABERTA (D-66): 2/5 guias contêm o primeiro nome do titular
-                                    # no jsonb `guia`, e o motor não os toca. Ver a `nota` desta seção.
+    - entrevista_guias              # ⚠ RESSALVA ESTRUTURAL, não medida (D-66 CORRIGIDO, WINDOWS 83):
+                                    # ZERO de 5 guias contêm o primeiro nome do titular. Os 2/5 que
+                                    # este comentário afirmou até 2026-09-24 eram a palavra comum
+                                    # `candidato` no `rationale` do próprio guia. Nenhum guia pertence
+                                    # a titular anonimizado (0 de 5, medido em 2026-09-24), logo o ponto
+                                    # cego do probe também não a alcança. A ressalva fica porque o jsonb
+                                    # `guia` é DERIVADO do currículo e pode passar a conter o nome; o
+                                    # motor não o toca. Ver a `nota` desta seção.
+                                    # Phase 49 (49-01, D-28): provedor_ia e modelo_ia nasceram aqui e
+                                    # NÃO têm entrada explícita nem veredito de export — a tabela é
+                                    # coberta em bloco pela R4 aqui e está excluída no nível de TABELA
+                                    # no `export-scope-rules.yaml` (`configuracao_do_produto`), onde um
+                                    # veredito por coluna seria INERTE pelo fecho inverso do gerador.
     - pergunta_opcao_metadata
     - perguntas
     - perguntas_cultura
