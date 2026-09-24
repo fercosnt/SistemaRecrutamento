@@ -4,14 +4,14 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
 stopped_at: Completed 49-21-PLAN.md
-last_updated: "2026-09-23T20:52:22.547Z"
-last_activity: 2026-09-23
-state_head: 33283202671deea69c61036a5710af2f2fc96570
+last_updated: "2026-09-24T05:32:52.927Z"
+last_activity: 2026-09-24
+state_head: dc97d071960c86059cfe29b927c4675041f8016f
 progress:
   total_phases: 8
   completed_phases: 9
-  total_plans: 106
-  completed_plans: 101
+  total_plans: 107
+  completed_plans: 102
   percent: 95
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
@@ -612,7 +612,7 @@ Status: Phase complete — ready for verification
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-09-23
+Last activity: 2026-09-24
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
@@ -814,6 +814,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P28 | 42 min | 1 tasks | 2 files |
 | Phase 49 P22 | 42 min | 2 tasks | 13 files |
 | Phase 49 P21 | 70 min | 1 tasks | 12 files |
+| Phase 49 P17 | 38 min + 30 min | 3 tasks | 16 files |
 
 ## Accumulated Context
 

@@ -452,7 +452,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 49-17-PLAN.md — Checklist LGPD das colunas novas (vereditos, catálogo, recibo, allowlist 1.3.0, drift, redeploys, tipos finais) e D-66 com checkpoint da promessa do recibo (JORN-28, JORN-12, JORN-07)
+- [x] 49-17-PLAN.md — Checklist LGPD das colunas novas (vereditos, catálogo, recibo, allowlist 1.3.0, drift, redeploys, tipos finais) e D-66 com checkpoint da promessa do recibo (JORN-28, JORN-12, JORN-07)
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
@@ -547,7 +547,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 25/28 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 26/29 | In Progress|  |
 
 ---
 

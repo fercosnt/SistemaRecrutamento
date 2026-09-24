@@ -2,7 +2,7 @@
 phase: 49-consertos-da-jornada-bloco-2
 plan: "17"
 subsystem: compliance
-tags: [lgpd, export-allowlist, pii-inventory, recibo-exclusao, catalogo-vivo, d-57, d-66, d-70, checkpoint, mutation-testing]
+tags: [lgpd, export-allowlist, pii-inventory, recibo-exclusao, catalogo-vivo, d-57, d-66, d-70, checkpoint, mutation-testing, windows-82, ui-spec-linha-obrigatoria]
 
 # Dependency graph
 requires:
@@ -28,23 +28,45 @@ provides:
   - "o achado M1/M1b: com entrada explícita no inventário, apagar os vereditos de export NÃO reprova o fecho — quem reprova são os snapshots (b)/(j) e a (k). Escrito no próprio `export-scope-rules.yaml`, porque a leitura natural é falsa"
   - "a RE-MEDIÇÃO do D-66, que corrige a WINDOWS 81 nos dois sentidos (`entrevista_guias` = 0 de 5, não 2 de 5; `analise_candidato_vaga` = 9 de 25 e isso é LIMITE INFERIOR) — `WINDOWS` 83"
   - "a exposição de `anon` MEDIDA com `SET LOCAL ROLE anon`, VIEWS incluídas: zero linha das cinco tabelas, e nenhuma view expõe coluna alguma da fase"
-affects: [49-17-task-3, fecho-do-M8]
+  # --- Task 3 (agente de continuação, 2026-09-24) -------------------------------
+  - "as 9 colunas restantes MEDIDAS em PROD em 2026-09-24T05:24:14Z (instante lido do próprio banco, não arredondado) e acrescentadas à MESMA entrada `fase: 49` do catálogo, que passa de 7 para 16 colunas com um `medido_em_task_3` próprio"
+  - "veredito de export ESCRITO para as 5 que vivem em tabela EM ESCOPO (`provedor_ia`/`modelo_ia` de `analise_candidato_vaga` e de `redacoes_candidato`, mais `redacoes_candidato.rubrica_versao`): todas `export: false`, pela família de `devolutivas_candidato.modelo_ia`"
+  - "a RAZÃO ESCRITA de as outras 4 NÃO terem veredito: `comparativo_solicitado` e `entrevista_guias` estão excluídas no nível de TABELA, e o fecho inverso do próprio gerador declara que decisão de coluna sobre tabela excluída é INERTE — quatro linhas que parecem proteger e não protegem"
+  - "WINDOWS 82 CONSERTADA: a linha obrigatória `justificativa_do_recrutador` (UI-SPEC regra 4) passa a DISTINGUIR as suas três origens em vez de fazer uma afirmação única sobre as três; e a outra metade da mesma janela (`ligacao_com_a_justificativa`, cujas origens são SÓ o par sobrescrito) também. Conferido no bundle PUBLICADO, não no disco"
+  - "D-66 NÃO resolvido aqui, por decisão do operador (opção (c), 2026-09-23): o texto de `avaliacoes_e_analises` fica intacto e as duas tabelas ficam em `tabelas_sem_pii_titular` — o dono é o plano 49-29. O que mudou foi o REGISTRO: a `nota` da seção afirmava 13/24 e 2/5, os dois errados, e agora carrega o re-medido com a causa de cada erro e o dono nomeado"
+  - "o drift contra PROD MEDIDO caindo de 14 para 9, e os 9 re-lidos um a um: são o drift pré-existente da Phase 48, nenhum desta fase"
+  - "as duas EFs redeployadas (`exportar-meus-dados` v5, `executar-direito-titular` v12, as duas ACTIVE `verify_jwt=true`) com o marcador provado no bundle vivo, um por chamada"
+  - "o achado M1 da Task 1 GENERALIZADO para as colunas novas por mutação (M6): removido o veredito de `rubrica_versao`, a geração sai `exit 0` e a coluna ENTRA na cópia com `inventario:preservar` — quem reprova são (b), (j) e (k)"
+  - "`WINDOWS` 85 nova: `v_analises_presas` sai do SUMMARY de um plano e entra no ledger, que é onde um defeito registrado sobrevive à fase"
+affects: [49-29, fecho-do-M8]
 
 # Actuals (#2632) — mesma escala do `estimate` do plano: estimateTokens (chars/4).
 actuals:
-  tokens: 6985
-  tasks: 1
-  commits: 1
+  tokens: 15465
+  tasks: 3
+  commits: 4
   plan_head_before: 91a753bc9d2dabe9e87f0ab4d05b35b8c7356617
-  # `commits: 1` = MEDIDO por `git rev-list --count 91a753bc..HEAD` no instante em que
-  # este SUMMARY foi escrito (HEAD = 04ac66cc). Re-medir DEPOIS deste ponto dá um número
-  # MAIOR, e isso NÃO é divergência: o commit de metadado deste plano entra no mesmo
-  # intervalo por construção, porque o `plan_head_before` é anterior a ele.
-  # `tokens: 6985` = 27 940 chars acrescentados pelo diff `91a753bc..04ac66cc`, / 4.
-  # ⚠ A estimativa do plano era 110 000 para TRÊS tasks. Este SUMMARY fecha UMA — o
-  # plano PAROU no `checkpoint:decision` da Task 2, que é `gate="blocking-human"`. O
-  # 0,06x NÃO é uma estimativa ruim: é um plano executado até um terço, de propósito, e
-  # comparar os dois números como se medissem a mesma coisa corromperia a calibração.
+  # `commits: 4` = MEDIDO por `git rev-list --count 91a753bc..HEAD` no instante em que
+  # este SUMMARY foi escrito (HEAD = dc97d071). Re-medir DEPOIS deste ponto dá **5**, e
+  # isso NÃO é divergência: o commit de metadado deste plano entra no mesmo intervalo por
+  # construção, porque o `plan_head_before` é anterior a ele.
+  # ⚠ E um dos 4 NÃO é deste plano: `614617a6` é o PLANO 49-29, escrito pelo orquestrador
+  # entre as duas sessões. O intervalo é medido por SHA, não por autoria, e mentir na
+  # direção oposta (descontá-lo à mão) tornaria o número não reproduzível pelo comando.
+  # Commits de CÓDIGO deste plano: 2 (`04ac66cc` na Task 1, `dc97d071` na Task 3).
+  # `tokens: 15465` = 6 985 (Task 1: 27 940 chars no diff `04ac66cc^..04ac66cc`, / 4) +
+  # 8 480 (Task 3: 33 922 chars em `dc97d071^..dc97d071`, / 4). O 6 985 foi RE-MEDIDO
+  # nesta sessão e bateu ao caractere com o que a Task 1 registrou — é uma conferência de
+  # instrumento, não uma cópia. O intervalo inteiro (`91a753bc..HEAD`) dá 31 823, e a
+  # diferença é o SUMMARY da Task 1 mais o plano 49-29: prosa de planejamento, não
+  # entrega. `tokens` conta a entrega.
+  # ⚠ A estimativa do plano era 110 000 para três tasks; a realização é 15 465 — 0,14x.
+  # Erro de estimativa REAL, não artefato de parada: as três tasks rodaram. A causa
+  # medida é que o plano orçou a Task 3 como se ela repetisse a Task 1 nove vezes, e ela
+  # não repetiu: os seis vereditos da Task 1 exigiram DECIDIR (duas direções de risco,
+  # a tensão do D-27, o resíduo do D-70), enquanto os cinco da Task 3 herdaram a mesma
+  # família de razão já decidida — e quatro das nove colunas não exigiram veredito
+  # nenhum. Uma task que aplica um precedente custa uma fração de uma que o cria.
 
 # Tech tracking
 tech-stack:
@@ -55,6 +77,8 @@ tech-stack:
     - "Um probe por NOME contra uma base cujo titular se chama como um substantivo comum produz falso positivo, e o falso positivo se apresenta como PII: ler o TRECHO em volta de cada casamento antes de contar. Dois de cinco guias 'com o nome do titular' eram a palavra `candidato` no rationale do próprio guia"
     - "Casar contra o nome ATUAL é estruturalmente cego ao titular que JÁ exerceu a exclusão: o nome dele foi substituído, e nenhum probe por nome encontra o que sobrou no texto. O caso que mais importa é exatamente o que o instrumento não vê — medir a linha dele diretamente, não pela contagem"
     - "Descobrir a assinatura de um verbo de ESCRITA lendo o fonte da ferramenta (§O): `windows waive <id> \"<reason>\"` foi lido em `broken-windows.cjs:1043`, nunca sondado por execução — e é ele, não `fixed`, o status honesto para um resíduo que o operador ACEITOU em vez de consertar"
+    - "Sincronizar a célula da tabela do `WINDOWS.md` chamando o `renderTable` DA PRÓPRIA FERRAMENTA sobre o JSON editado, em vez de redigitar a linha: a ferramenta recusa mutar enquanto a tabela discorda do JSON (`disagrees … for row id(s): 82, 83`), e redigitar a célula à mão é exatamente o que o §M proíbe. Consequência: a razão de um `fixed` (que o verbo não aceita como argumento) se escreve no JSON e a tabela se regenera por código"
+    - "Um campo chamado `medido_em` que recebe um instante ARREDONDADO é um registro-que-mente pequeno num arquivo cuja única função é não mentir. Peguei o meu: eu havia carimbado `T00:00:00Z`. Conserto: `SELECT now()` na MESMA consulta que reconfirma as colunas, e o instante entra lido do banco"
 
 key-files:
   created:
@@ -72,9 +96,21 @@ key-files:
     - supabase/functions/_shared/exportAllowlist.ts
     - supabase/functions/_shared/reciboExclusao.ts
     - src/features/privacidade/constants/reciboExclusao.generated.ts
+    - database.types.ts
     - .planning/WINDOWS.md
+    - .planning/STATE.md
+    - .planning/ROADMAP.md
 
 key-decisions:
+  # --- Task 3 (2026-09-24) ------------------------------------------------------
+  - "D-66 NÃO foi resolvido neste plano, e a razão é a decisão do operador, não escopo esquecido. Ele escolheu a opção (c) — desidentificar no MOTOR — e o `<acceptance_criteria>` da própria Task 2 diz que (c) significa que este plano não a executa. Consequências concretas e deliberadas: (1) o texto do item `avaliacoes_e_analises` está INTACTO, porque a escolha foi fazer o motor cumprir a promessa existente («sem ligação com você») e não enfraquecê-la; (2) `analise_candidato_vaga` e `entrevista_guias` continuam em `tabelas_sem_pii_titular`; (3) `WINDOWS` 83 fica `open` com o plano 49-29 NOMEADO como dono dentro da própria entrada. Um texto de recibo inalterado, sem essa explicação ao lado, é indistinguível de um esquecimento — e é por isso que ela está escrita no inventário, no ledger e aqui"
+  - "A asserção do D-66 no `<verify>` da Task 3 REPROVA, de propósito, e foi rodada assim mesmo. Ela foi escrita presumindo as opções (a) ou (b); sob a (c) ela pede o contrário do que o operador decidiu. Rodei o comando VERBATIM para registrar a mensagem exata da reprovação, e depois a mesma cadeia com a cláusula invertida (as duas tabelas AINDA na lista, `exit 0`) — assim o registro mostra o que falhou e o que passou, em vez de um comando editado que esconde a diferença"
+  - "As 4 colunas de `comparativo_solicitado`/`entrevista_guias` NÃO receberam veredito de export, e a razão está escrita no arquivo, não só aqui: o fecho inverso do `gen-export-allowlist.cjs` declara, em comentário próprio, que decisão de coluna sobre tabela excluída é INERTE — ele a ignora em silêncio. Quatro vereditos assim pareceriam proteção e nenhum portão jamais reprovaria por envelhecerem. Conferido antes de escrever, como o SUMMARY da Task 1 mandou conferir"
+  - "A assimetria entre as duas tabelas fora de escopo é DELIBERADA e cada coluna foi para onde a sua tabela já mora: `comparativo_solicitado` tem seção em `tabelas:` (e o RECIBO a trata como em escopo, porque ela não está no `FORA_DO_ESCOPO_DO_TITULAR` daquele gerador), então as duas colunas dela ganharam classificação E razão de recibo; `entrevista_guias` é coberta em bloco pela R4 na outra lista, e uma coluna não pode ser classificada nos dois lugares. Os dois escopos são artefatos diferentes e não têm de coincidir"
+  - "`analise_candidato_vaga.provedor_ia`/`modelo_ia` ficaram SEM entrada explícita no inventário, e isso é consequência direta da opção (c): a tabela é coberta em bloco pela R4 enquanto estiver naquela lista, e dar-lhe seção em `tabelas:` é justamente o movimento que pertence ao 49-29. As duas têm veredito de export escrito — que é o artefato onde a decisão delas morde — e o comentário na lista diz onde elas entram quando a tabela sair"
+  - "A WINDOWS 82 foi consertada nas DUAS linhas que ela acusa, não só na obrigatória que o operador nomeou. Medido: as origens de `ligacao_com_a_justificativa` são SÓ o par `decisao_final`/`decisao_final_historico` — as duas que o motor sobrescreve —, logo ali a afirmação não era falsa para uma origem entre três, era falsa para TODAS. Fechar a janela deixando aquela linha de pé seria fechá-la no papel com o defeito vivo um item acima, na mesma tela do titular"
+  - "O valor fixo que o motor grava NÃO aparece em lugar nenhum do código, nem «para registro» (49-PATTERNS §K, violado três vezes nesta fase). O que está escrito é o que a afirmação alegava e por que era falsa. Quem precisar do literal lê o corpo da função em PROD, que é a fonte"
+  - "As duas EFs foram redeployadas DUAS vezes, e a segunda não foi retrabalho: ao consertar o `medido_em` arredondado do catálogo, os artefatos gerados mudaram (só no `gerado_em`) e o ar passaria a diferir do disco por um campo. Um redeploy custa segundos e apaga uma nota de pé de página do tipo «o bundle vivo carrega um carimbo anterior» — que é a classe de discrepância que esta fase gastou dias perseguindo"
   - "O bump `meta.versao` 1.2.0 → 1.3.0 foi feito na Task 1, não na Task 3 como o plano escreve. Razão: o CONJUNTO de colunas exportadas muda AQUI (entram `tipo` e `superada_em`), e uma versão que descreve um artefato que já não é o dela é a mesma classe de registro-que-mente que o topo do CLAUDE.md documenta. As 9 colunas da Task 3 entram no mesmo `1.3.0` porque nenhuma delas é exportada — nem a versão nem o conjunto se movem por causa delas"
   - "Os dois `VALUES` do drift e os dois snapshots inline foram atualizados na Task 1, não na Task 3. Razão MEDIDA: com o conjunto exportado mudado, a asserção (k) e os snapshots (b)/(j) reprovam — a árvore ficaria VERMELHA no fim de uma task `tracer`, cuja definição é ser produção e não rascunho. Adiar o conserto seria deixar o portão desarmado exatamente durante a janela em que ele é a única rede"
   - "As 7 colunas ganharam entrada EXPLÍCITA no `pii-inventory.yaml`, e isso tem um custo que foi medido antes de ser aceito: a entrada explícita resolve a coluna no passo 4 do gerador de allowlist e o fecho deixa de exigir veredito. Mutação M1b: os seis vereditos removidos ⇒ `exit 0` e QUATRO colunas de telemetria entram na cópia com proveniência `inventario:preservar`. Aceito porque o D-57 pede a classificação e porque quem reprova passa a ser o snapshot congelado, que reprova — provado por execução. O custo está ESCRITO no `export-scope-rules.yaml`, onde a próxima pessoa vai procurar"
@@ -89,7 +125,7 @@ patterns-established:
   - "Um plano de inventário que PARA num checkpoint tem de deixar o portão MAIS forte, não igual: se o artefato mudou, o teste que o congela muda no mesmo commit. A alternativa — 'a Task 3 arruma' — é precisamente o estado em que o portão não morde durante a única janela em que ele importa"
   - "Ao provar que um portão morde, distinga QUAL portão falou. Cinco mutações mordidas por três mecanismos diferentes (fecho do recibo, asserção do plano, snapshot do teste) é informação; 'cinco mordidas' não é. E uma mutação que NÃO morde (M1) é o achado mais valioso do conjunto"
 
-requirements-completed: []
+requirements-completed: [JORN-28, JORN-12, JORN-07]
 
 coverage:
   - id: D1
@@ -190,37 +226,111 @@ coverage:
         ref: "`git log --oneline origin/main..HEAD` VAZIO depois do push"
         status: pass
     human_judgment: false
+  - id: D7
+    description: "As 16 colunas da fase terminam com o checklist D-57 fechado: as 9 restantes medidas no catálogo, as 5 em tabela em escopo com veredito escrito, as 4 em tabela excluída com a RAZÃO de não terem veredito, classificação e razão de recibo onde cada artefato as cobre"
+    requirement: JORN-28
+    verification:
+      - kind: integration
+        ref: "`information_schema.columns` em PROD, só leitura, instante lido do banco (`now()` na mesma consulta) = 2026-09-24T05:24:14Z: as 9 existem, todas `text` e nuláveis, ordens 16/17 (analise_candidato_vaga), 8/9 (comparativo_solicitado), 8/9 (entrevista_guias), 31/32/33 (redacoes_candidato) — gravadas no catálogo na MESMA entrada `fase: 49`, que passa de 7 para 16 colunas"
+        status: pass
+      - kind: command
+        ref: "os três geradores + os QUATRO `check:*` verdes; o recibo fecha **235 de 235** colunas em escopo com veredito (era 230) — as 5 novas razões são as 3 de `redacoes_candidato` e as 2 de `comparativo_solicitado`"
+        status: pass
+      - kind: tests
+        ref: "`npx vitest run docs/compliance src/features/privacidade src/__tests__/guards` ⇒ 298 testes, 23 arquivos, verdes (o mesmo total da Task 1 — nenhum teste novo, nenhum perdido)"
+        status: pass
+      - kind: command
+        ref: "o fecho inverso do `gen-export-allowlist.cjs` LIDO antes de decidir sobre as 4 de tabela excluída: «Tabela fora de escopo já é coberta pelo fecho de TABELA — uma decisão de coluna sobre tabela excluída é inerte, não órfã». Nenhum veredito escrito para elas"
+        status: pass
+    human_judgment: false
+  - id: D8
+    description: "WINDOWS 82 consertada: a linha obrigatória distingue as suas três origens, as outras duas obrigatórias intactas, e o conserto conferido no artefato PUBLICADO"
+    requirement: JORN-07
+    verification:
+      - kind: integration
+        ref: "o fato RE-MEDIDO no corpo vivo de `anonimizar_candidato` (md5 `1d8f96c8f21a755ded0505a0b652113a`, 78 301 octetos — o mesmo pin do 49-21): `position('motivo_rejeicao')` = **0**, `position('justificativa_recomendacao')` = **0**, `position('avaliacoes_rh')` = **0** ⇒ as duas origens sobrevivem de verdade; e o trecho do passo `tombstone_decisao_final` lido na íntegra mostra um `UPDATE … SET justificativa = <valor fixo>` INCONDICIONAL (sem `CASE`, diferente do `revisao_resultado` ao lado) ⇒ a terceira não"
+        status: pass
+      - kind: command
+        ref: "a linha continua existindo e continua obrigatória: `OBRIGATORIAS_MANTEM` inalterado, as mesmas quatro colunas reivindicadas, `historico_das_etapas` e `numeros_agregados` sem uma linha de diff. `git diff` do gerador = só os dois itens da justificativa e as razões novas de FORA_DO_RECIBO"
+        status: pass
+      - kind: integration
+        ref: "PROVA NO AR (§N, um marcador por chamada): `executar-direito-titular` v12 ACTIVE `verify_jwt=true`, bundle baixado da Management API (640 005 octetos) ⇒ **3×** «trocado por um aviso padrão», **3×** «a recomendação escrita por quem avaliou», e **ZERO** ocorrência de cada uma das duas afirmações retiradas"
+        status: pass
+      - kind: other
+        ref: "§K respeitado: o valor fixo não é citado em nenhum comentário, docblock ou mensagem de commit — só descrito"
+        status: pass
+    human_judgment: false
+  - id: D9
+    description: "O drift contra PROD caiu de 14 para 9, medido, e os 9 restantes foram re-lidos um a um"
+    requirement: JORN-28
+    verification:
+      - kind: integration
+        ref: "`node p46apply.cjs run docs/compliance/sql/05-export-allowlist-drift.sql` contra PROD: **9 linhas**, e o filtro pelas 7 colunas da fase devolve lista VAZIA. As 9 são `candidatos.faixa_etaria_materializada`, `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados` — exatamente as pré-existentes da Phase 48"
+        status: pass
+      - kind: command
+        ref: "os dois `VALUES` REGERADOS por `--sql-values` / `--sql-values-excluidas` (378+44=422 → 378+49=427, contagem do cabeçalho vinda do que os comandos imprimiram); `git diff` do arquivo = 5 linhas `+` de `VALUES` e ZERO `-`; o snapshot inline = as MESMAS 5 chaves, zero linha removida"
+        status: pass
+    human_judgment: false
+  - id: D10
+    description: "O portão morde sobre as colunas NOVAS, e está medido qual portão fala"
+    verification:
+      - kind: integration
+        ref: "M6 (veredito de `redacoes_candidato.rubrica_versao` removido) ⇒ a geração sai **`exit 0`** e a coluna ENTRA na cópia do titular com proveniência `inventario:preservar` (379 colunas em vez de 378). Quem reprova são **(b)**, **(j)** e **(k)**, três reprovações, a (k) nomeando o número: «expected […(378)] to deeply equal […(379)]». O achado M1 da Task 1 GENERALIZA para as colunas novas — não era propriedade daquelas seis"
+        status: pass
+      - kind: other
+        ref: "mutação revertida por cópia de arquivo (nunca `git stash`/`clean`), md5 conferido de volta: `16fbe1984f2d1ff2c81e1729ab1bfd72` antes e depois; artefato regenerado e os 11 testes do arquivo verdes outra vez"
+        status: pass
+    human_judgment: false
+  - id: D11
+    description: "As duas EFs carregam no ar exatamente o que está no disco, e os tipos finais da fase estão regenerados"
+    requirement: JORN-12
+    verification:
+      - kind: integration
+        ref: "`exportar-meus-dados` v5 e `executar-direito-titular` v12, as duas `status=ACTIVE · verify_jwt=true`, com `--dry-run` rodado antes do primeiro deploy de cada (2 e 5 arquivos + import map). O segundo par de deploys existe porque o conserto do `medido_em` mudou o `gerado_em` dos artefatos — o bundle vivo contém o carimbo NOVO (`2026-09-24T05:24:24`, 2 ocorrências em cada)"
+        status: pass
+      - kind: command
+        ref: "`database.types.ts` regenerado com `< /dev/null`: 217 982 octetos, não vazio, com `superada_em` (4×), `rubrica_versao` (3×) e `registrar_analise_entrevista`. O ÚNICO delta contra o disco é a assinatura da RPC — as colunas já estavam lá desde o 49-01, o que é um sinal saudável e não uma falha de geração"
+        status: pass
+      - kind: command
+        ref: "`npm run -s lint` = **89** erros TS (teto D-53 = 90; o mesmo 89 da Task 1, nenhum erro novo, margem de um preservada)"
+        status: pass
+    human_judgment: false
 
 # Metrics
-duration: 38 min
-completed: 2026-09-23
-status: incomplete
+duration: 38 min (Task 1) + ~30 min (Task 3, agente de continuação)
+completed: 2026-09-24
+status: complete
 ---
 
-# Phase 49 Plano 17: O inventário LGPD de `entrevista_analises`, fechado de ponta a ponta — e o checkpoint do D-66 com o fato re-medido na mesa Summary
+# Phase 49 Plano 17: O inventário LGPD das 16 colunas da fase, fechado — e a linha obrigatória do recibo passa a distinguir as suas três origens Summary
 
-**As 7 colunas que o plano 49-01 criou em `entrevista_analises` saem do limbo em que estavam desde 2026-09-22 — existiam em PROD sem veredito de export, e a cópia do titular as omitia por fail-safe e não por decisão: `tipo` e `superada_em` passam a entrar na cópia, o UUID de quem pediu a análise fica fora pela R2, e o hash que sobrevive à exclusão de propósito (D-70) ganha o registro do resíduo com a razão escrita. O plano PARA no `checkpoint:decision` da Task 2, que é `gate="blocking-human"` — e chega nele com o fato do D-66 RE-MEDIDO e diferente do herdado nos dois sentidos.**
+**Nenhuma coluna que a Phase 49 criou ficou sem decisão escrita sobre ir ou não para a cópia do titular: as 7 de `entrevista_analises` na Task 1, as 9 restantes na Task 3, e as 4 que vivem em tabela excluída com a RAZÃO escrita de não terem veredito — porque ali um veredito seria inerte. E a linha obrigatória `justificativa_do_recrutador` do recibo (UI-SPEC regra 4, prova de não-discriminação) para de fazer uma afirmação única sobre três origens que o motor trata de duas maneiras opostas: duas sobrevivem de verdade, a do campo da decisão final é sobrescrita por um valor fixo. O D-66 não foi resolvido aqui de propósito — o operador escolheu consertar o MOTOR (plano 49-29) em vez de enfraquecer a promessa do recibo, e por isso o texto ficou intacto.**
 
-## ⚠ Este SUMMARY fecha UMA das três tasks, de propósito
+## Duas sessões, um plano — e o que o checkpoint separou
 
-`status: incomplete`. A Task 2 é `checkpoint:decision` com `gate="blocking-human"`, e o
-`auto_advance` do projeto é `false`: paro nela sem auto-aprovar. A Task 3 depende da
-resposta do operador (é ela que escreve o texto do recibo sobre as análises) e pertence a
-um agente de continuação, de contexto novo.
+O plano tem um `checkpoint:decision` com `gate="blocking-human"` na Task 2, e o
+`auto_advance` do projeto é `false`. A Task 1 (tracer) rodou em 2026-09-23 e PAROU nele;
+o operador respondeu em 2026-09-23; a Task 3 rodou em 2026-09-24 num agente de
+continuação, de contexto novo. As duas metades deste SUMMARY estão marcadas, e o que a
+Task 1 deixou escrito continua aqui na íntegra: é o registro daquela sessão, não rascunho.
 
-**Nada irreversível foi aplicado.** Zero escrita em PROD — toda medição rodou com
-`SET TRANSACTION READ ONLY` ou dentro de bloco que aborta. Nenhuma migration, nenhum
-`efdeploy`, nenhum apply. As duas EFs **não** foram redeployadas: entre este commit e a
-Task 3 o ar diz MENOS do que o artefato declara, que é a direção segura e exatamente o
-estado fail-safe que a fase atravessa desde o 49-01.
+**A resposta do operador, nas duas perguntas que foram à mesa:**
+
+| Pergunta | Resposta | O que este plano fez |
+|---|---|---|
+| **D-66** (WINDOWS 81/83) — que promessa o recibo faz sobre as análises que contêm o nome | **(c) DESIDENTIFICAR** | **Nada no recibo.** Pelo `<acceptance_criteria>` da própria Task 2, (c) significa que este plano NÃO a executa. Dono: plano **49-29** (onda 8) |
+| **WINDOWS 82** — a linha que esconde um apagamento | **CONSERTAR AGORA, neste plano** | Consertada nas DUAS linhas que a janela acusa, na mesma passada do gerador |
 
 ## Performance
 
-- **Duration:** 38 min
-- **Started:** 2026-09-23T20:43:00Z
-- **Completed:** 2026-09-23T21:21:00Z
-- **Tasks:** 1 de 3 (parada no checkpoint da Task 2)
-- **Files:** 13 (12 modificados no commit de código + `WINDOWS.md`)
+- **Duration:** 38 min (Task 1) + ~30 min (Task 3)
+- **Task 1:** 2026-09-23T20:43:00Z → 21:21:00Z (medido)
+- **Task 3:** o primeiro artefato da sessão está carimbado 2026-09-24T05:10:16Z e o commit
+  às 05:26Z; a fase de leitura antes dele não é instrumentada, então o honesto é dizer
+  **≥16 min medidos, ≈30 min contando a leitura** — e não um número redondo que pareça medido.
+- **Tasks:** 3 de 3
+- **Files:** 16 (13 no commit da Task 3, 12 no da Task 1 — com 11 em comum — mais
+  `WINDOWS.md`, `STATE.md` e `ROADMAP.md`)
 
 ## As 16 colunas da fase, MEDIDAS nesta sessão contra o catálogo e a allowlist VIVOS
 
@@ -237,19 +347,48 @@ no disco agora; «veredito» do `export-scope-rules.yaml`; «na cópia» do
 | `entrevista_analises.texto_hash` | sim | `false` | não | preservar | silêncio: `chave_tecnica` |
 | `entrevista_analises.ai_call_log_id` | sim | `false` | não | preservar | silêncio: `chave_tecnica` |
 | `entrevista_analises.solicitado_por` | sim | R2 (sem veredito próprio) | não | preservar | silêncio: `dado_de_funcionario` |
-| `analise_candidato_vaga.provedor_ia` | **NÃO** | — | não (sem veredito) | — | — |
-| `analise_candidato_vaga.modelo_ia` | **NÃO** | — | não (sem veredito) | — | — |
-| `redacoes_candidato.provedor_ia` | **NÃO** | — | não (sem veredito) | — | — |
-| `redacoes_candidato.modelo_ia` | **NÃO** | — | não (sem veredito) | — | — |
-| `redacoes_candidato.rubrica_versao` | **NÃO** | — | não (sem veredito) | — | — |
-| `comparativo_solicitado.provedor_ia` | **NÃO** | — | tabela fora de escopo | — | — |
-| `comparativo_solicitado.modelo_ia` | **NÃO** | — | tabela fora de escopo | — | — |
-| `entrevista_guias.provedor_ia` | **NÃO** | — | tabela fora de escopo | — | — |
-| `entrevista_guias.modelo_ia` | **NÃO** | — | tabela fora de escopo | — | — |
+| `analise_candidato_vaga.provedor_ia` | sim | `false` | não | R4 em bloco (ver abaixo) | n/a (tabela fora do universo do recibo) |
+| `analise_candidato_vaga.modelo_ia` | sim | `false` | não | R4 em bloco (ver abaixo) | n/a |
+| `redacoes_candidato.provedor_ia` | sim | `false` | não | preservar | silêncio: `estado_do_processo` |
+| `redacoes_candidato.modelo_ia` | sim | `false` | não | preservar | silêncio: `estado_do_processo` |
+| `redacoes_candidato.rubrica_versao` | sim | `false` | não | preservar | silêncio: `estado_do_processo` |
+| `comparativo_solicitado.provedor_ia` | sim | **inerte por desenho** | tabela fora de escopo | preservar | silêncio: `estado_do_processo` |
+| `comparativo_solicitado.modelo_ia` | sim | **inerte por desenho** | tabela fora de escopo | preservar | silêncio: `estado_do_processo` |
+| `entrevista_guias.provedor_ia` | sim | **inerte por desenho** | tabela fora de escopo | R4 em bloco | n/a |
+| `entrevista_guias.modelo_ia` | sim | **inerte por desenho** | tabela fora de escopo | R4 em bloco | n/a |
 
-As 7 primeiras estão FECHADAS. As 9 restantes são da Task 3 e continuam sem veredito — e
-continuam **fora da cópia por fail-safe**, o que é seguro e silencioso: é precisamente o
-silêncio que o `05-export-allowlist-drift.sql` quebra, e ele as lista.
+**As 16 estão fechadas, e três células merecem ser lidas com atenção, porque «—» e «n/a»
+não são a mesma coisa que «esquecido».**
+
+1. **«inerte por desenho» (4 colunas).** `comparativo_solicitado` e `entrevista_guias`
+   estão excluídas no nível de TABELA no `export-scope-rules.yaml` (`pii_de_terceiro` e
+   `configuracao_do_produto`). O fecho inverso do `gen-export-allowlist.cjs` diz, em
+   comentário próprio que eu li antes de decidir: *«Tabela fora de escopo já é coberta
+   pelo fecho de TABELA — uma decisão de coluna sobre tabela excluída é inerte, não
+   órfã»*. Ele a ignora **em silêncio**. Escrever quatro vereditos ali produziria quatro
+   linhas que parecem proteger algo, não protegem nada, e que nenhum portão reprovaria por
+   envelhecerem. É também por isso que essas 4 **nunca** aparecem no drift: o predicado
+   dele não varre tabela excluída.
+2. **«R4 em bloco» (4 colunas).** `analise_candidato_vaga` e `entrevista_guias` são
+   cobertas em bloco pela regra R4 na lista `tabelas_sem_pii_titular`, e uma coluna não
+   pode ser classificada nos dois lugares. Para `analise_candidato_vaga` isso é
+   consequência DIRETA da opção (c): dar-lhe seção em `tabelas:` é exatamente o movimento
+   que pertence ao 49-29. As duas dela têm veredito de export escrito, que é o artefato
+   onde a decisão delas morde; o comentário na lista diz onde elas entram quando a tabela
+   sair.
+3. **«n/a» no recibo (4 colunas).** O universo do recibo é `Object.keys(inv.tabelas)` menos
+   as fora de escopo DELE — `analise_candidato_vaga` e `entrevista_guias` não estão em
+   `tabelas:`, logo o fecho de cobertura nem chega a elas. Já `comparativo_solicitado`
+   **está** em `tabelas:` e **não** está no `FORA_DO_ESCOPO_DO_TITULAR` daquele gerador:
+   para ela a razão de recibo é obrigatória, e sem ela o fecho reprovaria. Os dois escopos
+   são artefatos diferentes e não têm de coincidir — e é a leitura contrária («está fora
+   de escopo, então não precisa de nada») que produziria uma reprovação.
+
+Contra o outro lado do balanço: o recibo fecha agora **235 de 235** colunas em escopo com
+veredito (eram 230 no fim da Task 1; as 5 novas razões são as 3 de `redacoes_candidato` e
+as 2 de `comparativo_solicitado`), e o `export-allowlist.json` segue com **378** colunas
+exportadas — nenhuma das 9 entra na cópia, e é por isso que `meta.versao` **não** subiu de
+novo: nem a versão nem o conjunto se movem por causa delas.
 
 **Por que 16 e não outro número, medido:** a consulta devolveu **19** linhas. Três são
 homônimas PRÉ-EXISTENTES e já catalogadas — `comparativo_solicitado.solicitado_por`,
@@ -408,12 +547,116 @@ gravar a chave e **nenhuma tela vai mostrá-la** — e aí o RH verá «pendente
 motivo. `WINDOWS` 56 fica **`open`**: a resposta à pergunta do inventário existe; o
 conserto é de front e pertence a quem o tocar (D-55).
 
+## A WINDOWS 82, consertada — e a medição que decide a frase
+
+O defeito, dito com precisão: a linha obrigatória `justificativa_do_recrutador` tem
+**três origens** e o motor as trata de **duas maneiras opostas**, e a linha fazia **uma
+afirmação só** sobre as três. RE-MEDIDO nesta sessão no corpo vivo de
+`anonimizar_candidato` (md5 `1d8f96c8f21a755ded0505a0b652113a`, 78 301 octetos — o mesmo
+pin que o 49-21 carimbou, conferido antes de escrever uma palavra):
+
+| Origem | `position()` no corpo vivo | O que acontece de fato |
+|---|---|---|
+| `candidaturas.motivo_rejeicao` | **0** | O motor não a cita. O texto do recrutador sobrevive |
+| `avaliacoes_rh.justificativa_recomendacao` | **0** (e a própria tabela: **0**) | Idem: sobrevive |
+| `decisao_final.justificativa` (+ a cópia arquivada) | passo em 38 011 | `UPDATE … SET justificativa = <valor fixo>` **INCONDICIONAL** — o que o recrutador escreveu deixa de existir |
+
+O detalhe que confirma a leitura: no MESMO `UPDATE`, a coluna vizinha `revisao_resultado`
+recebe `CASE WHEN … IS NULL THEN NULL ELSE <sentinela> END` — condicional, de propósito,
+para não inventar uma revisão que não houve. A `justificativa` **não** tem o `CASE`. A
+assimetria dentro do mesmo statement é a prova de que o valor fixo ali é incondicional.
+
+**O conserto muda o que a linha DIZ, nunca se ela existe.** Continua em
+`OBRIGATORIAS_MANTEM`, continua reivindicando as mesmas quatro colunas, a classificação no
+inventário segue `preservar_com_ressalva` (a direção do erro era a segura — o recibo dizia
+MENOS do que o motor apaga — e o que faltava era distinguir origem, não reclassificar
+coluna), e **as outras duas linhas obrigatórias não têm uma linha de diff**.
+
+**E foi consertada a OUTRA metade que a janela acusa.** `ligacao_com_a_justificativa`, na
+coluna «sai», tem como origens **só** o par `decisao_final`/`decisao_final_historico` — as
+duas que o motor sobrescreve. Ali a afirmação não era falsa para uma origem entre três: era
+falsa para **todas as origens da linha**. Fechar a WINDOWS 82 deixando aquela de pé seria
+fechá-la no papel com o defeito vivo um item acima, na mesma tela do titular.
+
+**§K respeitado:** o valor fixo não é citado em nenhum comentário, docblock ou mensagem de
+commit. O que está escrito é o que a afirmação alegava e por que era falsa. Quem precisar do
+literal lê o corpo da função em PROD, que é a fonte — e é justamente porque os portões desta
+fase procuram expressões **no disco** que uma citação «para registro» as deixaria
+encontráveis no arquivo que acabou de ser consertado.
+
+**Prova no ar, não no disco** (§N, um marcador por chamada) — e esta parte é o pedido
+explícito do operador, porque no 49-25 o que pegou o §K foi o bundle vivo:
+
+| Marcador | Bundle vivo de `executar-direito-titular` (v12, 640 005 octetos) |
+|---|---|
+| «trocado por um aviso padrão» (texto novo) | **3** |
+| «a recomendação escrita por quem avaliou» (linha obrigatória nova) | **3** |
+| a afirmação retirada da coluna «sai» | **0** |
+| a afirmação indistinta retirada da linha obrigatória | **0** |
+
+## O D-66, e por que o texto do recibo NÃO mudou
+
+O operador leu o checkpoint com o fato re-medido e escolheu a opção **(c)**:
+desidentificar no motor. As opções (a) e (b) — as duas que reescreveriam a promessa ao
+titular — foram **recusadas**, e a razão importa: o item `avaliacoes_e_analises` promete
+que as análises ficam guardadas «sem ligação com você», e a escolha foi fazer o motor
+**cumprir** essa promessa em vez de enfraquecê-la.
+
+Consequências concretas neste plano, todas deliberadas:
+
+- o texto de `avaliacoes_e_analises` está **intacto** — e isto está escrito em três lugares
+  (o inventário, o ledger e aqui) precisamente porque **um texto inalterado é
+  indistinguível de um esquecimento** para quem ler depois;
+- `analise_candidato_vaga` e `entrevista_guias` **continuam** em `tabelas_sem_pii_titular`;
+- `WINDOWS` **83** fica **`open`**, agora com o plano **49-29 NOMEADO como dono dentro da
+  própria entrada** — não deixada sem responsável.
+
+**O que mudou foi o REGISTRO, e ele estava errado.** A `nota` da seção afirmava «13 de 24
+análises e 2 de 5 guias», com autoridade de medição. As duas metades estavam erradas:
+
+| O que a nota dizia | Medido | Causa |
+|---|---|---|
+| `analise_candidato_vaga`: 13 de 24 | **9 de 25**, e LIMITE INFERIOR | Casar contra o nome ATUAL é cego ao titular que já se excluiu; na linha dele, `resumo_cv` guarda o nome COMPLETO original |
+| `entrevista_guias`: 2 de 5 | **0 de 5** | Os dois «achados» eram a palavra comum `candidato` no `rationale` do próprio guia |
+
+E uma medição nova desta sessão, que fecha o ponto cego para a segunda tabela: **zero de 5
+guias pertencem a titular anonimizado** (`entrevista_guias` × `candidaturas` ×
+`candidatos` com e-mail `@invalido.local`). Ou seja, o caso que o probe por nome não vê
+**não existe** hoje para `entrevista_guias` — enquanto para `analise_candidato_vaga` são
+**8 linhas** de titulares já anonimizados com `resumo_cv` preenchido. A ressalva de
+`entrevista_guias` fica na lista como **estrutural** (o guia é derivado do currículo e pode
+passar a conter o nome), não como medida — e essa distinção está escrita no comentário, para
+que o 49-29 decida o escopo dele por medição e não por herança.
+
+## O portão morde sobre as colunas NOVAS — e o achado M1 generaliza
+
+Uma mutação, revertida por cópia de arquivo com md5 conferido de volta
+(`16fbe1984f2d1ff2c81e1729ab1bfd72` antes e depois; nunca `git stash`, nunca `git clean`):
+
+**M6 — o veredito de `redacoes_candidato.rubrica_versao` removido.** Predição do achado M1
+da Task 1: o fecho **não** morde, porque a entrada explícita do inventário resolve a coluna
+no passo 4 antes de o fecho poder sobrar. Medido: a geração sai **`exit 0`**, o artefato
+passa de 378 para **379** colunas, e `rubrica_versao` **ENTRA na cópia do titular** com
+proveniência `inventario:preservar`. Quem reprova são **(b)**, **(j)** e **(k)** — três
+reprovações, a (k) nomeando o número: *«o `VALUES` da CTE `allowlist` envelheceu — rode
+--sql-values: expected […(378)] to deeply equal […(379)]»*.
+
+O valor disso não é «o portão mordeu»: é que **o achado M1 não era propriedade daquelas
+seis colunas**. Ele vale para qualquer coluna com entrada explícita no inventário, o que
+inclui as 5 desta task. A leitura natural («coluna `text` sem veredito reprova o fecho»)
+continua falsa, e agora está provada falsa duas vezes, em conjuntos diferentes de colunas.
+
 ## Task Commits
 
 1. **Task 1 (tracer): `entrevista_analises` medida, decidida e regenerada — o UUID de quem pediu fica fora da cópia** — `04ac66cc` (feat)
+2. **Task 2 (`checkpoint:decision`, `gate="blocking-human"`)** — sem commit: o plano PAROU nela e o operador respondeu em 2026-09-23. A resposta está na tabela do topo e no `<operator_decision>` do prompt da continuação.
+3. **Task 3: as 9 colunas restantes decididas, e a linha obrigatória passa a distinguir as suas três origens** — `dc97d071` (feat)
 
-Nenhum apply, nenhum deploy, nenhuma linha de PROD escrita. **Não há entrada de ledger de
-migration neste plano**, e a ausência é a verdade: o plano não cria objeto de banco.
+**Nenhuma migration, nenhum apply, nenhuma linha de PROD escrita.** Toda medição rodou com
+`SET TRANSACTION READ ONLY`. **Não há entrada de ledger de migration neste plano**, e a
+ausência é a verdade: o plano não cria objeto de banco. O que este plano escreveu em
+infraestrutura foram **quatro deploys de Edge Function** (duas funções, duas vezes cada),
+todos reversíveis por redeploy.
 
 ## Deviations from Plan
 
@@ -451,15 +694,35 @@ migration neste plano**, e a ausência é a verdade: o plano não cria objeto de
 - **Verification:** razão LIDA DE VOLTA do JSON; `windows status` = `ok: true` **e** `windows append` aceitou duas entradas (§M: o `append` é o comparador FORTE, o `status` é o fraco)
 - **Committed in:** commit de metadado deste plano
 
+**5. [Rule 4 — decisão do operador supera a asserção escrita] A cláusula do D-66 no `<verify>` da Task 3 REPROVA de propósito**
+- **Found during:** Task 3, ao rodar o primeiro `<verify>` verbatim
+- **Issue:** a asserção diz «se `analise_candidato_vaga` OU `entrevista_guias` ainda estiverem em `tabelas_sem_pii_titular`, reprove». Ela foi escrita presumindo a opção (a) ou (b) do checkpoint. Sob a **(c)**, que o operador escolheu, ela pede **o contrário** do que foi decidido: tirar as tabelas da lista hoje obrigaria o recibo a dar um veredito por coluna, e o único disponível sem mentir seria justamente a linha nova de copy que as opções (a)/(b) propunham e que ele recusou.
+- **Fix:** nenhuma edição de plano e nenhum comando maquiado. Rodei o `<verify>` **verbatim** para registrar a reprovação exata (`Error: D-66: as duas tabelas ainda estao em tabelas_sem_pii_titular`, `EXIT_VERIFY1=1`) e depois a MESMA cadeia com a cláusula invertida — afirmando que as duas **continuam** na lista, que é o estado correto sob a (c) — e essa saiu `exit 0`. Toda a cadeia anterior à cláusula (3 geradores, 4 `check:*`, 298 testes, versão `1.3.0`) passou nas duas execuções.
+- **Files modified:** nenhum por causa disto
+- **Verification:** as duas execuções registradas; a razão está escrita também na `nota` do inventário e na entrada 83 do ledger, para não depender deste SUMMARY
+- **Committed in:** `dc97d071` (o registro) — a asserção do plano ficou como está
+
+**6. [Rule 1 — registro-que-mente pequeno, pego em mim mesmo] O campo `medido_em_task_3` recebeu um instante ARREDONDADO**
+- **Found during:** Task 3, ao calcular a duração para este SUMMARY
+- **Issue:** eu havia carimbado `2026-09-24T00:00:00Z` num campo chamado `medido_em_*`, dentro do arquivo cuja única função é ser medido. Ninguém teria reprovado — nenhum portão confere carimbo — e é exatamente isso que faz esta classe de defeito sobreviver. O topo do `CLAUDE.md` documenta o custo: registro desatualizado custa mais que registro ausente, porque chega com autoridade.
+- **Fix:** `SELECT now()` na MESMA consulta que reconfirmou as 9 colunas ⇒ `2026-09-24T05:24:14Z`, lido do banco. A `nota` da entrada diz agora, com estas palavras, que o instante foi lido e não arredondado.
+- **Files modified:** `docs/compliance/catalogo-vivo-44.json` (e os 5 artefatos gerados, cujo único delta foi o `gerado_em`)
+- **Verification:** os 3 geradores + 3 `check:*` verdes depois; `git diff` dos artefatos = só linhas `gerado_em`. E as duas EFs redeployadas outra vez para o ar não ficar com o carimbo anterior
+- **Committed in:** `dc97d071` (emendado antes do push)
+
 ---
 
-**Total deviations:** 4 (1 de bloqueio, 1 de funcionalidade crítica, 1 de número herdado
-falso, 1 de registro). **O estado vivo bateu com o que o plano assume nas 16 colunas, nos
-tipos, nas nulidades e na contagem do drift.** O que o plano **não** previa: que a
-classificação explícita desarma o fecho que ele cita como portão, e que o fato do D-66 —
-escrito em três documentos com autoridade de medição — está errado nos dois sentidos.
-**Impact on plan:** a Task 3 herda um artefato mais forte e um fato diferente. A decisão da
-Task 2 deve ser tomada sobre o fato re-medido, não sobre o herdado.
+**Total deviations:** 6 (1 de bloqueio, 1 de funcionalidade crítica, 1 de número herdado
+falso, 1 de registro, 1 de asserção superada por decisão do operador, 1 de carimbo
+arredondado). **O estado vivo bateu com o que o plano assume nas 16 colunas, nos tipos, nas
+nulidades e nas duas contagens de drift (14 antes, 9 depois).** O que o plano **não** previa,
+em ordem de importância: que a classificação explícita desarma o fecho que ele cita como
+portão (e que isso vale para qualquer coluna classificada, não só as seis da Task 1); que o
+fato do D-66 — escrito em três documentos com autoridade de medição — está errado nos dois
+sentidos; e que uma das suas próprias asserções ficaria em contradição com a decisão que o
+seu próprio checkpoint produziu. **Impact on plan:** nenhum item de escopo ficou sem
+tratamento; o único desvio de resultado é o D-66, que saiu deste plano por decisão explícita
+e entrou no 49-29 com dono nomeado.
 
 ## Registrado, não consertado
 
@@ -467,6 +730,10 @@ Task 2 deve ser tomada sobre o fato re-medido, não sobre o herdado.
   (logo ignora RLS), com SELECT para `authenticated`. Expõe ids de candidatura, vaga, slug,
   data, situação e mensagem de erro de análise. **Nenhuma coluna da fase, nenhum nome,
   nenhum CPF**, e `anon` não a alcança. Pré-existente, fora do escopo deste plano.
+  ⚠ **Task 3:** este achado passou a existir no **ledger** (`WINDOWS` **85**), com o
+  conserto nomeado (`ALTER VIEW … SET (security_invoker = true)` mais a re-medição de quem
+  a lê antes e depois). Até aqui ele vivia só neste SUMMARY, que é a forma de registro que
+  **não sobrevive à fase** — o mesmo defeito, um nível acima, que o §K documenta.
 - **As 9 colunas de drift pré-existente** (`candidatos.faixa_etaria_materializada`,
   `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados`) seguem sem veredito, por
   decisão da Phase 48. Re-medidas nesta sessão: as mesmas 9.
@@ -477,7 +744,14 @@ Task 2 deve ser tomada sobre o fato re-medido, não sobre o herdado.
   49-28. Não é drift inexplicado e não foi re-investigado.
 - **WINDOWS 56** fica `open`: a pergunta do inventário está respondida (ninguém lê), o
   conserto é de front.
-- **WINDOWS 81 e 82** ficam `open`: as duas são decisão do operador, no checkpoint.
+- **WINDOWS 82** ⇒ **`fixed`** na Task 3, com a razão escrita no bloco JSON (o verbo
+  `fixed` não aceita razão — §M, lido no fonte) e a célula da tabela regenerada pelo
+  `renderTable` da própria ferramenta sobre o JSON editado, nunca redigitada.
+- **WINDOWS 83** fica **`open`**, com o plano **49-29** nomeado como dono dentro da
+  entrada. É a decisão do operador, não uma pendência sem responsável.
+- **WINDOWS 85** nova e `open`: `v_analises_presas`.
+- **As 9 colunas de drift pré-existente** continuam sem veredito (decisão da Phase 48),
+  re-medidas em 2026-09-24: as mesmas 9, uma a uma.
 
 ## Known Stubs
 
@@ -497,12 +771,18 @@ provadas por execução:
 | T-49-17-01 (UUID de funcionário na cópia) | mitigate | `solicitado_por` FORA do artefato com razão `pii_de_terceiro (R2)`, conferido por asserção; e a mutação M2 prova que a asserção morde |
 | T-49-17-02 (recibo prometendo «sem ligação» sobre texto com o nome) | mitigate | nenhum texto de titular escrito — a decisão é do operador, no checkpoint, e chega a ele com o fato RE-MEDIDO |
 | T-49-17-03 (artefato gerado editado à mão) | mitigate | só os geradores escreveram os artefatos; os `VALUES` do drift também (`--sql-values`); os quatro `check:*` OK depois de tudo |
-| T-49-17-04 (decisão escrita que não chega à cópia real) | **aberta por desenho** | nenhuma EF redeployada. O ar diz MENOS do que o artefato, que é a direção segura; o fechamento é da Task 3 |
+| T-49-17-04 (decisão escrita que não chega à cópia real) | **mitigate — FECHADA na Task 3** | as duas EFs redeployadas (`exportar-meus-dados` v5, `executar-direito-titular` v12, ACTIVE `verify_jwt=true`), com o marcador provado no bundle VIVO, um por chamada: 3× `superada_em` numa, 3× o texto novo da linha obrigatória na outra, e ZERO ocorrência das afirmações retiradas |
 | T-49-17-SC (supply chain) | mitigate | zero instalação de pacote |
 
 Adicional não previsto no `<threat_model>`, e **registrado em vez de consertado**: o nome
 COMPLETO do único titular excluído sobrevive em `analise_candidato_vaga.resumo_cv`
-(`WINDOWS` 83). É o insumo central da decisão do operador.
+(`WINDOWS` 83). É o insumo central da decisão do operador — e, com a opção (c) escolhida,
+passou a ser o objetivo declarado do plano 49-29, não uma pendência sem destino.
+
+Nenhuma superfície nova na Task 3: ela escreve YAML de veredito, comentários de gerador e
+copy de recibo, e redeploya duas funções cujo `verify_jwt` continua `true`. O único vetor
+que ela move é o texto que o titular lê — e a mudança é na direção de dizer a verdade sobre
+um apagamento que já acontecia.
 
 ## Issues Encountered
 
@@ -528,6 +808,31 @@ COMPLETO do único titular excluído sobrevive em `analise_candidato_vaga.resumo
 - **`windows status --raw` não reporta `counts.open`** no formato que eu esperava
   (`undefined`). Não confiei nele: usei o `append`, que é o comparador forte (§M).
 
+### Task 3
+
+- **A ferramenta do ledger RECUSOU mutar, e a recusa estava certa.** Editei o bloco JSON à
+  mão (a razão do `fixed` 82 e o dono do 83) e o `windows fixed 82` respondeu
+  «*disagrees with the fenced JSON entries … for row id(s): 82, 83*». O §M explica: a tabela
+  é gerada a partir do JSON, e ela valida ANTES de mutar. A saída não é redigitar a célula —
+  é chamar o `renderTable` **da própria ferramenta** sobre o JSON já editado e substituir as
+  duas linhas por código. Um comparador que recusa é melhor que um que aceita.
+- **`renderTable(d.entries || d)` renderizou «_No windows recorded._» sobre 84 entradas.** O
+  bloco JSON é um **array**, e `array.entries` é um método do protótipo — logo truthy, logo
+  passei uma **função** para o renderer, cujo `.length` é o número de parâmetros: zero. O
+  idioma defensivo `a || b` produziu silenciosamente o caso vazio. Peguei porque conferi a
+  contagem de linhas renderizadas (3) contra o esperado (86) antes de escrever no arquivo.
+- **O meu próprio `medido_em` estava arredondado.** Ver o desvio 6. É a segunda vez nesta
+  fase que o defeito encontrado é do **instrumento de quem mede**, não do medido.
+- **O `<verify>` do plano contradisse a decisão do checkpoint do plano.** Rodei-o verbatim
+  em vez de editá-lo, porque a reprovação registrada é informação e um comando maquiado não
+  é. A tentação aqui é real: bastava tirar a cláusula e ninguém veria a diferença.
+- **A primeira ideia para o D-66 era ERRADA e quase a executei.** Como o `<verify>` pede as
+  tabelas fora da lista, comecei a desenhar como tirá-las — e o caminho levava, em três
+  passos, a acrescentar `analise_candidato_vaga.resumo_cv` como origem do item
+  `avaliacoes_e_analises`, ou seja a fazer o recibo prometer «sem ligação com você» sobre um
+  texto que contém o nome. Isso é literalmente a proibição JORN-07 do próprio plano. O que
+  me parou foi ler o fecho de cobertura do gerador **antes** de editar, não depois.
+
 ## User Setup Required
 
 None — nenhuma configuração de serviço externo. O token do Supabase já está no Keychain
@@ -535,32 +840,83 @@ None — nenhuma configuração de serviço externo. O token do Supabase já est
 
 ## Next Phase Readiness
 
-**Este plano NÃO está completo, e a próxima etapa é o operador.**
+**Este plano está COMPLETO.** As três tasks rodaram, o inventário da fase fechou, e as
+duas EFs carregam no ar exatamente o que está no disco.
 
-- **Task 2 (`checkpoint:decision`, `gate="blocking-human"`)** — duas perguntas na mesa:
-  o D-66 (WINDOWS 81/83) e a copy da WINDOWS 82. A opção **(c)** do D-66 (desidentificar no
-  motor) implica, pelo critério de acceptance do próprio plano, que **este plano PARA e
-  reporta**: é escopo novo de motor.
-- **Task 3** herda: as 9 colunas restantes (2 de `analise_candidato_vaga`, 3 de
-  `redacoes_candidato`, 4 nas duas tabelas fora de escopo), o item `fase: 49` do catálogo
-  **já criado** (acrescentar na MESMA entrada, não criar outra), a versão **já em 1.3.0**
-  (não bumpar de novo), os `VALUES` do drift e os snapshots **já sincronizados** (regerar,
-  não re-decidir), e os dois redeploys.
-  - ⚠ O drift contra PROD deve cair de **14** para **9** quando a Task 3 fechar. Os 9
-    restantes são o drift pré-existente da 48 e **não** são dela.
-  - ⚠ As 4 colunas de `comparativo_solicitado`/`entrevista_guias` **nunca** aparecem no
-    drift (tabelas fora de escopo) — e por isso o gerador **não exige** veredito para elas.
-    Conferir antes de escrever um que o fecho recusaria como inerte.
-- **Fecho do M8:** a **BD-9 fica MEIO-FECHADA**, e é item aberto declarado. E a WINDOWS 83
-  entra junto: o nome completo do único titular excluído sobrevive numa análise.
+**O que sai daqui para o plano 49-29 (onda 8, roda ANTES do 49-18 e do 49-19):**
 
-**Atenção:** `tsc` em 89, teto 90 (D-53) — margem de um.
+- o **escopo** dele deve ser MEDIDO, não herdado, e as medições prontas estão aqui:
+  `analise_candidato_vaga` = 9 de 25 com o nome atual (**limite inferior**) e **8 linhas**
+  de titulares já anonimizados com `resumo_cv` preenchido; `entrevista_guias` = **0 de 5**
+  com o nome, e **0 de 5** guias pertencentes a titular anonimizado — ou seja, para essa
+  tabela nem o caso cego existe hoje, e a ressalva dela é estrutural;
+- o **texto do recibo não muda** (é a premissa da opção (c)), e o item
+  `avaliacoes_e_analises` é o que ele faz voltar a ser verdadeiro;
+- as colunas de telemetria que este plano acabou de decidir (`provedor_ia`, `modelo_ia`,
+  `rubrica_versao`) **não são dado do titular** e não devem ser tocadas pelo passo novo;
+- quando o 49-29 tirar `analise_candidato_vaga` de `tabelas_sem_pii_titular`, as duas
+  colunas dela ganham entrada explícita em `tabelas:` — o comentário na lista já diz isso,
+  e é nesse momento que a reclassificação do D-66 acontece;
+- `WINDOWS` **83** é a entrada dele, já nomeada.
+
+**Itens abertos declarados no fecho do M8** (nenhum é surpresa, todos têm registro):
+
+| Item | Estado | Dono |
+|---|---|---|
+| **BD-9** | **MEIO-FECHADA** — D-46 aplicada (exportação), D-47 recusada (a cópia na trilha fica) | decisão do operador, registrada |
+| **WINDOWS 83** / D-66 | `open` | plano **49-29** |
+| **WINDOWS 85** (`v_analises_presas`) | `open` | quem tocar as views (D-55) |
+| **WINDOWS 56** | `open` — pergunta respondida, conserto é de front | quem tocar a tela (D-55) |
+| **WINDOWS 77** / D-70 | `waived` — resíduo ACEITO pelo operador, não consertado | — |
+| 9 colunas de drift pré-existente | sem veredito, por decisão da Phase 48 | — |
+
+**Atenção:** `tsc` em **89**, teto 90 (D-53) — margem de **um**. Os dois quebrados
+pré-existentes seguem quebrados e **não** foram «consertados»: `resend-webhook.test.ts`
+(`npm:svix@1.99.1`) e `_shared/__tests__/strict-schema.test.ts:88`.
 
 ---
 *Phase: 49-consertos-da-jornada-bloco-2*
-*Parada no checkpoint da Task 2: 2026-09-23*
+*Task 1 + checkpoint: 2026-09-23 · Task 3 e fecho: 2026-09-24*
 
 ## Self-Check: PASSED
+
+### Task 3 (agente de continuação, 2026-09-24)
+
+- commits anteriores CONFERIDOS antes de construir sobre eles: `04ac66cc` e `781225b2`
+  presentes, `git log --oneline origin/main..HEAD` VAZIO no início, árvore limpa
+- `docs/compliance/catalogo-vivo-44.json` — FOUND (item `fase: 49` com **16** colunas na
+  MESMA entrada, `medido_em_task_3` lido do banco; portão de round-trip e portão de
+  não-duplicação ativos — o primeiro abortou uma vez, corretamente, porque o arquivo não
+  termina em newline, e o script foi corrigido em vez de o portão ser afrouxado)
+- `docs/compliance/export-scope-rules.yaml` — FOUND (5 vereditos novos + a razão escrita de
+  as outras 4 não terem; `meta.versao` **NÃO** re-bumpada, continua `1.3.0`)
+- `docs/compliance/pii-inventory.yaml` / `.md` — FOUND (5 classificações novas; `nota` do
+  D-66 corrigida pelo re-medido; os dois comentários inline corrigidos com o dono nomeado)
+- `docs/compliance/sql/gen-recibo-exclusao.cjs` — FOUND (5 razões novas + as duas linhas da
+  WINDOWS 82; `OBRIGATORIAS_MANTEM` inalterado)
+- `docs/compliance/sql/05-export-allowlist-drift.sql` — FOUND (`VALUES` regerados,
+  422 → 427; 5 linhas `+`, ZERO `-`)
+- `docs/compliance/__tests__/exportAllowlist.test.ts` — FOUND (snapshot: as MESMAS 5
+  chaves, zero linha removida)
+- `database.types.ts` — FOUND (217 982 octetos, não vazio; `superada_em`, `rubrica_versao`,
+  `registrar_analise_entrevista`)
+- `.planning/WINDOWS.md` — FOUND (82 `fixed` com razão lida de volta do JSON; 83 `open` com
+  o dono 49-29 dentro da entrada; 85 acrescentada; `status` **e** `append` concordam — o
+  `append` aceitou, que é o comparador forte)
+- commits `04ac66cc` e `dc97d071` — FOUND
+- `commits: 4` = MEDIDO por `git rev-list --count 91a753bc..HEAD` no instante da escrita
+  (HEAD = `dc97d071`), não narrado; `tokens: 15465` medido nos dois diffs
+- `<acceptance_criteria>` da Task 3 re-executados um a um: **(1)** as 16 colunas com
+  veredito / classificação / razão de recibo / medição onde cada artefato as cobre, versão
+  `1.3.0`, **e o D-66 aplicado conforme a decisão da Task 2 — que sob a opção (c) é
+  NÃO aplicá-lo aqui**; **(2)** os quatro `check:*` e os 298 testes verdes, snapshots
+  mudados só pelas 5 colunas da fase; **(3)** o drift sem coluna da fase (9 linhas, as
+  pré-existentes listadas); **(4)** as duas EFs `verify_jwt=true` com o marcador no bundle,
+  tipos finais, `tsc` = 89 ≤ 90
+- `<verify>` da Task 3: os quatro blocos rodados. O bloco 1 reprova **na cláusula do D-66**,
+  de propósito e registrado como desvio 5 — a cadeia inteira antes dela passa, e a versão
+  com a cláusula invertida (o estado correto sob a (c)) sai `exit 0`
+- portão provado por mutação nas colunas NOVAS (M6), revertido por cópia com md5 conferido
 
 - `docs/compliance/catalogo-vivo-44.json` — FOUND (7 colunas + item `fase: 49`; diff só aditivo, 66 linhas `+`, 0 `-`)
 - `docs/compliance/export-scope-rules.yaml` — FOUND (6 vereditos + versão 1.3.0 + o achado M1)
