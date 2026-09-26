@@ -287,37 +287,154 @@ fallback forçado exige, e é o valor que a Task 3 tem de ver restaurado:
 | `max_tokens` | `3600` |
 | identificador do fallback forçado | `claude-inexistente-p49-fallback-forcado` |
 
-## 4. Sessão 1 — a jornada com as contas de teste
+## 4. Sessão 1 — 1ª tentativa de verificação (2026-09-26): **NÃO PROVADA**
 
-*(a preencher quando o operador avisar «sessão 1 feita»)*
+O operador avisou «sessão 1 feita» em 2026-09-26, nomeando
+`fernandinho.costa.neto+claude7@gmail.com` como a conta descartável e relatando dois
+ajustes de roteiro. A prova foi rodada com o T0 deste arquivo e voltou **idêntica à linha
+de base**: as 5 negativas `true`, **as 16 positivas `false`**.
 
-### A conta descartável (sujeito do plano 49-19)
+### O diagnóstico — nada da jornada chegou a este PROD
+
+Medido em 2026-09-26 16:25 -03:00, só leitura, contra o projeto
+`isljnozzlvckrgjjbjwp` (o MESMO que o `.env.local` do front aponta, conferido):
+
+| Medida | Valor |
+|---|---|
+| `candidatos` com `+claude7` / `+claude8` / `+claude9` | **0 / 0 / 0** |
+| `candidatos` com `+claude` (total) | 6 — as mesmas de T0 |
+| `auth.users` criados depois de T0 | **0** |
+| `last_sign_in_at` mais recente do projeto INTEIRO | **2026-09-22 00:31** — ninguém entrou nos 4 dias seguintes |
+| `candidaturas` criadas depois de T0 | **0** |
+| `historico_candidatura` depois de T0 | **0** |
+| `notificacoes_enviadas` depois de T0 | **0** |
+| `ai_call_logs` depois de T0 | **0** (o último log é de 2026-09-22 18:49) |
+| `comparativo_solicitado` / `entrevista_analises` / `entrevista_guias` depois de T0 | **0 / 0 / 0** |
+| `analise_candidato_vaga` depois de T0 · `redacoes_candidato` com `ia_processada_em > T0` | **0 / 0** |
+
+**Nenhuma linha, em nenhuma tabela, em nenhum momento depois de T0.** Não é um defeito da
+consulta nem um alias diferente: as contas nomeadas não existem nem no `candidatos` nem no
+`auth.users`, e não houve **um único login** no projeto desde 2026-09-22. A sessão 1 não
+aconteceu contra esta produção.
+
+É exatamente para isto que a prova existe (D-51): a tela — ou o relato — pode dizer
+«feito», e o banco é quem sabe.
+
+### A conta descartável (sujeito do plano 49-19) — NÃO CRIADA
 
 | Campo | Valor |
 |---|---|
-| `DESCARTAVEL_EMAIL:` | *(a preencher — alias `+claude` da caixa do operador)* |
-| `DESCARTAVEL_CANDIDATO_ID:` | *(a preencher — `candidatos.id`)* |
-| `DESCARTAVEL_CANDIDATURA_ID:` | *(a preencher)* |
-| Tabelas alcançadas pelo passo novo do motor | *(a preencher)* |
+| `DESCARTAVEL_EMAIL:` | `fernandinho.costa.neto+claude7@gmail.com` *(nomeado pelo operador)* |
+| `DESCARTAVEL_CANDIDATO_ID:` | **não resolvível** — não existe `candidatos` nem `auth.users` com este e-mail |
+| `DESCARTAVEL_CANDIDATURA_ID:` | **não resolvível** — idem |
+| Tabelas alcançadas pelo passo novo do motor | ⬜ pendente |
 
-⚠ A **senha** não é registrada aqui. Esta conta é o sujeito da primeira execução real do
-motor (49-19) e não deve ser usada para mais nada depois.
+⚠ A **senha**/JWT nunca são registrados aqui. Esta conta é o sujeito da primeira execução
+real do motor (49-19) e não deve ser usada para mais nada depois.
 
-### Conferências humanas
+### Conferências humanas — **PENDENTES DE RELATO DO OPERADOR**
 
-| Passo | Resultado | Observação do operador |
+As observações de (a)–(f) chegaram **elididas** — literalmente `(a)… (b)… (c)… (d)… (e)…
+(f)…`, sem conteúdo nenhum. Reticências **não** satisfazem o critério de aceite
+`human-check` da Task 2, e registrá-las como «conferido» seria inventar o que foi visto.
+
+| Passo | Resultado | O que falta a palavra dele |
 |---|---|---|
-| (a) conta descartável + inscrição + o que a vaga pedir | ⬜ | |
-| (b) comparativo de 4: 5ª bloqueada, encerrada com selo e não selecionável, nomes por posição, PDF | ⬜ | |
-| (c) transcrição online: A, B, A (texto repetido), depois o texto com injeção | ⬜ | |
-| (d) revisar e confirmar a análise vigente | ⬜ | |
-| (e) página da explicação recarregada 5× | ⬜ | |
-| (f) Kanban com selo, modal sem reabrir, lista sem 0 por ausência, hub sem percentil | ⬜ | |
+| (a) | ⬜ **pendente de relato do operador** | a conta descartável criada pelo fluxo real, inscrita, e o que a vaga pediu concluído (redação cultural / formulário / Big Five / Raven) |
+| (b) | ⬜ **pendente de relato do operador** | a 5ª seleção bloqueada **com a mensagem do teto**; a de knockout com selo «Encerrada» e não selecionável; o **nome certo em cada posição** do ranking; o PDF exportado |
+| (c) | ⬜ **pendente de relato do operador** | a tela dizendo que **o texto já tinha sido analisado** na 2ª vez do texto A; e, no texto com injeção, que **a análise não foi concluída** e que a vigente B continua |
+| (d) | ⬜ **pendente de relato do operador** | a revisão da análise vigente confirmada |
+| (e) | ⬜ **pendente de relato do operador** | a página da explicação recarregada 5× |
+| (f) | ⬜ **pendente de relato do operador** | selo «Encerrada» num card `finalizado` do Kanban; modal de status de uma rejeitada **sem** oferecer reabrir; células da lista do RH dizendo «não fez»/«aguardando revisão»/faixa e **nenhuma com 0 por ausência**; hub com a faixa cognitiva **sem** percentil e **sem** «de 60» |
 
-### Resultado da prova (todas menos as duas do fallback)
+### Resultado da prova (as 19 exigidas na Task 2)
 
-*(a preencher — 19 colunas; `p28_fallback_duas_linhas` e
-`p28_comparativo_fallback_com_provedor` são da Task 3)*
+| Prova | Resultado | Igual ao baseline? |
+|---|---|---|
+| `p28_resultados_com_modelo` | ✗ false | sim |
+| `p28_modelo_real_bate_log` | ✗ false | sim |
+| `p28_teto_comparativo_3600` | ✓ true | sim |
+| `p28_comparativo_4_anthropic` | ✗ false | sim |
+| `p28_saida_4_ate_3140` | ✗ false | sim |
+| `p39_linha_none` | ✗ false | sim |
+| `p39_agregacao_sem_falha` | ✓ true | sim |
+| `p07_redacao_nova_com_rubrica` | ✗ false | sim |
+| `p25_knockout_nao_avanca` | ✓ true | sim |
+| `p25_sem_avanco_para_encerrada` | ✓ true | sim |
+| `p25_comparativo_sem_encerrada` | ✓ true | sim |
+| `p12_uma_vigente_por_tipo` | ✓ true | sim |
+| `p12_sem_hash_duplicado` | ✗ false | sim |
+| `p12_aba_a_b_a` | ✗ false | sim |
+| `p12_falha_nunca_vigente` | ✓ true | sim |
+| `p12_analise_com_dono` | ✗ false | sim |
+| `p17_sem_justificativa_grudada` | ✓ true | sim |
+| `p3b_leitura_sem_snapshot` | ✓ true | sim |
+| `p37_trilha_sem_texto_da_decisao` | ✓ true | sim |
+
+**9 `true`, 10 `false`.** *(`p28_fallback_duas_linhas` e
+`p28_comparativo_fallback_com_provedor` são da Task 3 e seguem `false`.)*
+
+### ⚠ Duas leituras erradas que estes números convidam, e não devem ser feitas
+
+**1. `p28_saida_4_ate_3140 = false` NÃO é o ponto de decisão do D-59 aqui.** Ele seria, se
+existisse um comparativo de 4 cuja saída passasse de 3140 tokens. Não existe comparativo
+nenhum: a coluna é `false` por **conjunto vazio**, que é o desenho da prova. Levar isto ao
+operador como «o teto precisa subir» seria um diagnóstico falso — não há nenhuma medida de
+saída para discutir.
+
+**2. As 7 negativas `true` NÃO são crédito das travas desta fase.** `p25_knockout_nao_avanca`,
+`p25_sem_avanco_para_encerrada` e `p25_comparativo_sem_encerrada` estão `true` porque
+**nada se moveu**, não porque a trava do D-35 recusou alguma coisa. Uma negativa sobre um
+conjunto vazio de ações é verdadeira sem ter sido testada. Elas só passam a valer como
+prova depois de a jornada existir.
+
+### Os dois ajustes de roteiro do operador — RELATADOS, não observados em PROD
+
+**(1) «o teto só é demonstrável com 5 candidaturas abertas, porque o checkbox só mostra a
+mensagem do teto em linha não encerrada» — CORRETO, e mais forte do que ele disse.**
+
+Conferido no código, não no relato (`src/features/triagem/components/TriagemTable.tsx`):
+
+- linha 285-287: `const motivoDoBloqueio = encerrada ? COPY_ENCERRADA_COMPARATIVO : COPY_TETO_COMPARATIVO` — o ramo `encerrada` **ganha**, então numa linha encerrada nunca aparece a cópia do teto. Exatamente o que ele descreveu;
+- linha 284: `checkboxDisabled = encerrada || (capReached && !isSelected)` — para existir uma linha em `capReached && !isSelected` é preciso uma **5ª linha não encerrada**, porque com 4 abertas todas as 4 ficam selecionadas e não sobra linha nenhuma nesse estado;
+- linha 485-490: a outra superfície da cópia do teto (tooltip do botão «Comparar») está dentro de `{!compareEnabled && …}`, e `compareEnabled = selectedCount >= 2 && selectedCount <= 4`. Com 4 selecionados o tooltip **não é renderizado**, e >4 é impedido pelo próprio checkbox — logo esse ramo é **cópia praticamente inalcançável** pelo fluxo normal.
+
+**Consequência:** a única superfície observável de `COPY_TETO_COMPARATIVO` é o tooltip de
+linha de uma 5ª candidatura **aberta e não encerrada**. O ajuste de roteiro do operador é
+raciocínio correto, e fica registrado como roteiro permanente do passo (b).
+**Não contradiz nada que a fase afirmou sobre o teto**: `COMPARATIVO_MAX_CANDIDATOS = 4`
+(49-08) e as recusas da EF (`ENCERRADA`, `VALIDATION`) são de outra camada e seguem de pé.
+E `+claude8`/`+claude9` só **acrescentariam população** ao CTE de contas de teste — nenhuma
+coluna da prova muda de definição por causa delas. *(As duas contas, porém, **não
+existem**: 0 linhas em `candidatos` e em `auth.users`.)*
+
+**(2) «o (c) exigiu avançar a `+claude6` até Entrevista online» — NÃO ACONTECEU.**
+
+Medido:
+
+| Conta | `candidatura_id` | `etapa_atual` | `status` | knockout | encerrada | última transição |
+|---|---|---|---|---|---|---|
+| `+claude6` | `8101c56f-…` | **`avaliacao_assincrona`** | `aguardando_resposta` | não | não | **2026-09-22 00:33:41** |
+| `+claude5` | `af39f1ea-…` | `avaliacao_assincrona` | `aguardando_resposta` | não | não | 2026-09-21 23:18:23 |
+
+A `+claude6` segue em `avaliacao_assincrona`, com a última transição **quatro dias antes
+de T0**. Ela não foi avançada.
+
+**E, explicitamente, ela não teria derrubado as provas do JORN-25 se tivesse sido:** a
+`+claude6` tem `opcao_knockout_id` nulo e `candidatura_encerrada(avaliacao_assincrona,
+aguardando_resposta)` = **false** — ela não está no CTE `ko` nem satisfaz a condição de
+`p25_sem_avanco_para_encerrada`. Avançar uma candidatura ABERTA é o caminho normal do
+funil, e é o que o passo (c) precisa. As duas colunas seguem `true`, e continuariam.
+
+### O que precisa acontecer para a Task 2 fechar
+
+1. A sessão 1 ser **executada** contra `https://rh.beautysmile.com.br` (projeto
+   `isljnozzlvckrgjjbjwp`), com as contas `+claude`;
+2. o relato de (a)–(f) com conteúdo, não elidido;
+3. a prova voltar com as **19** colunas `true`.
+
+O T0 **não precisa ser refeito**: `2026-09-26T18:44:16Z` continua válido, porque nada
+aconteceu depois dele. Toda a jornada, quando acontecer, cai depois desse instante.
 
 ## 5. Sessão 2 — o fallback forçado (D-27)
 
