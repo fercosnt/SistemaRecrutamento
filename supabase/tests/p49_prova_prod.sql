@@ -152,6 +152,76 @@ aba AS (
   HAVING count(*) >= 2
 )
 SELECT
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- DISCRIMINADORES DE POPULAÇÃO (`pop_*`) — acrescentados em 2026-09-26
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- ⚠ POR QUE ELES EXISTEM. Até aqui a prova devolvia 21 booleanos e NENHUM sinal de
+  -- população. Isso torna `false` por CONJUNTO VAZIO indistinguível de `false` por
+  -- PROPRIEDADE VIOLADA — e as duas pedem ações opostas:
+  --
+  --   · vazio  ⇒ a jornada não aconteceu; execute-a. Nada a consertar no produto.
+  --   · violado ⇒ a jornada aconteceu e o sistema se comportou errado; é defeito.
+  --
+  -- Em 2026-09-26 essa lacuna produziu exatamente o erro que ela permite: a coluna
+  -- `p28_saida_4_ate_3140` saiu `false` por não haver comparativo NENHUM, e foi lida como
+  -- «a saída de 4 candidatos passou de 3140 tokens, o teto do D-59 precisa voltar ao
+  -- operador». Um diagnóstico oposto ao fato, a partir de um booleano correto.
+  --
+  -- Isto serve a proibição JORN-13 do próprio plano — «MUST NOT dar a fase por provada com
+  -- uma prova positiva que saiu verdadeira por conjunto vazio». As positivas já se
+  -- protegiam desse lado (elas EXIGEM o fato existir). O que faltava era a face inversa da
+  -- mesma moeda: saber, ao ler um `false`, se ele acusa o sistema ou a ausência da sessão.
+  --
+  -- ⚠ São BOOLEANAS, nunca contagens, e isto é contrato: os `<verify>` das Tasks 2 e 3
+  -- reprovam por `Object.entries(r).filter(([k,v]) => v !== true)`. Uma coluna inteira
+  -- (`0`, `3`) faria o portão acusar falha por DESENHO, em toda rodada. Sendo booleanas,
+  -- elas entram no mesmo portão sem nenhuma edição dele: população vazia aparece na lista
+  -- de reprovação com NOME PRÓPRIO, ao lado das positivas que ela explica.
+  --
+  -- Vêm PRIMEIRO no SELECT de propósito: é a ordem em que a mensagem de falha é lida por
+  -- quem está sob pressão, e a causa tem de chegar antes do sintoma.
+  --
+  -- ⚠ Nenhuma das 21 colunas abaixo foi renomeada, redefinida ou refatorada. Em particular,
+  -- a conflação de população-com-propriedade que existe dentro de `p28_resultados_com_modelo`
+  -- (ela mistura «há linha» com «a linha tem modelo») ficou INTACTA: com os `pop_*` ao lado,
+  -- a conflação deixa de ser perigosa, porque a causa passa a ser legível. Mudar a semântica
+  -- de uma coluna que o plano nomeia, sem o operador, não seria aditivo.
+
+  -- Houve jornada de conta de teste depois de T0? (candidatura nova, transição ou e-mail)
+  (EXISTS (SELECT 1 FROM cand cd, t WHERE cd.created_at > t.t0)
+   OR EXISTS (SELECT 1 FROM public.historico_candidatura h, t
+               WHERE h.candidatura_id IN (SELECT id FROM cand) AND h.criado_em > t.t0)
+   OR EXISTS (SELECT 1 FROM public.notificacoes_enviadas n, t
+               WHERE n.candidatura_id IN (SELECT id FROM cand) AND n.criado_em > t.t0))
+    AS pop_jornada_de_teste_depois_do_t0,
+
+  -- Alguma chamada de IA depois de T0? (governa todas as `p28_*` e a `p39_linha_none`)
+  EXISTS (SELECT 1 FROM public.ai_call_logs l, t WHERE l.created_at > t.t0)
+    AS pop_chamada_de_ia_depois_do_t0,
+
+  -- Comparativo de conta de teste depois de T0?
+  EXISTS (SELECT 1 FROM comp)
+    AS pop_comparativo_depois_do_t0,
+
+  -- Comparativo de EXATAMENTE 4 candidaturas depois de T0? É esta que atribui
+  -- `p28_comparativo_4_anthropic` e `p28_saida_4_ate_3140` — as duas colunas cuja leitura
+  -- errada motivou este bloco. `false` aqui ⇒ não há saída medida para discutir, e o teto
+  -- do D-59 NÃO está em questão.
+  EXISTS (SELECT 1 FROM comp4)
+    AS pop_comparativo_de_4_depois_do_t0,
+
+  -- Linha de RESULTADO de fallback depois de T0? (governa as duas colunas da Task 3)
+  EXISTS (SELECT 1 FROM fb)
+    AS pop_fallback_depois_do_t0,
+
+  -- Análise de entrevista de conta de teste depois de T0? (governa as `p12_*`)
+  EXISTS (SELECT 1 FROM ea)
+    AS pop_analise_de_entrevista_depois_do_t0,
+
+  -- Redação de teste avaliada pela IA depois de T0? (governa `p07_redacao_nova_com_rubrica`)
+  EXISTS (SELECT 1 FROM r_red)
+    AS pop_redacao_avaliada_depois_do_t0,
+
   -- ═══ JORN-28 / D-28 — proveniência real nas 5 tabelas de resultado ══════════
   -- Em CADA uma das 5 tabelas há ≥1 linha de teste depois de T0, e TODAS elas trazem
   -- `modelo_ia` e `provedor_ia`. `EXISTS` + `bool_and` juntos: conjunto vazio ⇒ `false`.

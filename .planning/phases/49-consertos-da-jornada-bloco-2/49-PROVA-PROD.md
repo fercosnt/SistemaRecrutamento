@@ -521,6 +521,103 @@ exatamente este T0, e as 8 negativas foram provadas **mordentes** por mutação 
 Um T0 novo joga fora essa linha de base e essas provas de mordida, e obriga a remedir tudo
 para ganhar nada — o instante antigo já é anterior a qualquer ação da jornada.
 
+## 4c. Discriminadores de população (`pop_*`) — DESVIO do plano, acrescentados em 2026-09-26
+
+**Desvio declarado:** a Task 1 do plano não previa estas colunas. Elas foram acrescentadas
+depois, em resposta ao erro de leitura desta sessão.
+
+**Por que, e por que isso é o plano e não capricho:** a prova devolvia 21 booleanos e
+**nenhum sinal de população**, o que torna `false` por **conjunto vazio** indistinguível de
+`false` por **propriedade violada**. As duas pedem ações opostas — executar a jornada, ou
+consertar o produto. Em 2026-09-26 a lacuna produziu exatamente o erro que ela permite:
+`p28_saida_4_ate_3140 = false` por não haver comparativo nenhum foi lido como «a saída de 4
+passou de 3140 tokens, o teto do D-59 precisa voltar ao operador» — diagnóstico oposto ao
+fato, a partir de um booleano correto.
+
+Isso serve a proibição **JORN-13** do próprio plano — «MUST NOT dar a fase por provada com
+uma prova positiva que saiu verdadeira por conjunto vazio». As positivas já se protegiam
+desse lado (exigem o fato existir). Faltava **a face inversa da mesma moeda**: saber, ao ler
+um `false`, se ele acusa o sistema ou a ausência da sessão. O arquivo não deve depender de
+alguém lembrar dessa distinção.
+
+**Contrato:** são **booleanas, nunca contagens** — os `<verify>` das Tasks 2 e 3 reprovam por
+`Object.entries(r).filter(([k,v]) => v !== true)`, e uma coluna inteira faria o portão acusar
+falha **por desenho** em toda rodada. Sendo booleanas, entram no mesmo portão **sem nenhuma
+edição dele**, e a população vazia aparece na lista de reprovação com nome próprio. Vêm
+**primeiro** no SELECT de propósito: a causa tem de chegar antes do sintoma para quem lê a
+mensagem sob pressão.
+
+**As 21 colunas originais não foram tocadas** — nenhuma renomeada, redefinida ou refatorada
+(conferido: 21 `AS p*_`, 7 `AS pop_`). Em particular a conflação população-com-propriedade
+dentro de `p28_resultados_com_modelo` ficou **intacta**: com os `pop_*` ao lado ela deixa de
+ser perigosa, porque a causa passa a ser legível. O arquivo segue **só SELECT**, sem
+`SET TRANSACTION` (as 3 ocorrências do token são linhas de comentário).
+
+### O que elas dizem hoje — todas `false`, e é isso que as valida
+
+| Coluna | Hoje | Governa |
+|---|---|---|
+| `pop_jornada_de_teste_depois_do_t0` | **false** | tudo — candidatura nova, transição ou e-mail de conta de teste |
+| `pop_chamada_de_ia_depois_do_t0` | **false** | todas as `p28_*` e a `p39_linha_none` |
+| `pop_comparativo_depois_do_t0` | **false** | `p28_resultados_com_modelo`, `p28_comparativo_fallback_com_provedor` |
+| `pop_comparativo_de_4_depois_do_t0` | **false** | `p28_comparativo_4_anthropic`, **`p28_saida_4_ate_3140`** |
+| `pop_fallback_depois_do_t0` | **false** | as duas colunas da Task 3 |
+| `pop_analise_de_entrevista_depois_do_t0` | **false** | as `p12_*` |
+| `pop_redacao_avaliada_depois_do_t0` | **false** | `p07_redacao_nova_com_rubrica` |
+
+**7 de 7 `false` é a prova de que funcionam:** hoje a população é comprovadamente vazia
+(§«O diagnóstico»). Qualquer `true` aqui contradiria a medição e seria motivo de parada.
+
+Com isto, a leitura de hoje passa a ser inequívoca **sem depender de memória**:
+`pop_comparativo_de_4_depois_do_t0 = false` ⇒ não há saída medida, e **o teto do D-59 não
+está em questão**.
+
+### Prova de que os `pop_*` MORDEM — 2 sondas
+
+| Sonda | Técnica | Resultado |
+|---|---|---|
+| 1 | **só leitura**, mesmo arquivo, T0 recuado a `2026-08-01` (a população histórica existe: 2 comparativos de teste — 1 deles com 4 —, 5 análises de entrevista, 2 redações avaliadas, logs desde 2026-08-22) | **6 de 7 viraram `true`**, acompanhando a população |
+| 2 | mutação em cópia de rascunho: predicado de `fb` trocado de `fallback\_%` para `anthropic\_retries\_exhausted` (o **único** `error_code` vivo em PROD) | `pop_fallback_depois_do_t0` → **`true`** |
+
+A sonda 2 foi necessária porque **não existe nenhuma linha `fallback_%` histórica**
+(`fb_historico = 0` — o vocabulário é novo desta fase), então recuar o T0 não consegue
+alcançá-la. A mutação prova que a coluna segue o conjunto `fallback_%` especificamente.
+
+**⚠ Achado extra da sonda 2, e é a demonstração mais forte que este bloco podia dar:** com
+o predicado mutado, `pop_fallback_depois_do_t0` saiu **`true`** enquanto
+`p28_fallback_duas_linhas` saiu **`false`**. Isto é a discriminação funcionando **no sentido
+oposto**: população existe, propriedade falha — as 17 linhas legadas
+`anthropic_retries_exhausted` não têm a tentativa irmã que o D-27 exige. É exatamente o par
+de leituras que antes era impossível distinguir.
+
+## 4d. Varredura pela FORMA dos 4 arquivos novos — 0 defeitos
+
+Feita pelo orquestrador com o padrão do `CLAUDE.md` §«Portões: varra pela FORMA». Registrada
+aqui para **não ser refeita**.
+
+| Achado | Classificação | Veredito |
+|---|---|---|
+| `p49_fallback_forcado_liga.sql:83` — `IF v_n <> 1` | guarda de **cardinalidade** sobre `UPDATE` de `WHERE` estreito | forma **certa** — 1 é a cardinalidade do alvo, não uma fotografia |
+| `p49_fallback_forcado_desliga.sql:55` — `IF v_n <> 1` | idem | forma **certa** |
+| `p49_prontidao_prod.sql:144` — `count(...) = 16` | guarda de **contenção** que fecha o buraco do conjunto INCOMPLETO (a lista das 16 está escrita ao lado; 16 é o tamanho dela, não uma medida do banco) | forma **certa** |
+| `p49_prova_prod.sql` | **0 ocorrências** do padrão | nada a classificar |
+
+**4 achados, 4 classificados, 0 defeitos.** Nenhum conserto pedido.
+
+### Ponto cego CONHECIDO e deliberado — `b12_rpcs_revisao_pela_vigente`
+
+A sonda de prontidão vigia **duas RPCs por NOME**
+(`salvar_avaliacao_entrevista`, `confirmar_revisao_entrevista`). Uma **terceira** RPC de
+revisão, criada no futuro, ficaria **fora da vigilância com o portão VERDE** — a classe
+`WINDOWS 43` («iteração sobre lista literal: não reprova nada; o objeto novo fica fora da
+vigilância e o portão segue verde»).
+
+**Registrado como escopo conhecido, NÃO consertado agora**, e a razão é que isto é **escopo
+deliberado do D-39** numa **sonda de prontidão**, não num smoke permanente: ela responde «os
+objetos DESTA fase estão no ar?», e as duas RPCs são as que esta fase tocou. Um portão que
+varresse todas as funções que mencionam `entrevista_analises` seria um instrumento diferente,
+com outro dono. Fica aqui nomeado para quem criar a terceira RPC saber que o verde não a cobre.
+
 ### O que ainda precisa acontecer para a Task 2 fechar
 
 1. A sessão 1 ser **executada** contra `https://rh.beautysmile.com.br` (projeto
