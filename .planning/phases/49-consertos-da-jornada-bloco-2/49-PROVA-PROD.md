@@ -360,6 +360,59 @@ As observações de (a)–(f) chegaram **elididas** — literalmente `(a)… (b)
 | (e) | ⬜ **pendente de relato do operador** | a página da explicação recarregada 5× |
 | (f) | ⬜ **pendente de relato do operador** | selo «Encerrada» num card `finalizado` do Kanban; modal de status de uma rejeitada **sem** oferecer reabrir; células da lista do RH dizendo «não fez»/«aguardando revisão»/faixa e **nenhuma com 0 por ausência**; hub com a faixa cognitiva **sem** percentil e **sem** «de 60» |
 
+#### O que já foi provado SEM o operador — e o que isso NÃO substitui
+
+Medido em 2026-09-26 pelo orquestrador, sem login (a `/rh/candidatos` redireciona para
+`/auth/login`: **não há sessão RH viva**, e autenticar com a credencial do operador em
+produção não é ação de agente). Duas camadas abaixo do render:
+
+**1. Copy no bundle PUBLICADO** (não o `build/` local — dois canais, §CLAUDE.md). Grafo de
+import seguido do `index` do ar: **50 chunks, 3,4 MB**. Cobertura provada antes de ler
+qualquer resultado: os **6 marcadores de front da prontidão** estão todos presentes, logo a
+varredura alcançou a superfície RH e os chunks lazy.
+
+| Verificação | Resultado |
+|---|---|
+| `Candidatura encerrada não entra no comparativo.` | presente |
+| `Aguardando revisão humana` | presente |
+| faixas `Acima` / `Dentro` / `Abaixo do esperado` | as três presentes |
+| `O comparativo aceita até` (nota do teto na decisão final) | presente |
+| teto do comparativo, pelos **fragmentos** `Máximo de ` + ` candidatos por comparativo.` | presentes |
+| **AUSENTES:** rótulo `Percentil `, `de 60`, `Acertos` | **os três ausentes do bundle** |
+
+A última linha é a mais forte do bloco: os números que o (f) manda **não** aparecer não estão
+no código publicado — não podem ser vistos na tela. É prova, não opinião de render.
+
+⚠ **Dois falsos alarmes evitados, registrados para não serem refeitos:**
+- `COPY_TETO_COMPARATIVO` é **template literal** (`` `Máximo de ${COMPARATIVO_MAX_CANDIDATOS} …` ``):
+  a string contígua **nunca** existe no bundle, é montada em runtime. Buscá-la inteira dá
+  «FALTA» falso. Conferir pelos fragmentos.
+- «o modal não oferece reabrir» **não é verificável no bundle**: `ResponderRevisaoDialog`
+  contém legitimamente `Reabrir a candidatura?` e `Registrar e reabrir` (o fluxo de revisão
+  *deve* reabrir). Minificado, não há fronteira de componente — um teste de ausência de
+  «Reabrir» acusaria o dialog certo. Fica para o olho ou para teste de unidade.
+
+⚠ **E uma armadilha em que o orquestrador CAIU antes de acertar:** a primeira varredura
+descobriu **2 chunks** (o regex exigia o prefixo `/assets/`, mas o Vite emite `./nome-hash.js`)
+e devolveu os três «ausente» como OK — `true` sobre população de 2 de 50. Era a mesma classe
+de erro desta sessão, um nível acima. **Conferir a cobertura antes de ler o resultado** é o
+conserto; é por isso que a linha dos 6 marcadores vem antes da tabela.
+
+**2. Testes de unidade do render** — `npx vitest run` em `LiberacaoCognitivoBlock`,
+`TriagemTable`, `hubAcoesEncerrada`, `estadosAvaliacao`, `ComparativoScreen`:
+**5 arquivos, 56 testes, todos passando.** O `LiberacaoCognitivoBlock.test.tsx` trava a
+asserção NEGATIVA por forma (nenhum dígito de percentil, nenhum «de 60», nenhuma palavra
+«Percentil» no DOM), e o `estadosAvaliacao.test.ts` trava «não fez»/«aguardando revisão»
+contra o `0` por ausência — o teste do percentil é explícito contra `null`/`undefined`, não
+por falsidade, porque percentil `0` é válido.
+
+**O que isto NÃO substitui.** Nada acima marca (f) como conferido, e o estado na tabela
+continua ⬜. O que sobra para o olho é **posicional e de dado vivo**: a faixa aparece no lugar
+certo do hub; o selo «Encerrada» no card `finalizado` certo do Kanban; o modal da rejeitada
+sem a ação de reabrir; e nenhuma célula da lista mostrando `0` **para um candidato real que
+não fez** (isso depende de dado, não de copy). Copy provada + teste de unidade passando
+reduzem (f) de «confira quatro telas» a «confirme que aparece onde deve».
+
 ### Resultado da prova (as 19 exigidas na Task 2)
 
 | Prova | Resultado | Igual ao baseline? |
