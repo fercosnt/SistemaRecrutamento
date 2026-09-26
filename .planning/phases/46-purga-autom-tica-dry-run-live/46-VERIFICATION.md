@@ -12,11 +12,74 @@ re_verification:
     - "RETEN-05 — a assercao (m) exercitou a regra sobre linha retrodatada em PROD: a de fora da janela morreu, a de dentro sobreviveu, o ledger registrou, e nenhuma outra tabela foi tocada"
     - "PURGA-04 / SC#2 — a recusa do flip contra o corpo NOVO (md5 e10786bd) executou: sete recusas 22023, uma aceitacao, o kill switch irrecusavel, e exatamente uma linha de trilha"
   gaps_remaining:
-    - "cron.job_run_details para o jobid 6 continua em ZERO linhas — 0 de 14 noites"
-    - "Criterio 2 do portao destrutivo continua VIOLADO para os applies de 46-05/06/07"
-    - "HI-01 e HI-02 da 46-REVIEW-4 continuam abertos (conferidos por mim, nao lidos do review)"
-    - "Fixture sintetica de PII residente em PROD sem decisao datada de destino"
+    # ⚠ OS QUATRO ITENS ABAIXO SAO O REGISTRO DE 2026-08-23 E FICAM COMO FORAM ESCRITOS.
+    #   Cada um ganhou, em 2026-09-26, o veredito de uma releitura que os remediu contra o
+    #   sistema vivo 34 dias depois — `46-AUDITORIA-GAPS-2026-09-26.md`, somente leitura.
+    #   Saldo: 1 dos 4 ainda e real. O texto original NAO foi apagado de proposito: sem ele
+    #   ninguem entende depois por que a classificacao mudou.
+    - "cron.job_run_details para o jobid 6 continua em ZERO linhas — 0 de 14 noites
+       · [2026-09-26] FECHADO por passagem do tempo, que e o fechador que este proprio
+       arquivo nomeou (`fecha_por`). Medido: 34 linhas, 34 `succeeded`, 0 falhas, de
+       2026-08-24 00:00:00.075347-03 (a noite exatamente prevista) a 2026-09-26
+       00:00:00.089913-03, 34 datas distintas em 34 dias de intervalo — nenhuma noite
+       faltando. As tres causas que a contagem zero nao distinguia estao excluidas
+       nominalmente: job armado (`active`, `md5(command)` identico ao pinado), disparou
+       (34x), registrou (34). Corroborado do outro lado: 34 das 36 execucoes do ledger em
+       `dry_run` caem em 00:00:0x e TODAS as 34 tem `relato_dry_run`. `sum(processados)`=0,
+       `sum(notificacoes_expurgadas)`=0. Ver 46-AUDITORIA-GAPS-2026-09-26.md §PRIMEIRO"
+    - "Criterio 2 do portao destrutivo continua VIOLADO para os applies de 46-05/06/07
+       · [2026-09-26] FECHADO por decisao registrada — pelo bloco `overrides:` DESTE MESMO
+       ARQUIVO. A contradicao era de ORDEM DE COMMITS, nao de conteudo: o commit do override
+       (e7118d4c, 12:26:40) veio DEPOIS do commit da verificacao (4538dc2f, 11:41:11), e
+       esta lista nao foi reescrita na epoca. Cobertura conferida commit a commit por
+       `git log -1 --format=%cI`: aa96052f 00:50 (46-05) · bd30684d 01:30 (46-06) ·
+       0f44e53a 02:05 e 5351bde6 02:07 (46-07), os quatro anteriores a 13e53026 02:23 (o
+       review retroativo) — exatamente os applies que o item nomeia, e nenhum outro. A
+       ressalva do override ('nao cobre nenhum apply futuro desta fase') NAO TEM SUJEITO: o
+       ledger de PROD nao tem migration de Phase 46 depois da `…0015`"
+    - "HI-01 e HI-02 da 46-REVIEW-4 continuam abertos (conferidos por mim, nao lidos do review)
+       · [2026-09-26] FECHADOS por trabalho posterior — commit 74ef7c9a, 2026-08-23T12:23:42-03,
+       em origin/main, 48 minutos depois desta verificacao. HI-02: `grep -n relato_dry_run
+       46-07-RUNBOOK-FLIP.md` era 0 linhas, hoje sao 3 (`:256` a linha da tabela, `:264` a
+       coluna, `:280` a consulta). HI-01: o guarda de ACL existe em
+       `supabase/tests/p46_purga_smoke.sql:3115-3144`, como CONDICAO dentro do bloco (d)
+       existente — o contador (z) segue 27, como o conserto prometeu — e NAO esta so escrito:
+       roda, `P46P_REG_CONTADOR=27` / exit 0 em run puro, registrado em 49-29-SUMMARY no
+       commit 7d7ef2d5 de 2026-09-26. O invariante vale HOJE com a populacao declarada:
+       `config_purga.relacl` = 4 entradas / 17 linhas de `aclexplode` (o guarda TEM sujeito),
+       a consulta do guarda devolve VAZIO, e a MESMA consulta sobre `public.candidatos`
+       devolve 15 pares (a forma MORDE — o vazio e medicao, nao vacuidade); 12 de 12
+       `has_table_privilege` = false; RLS ligada com 1 policy, de LEITURA"
+    - "Fixture sintetica de PII residente em PROD sem decisao datada de destino
+       · [2026-09-26] O UNICO DOS QUATRO QUE AINDA E REAL. Medido: `public.candidatos` = 44
+       linhas, 8 com id `4601b000-%` E e-mail `fixture-p46+%@invalido.local` (os dois
+       critérios concordam); `auth.users` = 46, 8 no mesmo namespace; PII INTACTA nas 8
+       (nome_completo, cpf, celular, data_nascimento), zero `deleted_at`, 8 de 8 com
+       `user_id` e conta viva. 34 noites de dry_run passaram sem tocar nela, que e o
+       comportamento correto. E a decisao continua nao tomada: o destino aparece como
+       RECOMENDACAO (GUIA-VALIDACAO-FINAL.md:258, item H6, com a alternativa preservada) e
+       como plano (RETOMAR-AQUI.md:181), nunca como escolha assinada — compare com o H7
+       vizinho, que traz 'como aprovado em 30/08'. ⚠ CORRECAO DE ESCOPO QUE A RELEITURA
+       ACHOU: a saida recomendada alcanca 5 DAS 8, nao as 8 — ver o `missing` deste item"
   regressions: []
+  reauditado_em: 2026-09-26
+  reauditoria:
+    artefato: ".planning/phases/46-purga-autom-tica-dry-run-live/46-AUDITORIA-GAPS-2026-09-26.md"
+    escopo: "somente leitura — nenhuma escrita em PROD, nenhuma migration"
+    saldo: "2 fechados por trabalho posterior · 1 fechado por decisao registrada · 1 ainda real · 0 nao-mediveis"
+    recomendacao_de_veredito: >
+      ⚠ `status: gaps_found` e `score: 4/5` NAO foram alterados por esta escrituracao, e a
+      omissao e deliberada: virar o veredito de uma fase e ato do VERIFICADOR, nao da
+      escrituracao. Como RECOMENDACAO, e nao como mudanca de campo: uma re-verificacao hoje
+      provavelmente fecharia a fase — nao ha trabalho de codigo ou banco em aberto, o
+      agendador esta provado por 34 noites de observacao, e o unico gap remanescente e uma
+      DECISAO DE OPERADOR sobre 8 registros de fixture, nao um defeito. Quem for
+      re-verificar precisa saber de duas coisas medidas em 2026-09-26 e que nao existiam em
+      2026-08-23: o portao do flip esta 5/5 VERDE (34 dias · 36 execucoes · 35 com
+      evidencia · allowlist 3 · zero etapa em `seed`), e por isso o flip deixou de ser ACAO
+      BLOQUEADA e passou a ser DECISAO DO OPERADOR — os criterios nao sao mais a barreira,
+      a barreira e um argumento (`p_confirmo_live`, a guarda (6.a)), que foi feita contra
+      EFEITO COLATERAL e nao contra decisao precipitada.
 overrides:
   - item: "Criterio 2 do portao de fase destrutiva — review bloqueante ANTES do apply em PROD"
     aplica_a: "os applies dos planos 46-05, 46-06 e 46-07 (commits aa96052, bd30684, 0f44e53, 5351bde), todos anteriores ao 13e5302, que e o review retroativo"
@@ -216,7 +279,17 @@ gaps:
       - path: "public.candidatos / auth.users"
         issue: "8 linhas sinteticas residentes em PROD; `candidaturas_alem_da_janela()` = 4, todas fixture"
     missing:
-      - "Decisao explicita e datada do operador sobre o destino da fixture no dia do flip — o runbook §Teardown ja oferece as duas saidas ('a propria purga em live a consome' ou 'estender-dry-run indefinidamente => teardown nunca'). Enquanto nao houver escolha registrada, o dia do flip herda uma decisao nao tomada"
+      - "Decisao explicita e datada do operador sobre o destino da fixture no dia do flip — o runbook §Teardown ja oferece as duas saidas ('a propria purga em live a consome' ou 'estender-dry-run indefinidamente => teardown nunca'). Enquanto nao houver escolha registrada, o dia do flip herda uma decisao nao tomada
+         · ⚠ [2026-09-26] A PRIMEIRA SAIDA, COMO ESTA ESCRITA AQUI E NO RUNBOOK, SUBCONTA O
+         QUE SOBRA. 'A propria purga em live a consome' vale para 5 das 8: medido titular a
+         titular, `candidaturas_alem_da_janela()` = 5, e `neg-etapa` / `neg-hold` /
+         `neg-art20` sao inelegiveis POR CONSTRUCAO (etapa fora da allowlist · hold ativo ·
+         revisao Art. 20 pendente) e sobrevivem a qualquer flip. E o `§Teardown` do
+         `46-07-RUNBOOK-FLIP.md:335` descreve o residuo pos-`live` como '`vagas`, e o que nao
+         tiver `user_id`' — mas as 3 que sobrevivem TEM `user_id` e conta viva em `auth.users`
+         (8 de 8). O residuo real e maior que a frase: 3 candidatos + 3 contas de Auth,
+         alcancaveis so por `p46_teardown_fixture.sql`. ⚠ A frase do RUNBOOK nao foi corrigida
+         por esta escrituracao — ela vive em outro arquivo e esta apontada no hand-back"
       - "Se algum painel/KPI/export for lido nestes 14 dias, conferir que ele exclui o namespace `fixture-p46+%@invalido.local`"
 
 deferred: []
@@ -250,25 +323,112 @@ human_verification:
       cada uma (hoje ambas em 24 meses, procedencia `seed`)
     expected: "`config_retencao_etapa.origem` passa de `seed` para `admin` nas duas. Medido por mim hoje: 2 das 3 etapas da allowlist ainda em `seed` (`rejeitado` ja esta em `admin`, 18 meses)"
     why_human: "E acao de operador na tela, e e a UNICA pendencia do portao do flip que o TEMPO nao resolve — o servidor recusa `live` enquanto for assim, mesmo depois de 2026-09-06"
+    status_2026_09_26: >
+      ✅ FEITO. Executado pelo operador em 2026-09-06 (§7.32 do `GUIA-VALIDACAO-FINAL.md`):
+      7 etapas confirmadas pela RPC `confirmar_janela_retencao`, 7 `seed` -> `admin`, e ZERO
+      alteraram o numero — a trilha prova isso sozinha, porque `dados_antes.janela_meses` e
+      `dados_depois.janela_meses` sao iguais no snapshot da propria linha de auditoria.
+      Remedido em 2026-09-26: `config_retencao_etapa` tem 8 linhas, TODAS em `origem = 'admin'`,
+      ZERO em `seed`. Era o unico criterio do portao que o tempo nao resolvia — e com ele o
+      portao fechou 5/5. ⚠ Consequencia que este item nao previa: a recusa por criterio
+      deixou de existir, o que desarmou o item 3 abaixo. Ver `46-AUDITORIA-GAPS-2026-09-26.md`.
   - test: "Provar `cron.alter_job` por execucao, num momento controlado — desarmar e rearmar o jobid 6"
     expected: "a alavanca de emergencia do runbook funciona de verdade, e o job volta com `active = true` e o mesmo `md5(command)` que a assercao (a) pina"
     why_human: "Muta o agendamento de PROD. Privilegio, assinatura, `prokind='c'` e `prosecdef=false` estao medidos; a EXECUCAO nao. Herdado de BL-R3-01 e da 46-EVIDENCIA-APPLY §Pendencias 1"
+    status_2026_09_26: >
+      ⏳ CONTINUA ABERTO, e agora e a UNICA peca do plano de incidente sem prova por execucao.
+      Corroborado por AUSENCIA, nao por leitura: as 34 datas distintas em 34 dias de
+      intervalo em `cron.job_run_details` mostram que ninguem desarmou o jobid 6 nesse
+      periodo. O job segue `active = true`, `0 3 * * *`, `md5(command) =
+      381a0edbc8a59b47b23b50dd1eba9a86` — identico ao que a assercao (a) do smoke pina.
+      Ganhou peso desde 2026-08-23: com o portao 5/5 verde, `cron.alter_job(job_id := 6,
+      active := false)` passou a ser a alavanca que interrompe uma purga que JA PODE ser
+      ligada, e nao mais a de uma que o servidor ainda recusava.
   - test: >
-      RESIDUAL (escopo reduzido pelo smoke): repetir a recusa do flip por uma sessao de
-      administrador REAL atravessando o PostgREST — login no app como admin e chamada da
-      RPC `salvar_config_purga` com `p_modo => 'live'`
-    expected: "22023 nomeando exatamente TRES criterios faltantes (dias=0/14 · execucoes=2/14 · 2 etapas em `seed`), `modo` seguindo `dry_run`, zero linha nova em `logs_auditoria`"
+      ⛔⛔ NAO EXECUTE ESTE ITEM. Ele foi RETIRADO em 2026-09-26 — o estado que ele media
+      deixou de existir, e seguir a versao antiga CONDUZ a um flip irreversivel. Nao ha nada
+      a fazer aqui: leia o `expected` e o `why_human` e passe para o item seguinte.
+    expected: >
+      ⚠⚠ O `expected` ANTIGO ESTA CITADO ABAIXO E NAO VALE MAIS. Ele dizia, em 2026-08-23:
+
+        «22023 nomeando exatamente TRES criterios faltantes (dias=0/14 · execucoes=2/14 ·
+         2 etapas em `seed`), `modo` seguindo `dry_run`, zero linha nova em `logs_auditoria`»
+
+      POR QUE DEIXOU DE VALER (medido em 2026-09-26, nao lido de documento): os tres
+      criterios que ele previa FALTANDO estao todos SATISFEITOS — dias = 34 (`cron.job_run_details`
+      do jobid 6 com 34 linhas, 34 `succeeded`, 34 datas distintas, job `active`), execucoes
+      de ensaio = 36, e etapas da allowlist em `seed` = 0 (`config_retencao_etapa` tem 8
+      linhas, TODAS em `origem = 'admin'`; as 3 elegiveis sao `aprovado` 24 m,
+      `decisao_final` 24 m e `rejeitado` 18 m). O portao do flip esta 5/5 verde.
+
+      O QUE ACONTECE HOJE, SE ALGUEM FIZER A CHAMADA COMO O ITEM ANTIGO A ESCREVE:
+      ela RECUSA. `salvar_config_purga(p_modo => 'live')` SEM `p_confirmo_live` levanta
+      `22023` na guarda (6.a) — A CONFIRMACAO EXPLICITA — e NUNCA ALCANCA o bloco (6.b) dos
+      criterios, porque no corpo vivo (md5 e10786bd…) a guarda da confirmacao PRECEDE os
+      criterios. `modo` segue `dry_run` e nenhuma linha nova entra em `logs_auditoria`.
+      A chamada, em si, e SEGURA.
+
+      ⛔ E AQUI ESTA A ARMADILHA, QUE E HUMANA E NAO DE CODIGO: a recusa vem com a mensagem
+      da CONFIRMACAO AUSENTE («ligar a purga em modo live exige confirmacao EXPLICITA — o
+      argumento de confirmacao veio [NULL]»), e NAO com a mensagem dos tres criterios que o
+      texto antigo prometia. Quem leu «deve recusar nomeando tres criterios» e recebe «faltou
+      o argumento» conclui, de boa-fe, que esqueceu um parametro — acrescenta
+      `p_confirmo_live := true`, E NESSE PONTO OS CINCO CRITERIOS ESTAO VERDES E O FLIP
+      EXECUTA: destruicao irreversivel de PII em Storage, Postgres e Auth, sem PITR e com o
+      Storage fora de todo caminho de backup. NAO acrescente esse argumento para «consertar»
+      a mensagem inesperada. Isso e VEDADO pela `JORNADA-GUIADA.md:72` (regra 3), e a vedacao
+      esta replicada em `49-18-PLAN.md:35`, `49-CONTEXT.md:663`, `48-18-PLAN.md:32,50` e
+      `48-CONTEXT.md:100`.
+
+      Para CONFERIR o portao sem executa-lo, use so consultas de LEITURA sobre
+      `purga_execucoes` e `config_retencao_etapa` — nenhuma chama a RPC.
     why_human: >
-      A TRANSICAO ja esta provada no banco: o bloco (d) rodou hoje contra o corpo NOVO
-      (md5 e10786bd), carimbando `request.jwt.claims` — a mesma GUC que `auth.jwt()` le —
-      com uma assercao de NAO-VACUIDADE que exige `auth.uid()` nao-nulo, e produziu sete
-      recusas 22023, uma aceitacao e um kill switch irrecusavel, com a impressao digital do
-      ledger conferida no fim. O que resta e so a camada de gateway (verificacao de
-      assinatura do JWT e `SET ROLE authenticated` pelo PostgREST), que nao tem caminho
-      automatizavel a partir da Management API — ela recusa antes, com 42501
+      ⚠ O `why_human` ANTIGO (2026-08-23) dizia que «o que resta e so a camada de gateway
+      (verificacao de assinatura do JWT e `SET ROLE authenticated` pelo PostgREST), que nao
+      tem caminho automatizavel a partir da Management API — ela recusa antes, com 42501»,
+      apoiado em que a TRANSICAO ja estava provada no banco pelo bloco (d) do smoke contra o
+      corpo NOVO (sete recusas 22023, uma aceitacao, kill switch irrecusavel, impressao
+      digital do ledger conferida no fim). Essa parte do registro continua verdadeira e nao
+      foi apagada.
+
+      O QUE MUDOU: o item exercitava a camada de gateway ATRAVES da recusa por criterio — o
+      cerco era o sujeito da observacao. Esse sujeito nao existe mais, porque nenhum criterio
+      falha. Logo a prova que este item pretendia dar NAO E MAIS OBTENIVEL POR ESTA VIA: a
+      unica recusa disponivel hoje e a da confirmacao ausente, que nao exercita criterio
+      nenhum e nao diz nada sobre a assinatura do JWT nem sobre o `SET ROLE`.
+
+      SE ALGUEM AINDA QUISER A PROVA DO GATEWAY, ela precisa de um alvo NOVO — uma RPC
+      qualquer de admin cuja recusa nao tenha efeito destrutivo — e nao desta. Enquanto nao
+      houver esse alvo, o item fica RETIRADO e nao pendente: um item de UAT que nao pode ser
+      executado com seguranca nao e uma pendencia, e uma instrucao a desarmar.
+      Ver `46-AUDITORIA-GAPS-2026-09-26.md` §SEGUNDO.
   - test: "Decidir e DATAR o destino dos 8 registros de fixture no dia do flip"
     expected: "uma linha escrita no runbook dizendo qual das duas saidas do §Teardown foi escolhida, e por quem"
     why_human: "E decisao de operador sobre PII em producao, nao inferencia"
+    status_2026_09_26: >
+      ⏳ CONTINUA ABERTO — e o unico dos quatro gaps que ainda e real. O que existe hoje e
+      RECOMENDACAO, nao decisao: `GUIA-VALIDACAO-FINAL.md:258` (H6) recomenda «deixar a
+      primeira noite em `live` destrui-las» MAS preserva a alternativa, sem autor e sem data;
+      `RETOMAR-AQUI.md:181` afirma o plano; e o `§Teardown` do `46-07-RUNBOOK-FLIP.md`
+      continua com AS DUAS SAIDAS abertas, nenhuma marcada. Compare com o H7 vizinho, que traz
+      «como aprovado em 30/08» — mesmo documento, dois itens adjacentes, e so um decidiu.
+
+      ⚠⚠ CORRECAO DE ESCOPO QUE A RELEITURA DE 2026-09-26 ACHOU, E QUE MUDA O QUE A DECISAO
+      PRECISA COBRIR: a saida recomendada alcanca 5 DAS 8 fixtures, nao as 8. Medido titular a
+      titular, nao pela contagem — `candidaturas_alem_da_janela()` devolve 5 elegiveis
+      (`pos1`, `pos2`, `pos3`, `cap2`, `neg-vaga`), e as outras 3 sao inelegiveis POR
+      CONSTRUCAO, cada uma exercitando uma excecao distinta do predicado: `neg-etapa` (etapas
+      `entrevista_online`/`triagem`, com `elegivel_purga = false`), `neg-hold` (1
+      `retencao_hold` com `liberado_em IS NULL`) e `neg-art20` (1 `decisao_final` com
+      `revisao_solicitada_em` preenchida e `revisao_respondida_em` nula). Logo a primeira
+      noite em `live` NAO as consome: as 3 negativas sobrevivem a qualquer flip,
+      indefinidamente, porque a razao de existirem e nao serem alcancaveis pela purga.
+      As 3 tem `user_id` e conta viva em `auth.users` (medido: 8 de 8), e o unico caminho que
+      as remove e `supabase/tests/p46_teardown_fixture.sql`.
+
+      Portanto a decisao datada que falta tem de dizer o destino das 8, e nao das 5 — e se a
+      escolha for a saida recomendada, ela precisa nomear o segundo passo para as 3 restantes.
+      Ver `46-AUDITORIA-GAPS-2026-09-26.md` §"Gap 4".
 ---
 
 # Phase 46 · Purga Automatica (dry-run -> live) — Relatorio de Verificacao (RE-VERIFICACAO)
