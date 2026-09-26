@@ -289,6 +289,19 @@ fallback forçado exige, e é o valor que a Task 3 tem de ver restaurado:
 
 ## 4. Sessão 1 — 1ª tentativa de verificação (2026-09-26): **NÃO PROVADA**
 
+> ## ✅ CAUSA FECHADA — não reabrir a investigação de ambiente
+>
+> **A sessão 1 não foi executada.** O que chegou como «sessão 1 feita» era o **roteiro**,
+> não o executado — confirmado pelo operador em 2026-09-26, nas palavras dele: «Não cheguei
+> a fazer — o que mandei era o roteiro, não o executado.»
+>
+> **Não é divergência de ambiente, de projeto, de alias nem de Auth.** As três alternativas
+> foram descartadas por medição antes de qualquer conclusão (§«O diagnóstico» abaixo), e o
+> orquestrador reconfirmou por medição independente, com as mesmas contagens.
+>
+> ⚠ A próxima sessão **não precisa** — e não deve — refazer essa investigação. A pergunta
+> «o dado foi para outro lugar?» está respondida: não foi para lugar nenhum.
+
 O operador avisou «sessão 1 feita» em 2026-09-26, nomeando
 `fernandinho.costa.neto+claude7@gmail.com` como a conta descartável e relatando dois
 ajustes de roteiro. A prova foi rodada com o T0 deste arquivo e voltou **idêntica à linha
@@ -388,7 +401,14 @@ saída para discutir.
 conjunto vazio de ações é verdadeira sem ter sido testada. Elas só passam a valer como
 prova depois de a jornada existir.
 
-### Os dois ajustes de roteiro do operador — RELATADOS, não observados em PROD
+### Os dois ajustes de roteiro do operador — conferidos em vez de aceitos
+
+> Registro honesto de leitura: na hora em que esta seção foi escrita, os dois ajustes
+> chegaram junto com «sessão 1 feita» e foram lidos como **relato do executado**. Eram
+> **planejamento** — o operador esclareceu depois que mandou o roteiro, não o executado. A
+> análise abaixo continua valendo inteira (ela é sobre o código e sobre o estado do banco,
+> não sobre o relato); o que muda é o rótulo: não houve afirmação falsa a corrigir. O
+> roteiro que saiu dela está na §4b.
 
 **(1) «o teto só é demonstrável com 5 candidaturas abertas, porque o checkbox só mostra a
 mensagem do teto em linha não encerrada» — CORRETO, e mais forte do que ele disse.**
@@ -408,7 +428,8 @@ E `+claude8`/`+claude9` só **acrescentariam população** ao CTE de contas de t
 coluna da prova muda de definição por causa delas. *(As duas contas, porém, **não
 existem**: 0 linhas em `candidatos` e em `auth.users`.)*
 
-**(2) «o (c) exigiu avançar a `+claude6` até Entrevista online» — NÃO ACONTECEU.**
+**(2) «o (c) exigiu avançar a `+claude6` até Entrevista online» — NÃO ACONTECEU** (era
+intenção de roteiro, e ficou rebaixado a verificação em tempo de sessão — §4b).
 
 Medido:
 
@@ -426,15 +447,87 @@ aguardando_resposta)` = **false** — ela não está no CTE `ko` nem satisfaz a 
 `p25_sem_avanco_para_encerrada`. Avançar uma candidatura ABERTA é o caminho normal do
 funil, e é o que o passo (c) precisa. As duas colunas seguem `true`, e continuariam.
 
-### O que precisa acontecer para a Task 2 fechar
+## 4b. Roteiro da próxima sessão 1 — decidido com o operador em 2026-09-26
+
+Isto **substitui** a leitura ingênua do passo (b) do plano. Não é preferência: é o que a
+aritmética do teto e o código da tela exigem.
+
+### Passo (b) — as 5 candidaturas abertas, e por que 5 e não 4
+
+**Contas a criar**, todas na vaga **Social Media** (`e897f709-d4e7-4f6c-a25b-a433d2eda525`)
+e todas **SEM** marcar a opção que elimina (`0f59f62b-d86b-416d-89cd-be7865e2965c`, «Tenho
+disponibilidade apenas para trabalho remoto»):
+
+| Conta | Papel |
+|---|---|
+| `+claude7` | **a descartável** — nome sintético raro; sujeito do plano 49-19; não usar para mais nada |
+| `+claude8` | 4ª candidatura aberta |
+| `+claude9` | 5ª candidatura aberta |
+
+**Somadas às 2 que já estão abertas** — `+claude5` (`af39f1ea-201b-4006-b930-d67d4c35e970`)
+e `+claude6` (`8101c56f-de41-442b-9b66-0c404a94484f`), ambas em `avaliacao_assincrona` /
+`aguardando_resposta` — dão **5 candidaturas abertas e não encerradas** na mesma vaga.
+
+**A aritmética:** o teto é 4. Com 4 abertas, as 4 são selecionáveis e **nenhuma linha sobra**
+no estado «bloqueada pelo teto» — não há 5ª linha para o tooltip aparecer. A 5ª existe só
+para ser a linha recusada.
+
+**A evidência de código que torna este roteiro necessário, e não arbitrário**
+(`src/features/triagem/components/TriagemTable.tsx`):
+
+- **`:285-287`** — `motivoDoBloqueio = encerrada ? COPY_ENCERRADA_COMPARATIVO : COPY_TETO_COMPARATIVO`.
+  O ramo `encerrada` **ganha**: numa linha encerrada aparece «Candidatura encerrada não entra
+  no comparativo.», **nunca** a cópia do teto. Logo a 5ª linha tem de ser **aberta** — uma
+  candidatura encerrada a mais não serve;
+- **`:284`** — `checkboxDisabled = encerrada || (capReached && !isSelected)`. Só existe linha
+  nesse segundo estado se houver uma 5ª **não encerrada**;
+- **`:485-490`** — a outra superfície da cópia do teto (tooltip do botão «Comparar») está
+  dentro de `{!compareEnabled && …}`, e `compareEnabled = selectedCount >= 2 && selectedCount <= 4`.
+  Com 4 selecionados `compareEnabled` é **true** e o tooltip **não é renderizado**; acima de
+  4 é impedido pelo próprio checkbox. Esse ramo é **cópia praticamente inalcançável** pelo
+  fluxo normal.
+
+**Conclusão:** a única superfície observável de `COPY_TETO_COMPARATIVO` é o tooltip de linha
+de uma 5ª candidatura aberta. Sem a 5ª, o passo (b) não pode ser conferido — e dar o teto
+por conferido sem ela seria afirmar o que não foi visto.
+
+*(Isto não contradiz nada que a fase afirmou sobre o teto: `COMPARATIVO_MAX_CANDIDATOS = 4`
+da EF (49-08) e as recusas `ENCERRADA` / `VALIDATION` são outra camada e seguem de pé. E as
+contas novas só **acrescentam população** ao CTE de contas de teste — nenhuma coluna da prova
+muda de definição por causa delas.)*
+
+### Passo (c) — condição a conferir NA HORA, não passo de roteiro
+
+O ajuste que chegou como «avancei a `+claude6` até Entrevista online» foi **rebaixado a
+verificação em tempo de sessão**, por decisão do operador: **se** o workspace de entrevista
+do passo (c) exigir etapa de entrevista, ele **avisa antes** de avançar qualquer candidatura.
+Avançar não é um passo planejado.
+
+**A conta já está feita, para a próxima sessão não a refazer:** avançar uma candidatura
+**ABERTA** não derrubaria as provas do JORN-25. Medido em 2026-09-26 —
+`+claude6` / `8101c56f-…` tem `opcao_knockout_id` **nulo** e
+`candidatura_encerrada('avaliacao_assincrona', 'aguardando_resposta')` = **false**, logo ela
+não entra no CTE `ko` nem satisfaz a condição de `p25_sem_avanco_para_encerrada`. Avançar
+candidatura aberta é o caminho normal do funil e é o que o passo (c) precisa;
+`p25_knockout_nao_avanca` e `p25_sem_avanco_para_encerrada` seguiriam `true`.
+
+### O T0 é PRESERVADO — `2026-09-26T18:44:16Z`
+
+Ele continua válido porque **nada aconteceu depois dele**: zero linha em qualquer tabela
+(§«O diagnóstico»). Toda a jornada, quando acontecer, cai naturalmente depois desse instante.
+
+⚠ **Refazer o T0 sem necessidade teria custo.** A linha de base da §2 foi medida com
+exatamente este T0, e as 8 negativas foram provadas **mordentes** por mutação contra ele.
+Um T0 novo joga fora essa linha de base e essas provas de mordida, e obriga a remedir tudo
+para ganhar nada — o instante antigo já é anterior a qualquer ação da jornada.
+
+### O que ainda precisa acontecer para a Task 2 fechar
 
 1. A sessão 1 ser **executada** contra `https://rh.beautysmile.com.br` (projeto
-   `isljnozzlvckrgjjbjwp`), com as contas `+claude`;
-2. o relato de (a)–(f) com conteúdo, não elidido;
-3. a prova voltar com as **19** colunas `true`.
-
-O T0 **não precisa ser refeito**: `2026-09-26T18:44:16Z` continua válido, porque nada
-aconteceu depois dele. Toda a jornada, quando acontecer, cai depois desse instante.
+   `isljnozzlvckrgjjbjwp`), com as contas `+claude` e o roteiro da §4b;
+2. o relato de (a)–(f) **com conteúdo**, não elidido — o estado das seis segue
+   `pendente de relato do operador`;
+3. a prova voltar com as **19** colunas `true` (as 2 do fallback são da Task 3).
 
 ## 5. Sessão 2 — o fallback forçado (D-27)
 
