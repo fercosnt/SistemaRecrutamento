@@ -3,10 +3,10 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: 49-18 Task 1 (tracer) concluída e publicada; PARADO no checkpoint blocking-human da Task 2 (sessão 1 da jornada com o operador)
-last_updated: "2026-09-26T18:56:17.082Z"
+stopped_at: "49-18 Task 2 NÃO provada: a sessão 1 não chegou a PROD (zero linhas após T0; +claude7/8/9 inexistentes; nenhum login desde 2026-09-22). Aguardando execução real da jornada + relato de (a)-(f). Task 3 não alcançável antes disso."
+last_updated: "2026-09-26T19:29:14.667Z"
 last_activity: 2026-09-26
-state_head: 266838217f05fba6869614f5ffc1328810659566
+state_head: 2101f7a3c70932b8598189bb2b913b6d3288b0e9
 progress:
   total_phases: 8
   completed_phases: 9
@@ -1206,6 +1206,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - ~~49-10: `git push origin main` NEGADO pelo ambiente (Out-of-Place Publication)~~ — **RESOLVIDO no mesmo plano, 2026-09-23.** A primeira tentativa de push foi negada e este blocker foi aberto enquanto era verdadeiro; a tentativa seguinte passou. Medido: `origin/main` = `HEAD` = `44fe06cf`, `git log --oneline origin/main..HEAD` **vazio**. Fica registrado em vez de apagado porque o `49-10-SUMMARY.md` chegou a ser escrito afirmando que o critério estava em aberto — a correção é a lição deste arquivo sobre diagnóstico plausível que ninguém mediu, aplicada a si mesma. Nenhuma ação do operador pendente.
 - 49-22: são 13 linhas de literal de teto do comparativo, não 12 nem 8. O 49-08 contou só as que carregam o par completo (>= 2 && <= 10) e deixou de fora as duas que carregam só o piso (ComparativoCandidatosPage.tsx:153, DecisaoFinalPage.tsx:181). Trocar as demais pela constante e esquecer essas duas deixa a tela dizendo «ao menos 2» num lugar e lendo a constante no outro.
 - p46_purga_smoke (j.2) reprova por estado de fixture-seed alheio: a vaga 4601d000-0000-4000-8000-000000000003 esta 'arquivada' desde 2026-08-23 e a assercao de NAO-VACUIDADE exige 'ativa'. Medido pre-existente (identico com os corpos ANTERIORES ao apply do 49-14). Bloqueia (o)/(o.6)/(o.7)/(p), que exercitam o 4o ramo do guard do motor; com a vaga devolvida a 'ativa' dentro de requisicao que aborta, o gate fecha 27/27. Conserto e UPDATE retroativo em fixture de PROD — checkpoint do operador (D-54). Registrado em WINDOWS.md.
+- 49-18 Task 2: a sessão 1 da jornada foi relatada como feita mas NÃO chegou ao PROD isljnozzlvckrgjjbjwp — zero linhas em qualquer tabela após T0=2026-09-26T18:44:16Z, contas +claude7/8/9 inexistentes em candidatos e auth.users, e nenhum login no projeto desde 2026-09-22 00:31. As conferências (a)-(f) vieram elididas. A fase não pode fechar sem a jornada executada e relatada.
 
 ## Deferred Verification
 
@@ -1429,8 +1430,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-26T18:54:21.099Z
-Stopped at: 49-18 Task 1 (tracer) concluída e publicada; PARADO no checkpoint blocking-human da Task 2 (sessão 1 da jornada com o operador)
+Last session: 2026-09-26T19:29:13.808Z
+Stopped at: 49-18 Task 2 NÃO provada: a sessão 1 não chegou a PROD (zero linhas após T0; +claude7/8/9 inexistentes; nenhum login desde 2026-09-22). Aguardando execução real da jornada + relato de (a)-(f). Task 3 não alcançável antes disso.
 Resume file: .planning/phases/49-consertos-da-jornada-bloco-2/49-PROVA-PROD.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
