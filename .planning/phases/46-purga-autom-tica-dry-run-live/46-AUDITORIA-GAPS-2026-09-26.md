@@ -14,10 +14,11 @@ resultado:
 achado_que_nao_estava_em_nenhum_gap: >
   O PORTÃO DO FLIP ESTÁ 5/5 VERDE. Medido com as próprias expressões de
   `salvar_config_purga`: 34 dias · 36 execuções · 35 com evidência · allowlist 3 ·
-  zero etapa em `seed`. Uma chamada com `p_confirmo_live := true` hoje NÃO recusa —
-  ela EXECUTA o flip irreversível. Já registrado em §7.32 do `GUIA-VALIDACAO-FINAL`
-  (2026-09-06), mas o item 3 de `human_verification` da `46-VERIFICATION.md` continua
-  pedindo, por escrito, a execução que virou o gatilho.
+  zero etapa em `seed`. O flip deixou de ser AÇÃO BLOQUEADA e passou a ser DECISÃO DO
+  OPERADOR: os critérios não são mais a barreira — a barreira é um argumento
+  (`p_confirmo_live`). E o item 3 de `human_verification` da `46-VERIFICATION.md`
+  prevê um resultado que não acontece mais, o que conduz o operador na direção
+  daquele argumento com um mapa errado. Ver §SEGUNDO.
 ---
 
 # Phase 46 · Auditoria de releitura dos `gaps_remaining` de 2026-08-23, medida em 2026-09-26
@@ -101,22 +102,76 @@ inalterado desde o apply), com os mesmos recortes de `modo_vigente` e `veredito`
 | 4 | etapas com `elegivel_purga` | ≥ 1 | **3** ✅ | 3 ✅ |
 | 5 | etapas da allowlist em procedência `seed` | = 0 | **0** ✅ | 2 ❌ |
 
-**Os cinco estão verdes. O servidor não recusa mais o `live`.**
+**Os cinco critérios estão verdes. Nenhum deles recusa mais o `live`.**
 
 Isso não é novidade para o repositório — foi registrado em `GUIA-VALIDACAO-FINAL.md` §7.32
 (commit `c6453af6`, 2026-09-06 23:40) e em `RETOMAR-AQUI.md` §0.3, ambos com o aviso de que
-o bloco de "prova do portão fechado" do runbook **virou o gatilho do flip**. Mas há uma
-consequência que ficou fora: o item **3 de `human_verification` da própria
-`46-VERIFICATION.md`** pede, por escrito,
+o bloco de "prova do portão fechado" do runbook **virou o gatilho do flip**. E a proibição
+correspondente **já existe e é explícita**: `JORNADA-GUIADA.md:71-73` (regra 3 — «*Não rode
+o bloco de `salvar_config_purga(... p_confirmo_live := true)`… o portão está verde desde
+06/09, então aquele SQL executa o flip em vez de provar que está fechado*»), replicada em
+`49-18-PLAN.md:35`, `49-CONTEXT.md:663`, `48-18-PLAN.md:32,50` e `48-CONTEXT.md:100`. **A
+vedação está escrita. O que falta é o item 3 parar de conduzir na direção dela.**
 
-> «*repetir a recusa do flip por uma sessao de administrador REAL atravessando o PostgREST
-> — login no app como admin e chamada da RPC `salvar_config_purga` com `p_modo => 'live'`*»
-> · esperado: «*22023 nomeando exatamente TRES criterios faltantes*»
+### ⚠ Correção de uma afirmação que eu mesmo escrevi errado — e a forma certa do achado
 
-**Esse teste hoje não recusa: ele liga a purga em produção, de forma irreversível, sem PITR
-e com o Storage fora de todo caminho de backup.** O item está morto por sucesso — o estado
-que ele media deixou de existir — e não pode ser executado como escrito. Não editei a
-`46-VERIFICATION.md`; fica aqui, e é o principal motivo para esta auditoria existir.
+A primeira versão desta auditoria dizia que a chamada do item 3 «*não recusa: executa o flip
+irreversível*». **Isso é falso**, e falso na direção perigosa — seria esta auditoria
+produzindo exatamente o registro-com-autoridade-que-envelheceu que ela existe para achar.
+Conferi as duas metades:
+
+**(1) O que o item 3 manda fazer** (`46-VERIFICATION.md:257-260`): «*login no app como admin
+e chamada da RPC `salvar_config_purga` com `p_modo => 'live'`*». Ele **não** manda passar
+`p_confirmo_live := true`.
+
+**(2) A ordem das guardas no corpo VIVO** (lida de `pg_proc.prosrc`, md5
+`e10786bd4e21bce3e9dd956f6a479db2`, não do documento — a guarda da confirmação está no
+offset 4770 e o bloco dos critérios no 5481, nesta ordem):
+
+```
+v_virando_live := (p_modo = 'live' AND v_modo_antes IS DISTINCT FROM 'live');
+IF coalesce(v_virando_live, false) THEN
+  -- ── (6.a) A CONFIRMACAO EXPLICITA ──
+  IF p_confirmo_live IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'VALIDATION: ligar a purga em modo live exige confirmacao EXPLICITA
+      — o argumento de confirmacao veio [%] …'  USING ERRCODE = '22023';
+  END IF;
+  -- ── (6.b) OS TRES CRITERIOS DE D-46-14, MEDIDOS NO LEDGER ──   ← só DEPOIS
+```
+
+**A guarda da confirmação PRECEDE o bloco dos critérios.** A chamada exatamente como o item
+3 a escreve **recusa com `22023` em (6.a)** e **nunca alcança (6.b)**. O flip não acontece, e
+`modo` segue `dry_run`.
+
+**O que está obsoleto é o RESULTADO ESPERADO, não a segurança da chamada.** O item 3 prevê:
+
+> esperado: «*`22023` nomeando exatamente TRES criterios faltantes (dias=0/14 ·
+> execucoes=2/14 · 2 etapas em `seed`), `modo` seguindo `dry_run`, zero linha nova em
+> `logs_auditoria`*»
+
+Os três critérios que ele previa faltando **estão satisfeitos hoje**, medidos:
+
+| Critério previsto faltando | Previsto | Medido 2026-09-26 |
+|---|---|---|
+| dias desde o 1º ensaio | 0/14 | **34** — e `cron.job_run_details` jobid 6 = **34 linhas, 34 `succeeded`, 34 datas distintas**, job `active` |
+| execuções de ensaio | 2/14 | **36** |
+| etapas da allowlist em `seed` | 2 | **0** — `config_retencao_etapa` tem 8 linhas, **todas `origem = 'admin'`**; as 3 elegíveis são `aprovado`/`decisao_final` (24 m) e `rejeitado` (18 m), as três `admin` |
+
+### E o risco real é humano, não de código — este é o mecanismo
+
+O operador que seguir o item 3 recebe uma recusa **com mensagem diferente da prevista**:
+não sobre critérios, mas sobre a confirmação ausente — «*exige confirmacao EXPLICITA — o
+argumento de confirmacao veio [NULL]*». Quem leu «*deve recusar nomeando três critérios*» e
+vê «*esqueceu o argumento*» conclui, de boa-fé, **«ah, faltou um parâmetro»** — acrescenta
+`p_confirmo_live := true`, e **nesse ponto os cinco critérios estão verdes e o flip
+executa**, irreversível, sem PITR e com o Storage fora de todo caminho de backup.
+
+**O documento não aperta o gatilho. Ele conduz até o gatilho com um mapa errado** — e o
+mapa errado é justamente o que faz a correção parecer trivial. Por isso a recomendação não
+muda: **o item 3 deve ser retirado ou reescrito, não executado.** Se alguém quiser a prova
+que ele pretendia dar, ela precisa de um alvo novo — a recusa por critério não é mais
+observável neste banco, porque nenhum critério falha. Não editei a `46-VERIFICATION.md`;
+fica aqui, e é o principal motivo para esta auditoria existir.
 
 ---
 
@@ -264,7 +319,7 @@ idempotente com verificação de resíduo, e entra pelo namespace do e-mail — 
 |---|---|
 | **Confirmar as janelas de `aprovado` e `decisao_final` em `/admin/retencao`** | ✅ **FEITO** em 2026-09-06 (§7.32). Medido agora: **0 etapas da allowlist em `seed`**, allowlist com 3 etapas. Era o único item do portão que o tempo não resolvia |
 | **Provar `cron.alter_job` por execução** (desarmar e rearmar o jobid 6 num momento controlado) | ⏳ **ABERTO.** É a alavanca de emergência do runbook — corrigida de `UPDATE cron.job` (que levanta `42501`) para `cron.alter_job(job_id := 6, active := false)`, com privilégio, assinatura, `prokind` e `prosecdef` medidos, mas **a execução nunca provada**. Corroborado por ausência: as **34 datas distintas em 34 dias** mostram que ninguém desarmou o job nesse período — ou seja, a alavanca segue sendo a única peça do plano de incidente que não tem prova por execução |
-| **Repetir a recusa do flip por sessão de admin real via PostgREST, esperando `22023`** | ⛔ **MORTO POR SUCESSO — E PERIGOSO SE EXECUTADO.** Os 5 critérios estão verdes; a chamada que deveria recusar agora **executa o flip irreversível**. Não é mais um teste: é o gatilho. Precisa ser retirado da lista de UAT, não realizado |
+| **Repetir a recusa do flip por sessão de admin real via PostgREST, esperando `22023` nomeando três critérios faltantes** | ⛔ **MORTO POR SUCESSO — o resultado esperado não acontece mais.** A chamada em si **é segura**: sem `p_confirmo_live := true` ela recusa em (6.a), antes do bloco dos critérios, e `modo` segue `dry_run`. Mas os três critérios que ela previa faltando **estão satisfeitos** (34 dias · 36 execuções · 0 etapas em `seed`), então a recusa vem com **mensagem diferente** — sobre o argumento ausente. Quem esperava a mensagem dos critérios lê «faltou um parâmetro» e acrescenta `p_confirmo_live := true`: **aí o flip executa.** Retirar ou reescrever o item, não executá-lo |
 | **Decidir e DATAR o destino das 8 fixtures** | ⏳ **ABERTO** — é o gap 4. E, quando for decidido, precisa cobrir **8 e não 5**: a saída recomendada alcança apenas as 5 elegíveis |
 | **O flip `dry_run → live` em si** | ⏳ Checkpoint do operador, portão verde desde 06/09, **sem pressa e sem prazo**. O runbook recomenda fazê-lo depois de haver gente real no sistema e **re-medir o conjunto elegível no instante** — medido hoje: **5 elegíveis, as 5 fixtures, zero pessoa real** |
 
@@ -275,10 +330,11 @@ Nenhum destes é defeito de sistema; todos são registro desatualizado, que segu
 escopo desta auditoria), então ficam nomeados aqui:
 
 1. **`46-VERIFICATION.md` → `re_verification.gaps_remaining`** lista 4 itens; hoje **1 é real**. O item 2 (critério 2 do portão) já estava coberto pelo `overrides:` do mesmo arquivo — o commit do override (`e7118d4c`, 12:26:40) veio **depois** do commit da verificação (`4538dc2f`, 11:41:11), e a lista não foi reescrita. A contradição é de ordem de commits, não de conteúdo.
-2. **`46-VERIFICATION.md` → `human_verification` item 3** manda executar a recusa do flip. Hoje aquela chamada liga a purga. **É o item mais urgente desta lista**, porque é uma instrução escrita que produz um efeito irreversível se seguida ao pé da letra.
+2. **`46-VERIFICATION.md` → `human_verification` item 3** (`:257-260`) prevê uma recusa por **três critérios faltantes** que hoje estão todos satisfeitos. A chamada como escrita **é segura** (recusa na guarda da confirmação, em (6.a), antes dos critérios), mas devolve **outra mensagem** — e a correção que essa mensagem sugere ao leitor (`p_confirmo_live := true`) é exatamente o gatilho do flip. **É o item mais urgente desta lista**: não porque execute algo, mas porque **conduz** a um efeito irreversível com um resultado esperado obsoleto.
 3. **`STATE.md:1284`** ainda lista como pendências herdadas o **HI-01** e o **HI-02** («*nenhum smoke mede `has_table_privilege`/`relacl`*»), fechados em `74ef7c9a` 3 minutos antes do override. Também repete «*o flip para `live` continua sendo 2026-09-06*» — data que passou.
 4. **`GUIA-VALIDACAO-FINAL.md` H1/H2/H3** congelam a medição de 06/09 (13 dias, 15 execuções, 15 com evidência); hoje são 34 / 36 / 35. **H6** segue recomendação, não decisão. `:30` diz «35 candidatos — 11 sintéticos»; hoje são **44** com os mesmos **8** de fixture.
 5. **`46-07-RUNBOOK-FLIP.md` §Teardown** descreve o resíduo pós-`live` como «`vagas`, e o que não tiver `user_id`» — e **as 3 fixtures que sobrevivem têm `user_id`**. A frase subconta o resíduo.
+6. **O flip mudou de natureza, e nenhum documento registra a mudança nesses termos.** Até 2026-09-06 ele era **ação bloqueada**: o servidor recusava por critério, e aquela recusa era ela mesma a prova de que o cerco funcionava. Desde então ele é **decisão do operador**: **os critérios não são mais a barreira — a barreira é um argumento** (`p_confirmo_live`, a guarda (6.a)). E essa guarda protege, deliberadamente, contra *efeito colateral* e não contra *decisão precipitada* — o próprio `RAISE` diz isso: «*o flip nao pode ser efeito colateral de uma chamada que pretendia mudar outro campo*». Todo documento que ainda apresente a recusa por critério como salvaguarda viva está descrevendo um estado que acabou.
 
 ### O saldo
 
@@ -286,7 +342,9 @@ escopo desta auditoria), então ficam nomeados aqui:
 decisão de operador não datada** sobre 8 registros de PII sintética em produção — e essa
 decisão precisa cobrir 8, não 5; (b) **uma prova por execução** da alavanca de emergência
 (`cron.alter_job`); e (c) **escrituração** — cinco documentos que descrevem um sistema de
-5 semanas atrás, um deles com uma instrução que virou gatilho.
+5 semanas atrás, mais o registro de que o flip trocou de natureza: de **ação que o servidor
+bloqueava** para **decisão que só o operador toma**. A salvaguarda que resta é a guarda da
+confirmação, e ela foi feita contra descuido, não contra pressa.
 
 E o item que a fase inteira existia para provar está provado por observação, não por
 argumento: **34 noites, 34 sucessos, 180 titulares avaliados, evidência do caminho do delete
