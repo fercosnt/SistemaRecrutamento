@@ -1051,6 +1051,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 46]: DESVIO DE DESENHO do 46-05, aceito: o review classificara RD2-03 (autorizacao vencer entre o Storage e o motor -> curriculo orfao) como obrigacao de TESTE do 46-06. O executor argumentou que teste e prova, nao mecanismo, e pos o mecanismo na unica porta anterior ao Storage — a reivindicacao exige **150 s** de janela restante (o teto de parede da propria EF). Concedida a reivindicacao, o guard honra em todo passo posterior. Assertado em `(q.3.5)` e `(q.4)`.
 - [Phase 46]: ⚠ DECIMA ocorrencia de "contagem contra constante", agora numa instrucao de HAND-OFF e nao em codigo: o checkpoint do 46-05 mandava assertir `concluido_em IS NOT NULL` = 0. Ha 6, todas LEGITIMAS (criadas e concluidas em 2026-08-22 pelos dry-runs do 46-02/46-03, `desfecho='nao_aplicavel'`). Era baseline nunca medida. O invariante certo — nada criado nem concluido HOJE — da 0 e 0.
 - [Phase 46]: ⚠ Incidental, fora do escopo: a EF `exportar-meus-dados` esta em **version 2**. O gap G2 da Phase 44 afirma "PROD roda a v1 PRE-CORRECAO, a EF nao foi redeployada" — registro provavelmente STALE. Conferir ao retomar `/gsd-plan-phase 44 --gaps`.
+  - ✅ **CONFERIDO EM 2026-09-26, 52 dias depois: a suspeita estava certa e ninguém a conferiu.** A EF está na **v5** (ACTIVE, `verify_jwt=true`, allowlist 1.3.0). O débito fechou em **2026-08-05** — um dia DEPOIS da `44-VERIFICATION.md` — pela Phase 45 / plano 45-01 Task 3 (`9bdd9af`, v1→v2); depois v3 (48-17) e v5 (49-17). **E a ordem que o gap exigia foi respeitada**: o redeploy (05/08) precedeu o primeiro exercício real (11/08), logo o cenário «titular recebe artefato da v1 defeituosa» NUNCA ocorreu. Detalhe em `.planning/phases/44-exporta-o-acesso/44-AUDITORIA-GAPS-2026-09-26.md`. ⚠ Lição: esta linha já dizia «provavelmente STALE, conferir ao retomar» e sobreviveu 52 dias com selo de veredito de fase — uma suspeita registrada e não medida custa o mesmo que nenhuma suspeita.
 - [Phase 46]: 46-06 FECHADO 2026-08-23. `20260823000011_p46_sweep_dispatch_e_reten05` (md5 `35538671d54daa2ab27340735758bd7e`, 78 402 oct) e `20260823000012_p46_cron` (`cc4288b0c76218b598dbb859a01beb7e`, 6 913 oct) aplicadas NESSA ORDEM. ⭐ **O cron existe**: `purga-retencao-sweep`, `0 3 * * *`, `active`, md5 do comando `381a0edbc8a59b47b23b50dd1eba9a86`, 40 octetos. Idempotencia PROVADA por execucao: 2o apply do mesmo arquivo deixa UM job.
 - [Phase 46]: ⭐ D-46-23 CUMPRIDO — `p42_invent05_cron_smoke` **4/4 COM QUATRO JOBS**. A assercao (a) dele (o exemplo canonico do CLAUDE.md de "contagem contra constante") foi emendada para invariante no MESMO commit que criou o job. Nao houve nova ocorrencia da familia. Os 3 jobs herdados intactos, aferidos por igualdade exata de jobname+md5: `fdd283dc` / `b64ca58d` / `04bf2150`.
 - [Phase 46]: ⊖ PROVA AO VIVO do kill switch com o cron armado (2026-08-23 01:29:55-03): `varrer_purga_retencao()` deu `modo=off veredito=desligado elegiveis=4 processados=0 situacao=concluida` — desligando DE VERDADE, por execucao real, contando os elegiveis antes (nao e RETURN mudo). Negativas na MESMA sessao: `net.http_request_queue` p/ purgar-retencao **0** · `net._http_response` na ultima hora **0** · `notificacoes_enviadas` **12 inalterado** (RETEN-05 roda e e revertido em `off`) · dominio 31/20/37/5/13 identico · itens criados/concluidos hoje 0/0. Heartbeat gravado: `purga_execucoes` 2 -> 3.
@@ -1287,8 +1288,43 @@ congelada) · 1895 Vitest · 19 Deno · smoke `p46_purga_smoke.sql` **27/27 em P
 de evidência do critério 3, e PROD já contém a execução que ela deixa passar) · destino dos 8
 registros sintéticos de fixture residentes em `candidatos`.
 
-⚠ **O flip para `live` continua sendo 2026-09-06 e continua sendo checkpoint do operador**, com
-o `46-07-RUNBOOK-FLIP.md` próprio. A alavanca de emergência do runbook foi corrigida hoje: era
+> ⚠ **RELIDO EM 2026-09-26 — esta lista está desatualizada em 3 dos 4 itens.** Auditoria em
+> `.planning/phases/46-purga-autom-tica-dry-run-live/46-AUDITORIA-GAPS-2026-09-26.md`:
+> - **HI-01 e HI-02: FECHADOS** em `74ef7c9a` (2026-08-23 12:23). O guarda de `relacl` não está
+>   só escrito, roda (`P46P_REG_CONTADOR=27`, exit 0, reexecutado em 2026-09-26 pelo 49-29).
+> - **`cron.alter_job` por execução: continua pendente**, e é UAT do operador. Corroborado por
+>   ausência: 34 noites sem lacuna ⇒ ninguém desarmou o job.
+> - **Destino das 8 fixtures: continua o único gap real** — e com escopo CORRIGIDO. A saída do
+>   runbook («a primeira noite em `live` as destrói») alcança **5 das 8**; `neg-etapa`,
+>   `neg-hold` e `neg-art20` são inelegíveis **por construção** e sobrevivem a qualquer flip,
+>   com `user_id` e conta viva. A decisão datada precisa cobrir **8, não 5**.
+> - ⭐ **E o que a lista não dizia:** o cron rodou **34 noites, 34/34 `succeeded`, 34 datas
+>   distintas**, de 2026-08-24 a 2026-09-26, sem noite faltando — medido em `cron.job_run_details`
+>   pelo orquestrador, não lido de documento. A purga automática avaliou titulares, provou o
+>   caminho do delete e **não apagou uma linha**. O gap «0 de 14 noites» está morto.
+> - 🚨 **CONSEQUÊNCIA QUE MUDA O RISCO:** `config_retencao_etapa` tem 3 etapas elegíveis, **todas
+>   `origem='admin'`, ZERO em `seed`** (medido). O flip para `live` deixou de ser **ação
+>   bloqueada** e passou a ser **decisão do operador** — os critérios não são mais a barreira;
+>   a barreira é o argumento `p_confirmo_live`. Ver o item 3 de `human_verification` da
+>   `46-VERIFICATION.md`, reescrito na mesma data por conduzir a leitura na direção do gatilho.
+
+⚠ ~~**O flip para `live` continua sendo 2026-09-06 e continua sendo checkpoint do operador**~~,
+com o `46-07-RUNBOOK-FLIP.md` próprio.
+
+> 🚨 **CORRIGIDO 2026-09-26 — a data passou e o cerco abriu.** «2026-09-06» era a data MÍNIMA
+> (T0 + 14 dias), não a data do flip, e hoje ela está 20 dias no passado. Medido: 34 dias de
+> ensaio · 36 execuções no ledger · 35 com evidência de `relato_dry_run` · allowlist de 3 etapas
+> **todas `origem='admin'`, zero em `seed`**. **Os cinco critérios do D-46-14 estão satisfeitos.**
+> O flip deixou de ser **ação que o servidor recusa** e passou a ser **decisão do operador**: a
+> única barreira restante é o argumento `p_confirmo_live`, e a guarda (6.a) que o exige protege
+> contra *efeito colateral*, não contra *decisão precipitada* — palavras do próprio `RAISE`.
+> Continua sendo checkpoint do operador, agora por escolha e não por recusa do banco.
+> ⛔ **Não chame `salvar_config_purga` com `p_confirmo_live := true` para «testar»** — vedado em
+> `JORNADA-GUIADA.md:72` (regra 3). O portão se confere por LEITURA de `purga_execucoes` e
+> `config_retencao_etapa`. E o item 3 de `human_verification` da `46-VERIFICATION.md` foi
+> **retirado** hoje justamente por conduzir a leitura na direção desse argumento.
+
+A alavanca de emergência do runbook foi corrigida em 2026-08-23: era
 `UPDATE cron.job SET active = false`, que levanta **`42501`** (`postgres` não tem UPDATE em
 `cron.job`); agora é `cron.alter_job(job_id := 6, active := false)`, com `cron.unschedule` como
 segunda opção.
@@ -1317,9 +1353,9 @@ gaps são TRÊS AÇÕES:
 
 | # | Gap | O que fecha |
 |---|---|---|
-| G1 | EXPORT-01/02/03 nunca exercitados — 0 linhas em `solicitacoes_dados`, nenhum arquivo já gerado, nenhum currículo já aberto | sessão de navegador com conta de teste |
-| G2 | **PROD roda a v1 PRÉ-CORREÇÃO** — os 8 commits de fix estão no `main`, a EF não foi redeployada. A v1 viva tem o cooldown que **falha ABERTO** em timestamp ilegível | `npx supabase login && npx supabase functions deploy exportar-meus-dados` (lê os bytes do disco; o caminho MCP exigiria retranscrever 45 KB de artefato gerado) |
-| G3 | **EXPORT-05 rebaixado de Complete para parcial** — o ramo `rh` do predicado BD-8 não pode retornar linha para recrutador nenhum: 0 de 9 vagas com `created_by` preenchido pertencem a usuário de papel `rh` | **decisão do operador**: popular `created_by` das 6 vagas órfãs · trocar o predicado para `vagas_associadas_recrutadores` · ou aceitar que a fila é de administrador |
+| G1 | ~~EXPORT-01/02/03 nunca exercitados — 0 linhas em `solicitacoes_dados`, nenhum arquivo já gerado, nenhum currículo já aberto~~ · ✅ **FECHADO, medido 2026-09-26:** `solicitacoes_dados` tem **7 linhas**, **3** delas `tipo='acesso'`+`situacao='atendido'` (11/08, 06/09, 20/09), atendidas em ~4,7 s. Os dois arquivos foram baixados (F1, `GUIA-VALIDACAO-FINAL` §7.22) e o currículo foi aberto por URL assinada com a **expiração do TTL observada** (B14/B15). ⚠ Titular = **conta de teste do operador**, nunca terceiro | — (nada a fazer) |
+| G2 | ~~**PROD roda a v1 PRÉ-CORREÇÃO** — os 8 commits de fix estão no `main`, a EF não foi redeployada. A v1 viva tem o cooldown que **falha ABERTO** em timestamp ilegível~~ · ✅ **FECHADO EM 2026-08-05**, um dia depois desta linha ser escrita — Phase 45 / 45-01 Task 3 (`9bdd9af`). Hoje na **v5**, allowlist **1.3.0**, com os marcadores dos consertos no corpo publicado (`FECHA no ilegível`/WR-02, WR-03, WR-04, `falha_geracao`). **A ordem exigida foi respeitada:** redeploy (05/08) antes do 1º exercício (11/08) | — (nada a fazer; esta linha ficou **52 dias** afirmando o contrário) |
+| G3 | **EXPORT-05 rebaixado de Complete para parcial** — o ramo `rh` do predicado BD-8 não pode retornar linha para recrutador nenhum · ⚠ **AINDA REAL, e PIOR, remedido 2026-09-26:** **0** vagas pertencem a recrutador · existe **1** recrutador e ele está **`ativo=false`** · vagas órfãs subiram de 6 para **9** · `vagas_associadas_recrutadores` continua vazia e sem leitor. 🚨 **E o defeito não é da fila:** o mesmo predicado `vagas.created_by = auth.uid()` é a espinha de `rh_le_candidaturas`, e a **Phase 49 o REFORÇOU** no conserto de IDOR do 49-08 — consertar só a RPC da fila deixaria o papel cego no resto | **decisão do operador**, e ela tem de **varrer pela FORMA** todos os consumidores de `vagas.created_by = auth.uid()`, não só a RPC da fila: popular `created_by` das 9 órfãs · trocar o predicado para `vagas_associadas_recrutadores` · aceitar que a fila é de administrador · ou reativar/criar recrutador com vagas. Opções em `REQUIREMENTS.md` (EXPORT-05) e `44-AUDITORIA-GAPS-2026-09-26.md` |
 
 ⚠ **CONSEQUÊNCIA DIRETA PARA A PHASE 45 — dita pelo próprio ROADMAP.** A cadeia `44 → 45` é
 declarada **estrita** porque *"o inventário do export **é** o plano de exclusão"*. O inventário
