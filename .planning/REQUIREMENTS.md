@@ -89,12 +89,126 @@
 
 ### Exportação & Acesso (EXPORT)
 
-- [ ] **EXPORT-01**: Candidato solicita cópia dos próprios dados pelo painel
-- [ ] **EXPORT-02**: Export em JSON por allowlist explícita de colunas — nunca `select('*')`, a classe de vulnerabilidade nº 1 recorrente deste projeto
-- [ ] **EXPORT-03**: Currículo entregue por signed URL de TTL curto a partir de bucket privado, nunca inline nem base64
+- [x] **EXPORT-01**: Candidato solicita cópia dos próprios dados pelo painel — ⚠ exercitado em PROD por **conta de teste do operador**, nunca por titular de terceiro (ver nota)
+- [x] **EXPORT-02**: Export em JSON por allowlist explícita de colunas — nunca `select('*')`, a classe de vulnerabilidade nº 1 recorrente deste projeto — ⚠ exercitado na allowlist **1.1.0**; PROD roda **1.3.0** (ver nota)
+- [x] **EXPORT-03**: Currículo entregue por signed URL de TTL curto a partir de bucket privado, nunca inline nem base64 — ⚠ mesma ressalva de titular do EXPORT-01 (ver nota)
 - [x] **EXPORT-04**: Chaves do export cobertas por snapshot test — uma coluna nova no banco não pode vazar silenciosamente para o export
-- [x] **EXPORT-05**: Pedido de acesso atendido dentro do prazo do **Art. 19, II** (15 dias corridos)
-- [ ] **EXPORT-06**: O inventário construído aqui é o artefato consumido pelo motor de exclusão (EXPORT antes de ERASE)
+- [x] **EXPORT-05**: Pedido de acesso atendido dentro do prazo do **Art. 19, II** (15 dias corridos) — ⚠ marca da fase, **rebaixada a parcial** pela `44-VERIFICATION.md`: a metade «visível ao RH» não vale para recrutador nenhum (ver nota)
+- [ ] **EXPORT-06**: O inventário construído aqui é o artefato consumido pelo motor de exclusão (EXPORT antes de ERASE) — ⚠ **não pode fechar como está redigido**; é reescrita/override, nunca trabalho (ver nota)
+
+> ### ⚠ EXPORT-01/02/03 — as razões antigas do `[ ]` eram FALSAS, e é por isso que estes três viraram `[x]`
+>
+> Até 2026-09-26 os três estavam `[ ]` sob as razões «nenhum byte projetou dado real» e
+> «ninguém abriu um currículo». **Medido em 2026-09-26** (auditoria de releitura em
+> `phases/44-exporta-o-acesso/44-AUDITORIA-GAPS-2026-09-26.md`): `solicitacoes_dados` tem
+> **7 linhas**, sendo **3** com `tipo=acesso / situacao=atendido / causa NULL`
+> (**2026-08-11**, **2026-09-06**, **2026-09-20**), atendidas em **4,77 s · 4,78 s · 4,65 s**.
+> As razões deixaram de descrever esta base.
+>
+> **A prova NÃO mora na pasta da fase 44** — esse foi o achado central da auditoria, e é a
+> razão pela qual os gaps pareciam abertos por 52 dias. Ela mora em:
+>
+> - **`GUIA-VALIDACAO-FINAL.md` §7.22 (item F1, 2026-09-06 12:31)** — *«os **dois arquivos**
+>   baixaram: `beauty-smile-meus-dados-2026-09-06.json` (18 KB) e o `.html` legível (23 KB)»*,
+>   autoatendimento, 30 coleções, com a seção `o_que_nao_esta_nesta_copia` renderizada;
+> - **`GUIA-VALIDACAO-FINAL.md` (item B14 ✅ e B15 ✅)** — *«Assinada com TTL 60 s (`iat`/`exp`
+>   no token); recarregada depois → **400**»* e *«Zero chamadas a `get-curriculo-url`; URL
+>   assinada ausente do console e do DOM»* — a expiração **e** as três asserções negativas do
+>   EXPORT-03, observadas, não apenas afirmadas por teste;
+> - **`JORNADA-GUIADA.md` §Etapa 12 (2026-09-20 20:30)** — `.json` de **82.715 bytes**,
+>   30 coleções, `versao_allowlist` 1.1.0, e o **2º pedido barrado no banco** (a tabela ficou
+>   com 1 linha: o cooldown é real, não só desabilita o botão).
+>
+> **O critério usado para marcar.** Cada requisito afirma uma capacidade do sistema, e as três
+> foram exercidas contra PROD por uma sessão autenticada, com artefato entregue: só a EF
+> escreve `tipo='acesso'` (o candidato não tem policy de escrita, medido em
+> `44-05-EVIDENCIA-DEPLOY.md` §4) e ela exige JWT, logo as 3 linhas **são** 3 sessões de
+> titular. Corroboração de banco para o EXPORT-03: dos 18 objetos de `curriculos` com `owner`
+> não nulo, **18/18** têm o prefixo de caminho igual ao `owner` — a convenção `auth.uid()/`
+> do BD-7 vale para todos.
+>
+> **A ressalva que a marca NÃO dispensa, e que por isso está escrita ao lado dela.** Os três
+> titulares são **contas de teste do próprio operador** (`candidato.funil@teste.com`,
+> `…+claude3@gmail.com`, `…+claude4@gmail.com`). O cabeçalho de
+> `supabase/tests/p47_teardown_dados_de_teste.sql` mede e declara o mesmo: *«Medido em
+> 2026-09-07: `public.candidatos` tem 41 linhas e NENHUMA é de pessoa real — as vagas nunca
+> foram divulgadas»*. Portanto **«titular real» aqui = o operador exercendo o papel de titular
+> num navegador de verdade contra PROD, e não um terceiro.** Estes `[x]` significam **«a
+> capacidade funciona em produção, medida»** — e **não** «já atendemos um pedido de um titular
+> de terceiro». Ler assim seria a mesma superestimação que o ERASE-07 proíbe.
+>
+> **Dois residuais que ficam abertos e não impedem a marca** (ambos em §3 da auditoria):
+> (a) os dois exercícios rodaram com allowlist **1.1.0** e PROD roda **1.3.0** desde
+> 2026-09-24 (1.2.0 pelo 48-17, 1.3.0 pelo 49-17, que trouxe `entrevista_analises` para a
+> cópia) — o **mecanismo** de projeção é o mesmo nas três versões, o que mudou é o conjunto de
+> colunas, e esse é justamente o que o EXPORT-04 vigia; (b) `GUIA-VALIDACAO-FINAL.md` B15
+> registra que a **página** `/candidato/privacidade` lê com `candidatos?select=*` — encosta no
+> vocabulário do EXPORT-02 mas **não é a projeção do export** (essa é por allowlist,
+> conferida), logo é trabalho pequeno fora do escopo literal do requisito.
+>
+> ### ⚠ EXPORT-05 — a marca é da fase; o rebaixamento a parcial se sustenta em 2026-09-26
+>
+> Este `[x]` foi posto pelo plano 44-09 e **não** é endossado aqui. A `44-VERIFICATION.md`
+> rebaixou o requisito a **parcial** porque a metade «visível ao RH» do SC#4 não vale para o
+> papel `rh`, e a auditoria de 2026-09-26 **confirmou o rebaixamento por medição** — é o único
+> veredito daquele documento que o tempo confirmou em vez de desmentir.
+>
+> **Medido hoje.** O predicado **não mudou**: `pg_get_functiondef` de `listar_pedidos_dados` e
+> de `contar_pedidos_dados_pendentes` traz, idêntico, `vg.created_by = v_uid`. E:
+> **0** vagas de recrutador · **1** recrutador em `usuarios_rh`, **0 ativos** · **9** vagas
+> órfãs (`created_by IS NULL`, contra 6 em 2026-08-04) · `vagas_associadas_recrutadores`
+> continua **vazia e sem leitor** (`JORNADA-GUIADA.md` a lista entre as tabelas «inertes de
+> verdade»). A UAT dos dois papéis **rodou** em 2026-09-06 e confirmou o defeito ao vivo:
+> `GUIA-VALIDACAO-FINAL.md` §7.17 (**E12 ✅**, administrador — fila com linha real, Art. 19
+> visível, fila ≡ badge **deixando de ser vazia**) e §7.6 (recrutador — *«`/rh/pedidos-dados`
+> abre para o recrutador e diz «Nenhum pedido» — há 2; a fila é do administrador e a tela não
+> avisa»*).
+>
+> **⚠ O achado transversal, que muda o tamanho do conserto.** Isto **não é** um defeito de
+> escopo da fila do Art. 19. O mesmo `vagas.created_by = auth.uid()` é a espinha de
+> `rh_le_candidaturas` — §7.6: *«Recrutador não vê candidato nenhum… dashboard «0 Candidatos»
+> com 7 candidaturas»* — e a **Phase 49 o REFORÇOU** no conserto de IDOR do **49-08**
+> (`49-PATTERNS.md:663-665`: `vagaRow.created_by !== user.id` como autorização do comparativo).
+> **Consertar só a RPC da fila deixaria o papel cego em todo o resto**, e cada fase nova
+> encarece a troca. Antes de mexer no predicado, **varra pela FORMA** (CLAUDE.md §Portões) e
+> liste **todos** os consumidores de `vagas.created_by = auth.uid()` — RPCs, policies e EFs.
+>
+> As quatro saídas continuam as de `44-09-EVIDENCIA-BD8.md` §3 e `GUIA-VALIDACAO-FINAL.md`
+> §7.6, e **a escolha é do operador — não está feita aqui**: (a) recrutador vira
+> administrador; (b) as policies passam a honrar `vagas_associadas_recrutadores`; (c) tela de
+> criar vaga, que não resolve as 9 órfãs já existentes; (d) aceitar por escrito que a fila é de
+> administrador, sobrando um item de copy/guard na tela do recrutador.
+>
+> **Residual que nenhum gap nomeava:** os 3 pedidos foram atendidos em ~4,7 s e **nunca houve
+> uma linha `pendente`**. `config_sla_dados` está vivo (`acesso_dados`, atenção **7 d**, atraso
+> **12 d**, intocado desde 2026-08-03), mas a faixa âmbar/vermelha — a metade «um pedido perto
+> do prazo é distinguível de um recém-chegado» — **nunca renderizou com dado real**.
+>
+> ### ⚠ EXPORT-06 — fica `[ ]`, e não é por falta de trabalho: a redação está errada
+>
+> «O inventário construído aqui é o artefato consumido pelo motor de exclusão» **não pode
+> fechar como está escrito**, e fechá-lo por trabalho seria **refazer uma decisão que a Phase
+> 45 tomou com medição**.
+>
+> A Phase 45 mediu essa fonte (45-RESEARCH §C2) e a **recusou**, com a razão escrita em
+> `docs/compliance/sql/gen-recibo-exclusao.cjs:12-25`: o `exportAllowlist.ts` cobre **30 de 69
+> tabelas** e exclui, sob a razão `telemetria_interna`, oito tabelas que guardam PII do titular
+> — inclusive `ai_call_logs` e `logs_acesso`, **duas das cinco do ERASE-09**. Um recibo
+> derivado dele seria *«honesto sobre o que diz e omisso sobre o que não diz»*. A fonte do
+> motor é `pii-inventory.yaml`. Confirmado por varredura em 2026-09-26: os **únicos**
+> importadores de `EXPORT_ALLOWLIST` em runtime são `supabase/functions/exportar-meus-dados/index.ts`
+> e `src/features/privacidade/services/exportacaoService.ts` — **nada** no motor de exclusão.
+>
+> **⚠ E há uma contradição viva num artefato de conformidade, que esta rodada NÃO tocou:**
+> `docs/compliance/export-allowlist.json` → `meta.consumidores` ainda declara *«Phase 45 —
+> plano de exclusão/anonimização: o escopo do titular exercitado em produção é o insumo do
+> motor destrutivo (ERASE-02, ERASE-06)»*. Essa afirmação é **falsa** desde a decisão medida da
+> Phase 45. Como o arquivo é **gerado**, o conserto é no gerador / no `export-scope-rules.yaml`
+> — e tem portão: `check:export-allowlist` reprova até regenerar.
+>
+> **O que fecha EXPORT-06:** reescrever o requisito para o que o M8 de fato entregou (o
+> inventário do export é a projeção do direito de acesso; o plano de exclusão vem do
+> `pii-inventory.yaml`) **ou** um override registrado. Nunca um plano de execução.
 
 ### Motor de Exclusão & Anonimização (ERASE)
 
@@ -239,12 +353,12 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | RETEN-04 | Phase 43 | Complete |
 | RETEN-05 | Phase 46 | Pending |
 | RETEN-06 | Phase 43 | Complete |
-| EXPORT-01 | Phase 44 | Pending |
-| EXPORT-02 | Phase 44 | Pending |
-| EXPORT-03 | Phase 44 | Pending |
+| EXPORT-01 | Phase 44 | Complete (exercitado em PROD: 3 pedidos `acesso`+`atendido` em 11/08, 06/09 e 20/09, atendidos em ~4,7 s; os **dois** arquivos baixados em `GUIA-VALIDACAO-FINAL` F1. ⚠ titular = **conta de teste do operador**, nunca terceiro — a marca significa "a capacidade funciona em produção", não "já atendemos um titular real". Medido em 2026-09-26, `44-AUDITORIA-GAPS-2026-09-26.md`) |
+| EXPORT-02 | Phase 44 | Complete (payload real projetado por allowlist: 30 coleções, 18 KB / 82.715 B; conserto CR-01 vivo nos DOIS canais — corpo da EF v5 e bundle publicado. ⚠ exercitado na allowlist **1.1.0**; PROD roda **1.3.0** desde 24/09. ⚠ mesma ressalva de titular do EXPORT-01) |
+| EXPORT-03 | Phase 44 | Complete (`GUIA-VALIDACAO-FINAL` B14 ✅ TTL 60 s, recarregada → **400**; B15 ✅ zero chamadas a `get-curriculo-url`, URL ausente do console e do DOM — a expiração e as três asserções negativas **observadas**. Banco: 18/18 objetos de `curriculos` com prefixo = `owner`. ⚠ mesma ressalva de titular do EXPORT-01) |
 | EXPORT-04 | Phase 44 | Complete |
-| EXPORT-05 | Phase 44 | Complete |
-| EXPORT-06 | Phase 44 | Pending |
+| EXPORT-05 | Phase 44 | Complete **(marca da fase — rebaixada a PARCIAL pela `44-VERIFICATION.md`, e o rebaixamento CONFIRMADO por medição em 2026-09-26)**: a metade «visível ao RH» não vale para o papel `rh` — predicado `vagas.created_by = auth.uid()` inalterado, **0** vagas de recrutador, **1** recrutador e **0 ativos**, **9** vagas órfãs, `vagas_associadas_recrutadores` vazia e sem leitor. ⚠ transversal: o mesmo predicado é a espinha de `rh_le_candidaturas` e a Phase 49 o **reforçou** no 49-08 — decisão do operador, e varrer pela FORMA todos os consumidores |
+| EXPORT-06 | Phase 44 | Pending — **e não por falta de trabalho: a redação está errada.** A Phase 45 mediu e **recusou** o `exportAllowlist.ts` como plano de exclusão (30 de 69 tabelas; exclui `ai_call_logs` e `logs_acesso`, 2 das 5 do ERASE-09) e usa `pii-inventory.yaml` — razão em `gen-recibo-exclusao.cjs:12-25`. Fecha por **reescrita/override**, nunca por plano. ⚠ `export-allowlist.json` → `meta.consumidores` ainda declara a Phase 45 como consumidora: afirmação **falsa**, artefato gerado, conserto no gerador |
 | ERASE-01 | Phase 45 | Pending |
 | ERASE-02 | Phase 45 | Complete |
 | ERASE-03 | Phase 45 | Complete |
