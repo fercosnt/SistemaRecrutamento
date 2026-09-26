@@ -2,11 +2,11 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: verifying
-stopped_at: Completed 49-29-PLAN.md
-last_updated: "2026-09-26T18:02:50.756Z"
+status: executing
+stopped_at: 49-18 Task 1 (tracer) concluída e publicada; PARADO no checkpoint blocking-human da Task 2 (sessão 1 da jornada com o operador)
+last_updated: "2026-09-26T18:56:17.082Z"
 last_activity: 2026-09-26
-state_head: 4e652b9fe045b2771a2b986a966ae0776abd6d61
+state_head: 266838217f05fba6869614f5ffc1328810659566
 progress:
   total_phases: 8
   completed_phases: 9
@@ -577,7 +577,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Phase complete — ready for verification
+Status: Executing Phase 49
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -1136,6 +1136,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: D-36b: o filtro de encerrada do listFinalistas roda no CLIENTE de propósito — o predicado é disjunção sobre duas colunas, e reescrevê-lo em PostgREST criaria a segunda verdade que o 49-03 removeu
 - [Phase 49]: WINDOWS 78 fechada nas DUAS superfícies (corpo de erro e toast), com frases DIFERENTES por medium: o que precisa coincidir é o fato, não a redação — e nenhuma das duas nomeia a causa (cost_cap x injeção), para não confirmar a um atacante que a defesa disparou
 - [Phase 49]: Cópia que vive em contêiner não montado pelo ambiente de teste (TooltipContent do Radix fechado) exige DUAS pernas: asserir a constante exportada E asserir o render de uma superfície que existe — uma só dá a impressão de vigiar o que não vê
+- [Phase 49]: 49-18: a prova p12_sem_hash_duplicado nasceu GLOBAL e reprovava com o conserto inteiro no ar — media 3 análises legadas de 2026-09-20 com o mesmo texto_hash e tipo NULL. Trocada por forma mais forte (nenhuma análise nova duplica nenhuma, inclusive as legadas), não por recorte de data. — Portão que congela o estado legado e se apresenta como invariante reprova trabalho correto com diagnóstico falso (CLAUDE.md, varra pela FORMA). Recorte por data esconderia o legado; a forma escolhida o inclui e continua verdadeira.
+- [Phase 49]: 49-18: a prova p37_trilha_sem_texto_da_decisao é escopada a criado_em > T0 de propósito — a D-47 foi RECUSADA pelo operador e as 5 linhas anteriores ficam. O global reprovaria para sempre. — Mesma razão do p49_12_pos_estado.sql: um portão que não distingue "não mudou porque foi recusado" de "não mudou porque falhou" dá a mesma mensagem vermelha nos dois casos, e a leitura óbvia dela levaria alguém a aplicar a migration declinada.
+- [Phase 49]: 49-18: a prova p39_agregacao_sem_falha é ESTRUTURAL (ai_cost_daily.provider é o mesmo enum llm_provider que ganhou none), em vez de esperar a janela 30 1 * * * do cron ai-cost-aggregation. — Exigir execução do cron depois de T0 obrigaria o operador a esperar o dia seguinte para fechar a fase. A pergunta real (a linha none quebra a agregação?) é estrutura, não tempo. A negativa sobre cron.job_run_details fica como rede.
 
 ### Roadmap Evolution
 
@@ -1426,9 +1429,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-26T18:02:50.468Z
-Stopped at: Completed 49-29-PLAN.md
-Resume file: None
+Last session: 2026-09-26T18:54:21.099Z
+Stopped at: 49-18 Task 1 (tracer) concluída e publicada; PARADO no checkpoint blocking-human da Task 2 (sessão 1 da jornada com o operador)
+Resume file: .planning/phases/49-consertos-da-jornada-bloco-2/49-PROVA-PROD.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
