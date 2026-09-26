@@ -170,7 +170,7 @@ Acrescentados em 2026-09-22 no kickoff da Phase 49 (`49-CONTEXT.md`). Mesma conv
 - [ ] **JORN-33**: O Kanban trata candidatura encerrada pelo predicado canônico (hoje ignora `finalizado`) e não a deixa avançar
 - [ ] **JORN-34**: Nenhuma tela reabre candidatura encerrada só mudando o status, sem trilha (`UpdateStatusModal`)
 - [x] **JORN-35**: O SJT recebe a rubrica da pergunta e aplica os pesos pela chave da dimensão, não pelo nome devolvido pela IA
-- [ ] **JORN-36**: O motor de exclusão apaga o que o recibo afirma ter apagado (redação, citações, respostas, texto da transcrição no `ai_call_logs`) — mecanismo destrutivo, com portão e prova (D-48)
+- [x] **JORN-36**: O motor de exclusão apaga o que o recibo afirma ter apagado (redação, citações, respostas, texto da transcrição no `ai_call_logs`) — mecanismo destrutivo, com portão e prova (D-48)
 - [ ] **JORN-37**: A justificativa da decisão final não chega ao titular pela trilha (BD-9 mantido): `registrar_decisao` deixa de copiá-la, e as 4 cópias no histórico são limpas com checkpoint (D-47)
 - [ ] **JORN-38**: A lista do RH não traz ao navegador colunas do candidato que não exibe (fim do `candidatos(*)`)
 - [x] **JORN-39**: Os eventos de teto de custo e de injeção de prompt ficam registrados na auditoria de IA (hoje o insert falha no enum e o erro é engolido)
@@ -290,7 +290,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | JORN-33 | Phase 49 | Pending |
 | JORN-34 | Phase 49 | Pending |
 | JORN-35 | Phase 49 | Complete |
-| JORN-36 | Phase 49 | Pending |
+| JORN-36 | Phase 49 | Complete |
 | JORN-37 | Phase 49 | Pending |
 | JORN-38 | Phase 49 | Pending |
 | JORN-39 | Phase 49 | Complete |

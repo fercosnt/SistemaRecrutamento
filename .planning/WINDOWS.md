@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 30
+open_count: 31
 waived_count: 10
 fixed_count: 45
-total_count: 85
-last_updated: 2026-09-24T05:22:22.779Z
+total_count: 86
+last_updated: 2026-09-25T04:45:57.165Z
 ---
 
 # Broken Windows Ledger
@@ -100,6 +100,7 @@ last_updated: 2026-09-24T05:22:22.779Z
 | 83 | 49 | unmet-truth | docs/compliance/pii-inventory.yaml |  | 49-17: a MEDICAO do D-66 na WINDOWS 81 esta errada nos dois sentidos, re-medida em 2026-09-23 (so leitura). (1) entrevista_guias: ZERO de 5 guias contem o primeiro nome do titular, nao 2 de 5. Os dois supostos achados sao a palavra comum portuguesa candidato dentro do rationale do proprio guia (posicoes 475 e 629, texto extraido e lido), e casam por acidente porque a conta de teste se chama Candidato Funil Teste. Um probe por nome contra uma base cujo titular se chama como um substantivo comum produz falso positivo. (2) analise_candidato_vaga: 9 de 25 linhas contem o primeiro nome ATUAL, nao 13 de 24 — e esse 9 e um LIMITE INFERIOR, porque casar contra o nome atual e estruturalmente cego ao caso que mais importa: o unico titular que de fato exerceu a exclusao teve o nome substituido em candidatos, e por isso nenhum probe por nome encontra o que sobrou no texto. Medido diretamente nessa linha: resumo_cv guarda o nome COMPLETO original (tres partes, 132 caracteres) depois da exclusao concluida. anonimizar_candidato nao cita analise_candidato_vaga nem nenhuma das tres colunas no corpo vivo (md5 1d8f96c8f21a755ded0505a0b652113a, 78301 octetos). Consequencia para a decisao do operador: o item avaliacoes_e_analises do recibo promete a esse titular que as analises ficaram guardadas sem ligacao com voce, e para essa linha a frase e FALSA hoje. Nao consertado: a escolha entre desidentificar no motor e copy nova e do operador, no checkpoint do 49-17. DONO: plano 49-29 (onda 8), criado pelo operador em 2026-09-23 ao escolher a opcao (c) do checkpoint do 49-17 — desidentificar no motor em vez de enfraquecer o recibo. Consequencia para o 49-17: o texto do item avaliacoes_e_analises NAO foi alterado (a promessa «sem ligacao com voce» fica de pe porque o motor vai passar a cumpri-la) e as duas tabelas NAO sairam de tabelas_sem_pii_titular — a reclassificacao vai com o 49-29, que e quem conserta o motor. Esta entrada fica open ate lá. Acrescentado em 2026-09-24: entrevista_guias tem ZERO guias pertencentes a titular anonimizado (0 de 5, medido), logo o ponto cego do probe por nome tambem nao a alcanca hoje; a ressalva dela e ESTRUTURAL (o guia e derivado do curriculo), nao medida. | open |  | 2026-09-23T21:20:26.749Z |  |
 | 84 | 49 | deviation | .planning/WINDOWS.md |  | SONDA DE COMPARADOR (49-17, paragrafo M do 49-PATTERNS): esta entrada existe para exercitar o comparador FORTE do ledger depois de um waive e um append. Se ela aparece, a tabela do topo e o bloco JSON concordam. Sera marcada waived no mesmo commit. | waived | Sonda de comparador do plano 49-17: cumpriu o proposito (o append aceitou, logo tabela e JSON concordam). Sem defeito de produto por tras. | 2026-09-23T21:20:37.103Z | 2026-09-23T21:20:47.261Z |
 | 85 | 49 | unmet-truth | supabase/migrations |  | 49-17 Task 3 (2026-09-24), ACHADO PRE-EXISTENTE registrado e NAO consertado: a view public.v_analises_presas e a forma perigosa que a memoria do projeto nomeia — security_invoker NAO setado (semantica de DEFINIDOR) e dono postgres, logo ela IGNORA RLS — e tem SELECT concedido a authenticated. Lida a definicao: expoe candidatura_id, vaga_id, vaga_slug, data_candidatura, situacao, a mensagem de erro da analise e o tempo parada. NENHUMA coluna da Phase 49, nenhum nome, nenhum CPF, e anon nao a alcanca (medido com SET LOCAL ROLE anon no 49-17 Task 1). O que ela permite: qualquer candidato AUTENTICADO listar as candidaturas travadas do sistema inteiro, inclusive de outras pessoas. Fora do escopo do 49-17 (o plano decide vereditos de export, nao conserta views), e registrado aqui porque vivia so no SUMMARY de um plano — o mesmo defeito de escrituracao que o 49-PATTERNS §K documenta num nivel acima. Conserto: ALTER VIEW public.v_analises_presas SET (security_invoker = true), com re-medicao de quem a le antes e depois. | open |  | 2026-09-24T05:22:22.779Z |  |
+| 86 | 49 | deviation | docs/compliance/pii-inventory.yaml |  | analise_candidato_vaga continua em tabelas_sem_pii_titular (coberta em bloco pela R4) enquanto o motor passou a gastar um passo inteiro REMOVENDO texto livre do titular dela (49-29). O inventario afirma o contrario do que o motor faz. Nenhum dos quatro check:* reprova — medido. O movimento pendente e dar-lhe secao em tabelas:, que o 49-17 nomeou como do 49-29 mas que o files_modified do 49-29 nao inclui: ele muda tres artefatos gerados e obriga a redeploy das duas EFs. | open |  | 2026-09-25T04:45:57.165Z |  |
 
 ````json
 [
@@ -1162,6 +1163,19 @@ last_updated: 2026-09-24T05:22:22.779Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-24T05:22:22.779Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 86,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "docs/compliance/pii-inventory.yaml",
+    "line": null,
+    "description": "analise_candidato_vaga continua em tabelas_sem_pii_titular (coberta em bloco pela R4) enquanto o motor passou a gastar um passo inteiro REMOVENDO texto livre do titular dela (49-29). O inventario afirma o contrario do que o motor faz. Nenhum dos quatro check:* reprova — medido. O movimento pendente e dar-lhe secao em tabelas:, que o 49-17 nomeou como do 49-29 mas que o files_modified do 49-29 nao inclui: ele muda tres artefatos gerados e obriga a redeploy das duas EFs.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-25T04:45:57.165Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }

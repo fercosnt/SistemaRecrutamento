@@ -425,7 +425,7 @@ Plans:
 - [x] 49-26-PLAN.md — Predicado «algum provedor respondeu?» em `_shared`; a flag de revisão humana para de ser descartada no caminho de sucesso e a análise da transcrição não chama bloqueio de «pendente» (JORN-28, JORN-39 — WINDOWS 64/65, acrescentado 2026-09-23 por decisão do operador)
 - [x] 49-27-PLAN.md — Comparativo bloqueado por custo/injeção recusa com motivo em vez de entregar ranking-stub ao RH; bloqueio fica auditado (JORN-28, JORN-39 — WINDOWS 68, acrescentado 2026-09-23 por decisão do operador)
 - [x] 49-28-PLAN.md — (j.2) do `p46_purga_smoke` estabelece o estado que mede, em vez de ler o de PROD; desbloqueia (o)/(o.6)/(o.7)/(p) sem publicar vaga sintética (JORN-3b — decisão do operador no checkpoint do 49-12, 2026-09-23)
-- [ ] 49-29-PLAN.md — O motor desidentifica os textos livres do titular em `analise_candidato_vaga` (tabela que ele NÃO citava), inclusive retroativamente: 8 linhas de titulares já anonimizados com `resumo_cv` preenchido. Faz a promessa existente do recibo («sem ligação com você») voltar a ser verdadeira (JORN-36 — decisão (c) do operador no checkpoint do 49-17, 2026-09-23)
+- [x] 49-29-PLAN.md — O motor desidentifica os textos livres do titular em `analise_candidato_vaga` (tabela que ele NÃO citava), inclusive retroativamente: 8 linhas de titulares já anonimizados com `resumo_cv` preenchido. Faz a promessa existente do recibo («sem ligação com você») voltar a ser verdadeira (JORN-36 — decisão (c) do operador no checkpoint do 49-17, 2026-09-23)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -547,7 +547,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 26/29 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 27/29 | In Progress|  |
 
 ---
 
