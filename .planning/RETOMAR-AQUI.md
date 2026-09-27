@@ -181,6 +181,15 @@ A primeira noite em `live` destrói as **5 fixtures**, e é isso que se quer: a 
 delas é a prova (H6). Os 15 fictícios `@invalido.local` **não** são elegíveis e sobrevivem
 — saem depois, por script (I3).
 
+> ⚠ **COMPLETADO EM 2026-09-27: são 5 de 8, e as outras 3 não são «fictícios».** A frase acima
+> está correta sobre as 5 e **silenciosa sobre as 3** restantes da fixture — `neg-etapa`
+> (etapa fora da allowlist), `neg-hold` (hold ativo) e `neg-art20` (revisão do Art. 20
+> pendente). São inelegíveis **por construção**, sobrevivem a qualquer flip, e **têm `user_id`
+> e conta viva em `auth.users`** — ao contrário dos 15 `@invalido.local`. Só o
+> `p46_teardown_fixture.sql` as alcança, e o destino datado que o flip exige precisa cobrir
+> **as 8**. Medido em 2026-09-26; ver `46-AUDITORIA-GAPS-2026-09-26.md` e a errata no
+> `46-07-RUNBOOK-FLIP.md` §Teardown.
+
 Reversão documentada: `p_confirmo_live := NULL`; em último caso,
 `cron.alter_job(6, active := false)`.
 

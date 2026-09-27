@@ -27,9 +27,9 @@ O agente atualiza este arquivo, os `VERIFICATION.md` e o `WINDOWS.md` a partir d
 | Testes das vagas | Consultor: triagem\*, SJT\*, redação\*, entrevista\* (Big Five e cognitivo opcionais) · Social Media: triagem\*, SJT\*, entrevista\* (redação opcional). `aplica_cognitivo=false` nas duas |
 | Candidatos fictícios (`f0000001..3`) | Rafael **67** · Camila **68** · Beatriz **20** — análise `sucesso` nos 3 |
 | Candidatura E2E (`teste-e2e-social-media`, vaga inativa) | em `entrevista_online`; cognitivo feito (1 liberação, 1 score Raven); **SJT 0 · redação 0 · Big Five 0 · agendamento 0** |
-| `candidatos` | 35 no total — **11 sintéticos** (8 fixture-p46 + 3 fictícios) |
+| `candidatos` | ~~35 no total — **11 sintéticos** (8 fixture-p46 + 3 fictícios)~~ · **44 no total** (remedido 2026-09-26): os mesmos **8 de fixture-p46**, 15 `@invalido.local`, 6 contas de teste `+claude`, 3 fictícios. ⚠ Nenhum candidato da base é pessoa real — é o que `p47_teardown_dados_de_teste.sql` mede e declara |
 | RH ativo | **só** `fernando@beautysmile.com.br` (administrador). As 4 contas de teste estão `ativo=false` |
-| Purga | `dry_run` · cron **disparando** (15 execuções de ensaio, última hoje 00:00) · **13 dias** corridos · `aprovado` e `decisao_final` ainda em `seed` |
+| Purga | `dry_run` · cron **disparando** · ~~15 execuções de ensaio~~ · ~~**13 dias** corridos~~ · ~~`aprovado` e `decisao_final` ainda em `seed`~~ · **Remedido 2026-09-26:** **34 noites seguidas** (`cron.job_run_details` jobid 6: 34 linhas, 34 `succeeded`, 34 datas distintas, nenhuma faltando), **39** linhas em `purga_execucoes`, **34 dias** corridos, e a allowlist com **3 etapas todas `origem='admin'`, ZERO em `seed`**. 🚨 **Os cinco critérios do flip estão satisfeitos** — ele deixou de ser ação recusada pelo servidor e passou a ser **decisão do operador**; a única barreira é o argumento `p_confirmo_live`. Não chamar a RPC para «testar» (vedado em `JORNADA-GUIADA.md:72`); conferir o portão por leitura |
 | Titulares elegíveis à purga | 5 — **todos fixture**, zero pessoa real |
 | `solicitacoes_dados` | 2 |
 | Notificações | 8 eventos vivos com `entregue`; 1 `bounce` em `revisao_solicitada` (o endereço indeliverável do RH de teste) |
@@ -250,12 +250,12 @@ observação.
 
 | ID | O quê | Estado medido hoje |
 |---|---|---|
-| H1 | ≥14 dias desde a 1ª execução de ensaio | 13 — fecha em **06/09 02:06** |
-| H2 | ≥14 execuções no ledger | **15** ✅ |
-| H3 | ≥1 execução sobre conjunto não-vazio | **15** ✅ |
+| H1 | ≥14 dias desde a 1ª execução de ensaio | ~~13 — fecha em **06/09 02:06**~~ · **34** ✅ (remedido 2026-09-26; a data fechou há 20 dias) |
+| H2 | ≥14 execuções no ledger | ~~**15**~~ · **36** ✅ |
+| H3 | ≥1 execução sobre conjunto não-vazio | ~~**15**~~ · **35 com evidência de `relato_dry_run`** ✅ |
 | H4 | Nenhuma etapa da allowlist em `seed` | ❌ → **G1** |
 | H5 | Titular a titular: nenhum real no conjunto elegível | ✅ hoje (5 fixtures). **Re-medir no instante do flip** |
-| H6 | Decisão: destino das **8 fixtures p46** | Recomendação: **deixar a primeira noite em `live` destruí-las** — é a prova esperada («é a destruição da fixture que é a prova»). Alternativa: `p46_teardown_fixture.sql` antes |
+| H6 | Decisão: destino das **8 fixtures p46** | 🚨 **A recomendação abaixo alcança 5 das 8, e não tem autor nem data.** ~~Recomendação: **deixar a primeira noite em `live` destruí-las** — é a prova esperada («é a destruição da fixture que é a prova»). Alternativa: `p46_teardown_fixture.sql` antes~~ · **Remedido 2026-09-26:** `neg-etapa`, `neg-hold` e `neg-art20` são inelegíveis **por construção** (etapa fora da allowlist · hold ativo · revisão Art. 20 pendente), sobrevivem a qualquer flip, e **têm `user_id` e conta viva em `auth.users`** — só `p46_teardown_fixture.sql` as alcança. **A decisão datada que o portão exige precisa cobrir 8, não 5, e precisa de quem a assina.** Ver `46-AUDITORIA-GAPS-2026-09-26.md` |
 | H7 | Decisão: destino dos **3 (+3) fictícios** | **Remover antes da divulgação** das vagas, como aprovado em 30/08 — eles não são elegíveis à purga (são novos) e poluiriam o comparativo e o snapshot de viés |
 | H8 | O flip em si | Você, na sessão, com `p_confirmo_live := true`. O agente mede antes e na manhã seguinte: `purga_execucoes` com `veredito='live'`, `processados` = nº de fixtures, `auth.users` −N exato, trilha intacta |
 

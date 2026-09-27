@@ -57,8 +57,24 @@ meta:
     geração: chave declarada que não exista como coluna viva falha a geração.
   consumidores:
     - "Phase 44 — projeção da Edge Function `exportar-meus-dados` (EXPORT-02)"
-    - "Phase 45 — plano de exclusão/anonimização: o escopo do titular exercitado
-       em produção é o insumo do motor destrutivo (ERASE-02, ERASE-06)"
+    # ⚠ CORRIGIDO EM 2026-09-27. A entrada da Phase 45 declarava este escopo como
+    # o insumo do motor destrutivo. É FALSO — e era falso desde a decisão medida
+    # da própria Phase 45, em agosto. Preservo o texto antigo aqui, em vez de
+    # apagá-lo, porque a declaração EXISTIU e é ela que faz o EXPORT-06 («o
+    # inventário construído aqui é o artefato consumido pelo motor de exclusão»)
+    # não poder fechar como está redigido:
+    #   ANTES: "Phase 45 — plano de exclusão/anonimização: o escopo do titular
+    #           exercitado em produção é o insumo do motor destrutivo
+    #           (ERASE-02, ERASE-06)"
+    # A `45-RESEARCH.md` §C2 MEDIU esta fonte e a recusou: ela cobre 30 de 69
+    # tabelas e exclui, sob a razão `telemetria_interna`, oito que guardam PII do
+    # titular — inclusive `ai_call_logs` e `logs_acesso`, DUAS das cinco do
+    # ERASE-09. Um recibo derivado daqui seria honesto sobre o que diz e omisso
+    # sobre o que não diz. Razão inteira em `sql/gen-recibo-exclusao.cjs:12-25`.
+    - "Phase 45 — NÃO consome este escopo: mediu-o e o RECUSOU (cobre 30 de 69
+       tabelas; exclui `ai_call_logs` e `logs_acesso`, 2 das 5 do ERASE-09). O
+       insumo do motor destrutivo é `pii-inventory.yaml`, que cobre o catálogo
+       inteiro. Ver `sql/gen-recibo-exclusao.cjs:12-25`"
   cobertura_declarada_em: "2026-08-04"
   cobertura_declarada:
     tabelas_vivas_no_momento_da_escrita: 69

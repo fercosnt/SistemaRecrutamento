@@ -333,6 +333,25 @@ existe.
 
 **Quando rodar:** depois de o flip ter sido feito e de a primeira execução em `live` ter destruído a
 fixture — momento em que o teardown remove apenas o resíduo (`vagas`, e o que não tiver `user_id`).
+
+> 🚨 **CORRIGIDO EM 2026-09-27 — esta frase SUBCONTA o resíduo, e a subcontagem é de PII viva.**
+> «A primeira execução em `live` destruiu a fixture» vale para **5 das 8**. As outras três são
+> inelegíveis **por construção**, não por acaso, e sobrevivem a qualquer flip:
+>
+> | Fixture | Por que o `live` não a alcança |
+> |---|---|
+> | `neg-etapa` | etapa fora da allowlist de purga |
+> | `neg-hold` | 1 hold ativo |
+> | `neg-art20` | 1 revisão do Art. 20 pendente |
+>
+> E elas **têm `user_id` e conta viva em `auth.users`** (medido: 8 de 8 com conta), logo o
+> recorte «o que não tiver `user_id`» **não as pega**. O resíduo real depois do `live` é
+> **3 candidatos + 3 contas de Auth com PII sintética intacta**, alcançáveis somente por
+> `p46_teardown_fixture.sql`.
+>
+> **Consequência para a decisão:** o destino datado que o portão do flip exige precisa cobrir
+> **8, não 5**. Quem decidir com esta frase acredita que a primeira noite resolve tudo, e ela
+> não resolve. Medido em 2026-09-26; detalhe em `46-AUDITORIA-GAPS-2026-09-26.md`.
 Ou, se a decisão for `estender-dry-run` indefinidamente, **nunca** — a fixture é PII sintética em
 domínio não-roteável, e o custo de mantê-la viva é menor que o de perder o critério nº 3.
 

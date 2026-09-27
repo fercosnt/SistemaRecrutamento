@@ -43,7 +43,7 @@
   "meta": {
     "consumidores": [
       "Phase 44 — projeção da Edge Function `exportar-meus-dados` (EXPORT-02)",
-      "Phase 45 — plano de exclusão/anonimização: o escopo do titular exercitado em produção é o insumo do motor destrutivo (ERASE-02, ERASE-06)"
+      "Phase 45 — NÃO consome este escopo: mediu-o e o RECUSOU (cobre 30 de 69 tabelas; exclui `ai_call_logs` e `logs_acesso`, 2 das 5 do ERASE-09). O insumo do motor destrutivo é `pii-inventory.yaml`, que cobre o catálogo inteiro. Ver `sql/gen-recibo-exclusao.cjs:12-25`"
     ],
     "escopo_declarado_nao_vivo": [],
     "fase": 44,
@@ -51,7 +51,7 @@
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-09-24T05:24:24.587Z",
+    "gerado_em": "2026-09-27T04:52:33.792Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-04T01:34:27Z",
     "padrao_nome_de_endereco": "(^|_)(url|urls|uri|uris|link|links)($|_)",
