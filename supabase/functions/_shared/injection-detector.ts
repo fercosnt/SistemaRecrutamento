@@ -53,10 +53,26 @@ const INJECTION_PATTERNS: RegExp[] = [
   //
   // As classes `[çc]` / `[õo]` / `[áa]` / `[êe]` cobrem o texto sem acento, que
   // e como muita gente digita; nao sao redundancia.
-  /(ignor|desconsider|desprez)\w*\s+(todas?\s+)?(as\s+)?(instru[çc][õo]es|ordens|regras|orienta[çc][õo]es)/i,
-  /esque[çc]am?\s+(tudo|(de\s+)?o\s+que)/i,
+  // ⚠⚠ SEGUNDA RODADA (2026-09-28): a 1a versao destes padroes produzia FALSO
+  // POSITIVO em texto honesto — «nao da para ignorar as regras de
+  // biosseguranca», «nunca esqueca o que o paciente sentiu», «atue como uma
+  // consultora». As duas primeiras sao quase o enunciado da redacao cultural.
+  // Causa: os controles negativos do teste eram todos da classe «AUSENCIA do
+  // gatilho», nenhum da classe «gatilho em uso legitimo» — entao o portao nao
+  // conseguia reprovar a largura. Conserto: 1, 2 e 4 exigem agora IMPERATIVO
+  // DIRIGIDO AO MODELO, e o 1 perdeu o objeto `regras`, que era o que casava
+  // com biosseguranca. O infinitivo («ignorar»), o indicativo («ignoro») e o
+  // objeto humano ficam de fora por construcao, nao por sorte.
+
+  // 1 · imperativo + objeto de INSTRUCAO (nunca `regras`: vira biosseguranca).
+  /\b(ignore|ignorem|desconsidere|desconsiderem|despreze|desprezem)\s+(todas?\s+)?(as\s+)?(instru[çc][õo]es|ordens|orienta[çc][õo]es|diretrizes)/i,
+  // 2 · o que se manda esquecer e o que o MODELO sabe — exige `voce`/`suas instrucoes`.
+  /\besque[çc]am?\s+(tudo\s+)?(o\s+que\s+)?(voc[êe]|suas?\s+instru[çc][õo]es)/i,
+  // 3 · troca de identidade declarada.
   /voc[êe]\s+(agora\s+)?[ée]\s+(um|uma)\s+(outr[oa]|nov[oa]|assistente|modelo|sistema|IA)/i,
-  /\b(aja|atue|comporte-se|finja)\s+como\s+(um|uma|se)\b/i,
+  // 4 · «aja como» só quando o alvo e a IDENTIDADE do modelo, nao um papel humano.
+  /\b(aja|atue|comporte-se|finja)\s+como\s+(se\s+(voc[êe]\s+)?fosse|um[ao]?\s*(outr[oa]|nov[oa])?\s*(modelo|assistente|sistema|bot|IA|intelig[êe]ncia))/i,
+  // 5 · ordem de pontuacao — imperativo; «recebi/dei nota maxima» fica de fora.
   /\b(d[êe]|atribua|conceda|coloque)\s+(a\s+)?(nota|pontua[çc][ãa]o|score)\s+m[áa]xim/i,
 ];
 
