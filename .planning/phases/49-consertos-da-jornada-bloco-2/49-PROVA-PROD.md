@@ -718,3 +718,133 @@ enviadas. **Ambas abortam antes de qualquer `UPDATE`**, e uma requisição da Ma
 `model_id`/`max_tokens` medidos **antes** e **depois** das duas sondas:
 `claude-sonnet-4-6` / `3600` nos dois momentos — **idênticos**. O `_liga` real (sem
 mutação) **não** foi enviado.
+
+---
+
+## Motor — ANTES (plano 49-19, Task 1) — medido 2026-09-27, só leitura
+
+A conta descartável do 49-18 existe e foi percorrida pelo fluxo real na sessão de
+2026-09-27 (cadastro → inscrição → SJT → redação → Big Five → Raven → entrevista com 5
+análises → revisão humana → rejeição). O ANTES abaixo é a saída de
+`supabase/tests/p49_motor_antes_depois.sql` com `p49.antes = '{}'`.
+
+DESCARTAVEL_EMAIL: fernandinho.costa.neto+claude7@gmail.com
+DESCARTAVEL_CANDIDATO_ID: 37614985-76fe-4bb5-af90-3a734caeebe0
+DESCARTAVEL_CANDIDATURA_ID: dae837f4-0f72-4ef1-906c-8bbd57a564fb
+
+### O que o motor VAI apagar
+
+| Tabela / coluna | Da conta | Do resto do mundo |
+|---|---|---|
+| `respostas_formulario` | **6** | 115 |
+| `respostas_raven` | **60** | 60 |
+| `respostas_bigfive` | 0 | 0 |
+| `respostas_disc` | 0 | 0 |
+| `redacoes_candidato.texto` (→ sentinela) | **1** | — |
+| `respostas_avaliacao.respostas` (→ sentinela) | **2** | — |
+| `ai_call_logs` com o `candidato_id` (→ redigidos) | **7** | — |
+| `entrevista_analises.citacoes` | **5** | — |
+| `redacoes_candidato.analise_ia` com `cited_evidence` | **1** | — |
+
+### O que TEM de sobreviver
+
+| | |
+|---|---|
+| `scores_raven` | **1** (39/60, percentil 65) |
+| `scores_candidato` | **3** (sjt, big_five, entrevista) |
+
+### Populações VAZIAS — declaradas, não escondidas
+
+Três provas do passo novo não têm o que provar nesta conta, e por isso saem com o
+discriminador `pop_*` em `false` ao lado. Lê-las como aprovação seria ler metade:
+
+- **`comparativos_ids` = `[]`** — a `+claude7` nunca entrou num comparativo (ela estava
+  em entrevista/rejeitada quando o comparativo do Bloco A e o do Bloco B foram gerados).
+  `p36_comparativos_redigidos` sai `true` por vacuidade, com `pop_comparativos = false`.
+- **`respostas_cultura`** e **`cognitivo_respostas`** — 0 linhas. O Big Five deste sistema
+  grava em `scores_candidato` (`tipo='big_five'`), não em `respostas_bigfive`; e a prova
+  cognitiva textual não se aplica a esta vaga (`aplica_cognitivo = false`).
+- **`revisao_resultado`** — 0 linhas: a rejeição da `+claude7` veio por
+  `rejeitar_candidatura` e não criou `decisao_final`, então não há revisão a redigir.
+
+Essas quatro ficam cobertas só pelos smokes do 49-14/49-20.
+
+ANTES_JSON_BEGIN
+{"bigfive_conta":0,"bigfive_fora":0,"disc_conta":0,"disc_fora":0,"form_conta":6,"form_fora":115,"raven_conta":60,"raven_fora":60,"redacao_aberta":1,"cultura_aberta":0,"aval_aberta":2,"cognitivo_aberta":0,"corrente_aberta":0,"arquivo_aberto":0,"scores_raven":1,"scores_cand":3,"logs_ids":["129e4bdc-4d32-4121-a6a1-905272018b70","1429a1dc-d782-42e9-9e12-632ece4327ca","8690dd44-986e-4b1f-8bbe-b8a3888eba62","8dbbeae2-9dd2-45e4-864a-4c2719d840b9","3edfabc2-8502-4d8e-a2a8-5441d6cda2b2","8b6cc082-37e3-49ce-91e7-fb7057009567","d84d27cc-bc37-486f-ad14-e03fc13bdd69"],"comparativos_ids":[]}
+ANTES_JSON_END
+
+### O dry-run (`plano_exclusao_titular`) — PENDENTE
+
+A função recusa chamador sem sessão (`FORBIDDEN: chamador sem sessao nao le o plano de
+exclusao de ninguem`, medido 2026-09-27). Ela exige o JWT do titular ou de RH, e por isso
+o dry-run fica para o checkpoint da Task 2, junto com a chamada da EF.
+
+### Autorização do operador (Task 2 — checkpoint, 2026-09-27)
+
+Frase literal do operador, nesta sessão:
+
+> autorizo a execução do motor na conta descartável fernandinho.costa.neto+claude7@gmail.com
+
+Nenhuma senha nem JWT da conta foi gravada em arquivo algum.
+
+**Conferência do plano pela tela** — o operador leu «O que sai e o que fica» em
+`/candidato/privacidade` antes de confirmar. O diálogo anuncia exclusão em **12/10/2026**
+(hoje + 15 dias), sem contradizer nenhuma contagem do ANTES. A promessa de apagar «as
+análises que compararam a sua candidatura com as de outras pessoas» não tem população
+nesta conta (`comparativos_ids = []`) — registrado como vazio, não como cumprido.
+
+## Motor — DEPOIS (plano 49-19, Task 3) — executado 2026-09-27 23:25 -03
+
+Resposta da EF `executar-direito-titular` (chamada com o JWT da titular, no navegador do
+operador — credencial nunca gravada):
+
+```json
+{"ok":true,"acao":"executar","concluido_em":"2026-09-28T02:25:42.738Z","arquivos_apagados":1}
+```
+
+Antecipação de `executar_em`: `2026-10-12 22:56:10` → `2026-09-27 22:58:51`, **1 linha**
+(o bloco aborta em qualquer outro número; `WHERE` por candidato + tipo + situação + não cancelado).
+
+### As oito provas
+
+| Prova | Veredito | Medida |
+|---|---|---|
+| `p36_respostas_apagadas` | ✅ | `respostas_formulario` 6→0 · `respostas_raven` 60→0 |
+| `p36_textos_em_sentinela` | ✅ | redação 1 em sentinela · `respostas_avaliacao` 2 redigidas |
+| `p36_sem_citacao_literal` | ✅ | `cited_evidence` 1→0 · `entrevista_analises.citacoes` 5→0 |
+| `p36_logs_redigidos` | ✅ | 7 de 7 · `candidato_id` NULL, prompt e `raw_response` redigidos |
+| `p36_comparativos_redigidos` | ✅ *(vazio)* | `pop_comparativos = false` — nunca houve comparativo citando ela |
+| `p36_revisao_redigida_ou_ausente` | ✅ *(vazio)* | `pop_revisao = false` |
+| `p36_scores_preservados` | ✅ | `scores_raven` 1 · `scores_candidato` 3 — intactos |
+| `p36_outros_intactos` | ✅ | `respostas_formulario` fora 115 · `respostas_raven` fora 60 — inalterados |
+
+### Fora do Postgres
+
+| | |
+|---|---|
+| `auth.users` pelo id / pelo e-mail | **0 / 0** — o usuário não existe mais |
+| `storage.objects` sob qualquer prefixo dela | **0** (a EF relatou `arquivos_apagados: 1`) |
+| `candidatos` | 1 linha — **tombstone**, e-mail `anonimizado+<id>@invalido.local` |
+| `solicitacoes_dados.situacao` | `concluido` · `recibo_enviado_em` 2026-09-27 23:25:43 |
+
+### ⚠ O tracer reprovou trabalho correto na primeira execução — e o conserto foi pela FORMA
+
+A primeira versão de `p49_motor_antes_depois.sql` comparava as colunas redigidas com **uma**
+sentinela literal (`[removido a pedido do titular — LGPD Art. 18]`) e devolveu
+`p36_textos_em_sentinela = false` e `p36_logs_redigidos = false` sobre uma execução que
+estava **correta**. O motor usa marcadores DIFERENTES por coluna:
+
+- texto comum → `[removido a pedido do titular — LGPD Art. 18]`
+- `respostas_avaliacao.respostas` → `{"redigido":"anonimizacao_p49"}`
+- `ai_call_logs.raw_response` → `{"redigido":"anonimizacao_p45"}`
+- `ai_call_logs.user_prompt_template` → sentinela própria de 258 caracteres
+- comparativo → `{"redigido":"anonimizacao_p49_comparativo"}`
+
+O predicado agora reconhece a **forma** (chave `redigido`, ou a frase «removid… a pedido»),
+não uma string congelada — e por isso não envelhece quando nascer um marcador novo. É a
+mesma lição que o `CLAUDE.md` registra em «Portões: varra pela FORMA, não pelo sintoma».
+
+⚠ Consequência de escrituração: o `aval_aberta: 2` do `ANTES_JSON` acima é uma **medição
+errada** do predicado velho — aquelas 2 linhas já estavam redigidas às 20:01 e 20:16 (a
+redação do rascunho acontece ao pontuar, não na exclusão). Ninguém deve lê-las como «2
+linhas abertas que o motor fechou». Nenhuma coluna `p36_*` depende desse valor.
