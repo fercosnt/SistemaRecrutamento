@@ -31,15 +31,26 @@ const TIPOS = ['texto_curto', 'texto_longo', 'single_choice', 'multiple_choice',
 const TIPOS_ABERTOS = ['texto_curto', 'texto_longo']
 const CHAVES_PESO = ['triagem', 'work_sample_sjt', 'redacao_cultural', 'entrevista']
 
-/** Campos que a pagina renderiza via TextoRico — sao os que aceitam markdown. */
+/** Campos que a pagina renderiza via TextoRico — sao os que aceitam markdown.
+ *  `sobre_empresa` ENTROU AQUI em 2026-09-29. Ate entao ele estava em CAMPOS_INVISIVEIS,
+ *  e a consequencia era pior que o aviso errado: o campo passa pelo TextoRico
+ *  (VagaDetalhePage.tsx:474-478) e o validador NAO conferia suas marcas. Dava para emitir
+ *  link, tabela ou asterisco orfao ali e o portao ficava verde. */
 const CAMPOS_MARKDOWN = [
   'sobre_cargo', 'responsabilidades', 'requisitos_formacao', 'requisitos_experiencia',
   'requisitos_tecnicos', 'requisitos_habilidades', 'diferenciais', 'beneficios',
+  'sobre_empresa',
 ]
-/** Campos renderizados como texto puro — markdown aqui aparece literal na tela. */
-const CAMPOS_TEXTO_PURO = ['titulo', 'descricao_curta']
-/** Campos que existem, aceitam escrita e nao sao lidos por ninguem hoje. */
-const CAMPOS_INVISIVEIS = ['subtitulo', 'sobre_empresa', 'perfil_ideal']
+/** Campos renderizados como texto puro — markdown aqui aparece literal na tela.
+ *  `subtitulo` ENTROU AQUI em 2026-09-29: VagaDetalhePage.tsx:274-276 o renderiza
+ *  direto, SEM TextoRico. */
+const CAMPOS_TEXTO_PURO = ['titulo', 'descricao_curta', 'subtitulo']
+/** Campos que existem, aceitam escrita e nao sao lidos por ninguem hoje.
+ *  ⚠ MEDIDO EM 2026-09-29, por leitura de VagaDetalhePage.tsx. Ate esta data a lista
+ *  dizia ['subtitulo','sobre_empresa','perfil_ideal'] — dois dos tres JA ERAM
+ *  renderizados desde 2026-08-25, e o aviso mandava mover conteudo correto para outro
+ *  lugar. Portao com diagnostico FALSO custa mais que portao ausente. */
+const CAMPOS_INVISIVEIS = ['perfil_ideal']
 
 /** Tags de dollar-quoting usadas pelo template da migration. */
 const TAGS = ['$vaga$','$tit$','$dcurta$','$scargo$','$resp$','$rform$','$rexp$','$rtec$','$rhab$','$dif$','$ben$','$sec$','$rub$','$pesos$','$testes$']
@@ -205,7 +216,9 @@ else {
     }
   })
   if (secoes.length > 0) {
-    warn(`${secoes.length} secao(oes) extra(s) — a coluna aceita, mas a PAGINA AINDA NAO RENDERIZA secoes_extras. Esse conteudo fica invisivel ate a renderizacao entrar`)
+    // ⚠ Aviso REMOVIDO em 2026-09-29: medido em VagaDetalhePage.tsx:487-488, a pagina
+    // RENDERIZA secoes_extras (cada {titulo, conteudo} vira secao, conteudo via TextoRico)
+    // desde 2026-08-25. O aviso mandava mover conteudo correto de um campo que funciona.
   }
 }
 
@@ -222,13 +235,29 @@ if (!vagaNova && r === undefined) {
 
   // Teto de 5: cada competencia gera um bloco BARS e cv_job_match tem max_tokens 2048.
   const secCompetencias = r.split(/##\s*Compet/i)[1]?.split(/\n##\s/)[0] ?? ''
-  const nComp = (secCompetencias.match(/^\s*\d+\.\s+\S/gm) || []).length
+  // Aceita "1. Nome", "### 1. Nome" e "**1.** Nome". Ate 2026-09-29 so casava a primeira
+  // forma: uma rubrica escrita com "### 1." contava ZERO, e o teto de 5 ficava INERTE —
+  // portao que nao e capaz de falhar e pior que portao quebrado.
+  const nComp = (secCompetencias.match(/^\s*(?:#{2,4}\s*)?\*{0,2}\d+[.)]\*{0,2}\s+\S/gm) || []).length
   if (nComp > 5) err(`rubrica_ia tem ${nComp} competencias — o teto e 5. Cada uma gera um bloco BARS completo e cv_job_match tem max_tokens: 2048; a sexta arrisca truncar o JSON`)
   if (nComp === 0) warn('nao consegui contar competencias numeradas na rubrica — confira o formato "1. Nome da competencia"')
 
   // RNF-07a: o sistema NUNCA rejeita candidato automaticamente por score.
-  const proibidas = /\b(rejeite|rejeitar|descarte|descartar|elimine|eliminar|reprove|reprovar)\b/i
-  const m = r.match(proibidas)
+  //
+  // ⚠ CONSERTADO EM 2026-09-29 — a regra reprovava TEXTO HONESTO.
+  // Ate aqui o teste era `/\b(rejeite|rejeitar|...)\b/i` sobre a rubrica inteira, e casava
+  // a palavra em QUALQUER contexto — inclusive dentro da negacao que e justamente a
+  // instrucao certa: "Nunca recomende rejeitar" era reprovado como se mandasse rejeitar.
+  // Mesmo defeito do commit 49-41 ("o conserto pt-BR reprovava texto honesto"). Um portao
+  // que reprova o texto correto ensina a contornar o portao.
+  // Agora: ignora a ocorrencia precedida de negacao na mesma frase.
+  const proibidas = /\b(rejeite|rejeitar|descarte|descartar|elimine|eliminar|reprove|reprovar)\b/gi
+  const NEGACAO = /\b(nunca|jamais|n[aã]o|sem|evite|proibid[oa])\b[^.!?\n]{0,40}$/i
+  let m = null
+  for (const oc of r.matchAll(proibidas)) {
+    if (NEGACAO.test(r.slice(Math.max(0, oc.index - 60), oc.index))) continue
+    m = oc; break
+  }
   if (m) err(`rubrica_ia manda "${m[0]}" — viola a RNF-07a. Requisito eliminatorio registra gap critical e segura o score abaixo de 40; nunca rejeita`)
 
   // A rubrica e TUDO que o modelo ve da vaga (index.ts:288-292). Apontar para fora
