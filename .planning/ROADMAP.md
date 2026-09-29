@@ -468,16 +468,19 @@ Plans:
 
 - [ ] 49-30-PLAN.md — CR-03 no banco: `salvar_avaliacao_entrevista` ganha `p_analise_id` (migration nova `20260929000003`) e a forma antiga recusa escolher entre duas vigentes; smoke de duas vigentes, a mais antiga bandeirada, vermelho antes e mordente por mutação; serviço/hook/workspace mandando o id (JORN-12)
 - [ ] 49-32-PLAN.md — CR-02: a linha do resultado de um fallback não leva mais a `idempotency_key`; fallback + retry bem-sucedido = duas linhas com ids distintos; invariante da chave sobre os 7 caminhos de gravação (JORN-28)
-- [ ] 49-33-PLAN.md — CR-01: as frases do consultório entram como benignas e reprovam primeiro; padrões pt-BR ancorados no modelo e no imperativo, mordida provada nas duas direções (JORN-41)
 
 *Wave 2*
 
-- [ ] 49-31-PLAN.md — CR-03 na tela: uma confirmação por vigente com bandeira pendente (`bloqueado = pendentes.length > 0`) e o scorecard dizendo/escolhendo a análise avaliada (JORN-12)
-- [ ] 49-34-PLAN.md — Redeploy das 7 EFs de IA com CR-01 e CR-02, provado pelo bundle publicado; nenhuma linha de fallback com chave depois do deploy (JORN-28, JORN-41)
+- [ ] 49-31-PLAN.md — CR-03 na tela: uma confirmação por vigente com bandeira pendente (`bloqueado = pendentes.length > 0`) e o scorecard dizendo/escolhendo a análise avaliada; JORN-12 anotado à espera da re-verificação (JORN-12)
+- [ ] 49-33-PLAN.md — CR-01: as frases do consultório entram como benignas e reprovam primeiro; padrões pt-BR ancorados no modelo e no imperativo, mordida provada nas duas direções (JORN-41) — depois do 49-32: os dois mutam `_shared` em disco
 
 *Wave 3*
 
-- [ ] 49-35-PLAN.md — Escrituração: JORN-37 sem a promessa da limpeza recusada (AR-49-01), JORN-41 coerente com a re-verificação, JORN-42..49 roteados ao Bloco 3, caixas por casamento PLAN↔SUMMARY (JORN-37, JORN-41)
+- [ ] 49-34-PLAN.md — Redeploy das 7 EFs de IA com CR-01 e CR-02, provado pelo bundle publicado; nenhuma linha de fallback com chave depois do deploy; JORN-28 anotado à espera da re-verificação (JORN-28, JORN-41)
+
+*Wave 4*
+
+- [ ] 49-35-PLAN.md — Escrituração: JORN-37 sem a promessa da limpeza recusada (AR-49-01), JORN-41 coerente com a re-verificação, JORN-42..49 roteados ao Bloco 3, caixas por casamento PLAN↔SUMMARY, nenhum requisito Complete antes do verificador, disposição dos 22 achados do review (JORN-37, JORN-41)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
