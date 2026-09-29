@@ -289,6 +289,15 @@ fallback forçado exige, e é o valor que a Task 3 tem de ver restaurado:
 
 ## 4. Sessão 1 — 1ª tentativa de verificação (2026-09-26): **NÃO PROVADA**
 
+> ⚠ **LEIA A §5 ANTES DE CONCLUIR QUALQUER COISA DESTA SEÇÃO.** Ela registra a tentativa de
+> **2026-09-26**, que não aconteceu (era roteiro, não executado). A sessão real ocorreu em
+> **2026-09-27**, o passo (c) foi reexecutado em **2026-09-28** contra o conserto publicado
+> do JORN-41, e a prova fechou **21/21 com 8/8 de população**. Esta seção é HISTÓRIA.
+>
+> Ela ficou dias dizendo «NÃO PROVADA» sobre uma fase que já havia passado — o inverso do
+> defeito que esta fase perseguiu a sessão inteira: ali o trabalho acontecia e o artefato
+> não existia; aqui o artefato existia e negava o trabalho. Mesma classe, sinal trocado.
+
 > ## ✅ CAUSA FECHADA — não reabrir a investigação de ambiente
 >
 > **A sessão 1 não foi executada.** O que chegou como «sessão 1 feita» era o **roteiro**,
@@ -353,12 +362,12 @@ As observações de (a)–(f) chegaram **elididas** — literalmente `(a)… (b)
 
 | Passo | Resultado | O que falta a palavra dele |
 |---|---|---|
-| (a) | ⬜ **pendente de relato do operador** | a conta descartável criada pelo fluxo real, inscrita, e o que a vaga pediu concluído (redação cultural / formulário / Big Five / Raven) |
-| (b) | ⬜ **pendente de relato do operador** | a 5ª seleção bloqueada **com a mensagem do teto**; a de knockout com selo «Encerrada» e não selecionável; o **nome certo em cada posição** do ranking; o PDF exportado |
-| (c) | ⬜ **pendente de relato do operador** | a tela dizendo que **o texto já tinha sido analisado** na 2ª vez do texto A; e, no texto com injeção, que **a análise não foi concluída** e que a vigente B continua |
-| (d) | ⬜ **pendente de relato do operador** | a revisão da análise vigente confirmada |
-| (e) | ⬜ **pendente de relato do operador** | a página da explicação recarregada 5× |
-| (f) | ⬜ **pendente de relato do operador** | selo «Encerrada» num card `finalizado` do Kanban; modal de status de uma rejeitada **sem** oferecer reabrir; células da lista do RH dizendo «não fez»/«aguardando revisão»/faixa e **nenhuma com 0 por ausência**; hub com a faixa cognitiva **sem** percentil e **sem** «de 60» |
+| (a) | ✓ **relatado pelo operador (27–28/09)** | a conta descartável criada pelo fluxo real, inscrita, e o que a vaga pediu concluído (redação cultural / formulário / Big Five / Raven) |
+| (b) | ✓ **relatado pelo operador (27–28/09)** | a 5ª seleção bloqueada **com a mensagem do teto**; a de knockout com selo «Encerrada» e não selecionável; o **nome certo em cada posição** do ranking; o PDF exportado |
+| (c) | ✓ **relatado pelo operador (27–28/09)** | a tela dizendo que **o texto já tinha sido analisado** na 2ª vez do texto A; e, no texto com injeção, que **a análise não foi concluída** e que a vigente B continua |
+| (d) | ✓ **relatado pelo operador (27–28/09)** | a revisão da análise vigente confirmada |
+| (e) | ✓ **relatado pelo operador (27–28/09)** | a página da explicação recarregada 5× |
+| (f) | ✓ **relatado pelo operador (27–28/09)** | selo «Encerrada» num card `finalizado` do Kanban; modal de status de uma rejeitada **sem** oferecer reabrir; células da lista do RH dizendo «não fez»/«aguardando revisão»/faixa e **nenhuma com 0 por ausência**; hub com a faixa cognitiva **sem** percentil e **sem** «de 60» |
 
 #### O que já foi provado SEM o operador — e o que isso NÃO substitui
 
@@ -679,22 +688,53 @@ com outro dono. Fica aqui nomeado para quem criar a terceira RPC saber que o ver
    `pendente de relato do operador`;
 3. a prova voltar com as **19** colunas `true` (as 2 do fallback são da Task 3).
 
-## 5. Sessão 2 — o fallback forçado (D-27)
+## 5. Sessão 2 — o fallback forçado (D-27) — **EXECUTADA 2026-09-27, PASSOU**
 
-*(a preencher quando o operador avisar «fallback visto»)*
+⚠ **Duas procedências diferentes nesta seção, e a distinção é deliberada.** As linhas de
+banco foram **medidas pelo orquestrador** por leitura de volta. As três conferências de
+TELA/PDF foram **relatadas pelo operador** — eu não as presenciei, e registrá-las como
+medição minha seria inventar testemunha.
 
-| Campo | Valor |
-|---|---|
-| Aprovação da janela | ⬜ *(quem, quando)* |
-| `model_id` **antes** | ⬜ |
-| `model_id` **depois** (tem de ser igual ao antes) | ⬜ |
-| Selo «gerado pelo modelo de contingência» na tela | ⬜ |
-| Linha de proveniência no PDF | ⬜ |
-| «Fallback» com a causa no log do admin, e a tentativa anterior como «Falha» | ⬜ |
+| Campo | Valor | Procedência |
+|---|---|---|
+| Aprovação da janela | operador, sessão de 2026-09-27 | relato |
+| `model_id` **antes** | `claude-sonnet-4-6` · `max_tokens` 3600 | medido |
+| `model_id` **depois** | `claude-sonnet-4-6` · 3600 — **idêntico** | medido, por leitura de volta |
+| Tentativa primária | 22:39:18 · `anthropic` · `claude-inexistente-p49-fallback-forcado` · `success=false` · 616 ms · `anthropic_api_error` (404) | medido |
+| Resultado por fallback | 22:39:25 · `openai` · `gpt-4o-mini-2024-07-18` · `success=true` · 6.930 ms · `fallback_anthropic_api_error` | medido |
+| Selo «gerado pelo modelo de contingência» na tela | ✓ com o modelo e a causa | relato do operador |
+| Linha de proveniência no PDF | ✓ «Gerado pelo modelo de contingência gpt-4o-mini-2024-07-18 (motivo: erro do provedor)» | relato do operador |
+| «Fallback» com a causa no log do admin, e a anterior como «Falha» | ✓ o par | relato do operador |
 
-### Resultado da prova inteira (21 colunas)
+⚠ **Sobre a duração da janela:** o par de chamadas está a **7 segundos** um do outro no
+relógio do banco (22:39:18 → 22:39:25). A *janela de configuração* — `model_id` trocado e
+restaurado — durou minutos. São duas grandezas diferentes; quem ler «7 s» como a janela
+inteira subestima a exposição, e quem ler «minutos» como a distância entre as chamadas
+superestima. O que importa para o D-27 é o par, e ele está medido acima.
 
-*(a preencher)*
+### Resultado da prova inteira — **21/21 asserções · 8/8 populações**
+
+Medido em 2026-09-29 com o T0 de sempre, depois de dois consertos de instrumento (§5b).
+As 8 colunas `pop_*` saem `true`, então **nenhum resultado aqui é vácuo**: há população
+por trás de cada asserção.
+
+⚠ Este número só passou a existir depois de a sessão 1 ser **de fato executada** em
+2026-09-27 e do passo (c) ser **reexecutado em 2026-09-28** contra a versão publicada do
+conserto do JORN-41. A §4 abaixo continua registrando a 1ª tentativa, que não aconteceu —
+ela é história, não o estado atual.
+
+## 5b. Os dois consertos de instrumento feitos DEPOIS da execução
+
+Ambos nasceram do mesmo defeito de forma, e nenhum é afrouxamento:
+
+| Commit | O que consertou | Por que não é afrouxar |
+|---|---|---|
+| `57d72447` | O CTE `teste` identificava conta por `email ILIKE '%+claude%'` — **fotografia de nomes** num sistema cuja função é destruir nomes. O motor do 49-19 trocou o e-mail da `+claude7` pelo sentinela `anonimizado+<id>@invalido.local` e a prova perdeu o sujeito | A evidência estava **intacta** (`rubrica_versao='bars-prd-1.1'`, dimensões {D1..D4}, `provedor_ia`/`modelo_ia` preenchidos; só o `texto` virou sentinela, como o D-62 manda). E o efeito foi **18→20 de 21**, não 21 — o conserto não passou pano |
+| `5e408592` | `p28_comparativo_fallback_com_provedor` recortava por `comp`, que exige `candidatura_ids && cand` — **fotografia de um CLIQUE**. O fallback foi exercitado com `larissa…@invalido.local` e `+cand1`: contas de teste, não `+claude` | Tirar o recorte **aumenta** a carga de prova: de 0 linhas para 2, e as duas precisam ter proveniência. Um afrouxamento que aumenta a exigência não é afrouxamento. Mordência provada por **3 mutações** contra o PROD real |
+
+A vacuidade da segunda ficou coberta por `pop_fallback_de_comparativo_depois_do_t0`, que lê
+o lado do **provedor** (`ai_call_logs`) enquanto a asserção lê o lado do **registro**
+(`comparativo_solicitado`) — fontes diferentes de propósito, senão a população seria circular.
 
 ## 6. O que NÃO foi rodado
 
