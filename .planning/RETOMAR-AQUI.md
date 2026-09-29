@@ -1,4 +1,4 @@
-# Retomar aqui — estado em 2026-09-29, com a cauda da Phase 49 autorizada e pendente
+# Retomar aqui — estado em 2026-09-29, com a cauda da Phase 49 EXECUTADA e parada em `gaps_found`
 
 > ⚠ Até 2026-09-29 este título dizia «estado em 2026-09-07, antes da validação manual do
 > operador» — num arquivo cuja função é ser **a primeira coisa lida** na sessão seguinte, e
@@ -13,7 +13,42 @@
 
 ---
 
-## ⚑ MANDATO VIVO — a cauda da Phase 49 está AUTORIZADA e PENDENTE
+## ✅ A cauda da Phase 49 RODOU em 2026-09-29 — e parou em `gaps_found` (10/13)
+
+**Não rode a cauda de novo.** O mandato abaixo foi cumprido; ele fica como registro histórico.
+
+| Etapa | Resultado | Artefato |
+|---|---|---|
+| Nyquist (`verify:post`) | 0 lacunas; vitest 217/2321, Deno 45 arq. 741/0 medidos | `49-VALIDATION.md` (`315adef5`) |
+| Segurança (`verify:post`) | 130 ameaças, 0 abertas; **T-49-12-03 aceita pelo operador como AR-49-01** (é a D-47 recusada; BD-9 segue `open`) | `49-SECURITY.md` (`b7a03f3a`) |
+| UI (`verify:post`) | 18/24, sem BLOCKER | `49-UI-REVIEW.md` (`dcb17eb1`) |
+| Code review | 3 críticos, 13 avisos, 6 info — os 3 críticos **conferidos** pelo orquestrador | `49-REVIEW.md` + `49-REVIEW-DISPOSITION.md` (22 `open`) |
+| Regressão | `CI=true npm test` 217/2321 verde | — |
+| Verificação | **`gaps_found`, 10/13** | `49-VERIFICATION.md` (`805d0f8e`) |
+
+**As três lacunas** (todas vindas do code review):
+
+1. **CR-03 / JORN-12 — falha de verdade do objetivo.** `avancar_etapa` bloqueia por QUALQUER análise
+   vigente com bandeira (`20260922000004:212-218`), mas a tela só expõe a mais recente
+   (`TranscricaoReviewPanel.tsx:489-494`): com online + presencial vigentes, o funil trava sem saída pela
+   UI. Conserto exige migration NOVA (a aplicada está pinada por md5).
+2. **CR-02 — a auditoria perde o fallback.** A linha de resultado do fallback leva a `idempotency_key`
+   (`ai-client.ts:1134`); o replay a pula (`:526`); o sucesso seguinte faz upsert na mesma chave
+   (`audit-logger.ts:239`) e apaga `provider='openai'`, custo e código.
+3. **CR-01 / JORN-41 — o guard pt-BR recusa português comum.** Medido: «você é uma assistente de
+   dentista…», «não ignore as orientações pós-operatórias», «avaliação de nota máxima» disparam
+   `injection-detector.ts:68-76`. Commits `49b3ab5b`/`ae299ae8` não pertencem a nenhum dos 29 planos.
+
+**Próximo passo:** `/gsd-plan-phase 49 --gaps` → `/gsd-execute-phase 49 --gaps-only`. Cada conserto com
+teste que reprova ANTES.
+
+**Escrituração pendente, apontada pelo verificador:** `ROADMAP.md` diz «24 plans» (são 29); JORN-42..49
+precisam de decisão de roteamento; o texto de JORN-37 em `REQUIREMENTS.md` ainda promete a limpeza que a
+D-47 recusou. Os 7 IDs da fase que liam `Complete` voltaram a `Gaps Found` (#2388) até o fecho.
+
+---
+
+## ⚑ (HISTÓRICO) MANDATO — a cauda da Phase 49 estava AUTORIZADA e PENDENTE
 
 **Escrito em 2026-09-29, a pedido nominal do operador, para sobreviver ao fechamento da
 janela.** O operador ia atualizar o Claude Code e a sessão seguinte começaria sem contexto.
