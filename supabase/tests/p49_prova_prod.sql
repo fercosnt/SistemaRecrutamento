@@ -239,6 +239,15 @@ SELECT
   EXISTS (SELECT 1 FROM fb)
     AS pop_fallback_depois_do_t0,
 
+  -- População específica de `p28_comparativo_fallback_com_provedor`: houve fallback NA
+  -- CHAMADA DO COMPARATIVO depois de T0? Sem isto, aquela coluna passaria por VACUIDADE no
+  -- dia em que ninguém forçar um fallback — que é o estado normal do sistema.
+  -- ⚠ A população vem do lado do PROVEDOR (`ai_call_logs`), e a afirmação vem do lado do
+  -- REGISTRO (`comparativo_solicitado`). São fontes diferentes de propósito: se a população
+  -- fosse lida do mesmo campo que a asserção lê, ela seria circular e não diria nada.
+  EXISTS (SELECT 1 FROM fb WHERE fb.call_type = 'comparative_ranking')
+    AS pop_fallback_de_comparativo_depois_do_t0,
+
   -- Análise de entrevista de conta de teste depois de T0? (governa as `p12_*`)
   EXISTS (SELECT 1 FROM ea)
     AS pop_analise_de_entrevista_depois_do_t0,
@@ -308,11 +317,37 @@ SELECT
           FROM fb f), false))
     AS p28_fallback_duas_linhas,
 
-  -- D-27 · e o RESULTADO gravado diz de quem ele é: `provedor_ia='openai'` com o modelo real
-  EXISTS (SELECT 1 FROM comp
-           WHERE provedor_ia = 'openai'
-             AND modelo_ia IS NOT NULL
-             AND modelo_ia <> '')
+  -- D-27 · e o RESULTADO gravado diz de quem ele é: `provedor_ia='openai'` com o modelo real.
+  --
+  -- ⚠⚠ POR QUE ESTA COLUNA **NÃO** FILTRA POR CONTA DE TESTE — não recoloque o filtro.
+  -- Ela usava `comp`, que exige `candidatura_ids && cand`. Esse recorte é FOTOGRAFIA DE UM
+  -- CLIQUE: *quais* candidaturas o operador marcou na tela não tem relação nenhuma com se o
+  -- fallback grava o provedor. É a mesma doença que o commit 57d72447 consertou no `teste`,
+  -- um nível acima — lá o sujeito era identificado por um nome que o motor apaga, aqui por
+  -- uma seleção de tela que ninguém prometeu repetir.
+  --
+  -- Medido em 2026-09-28: o fallback forçado foi exercitado com `larissa…@invalido.local` e
+  -- `+cand1` — contas de teste, mas não `+claude`. A coluna saía `false` com o contrato do
+  -- D-27 PROVADO na linha (`openai` / `gpt-4o-mini-2024-07-18`, ambos preenchidos).
+  --
+  -- E tirar o filtro AUMENTA a carga de prova, não diminui: antes a coluna afirmava sobre 0
+  -- linhas (o comparativo do fallback não entrava em `comp`); agora afirma sobre TODOS os
+  -- comparativos posteriores ao T0 — hoje 2, e os dois precisam ter proveniência. Um
+  -- afrouxamento que aumenta a exigência não é afrouxamento.
+  --
+  -- A T-49-18-04 do plano já declara que um comparativo real de RH durante a janela também
+  -- sai pelo modelo de contingência. O recorte por conta de teste excluiria exatamente essa
+  -- testemunha — a mais forte que existe, porque não foi encenada.
+  --
+  -- A vacuidade fica coberta por `pop_fallback_de_comparativo_depois_do_t0`, acima.
+  (SELECT coalesce(bool_and(cs.provedor_ia IS NOT NULL
+                        AND cs.modelo_ia IS NOT NULL
+                        AND cs.modelo_ia <> ''), false)
+     FROM public.comparativo_solicitado cs, t
+    WHERE cs.created_at > t.t0)
+   AND EXISTS (SELECT 1 FROM public.comparativo_solicitado cs, t
+                WHERE cs.created_at > t.t0 AND cs.provedor_ia = 'openai'
+                  AND cs.modelo_ia IS NOT NULL AND cs.modelo_ia <> '')
     AS p28_comparativo_fallback_com_provedor,
 
   -- ═══ JORN-39 — o bloqueio pré-provedor deixa registro, e não quebra a agregação ═
