@@ -9,7 +9,7 @@ tags: [guards, portoes, regex, prompt-injection, lgpd-04, polaridade, idioma, cl
 
 # Portão que casa pela SUPERFÍCIE sem ler o SENTIDO
 
-Três ocorrências em 48 horas, em três subsistemas diferentes. Registro como **uma classe**
+Cinco ocorrências em 48 horas, em três subsistemas diferentes — três que casam demais e duas que não casam nada. Registro como **uma classe**
 porque consertar as três isoladamente deixaria a quarta nascer igual.
 
 ## As três
@@ -53,6 +53,36 @@ Todo portão desta classe compara **forma** e conclui sobre **intenção**:
 *«um padrão de varredura que não enxerga o idioma do arquivo que ele vigia»*) — mas um nível
 mais fundo: ali o portão não enxergava o idioma do **código**; aqui não enxerga o **sentido
 do texto humano** que ele julga.
+
+## ⚠ A OUTRA METADE DA CLASSE — o portão que não morde nada e segue VERDE
+
+*(acrescentado em 2026-09-29; medições da sessão `sistemarecrutamento-cd`, no plugin
+`cadastro-de-vaga`, atribuídas a ela — não re-medidas aqui.)*
+
+As três de cima erram **casando demais**. Existem duas irmãs que erram **não casando nada**,
+e elas são piores porque ninguém tropeça:
+
+**(d) `sobre_empresa` estava em `CAMPOS_INVISIVEIS`** — mas o campo passa pelo TextoRico
+(`VagaDetalhePage.tsx:474`) e é renderizado. Consequência: as marcas markdown desse campo
+**nunca eram conferidas**. O portão não reprovava nada e parecia cobrir o campo.
+
+**(e) Teto de 5 competências contava com `/^\s*\d+\./`**, e a rubrica usa `### 1.` — contava
+**ZERO**. O teto era **inerte**: incapaz de falhar, portanto incapaz de proteger.
+
+⚠ **Esta assimetria já está no `CLAUDE.md` §«Portões: varra pela FORMA»**, na tabela dos dois
+modos de falha: *contagem contra constante* **reprova trabalho correto** (visível, alguém
+tropeça) e *iteração sobre lista literal* **não reprova nada** (invisível, segue verde). O
+registro original desta classe cobria só a primeira metade. **Uma classe que só descreve o
+erro visível ensina a procurar no lugar errado.**
+
+A pergunta que separa as duas metades, e que vale para qualquer guard de texto:
+
+> *Este portão já reprovou alguma coisa alguma vez? E o ramo de SUCESSO dele já executou?*
+
+**Estado (relato da sessão `cd`):** as três do plugin foram consertadas, e o teste do portão
+foi de **45 para 51 mutações, todas mordendo** — incluindo uma que prova o teto de 5 no
+formato `### n.`. O (b) desta lista, portanto, está fechado; (a) fechado; **(c) segue aberto**
+e é o que importa.
 
 ## O que fazer com isso
 
