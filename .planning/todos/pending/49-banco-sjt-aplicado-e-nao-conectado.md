@@ -57,10 +57,13 @@ conserto e vale dizer com todas as letras:
 
 ## O que fecha
 
-Ligar cada vaga ao banco do seu cargo (`social-media`, `videomaker-storymaker`), e decidir o
-destino do `sdr-social-seller` de 1 item — aposentar ou manter como fallback explícito. Vale
-conferir, na mesma passada, se alguma candidatura JÁ RESPONDIDA ficou avaliada pelo banco
-errado: se ficou, é dado de avaliação a corrigir, não só configuração.
+Ligar cada vaga ao banco do seu cargo — são **três**: `social-media`, `videomaker-storymaker`
+e `editor-video`, 7 itens cada — e decidir o destino do `sdr-social-seller` de 1 item:
+aposentar ou manter como fallback explícito.
+
+*(A pergunta «alguma candidatura já respondida ficou avaliada pelo banco errado?» estava aqui
+e foi **respondida** na seção acima: zero linhas `work_sample_sjt`. Mantida só como registro
+de que foi feita — reconferir seria refazer medição que já tem resposta datada.)*
 
 ⚠ **Relacionado — a cadeia de reprodutibilidade, e ela quase ficou com um furo.** Enquanto
 `supabase/migrations/20260929000001_banco_sjt_marketing.sql` não entrar no git, o repositório
