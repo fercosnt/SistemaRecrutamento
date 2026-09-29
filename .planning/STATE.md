@@ -3,8 +3,8 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49: os 29 planos têm SUMMARY e a prova de PROD fechou 21/21 asserções + 8/8 populações (medida 2026-09-29). Nada de plano em aberto. Falta a CAUDA DA FASE: aggregate_results → code_review_gate → regression_gate → verify_phase_goal → update_roadmap. O verificador pode emitir human_verification novo — nenhum arquivo *-UAT.md existe ainda em fase nenhuma."
-last_updated: "2026-09-29T03:49:29.000Z"
+stopped_at: "Phase 49 — A CAUDA ESTÁ AUTORIZADA PELO OPERADOR (nominalmente, por escrito, em 2026-09-29) E PENDENTE. Não peça a autorização de novo: ela já se perdeu uma vez num /clear, e a sessão seguinte recusou o mandato três vezes porque quem insistia era uma sessão par. Rode: aggregate_results → code_review_gate → regression_gate → verify_phase_goal → update_roadmap. Mandato completo, com o estado dos JORN e o que fica fora do M8, em .planning/RETOMAR-AQUI.md (bloco «MANDATO VIVO»). Os 29 planos têm SUMMARY (medido por casamento PLAN↔SUMMARY, não por contagem) e a prova de PROD fechou 21/21 asserções + 8/8 populações. O verificador PODE emitir human_verification novo — nenhum arquivo *-UAT.md existe em fase nenhuma, o /gsd-verify-work nunca rodou neste projeto: é resultado esperado, não falha da cauda."
+last_updated: "2026-09-29T04:35:00.000Z"
 last_activity: 2026-09-29
 state_head: 8e02cfea9c601bf2989962fcca477b4fdc6cb896
 progress:
@@ -39,6 +39,22 @@ last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornad
 > abaixo — e cometi assim mesmo, no campo vizinho, porque ali o total fechava. Um número que
 > bate não é um número medido; e o que torna esta armadilha difícil é justamente que o
 > resultado errado parece confirmação.
+>
+> ✅ **REMEDIDO por terceiro em 2026-09-29, por sessão diferente da que escreveu o bloco
+> acima, e o `105` CONFIRMA-SE. Não "conserte" este campo.** Medição independente:
+>
+> ```
+> planos (arquivos)    : 107      planos SEM summary : 45-06, 45-11
+> summaries (arquivos) : 108      summaries SEM plano: 45-14, 45-15, 45-16
+> pares casados        : 105
+> ```
+>
+> `completed_plans: 105` é o **casamento**, não a contagem de arquivos — já é o número certo.
+> Este parágrafo existe porque, em 2026-09-29, o campo foi apontado de novo como «conta
+> ARQUIVOS, não fechamentos» e mandado corrigir. Executar aquela instrução teria **introduzido**
+> o erro que o bloco acima já havia removido: é a correção certa chegando **uma rodada tarde
+> demais**, contra um valor que já fora consertado. O antídoto não é lembrar do conserto — é
+> remedir antes de escrever, que é o que produziu esta linha.
 
 **A prova de PROD fechou: 21/21 asserções · 8/8 populações**, medida em 2026-09-29 com o T0 de
 `2026-09-26T18:44:16Z`. As `pop_*` verdes são o que torna esse número não-vácuo.

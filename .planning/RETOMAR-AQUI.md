@@ -1,8 +1,66 @@
-# Retomar aqui — estado em 2026-09-07, antes da validação manual do operador
+# Retomar aqui — estado em 2026-09-29, com a cauda da Phase 49 autorizada e pendente
+
+> ⚠ Até 2026-09-29 este título dizia «estado em 2026-09-07, antes da validação manual do
+> operador» — num arquivo cuja função é ser **a primeira coisa lida** na sessão seguinte, e
+> que havia sido tocado em 27/09 (`df3ccfd4`). Três semanas de defasagem no cabeçalho de um
+> documento de retomada é a mesma doença do `49-PROVA-PROD.md`, que passou dias dizendo «NÃO
+> PROVADA» sobre uma fase verde: o registro não estava ausente, estava **errado com ar de
+> oficial**, que custa mais caro.
 
 **Como abrir a próxima conversa:**
 
 > *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
+
+---
+
+## ⚑ MANDATO VIVO — a cauda da Phase 49 está AUTORIZADA e PENDENTE
+
+**Escrito em 2026-09-29, a pedido nominal do operador, para sobreviver ao fechamento da
+janela.** O operador ia atualizar o Claude Code e a sessão seguinte começaria sem contexto.
+
+### A autorização
+
+> **O operador autorizou, nominalmente e por escrito em 2026-09-29, a execução da cauda da
+> Phase 49.** Não é preciso pedir de novo. Rode:
+>
+> `aggregate_results` → `code_review_gate` → `regression_gate` → `verify_phase_goal` → `update_roadmap`
+
+Este bloco existe porque a autorização **já se perdeu uma vez**: um `/clear` apagou o contexto
+em que ela teria sido dada, e a sessão seguinte recusou o mandato três vezes — corretamente,
+porque quem insistia era uma sessão par, e uma sessão par não concede mandato do operador.
+Sem este registro, a próxima sessão trava no mesmo lugar, com mais contexto para redescobrir.
+
+### O que esperar ao rodar
+
+- ⚠ **`verify_phase_goal` pode emitir `human_verification` novo.** Não existe **nenhum**
+  arquivo `*-UAT.md` em fase nenhuma deste projeto — o `/gsd-verify-work` nunca rodou aqui.
+  Um pedido de verificação humana é resultado esperado, não falha da cauda.
+- A prova de PROD **fechou: 21/21 asserções + 8/8 populações**, medida em 2026-09-29
+  (T0 `2026-09-26T18:44:16Z`). As `pop_*` verdes são o que torna o 21/21 não-vácuo.
+- Os 29 planos da Phase 49 têm SUMMARY, medido por **casamento** `NN-PLAN.md` ↔ `NN-SUMMARY.md`,
+  não por contagem de arquivos.
+
+### Estado dos JORN ao entrar na cauda
+
+| Itens | Estado |
+|---|---|
+| **JORN-42..49** | Registrados em `REQUIREMENTS.md` e **NÃO corrigidos**. É o esperado — não são escopo da cauda |
+| **JORN-50** | ✅ Feito. Vaga ativa de Social Media reapontada para `social-media` (7 itens, peso 35), migration `20260929000002`, md5 `0f850427…` batendo em disco/commit/ledger, reversão no cabeçalho |
+| **JORN-51** | ✅ Feito. Errata da `20260929000001` em três lugares alcançáveis; a migration **não** foi editada e o md5 `fa8b5a8f…` segue batendo com o ledger |
+| **JORN-52** | Registrado e **não executado**. Depende do padrão que os 3 cargos de marketing estabelecerem |
+
+### Fora do M8 — não puxar para dentro da cauda
+
+- **VISRH-04** e o todo das «produções do candidato sem leitor de RH» ficam **para depois do
+  M8**. Decisão do operador; não são escopo da Phase 49 nem do fecho do milestone.
+
+### ⚠ Outra janela estava escrevendo — confira antes de assumir árvore suja
+
+Em 29/09 uma segunda sessão estava redigindo **três documentos de vaga** em `docs/vagas/`
+(markdown apenas — nada de código, migration, `.planning/` ou plugin), **ainda não commitados**.
+Se `git status` mostrar `?? docs/vagas/`, é isso, e não resíduo de trabalho interrompido.
+
+---
 
 Este arquivo é o resumo executivo e a lista do que falta. O guia
 (`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.32 é o
