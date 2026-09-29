@@ -39,6 +39,22 @@ Mexer em vaga **ativa** durante o fechamento do M8 — com a jornada de prova re
 os portões da fase 49 por rodar — trocaria o instrumento debaixo da medição. A decisão é do
 operador e tem data própria.
 
+## ✅ Medido em 2026-09-29: o dano é PROSPECTIVO, não retrospectivo
+
+`respostas_avaliacao` tem **zero** linhas com `teste='work_sample_sjt'` — conferido pelo
+orquestrador, e independentemente pela sessão `sistemarecrutamento-cd`. O que existe é
+`big_five` 7 · `redacao` 4 · `sjt_caso_aberto` 1 (esta última numa vaga de teste).
+
+**Ninguém respondeu o SJT de múltipla escolha nas vagas vivas.** Isso muda a natureza do
+conserto e vale dizer com todas as letras:
+
+- **NÃO há dado de avaliação a corrigir** — nenhuma candidatura foi pontuada pelo banco errado;
+- é «corrigir **antes** que alguém responda», não «corrigir **e reavaliar** quem respondeu»;
+- a urgência continua alta, mas por outra razão: a janela em que o conserto é barato está
+  aberta **agora** e fecha na primeira inscrição que chegar à etapa.
+
+⚠ O peso medido é **35%**, não 30%, e o campo está `obrigatorio: true` na vaga viva.
+
 ## O que fecha
 
 Ligar cada vaga ao banco do seu cargo (`social-media`, `videomaker-storymaker`), e decidir o
@@ -46,6 +62,16 @@ destino do `sdr-social-seller` de 1 item — aposentar ou manter como fallback e
 conferir, na mesma passada, se alguma candidatura JÁ RESPONDIDA ficou avaliada pelo banco
 errado: se ficou, é dado de avaliação a corrigir, não só configuração.
 
-⚠ **Relacionado:** enquanto o arquivo `supabase/migrations/20260929000001_banco_sjt_marketing.sql`
-não entrar no git, o repositório **não reproduz PROD** — a divergência de dois canais do
-CLAUDE.md, na direção Supabase. O arquivo é de outra sessão e foi pedido a ela que commite.
+⚠ **Relacionado — a cadeia de reprodutibilidade, e ela quase ficou com um furo.** Enquanto
+`supabase/migrations/20260929000001_banco_sjt_marketing.sql` não entrar no git, o repositório
+**não reproduz PROD** (dois canais, direção Supabase).
+
+E havia um segundo furo, mais silencioso: a migration é **gerada** do DRAFT por script, e o
+script vivia só no scratchpad de quem o escreveu — quem tivesse o DRAFT e o SQL não
+conseguiria provar que um vem do outro, e «o DRAFT diz X e a migration faz Y» ficaria como
+afirmação sem prova. Resolvido pela sessão `sistemarecrutamento-cd`: o gerador virou
+`scripts/geradores/gen-sjt-marketing.py` e a cadeia foi **provada por execução** (saída do
+gerador `diff` contra o corpo da migration aplicada: idêntico, 308 linhas). Depois do commit a
+cadeia fecha inteira e é conferível por terceiros: DRAFT → gerador → corpo → md5 no ledger.
+
+Os arquivos são de outra sessão; foi pedido a ela que commite, e ela aguarda o operador.
