@@ -11,8 +11,8 @@ progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 107
-  completed_plans: 107
-  percent: 100
+  completed_plans: 105
+  percent: 98
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
@@ -22,9 +22,23 @@ last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornad
 
 ## ▶ ESTADO EM 2026-09-29 — Phase 49 com os planos fechados, faltando a cauda
 
-**Os 29 planos da Phase 49 têm SUMMARY.** Medido no disco, não lido daqui: 107 planos e 108
-SUMMARYs no projeto inteiro (a fase 45 tem um a mais, de fecho de gap). Nenhum plano em aberto
-em fase nenhuma.
+**Os 29 planos da Phase 49 têm SUMMARY.** Isso é verdade e está medido por CASAMENTO
+(cada `NN-PLAN.md` com o seu `NN-SUMMARY.md`), não por contagem de arquivos.
+
+> ⚠⚠ **CORREÇÃO DE 2026-09-29, e o erro foi desta mesma sessão.** A primeira escrita deste
+> bloco dizia «107 planos e 107 SUMMARYs», e o número batia **por coincidência aritmética**:
+> eu contei ARQUIVOS, não FECHAMENTOS. O casamento real é outro:
+>
+> - **2 planos SEM summary:** `45-06` e `45-11` — a evidência deles existe sob outros nomes
+>   (`45-11-EVIDENCIA-PORTAO.md`, `RUNBOOK-45-06-T2-E-45-11-T3.md`), mas o par canônico não;
+> - **3 summaries SEM plano:** `45-14`, `45-15`, `45-16`.
+>
+> 107 planos − 2 sem fecho = **105 fechados**. `completed_plans` corrigido de 107 para 105.
+>
+> É **a mesma classe** que eu havia acabado de recusar no `completed_phases`, duas linhas
+> abaixo — e cometi assim mesmo, no campo vizinho, porque ali o total fechava. Um número que
+> bate não é um número medido; e o que torna esta armadilha difícil é justamente que o
+> resultado errado parece confirmação.
 
 **A prova de PROD fechou: 21/21 asserções · 8/8 populações**, medida em 2026-09-29 com o T0 de
 `2026-09-26T18:44:16Z`. As `pop_*` verdes são o que torna esse número não-vácuo.

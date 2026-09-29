@@ -298,6 +298,7 @@ Acrescentados em 2026-09-22 no kickoff da Phase 49 (`49-CONTEXT.md`). Mesma conv
 - [ ] **JORN-47**: As notas de entrevista têm a mesma obrigatoriedade no cliente e no servidor — `salvar_avaliacao_entrevista` levanta `check_violation` (→400) com notas vazias, enquanto o componente chama o campo de «optional gestor notes» e não bloqueia o Salvar. 400 garantido, sem mensagem na tela
 - [ ] **JORN-48**: Os dois instrumentos cognitivos são distinguíveis na tela — «Avaliação Cognitiva — Sem dados nesta etapa» aparece logo acima de «Avaliação de Raciocínio» com resultado. O dado está correto (são dois instrumentos); os nomes é que são indistinguíveis para quem lê
 - [ ] **JORN-49**: O recibo de exclusão não promete mais do que faz — lista «endereço» entre os campos apagados, mas `estado` e `faixa_etaria_materializada` permanecem por desenho (alimentam o relatório agregado). Ajuste de texto, não de motor
+- [ ] **JORN-50**: Cada vaga usa o banco SJT do SEU cargo — a migration `20260929000001` aplicou `social-media` (7 itens) e `videomaker-storymaker` (7), e as 3 vagas, **inclusive a Social Media ATIVA**, seguem apontando para `sdr-social-seller` (1 item, cenário de vendas). O SJT pesa 30%: o candidato de conteúdo responde pergunta do cargo errado **em produção**. Ver `.planning/todos/pending/49-banco-sjt-aplicado-e-nao-conectado.md`
 
 ---
 
@@ -427,6 +428,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | JORN-47 | Phase 49 | Pending (defeito 7 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos) |
 | JORN-48 | Phase 49 | Pending (defeito 8 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos) |
 | JORN-49 | Phase 49 | Pending (defeito 9 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos) |
+| JORN-50 | — | Pending (medido 2026-09-29 no fechamento da Phase 49, FORA do escopo dela; mexer em vaga ativa durante o fechamento trocaria o instrumento debaixo da medição) |
 
 **Coverage:**
 
