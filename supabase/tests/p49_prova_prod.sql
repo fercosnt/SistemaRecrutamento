@@ -47,8 +47,33 @@ WITH
 t AS (
   SELECT current_setting('p49.t0')::timestamptz AS t0
 ),
+-- ⚠⚠ O PREDICADO ERA UMA FOTOGRAFIA, E O PRODUTO EXISTE PARA REVELÁ-LA (2026-09-28).
+-- `email ILIKE '%+claude%'` identifica conta de teste pelo NOME. Só que o motor de
+-- exclusão do 49-19 — o plano SEGUINTE desta mesma fase — troca o e-mail pelo sentinela
+-- `anonimizado+<id>@invalido.local`. Quer dizer: a operação que a fase prova APAGA o
+-- identificador de que a prova da fase depende.
+--
+-- Medido em 2026-09-28, depois da execução real do motor sobre a `+claude7`: três colunas
+-- (`p07_redacao_nova_com_rubrica`, `p28_resultados_com_modelo`,
+-- `p28_comparativo_fallback_com_provedor`) saíram `false` — e a evidência estava INTACTA:
+-- a redação segue com `rubrica_versao='bars-prd-1.1'`, dimensões exatamente {D1..D4},
+-- `provedor_ia='anthropic'`, `modelo_ia='claude-sonnet-4-6'`. Só o `texto` virou sentinela,
+-- que é exatamente o que o D-62 manda o motor fazer. A prova perdeu o SUJEITO, não a prova.
+--
+-- Isto NÃO é afrouxar uma asserção para ela passar. A pergunta que separa os dois casos é a
+-- do CLAUDE.md §«varra pela FORMA»: *isto codifica um ESCOPO deliberado, ou uma FOTOGRAFIA
+-- que vai envelhecer?* `'%+claude%'` é fotografia de como contas de teste são NOMEADAS, num
+-- sistema cuja função é destruir nomes. O sentinela é construído a partir do `id` da própria
+-- linha, então o reconhecimento é exato — não é curinga.
+--
+-- ⚠ Alcance: o segundo ramo reconhece QUALQUER conta anonimizada, não só de teste — o e-mail
+-- deixa de distinguir isso por desenho. É seguro aqui porque toda coluna desta prova é
+-- recortada por `> T0`, e depois do T0 só contas de teste agiram (medido). Se um titular
+-- REAL for anonimizado no futuro, reavalie este ramo antes de reusar a consulta.
 teste AS (
-  SELECT c.id FROM public.candidatos c WHERE c.email ILIKE '%+claude%'
+  SELECT c.id FROM public.candidatos c
+   WHERE c.email ILIKE '%+claude%'
+      OR c.email = 'anonimizado+' || c.id || '@invalido.local'
 ),
 cand AS (
   SELECT cd.* FROM public.candidaturas cd WHERE cd.candidato_id IN (SELECT id FROM teste)
