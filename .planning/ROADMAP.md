@@ -402,7 +402,7 @@ Plans:
 **Guardrails**: os do Bloco 1. Migrations pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), Edge Functions por `efdeploy.cjs`; depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**. Teto de `tsc` **medido no kickoff: 90**.
 **Portão destrutivo**: há escrita retroativa, decidida no kickoff — limpar 9 justificativas grudadas (17), limpar as cópias de justificativa de decisão no histórico (37; medidas 5 linhas em 4 candidaturas pela pesquisa), marcar vigente/superadas em 6 análises (12); os snapshots sem mudança **ficam** (3b). Cada uma é checkpoint com contagem antes/depois. **E o 36 mexe no motor de exclusão** (mecanismo destrutivo): apply com portão e prova em conta de teste. Nenhuma escrita desta fase apaga linha, **com uma exceção decidida no portão (D-62)**: o passo novo do motor apaga as linhas do titular excluído em `respostas_raven`/`respostas_bigfive`/`respostas_disc`/`respostas_formulario`, cujos valores inteiros e de enum não aceitam sentinela. Portão fechado em 2026-09-22 (D-59..D-68 em `49-CONTEXT.md`).
 **Fora de escopo**: Blocos 3 e 4 da fila. A pendência **P1** (avaliar trocar o modelo das funções de IA) não faz parte do 28: o 28 torna o fallback visível, não escolhe modelo. As decisões D1–D8 (JORNADA) e D-01..D-23 (Phase 48) não são reabertas.
-**Plans**: 24 plans
+**Plans**: 35 plans
 
 Plans:
 
@@ -461,6 +461,23 @@ Plans:
 **Wave 9** *(blocked on Wave 8 completion)*
 
 - [ ] 49-19-PLAN.md — Primeira execução real do motor novo, na conta descartável, com autorização e contagem antes/depois (JORN-36)
+
+**Fechamento de lacunas (gap closure, `49-VERIFICATION.md` 2026-09-29 — CR-03, CR-02, CR-01 e escrituração)**
+
+*Wave 1*
+
+- [ ] 49-30-PLAN.md — CR-03 no banco: `salvar_avaliacao_entrevista` ganha `p_analise_id` (migration nova `20260929000003`) e a forma antiga recusa escolher entre duas vigentes; smoke de duas vigentes, a mais antiga bandeirada, vermelho antes e mordente por mutação; serviço/hook/workspace mandando o id (JORN-12)
+- [ ] 49-32-PLAN.md — CR-02: a linha do resultado de um fallback não leva mais a `idempotency_key`; fallback + retry bem-sucedido = duas linhas com ids distintos; invariante da chave sobre os 7 caminhos de gravação (JORN-28)
+- [ ] 49-33-PLAN.md — CR-01: as frases do consultório entram como benignas e reprovam primeiro; padrões pt-BR ancorados no modelo e no imperativo, mordida provada nas duas direções (JORN-41)
+
+*Wave 2*
+
+- [ ] 49-31-PLAN.md — CR-03 na tela: uma confirmação por vigente com bandeira pendente (`bloqueado = pendentes.length > 0`) e o scorecard dizendo/escolhendo a análise avaliada (JORN-12)
+- [ ] 49-34-PLAN.md — Redeploy das 7 EFs de IA com CR-01 e CR-02, provado pelo bundle publicado; nenhuma linha de fallback com chave depois do deploy (JORN-28, JORN-41)
+
+*Wave 3*
+
+- [ ] 49-35-PLAN.md — Escrituração: JORN-37 sem a promessa da limpeza recusada (AR-49-01), JORN-41 coerente com a re-verificação, JORN-42..49 roteados ao Bloco 3, caixas por casamento PLAN↔SUMMARY (JORN-37, JORN-41)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
