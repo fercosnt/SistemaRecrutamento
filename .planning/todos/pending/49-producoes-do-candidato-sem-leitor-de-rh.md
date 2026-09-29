@@ -44,6 +44,21 @@ verdade é mais interessante:**
 vê um número sobre um texto que não pode ler. Isso não é «falta uma tela» — é uma tela que
 existe pela metade, e o conserto é diferente: estender um leitor vivo, não criar o primeiro.
 
+### ⚠⚠ E é pior que um número: o RH vê os TRECHOS que a IA escolheu
+
+`ScorecardAvaliacao.tsx:128` (`CasoAbertoBreakdown`) lê `row.citacoes` — que está na
+allowlist do `scoresRhService.ts:126` — e **renderiza as citações**. Quer dizer: a tela
+mostra a SELEÇÃO que o modelo fez do texto do candidato, e não oferece o texto de onde a
+seleção saiu.
+
+Isso deixa de ser lacuna de UX e vira **buraco de auditabilidade**: quem decide vê a prova
+recortada pela IA sem poder conferir o original. É a mesma família do que a Phase 49 passou
+consertando em outras telas — mostrar conclusão sem mostrar de onde veio.
+
+**Efeito no corte:** a Parte A fica mais BARATA e mais VALIOSA ao mesmo tempo. O leitor
+(`scoresRhService`) e o card (`CasoAbertoBreakdown`) já existem; falta pôr a resposta
+íntegra ao lado da citação. Não é tela nova — é um campo a mais num card que já renderiza.
+
 Encosta no **defeito nº 5 da UAT** («2 registro(s) disponíveis para revisão» sem CTA,
 `HubCandidatoRH.tsx:389-399`): mesma família — o hub anuncia a existência do material e
 não oferece caminho até ele.
