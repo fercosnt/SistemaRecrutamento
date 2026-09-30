@@ -2056,6 +2056,95 @@ Deno.test("JORN-41/none — entrada benigna não grava linha-evento e volta com 
   assertEquals(r.injection_flag, null);
 });
 
+// ── 49-REVIEW-GAPS-2 WR-05: a perda de auditoria do SINAL não pode dizer «bloqueio» ────────
+//
+// Quando a linha-evento do `flag` não grava, o `callAi` emite o MESMO alerta de perda de
+// auditoria dos caminhos de bloqueio. Até 2026-09-30 a mensagem era fixa — «o bloqueio
+// ACONTECEU e NÃO ficou registrado» —, mas no `flag` o modelo FOI chamado e a análise
+// seguiu. Diagnóstico falso para o admin, a mesma classe que o 49-42 consertou na célula
+// «Falha». Os dois caminhos rodam aqui lado a lado, e as duas mensagens têm de diferir.
+
+/** Envolve o mock: a escrita em `ai_call_logs` da linha com `error_code` dado FALHA. */
+function comFalhaNaLinha(
+  base: ReturnType<typeof makeMockSupabaseBloqueio>,
+  errorCode: string,
+) {
+  const falha = { code: "42501", message: "permission denied for table ai_call_logs" };
+  const recusada = () => ({
+    then: (resolve: (r: { data: null; error: unknown }) => unknown) => resolve({ data: null, error: falha }),
+    select: (_c: string) => ({ single: () => Promise.resolve({ data: null, error: falha }) }),
+  });
+  return {
+    ...base,
+    from(table: string) {
+      const t = base.from(table) as Record<string, unknown> & {
+        insert: (r: Record<string, unknown>) => unknown;
+        upsert: (r: Record<string, unknown>, o?: unknown) => unknown;
+      };
+      if (table !== "ai_call_logs") return t;
+      return {
+        ...t,
+        insert: (r: Record<string, unknown>) => (r.error_code === errorCode ? recusada() : t.insert(r)),
+        upsert: (r: Record<string, unknown>, o?: unknown) =>
+          r.error_code === errorCode ? recusada() : t.upsert(r, o),
+      };
+    },
+  };
+}
+
+Deno.test("WR-05 — linha-evento do SINAL que não grava: o alerta diz que a análise SEGUIU, não que houve bloqueio", async () => {
+  const { callAi } = await loadClient();
+
+  // Caminho `flag`: a linha-evento falha; o modelo é chamado mesmo assim.
+  const baseFlag = makeMockSupabaseBloqueio([]);
+  const anthropic = makeMockAnthropic();
+  const rFlag = await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, rawInput: ENTRADA_FLAG, idempotency_key: "cand:wr05-flag" },
+    {
+      anthropic,
+      openai: makeMockOpenAI(),
+      // deno-lint-ignore no-explicit-any
+      supabase: comFalhaNaLinha(baseFlag, "prompt_injection_flagged") as any,
+      breaker: makeBreakerEspiao(),
+    },
+  );
+  assertEquals(anthropic.calls.length, 1, "pré-condição: no `flag` o modelo FOI chamado");
+  assert(rFlag.injection_flag != null, "pré-condição: o retorno é sinalizado");
+  assertEquals(baseFlag.alertas.length, 1, "a perda da linha-evento do sinal gera UM alerta");
+  const msgFlag = String(baseFlag.alertas[0].message);
+  assert(msgFlag.includes("prompt_injection_flagged"), `o alerta traz o código; veio: ${msgFlag}`);
+  assert(
+    !/bloqueio/i.test(msgFlag),
+    `no \`flag\` não houve bloqueio — a mensagem não pode dizer «bloqueio»; veio: ${msgFlag}`,
+  );
+  assert(
+    /an[aá]lise seguiu/i.test(msgFlag),
+    `a mensagem do \`flag\` diz que a análise seguiu; veio: ${msgFlag}`,
+  );
+
+  // Caminho `block`: a linha `none` do bloqueio falha — a mensagem de sempre, inalterada.
+  const baseBlock = makeMockSupabaseBloqueio([]);
+  await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, rawInput: ENTRADA_BLOCK, idempotency_key: "cand:wr05-block" },
+    {
+      anthropic: makeMockAnthropic(),
+      openai: makeMockOpenAI(),
+      // deno-lint-ignore no-explicit-any
+      supabase: comFalhaNaLinha(baseBlock, "prompt_injection_detected") as any,
+      breaker: makeBreakerEspiao(),
+    },
+  );
+  assertEquals(baseBlock.alertas.length, 1);
+  const msgBlock = String(baseBlock.alertas[0].message);
+  assertEquals(
+    msgBlock,
+    "Falha ao gravar a linha de auditoria de IA (call_type='" + SONNET_PROMPT.call_type +
+      "', error_code='prompt_injection_detected') — o bloqueio ACONTECEU e NÃO ficou registrado em ai_call_logs.",
+    "a mensagem do caminho de bloqueio não muda",
+  );
+  assert(msgFlag !== msgBlock, "as duas mensagens distinguem os dois caminhos");
+});
+
 Deno.test("JORN-41/flag + fallback — o sinal sobrevive ao fallback: linha-evento, tentativa, resultado e injection_flag", async () => {
   const { callAi } = await loadClient();
   const supabase = makeMockSupabaseBloqueio([]);

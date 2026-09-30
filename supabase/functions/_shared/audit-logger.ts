@@ -38,6 +38,7 @@
  * @see docs/prds/m2-funil-rh/PRD-ai-prompt-library-m2.md §6.4 RF-PL-19/20/21
  */
 import { maskPII } from "./pii-masker.ts";
+import { AI_ERROR_CODE } from "./ai-error-codes.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RETAIN_ADVANCE_MS = 5 * 365 * DAY_MS; // 5 anos
@@ -337,9 +338,16 @@ export async function emitPromptStubAlert(supabaseAdmin: SupabaseLike, call_type
  * ALGUÉM fica sabendo. O alerta é o backstop de um backstop — se ele também falhar, resta
  * o `console.error`, e é aí que a cadeia termina.
  *
- * INVARIANTE (igual a `emitPromptStubAlert`): NUNCA lança. Roda no caminho em que o
- * `callAi` já decidiu devolver `hold` + revisão humana (RNF-07a); uma exceção daqui
- * transformaria uma falha de AUDITORIA numa falha de AVALIAÇÃO do candidato.
+ * INVARIANTE (igual a `emitPromptStubAlert`): NUNCA lança. Roda em DOIS tipos de caminho,
+ * e uma exceção daqui transformaria uma falha de AUDITORIA numa falha de AVALIAÇÃO do
+ * candidato em qualquer um deles:
+ * - BLOQUEIO (`cost_cap_exceeded`, `prompt_injection_detected`): o `callAi` já decidiu
+ *   devolver `hold` + revisão humana (RNF-07a) sem chamar modelo nenhum;
+ * - SINAL (`prompt_injection_flagged`, 49-38): NÃO houve bloqueio — o modelo é chamado e a
+ *   análise segue, marcada. A mensagem do alerta diz isso, e não «o bloqueio ACONTECEU»
+ *   (49-REVIEW-GAPS-2 WR-05, 2026-09-30: antes a mensagem era fixa, e o admin lia um
+ *   bloqueio que não aconteceu — diagnóstico falso, a classe que o 49-42 consertou na
+ *   célula «Falha» do log).
  *
  * PRIVACIDADE (T-49-02-03): a linha de alerta leva só o `error_code` e o `call_type` —
  * nunca o input, nunca o padrão de injeção casado, nunca o prompt. Esquema conferido em
@@ -353,13 +361,18 @@ export async function emitAuditLossAlert(
   call_type: string,
   error_code: string,
 ): Promise<void> {
+  // O QUE aconteceu e não ficou registrado (WR-05). O teste WR-05 do ai-client prende as
+  // duas mensagens.
+  const oQue = error_code === AI_ERROR_CODE.prompt_injection_flagged
+    ? "o sinal de revisão ACONTECEU (o modelo foi chamado e a análise seguiu, marcada)"
+    : "o bloqueio ACONTECEU";
   try {
     const { error } = await supabaseAdmin.from("recruiter_alerts").insert({
       threshold_violated: "ai_audit_write_failed",
       channel: "ai_stack",
       message:
         `Falha ao gravar a linha de auditoria de IA (call_type='${call_type}', error_code='${error_code}') — ` +
-        `o bloqueio ACONTECEU e NÃO ficou registrado em ai_call_logs.`,
+        `${oQue} e NÃO ficou registrado em ai_call_logs.`,
       value: 0,
       threshold: 0,
       call_type: null, // coluna e o enum llm_call_type — evitar 22P02

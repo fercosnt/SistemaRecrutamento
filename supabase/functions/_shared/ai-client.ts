@@ -861,7 +861,8 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
     });
     if (erroDoLog) {
       // O sinal ACONTECEU e não ficou registrado. Nunca lança (a análise segue) — vira alerta,
-      // o mesmo dos dois caminhos de bloqueio.
+      // o mesmo dos dois caminhos de bloqueio, mas com a mensagem própria do sinal: aqui NÃO
+      // houve bloqueio (49-REVIEW-GAPS-2 WR-05).
       await emitAuditLossAlert(supabase, prompt.call_type, AI_ERROR_CODE.prompt_injection_flagged);
     }
     // Segue para o disjuntor, a Anthropic e o fallback, exatamente como uma entrada `none`.
