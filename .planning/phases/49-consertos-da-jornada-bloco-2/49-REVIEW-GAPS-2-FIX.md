@@ -92,3 +92,10 @@ No RED, o caminho flag devolveu «o bloqueio ACONTECEU».
 - WR-01, WR-02, WR-03 e IN-01..IN-05 estão fora do escopo aprovado. Eles pedem PARADA e levar o caso ao operador.
 - **Commit do RED.** Ele foi feito primeiro com o prefixo `test(49-43)`. Antes de qualquer outro commit, o prefixo foi corrigido para `fix(49-43)` por `git commit --amend`, só na mensagem, com os hooks rodando. O commit não tinha sido publicado.
 - **Deploy.** A mudança em `avaliar-redacao`, `audit-logger` e `ai-client` só vale em PROD depois do redeploy das EFs, que é trabalho do 49-43 e não foi feito aqui. A ordem já registrada continua valendo: nenhuma EF sobe antes da migration `20260930000001`.
+
+## Correção pós-revisão (49-REVIEW-GAPS-3 CR-02) — 2026-09-30
+
+Acrescentada depois; o texto acima fica como foi escrito.
+
+- A frase «O componente não mudou. Ele já decide o aviso…» (seção CR-01) foi verificada contra o componente, não contra a tela publicada. O `ScorecardAvaliacao` não está montado em nenhuma rota. Com o CR-01, a nota sinalizada passou a ponderar na Decisão Final sem aviso visível.
+- O conserto está em `49-REVIEW-GAPS-3-FIX.md`: o sinal chega à Decisão Final (`sinais_revisao` → `ConsolidacaoDashboard`).

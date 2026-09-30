@@ -267,3 +267,10 @@ Acrescentada depois; o texto acima fica como foi escrito.
 - **O componente não precisou mudar.** A key-decision desta SUMMARY («o rótulo aparece sempre que o código está em motivos_revisao, e não só enquanto a linha está pendente_humano; o marcador neutro segue decidido só pelo status») já cobria o caso. Um teste novo prende isso: linha `sucesso` com o código mostra o rótulo e NÃO mostra «Requer revisão humana».
 - **Onde esta SUMMARY diz** «o rótulo junto do marcador «Requer revisão humana»» e «mostra o motivo sob «Requer revisão humana»», **leia:** junto do marcador só quando outra causa pôs a linha em `pendente_humano`, e sozinho numa linha `sucesso`.
 - A afirmação «nenhuma nota … muda por causa do sinal» valia para as telas deste plano. Ela não valia para a consolidação da SJT, que era efeito do 49-39 (ver a correção no 49-39-SUMMARY).
+
+## Correção pós-revisão (49-REVIEW-GAPS-3 CR-02) — 2026-09-30
+
+Acrescentada depois; o texto acima e a correção anterior ficam como foram escritos.
+
+- **O `ScorecardAvaliacao` não está montado em tela nenhuma.** Ele só é exportado pelo barril e sai do build por tree-shaking. Um teste verde dele não prova que o RH vê o aviso. A frase «O componente não precisou mudar», na correção anterior, estava certa sobre o componente e errada sobre a tela publicada.
+- **Onde o RH vê o sinal da SJT agora:** na Decisão Final. `consolidar-decisao-final` devolve `breakdown[].sinais_revisao`, e o `ConsolidacaoDashboard` mostra o rótulo junto da etapa SJT (`data-testid="decisao-sjt-sinal-revisao"`). Commits `44702539` (RED) e `483e25ae` (GREEN). Decisão do operador: «1», 2026-09-30.
