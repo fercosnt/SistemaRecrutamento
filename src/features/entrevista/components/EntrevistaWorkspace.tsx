@@ -85,11 +85,15 @@ export function EntrevistaWorkspace() {
     analisar,
     confirmarRevisao,
   } = useTranscricaoAnalise(candidaturaId)
-  // A análise cujas competências o scorecard mostra — e, por isso, a que o salvar NOMEIA
-  // por id (49-30 / D-39): a RPC não escolhe mais entre as vigentes; com online e
-  // presencial vigentes, a nota vai para a linha que a tela mostra. A ESCOLHA entre
-  // vigentes e o rótulo de qual está sendo avaliada são do 49-31.
-  const analiseVigente = analises?.vigenteMaisRecente ?? null
+  // A análise em revisão no scorecard — a que o salvar NOMEIA por id (49-30 / D-39): a RPC
+  // não escolhe entre as vigentes. Com online e presencial vigentes o RH ESCOLHE (49-31);
+  // a vigente mais recente é só o padrão. Uma escolha que deixou de ser vigente (uma
+  // análise nova a superou) cai de volta no padrão, em vez de apontar para uma linha que
+  // a RPC recusa.
+  const [analiseEscolhidaId, setAnaliseEscolhidaId] = useState<string | null>(null)
+  const vigentes = analises?.vigentes ?? []
+  const analiseEmRevisao =
+    vigentes.find((a) => a.id === analiseEscolhidaId) ?? analises?.vigenteMaisRecente ?? null
 
   const {
     data: scores,
@@ -127,13 +131,10 @@ export function EntrevistaWorkspace() {
   }
 
   function handleSalvarAvaliacao(payload: { scoresHumanos: Record<string, number>; notas: string }) {
-    // Sem análise vigente não há onde gravar: antes o servidor recusava com no_data_found
-    // e a tela mostrava o erro genérico; agora a frase diz o que falta.
-    if (!analiseVigente?.id) {
-      toast.error('Não há análise vigente para registrar a avaliação. Analise a transcrição primeiro.')
-      return
-    }
-    salvarAvaliacao.mutate({ ...payload, analiseId: analiseVigente.id }, {
+    // Sem análise em revisão não há onde gravar. O scorecard já desabilita o Salvar e diz
+    // o que falta nesse estado (49-31); este retorno é só defesa.
+    if (!analiseEmRevisao?.id) return
+    salvarAvaliacao.mutate({ ...payload, analiseId: analiseEmRevisao.id }, {
       onSuccess: () => SCORECARD_TOAST.success(),
       onError: () => SCORECARD_TOAST.error(),
     })
@@ -234,11 +235,18 @@ export function EntrevistaWorkspace() {
           <TabsContent value="avaliacao">
             <Glass variant="white" blur="lg" className="rounded-xl p-6">
               <EntrevistaScorecardInline
-                // 49-10/49-16/49-30: as competências da análise VIGENTE que a tela mostra —
-                // e o salvar manda o id DESSA análise, então a nota humana cai na mesma
-                // linha (a RPC não escolhe mais). Antes vinham da mais nova de qualquer
+                // 49-31: remonta por análise — o estado inicial dos sliders e das notas
+                // nasce das competências DESTA análise, e as notas de uma não vazam para a
+                // outra ao trocar (T-49-31-02).
+                key={analiseEmRevisao?.id ?? 'sem-analise'}
+                // 49-10/49-16/49-30/49-31: as competências da análise EM REVISÃO — e o
+                // salvar manda o id DESSA análise, então a nota humana cai na linha que a
+                // tela nomeia (a RPC não escolhe). Antes vinham da mais nova de qualquer
                 // estado, então uma falha de IA (sem competências) apagava o scorecard.
-                competenciasIA={analiseVigente?.competencias ?? null}
+                competenciasIA={analiseEmRevisao?.competencias ?? null}
+                vigentes={vigentes}
+                analiseId={analiseEmRevisao?.id ?? null}
+                onEscolherAnalise={setAnaliseEscolhidaId}
                 saving={salvarAvaliacao.isPending}
                 onSalvar={handleSalvarAvaliacao}
               />

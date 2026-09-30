@@ -409,7 +409,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | JORN-13 | Phase 49 | Pending |
 | JORN-07 | Phase 49 | Pending |
 | JORN-25 | Phase 49 | Pending |
-| JORN-12 | Phase 49 | Gaps Found — CR-03 em conserto (49-30 banco, 49-31 tela); aguarda re-verificação |
+| JORN-12 | Phase 49 | Gaps Found — CR-03 consertado (49-30 banco, 49-31 tela) e no ar; aguarda re-verificação |
 | JORN-17 | Phase 49 | Gaps Found |
 | JORN-3b | Phase 49 | Gaps Found |
 | JORN-32 | Phase 49 | Pending |
