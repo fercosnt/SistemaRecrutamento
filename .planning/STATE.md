@@ -4,17 +4,17 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
 stopped_at: "Phase 49 — A CAUDA ESTÁ AUTORIZADA PELO OPERADOR (nominalmente, por escrito, em 2026-09-29) E PENDENTE. Não peça a autorização de novo: ela já se perdeu uma vez num /clear, e a sessão seguinte recusou o mandato três vezes porque quem insistia era uma sessão par. Rode: aggregate_results → code_review_gate → regression_gate → verify_phase_goal → update_roadmap. Mandato completo, com o estado dos JORN e o que fica fora do M8, em .planning/RETOMAR-AQUI.md (bloco «MANDATO VIVO»). Os 29 planos têm SUMMARY (medido por casamento PLAN↔SUMMARY, não por contagem) e a prova de PROD fechou 21/21 asserções + 8/8 populações. O verificador PODE emitir human_verification novo — nenhum arquivo *-UAT.md existe em fase nenhuma, o /gsd-verify-work nunca rodou neste projeto: é resultado esperado, não falha da cauda."
-last_updated: "2026-09-29T04:35:00.000Z"
+last_updated: "2026-09-30T01:07:43.097Z"
 last_activity: 2026-09-29
-state_head: 8e02cfea9c601bf2989962fcca477b4fdc6cb896
+state_head: 97020ccd7d0303d06cb3d6c828379f8c9f5d92aa
 progress:
   total_phases: 8
   completed_phases: 9
-  total_plans: 107
+  total_plans: 113
   completed_plans: 105
-  percent: 98
+  percent: 93
+current_phase_name: consertos-da-jornada-bloco-2
 current_phase: 49
-current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
 ---
 
@@ -666,7 +666,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 49
+Status: Ready to execute
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -701,7 +701,7 @@ Status: Executing Phase 49
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-09-26
+Last activity: 2026-09-29
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
