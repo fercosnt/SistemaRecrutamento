@@ -16,6 +16,11 @@ import '@testing-library/jest-dom'
 
 import { AnaliseIABlock } from '../AnaliseIABlock'
 import { SUGESTAO_IA_COPY } from '@/features/triagem/components/SugestaoIABadge'
+// 49-41: o vocabulário do sinal tem UMA fonte, a mesma que a EF escreve (zero imports).
+import {
+  SINAL_INSTRUCAO_AO_MODELO,
+  rotuloDoSinal,
+} from '../../../../../supabase/functions/_shared/sinal-revisao'
 
 /**
  * ⚠ 49-16: a fixture ganhou `provedor_ia`/`modelo_ia` NULL porque o tipo os exige, e
@@ -147,5 +152,41 @@ describe('AnaliseIABlock — selo de proveniência (49-16 / D-27b / JORN-28)', (
   it('sem análise NÃO há selo — não existe proveniência de um resultado que não existe', () => {
     render(<AnaliseIABlock analise={null} />)
     expect(screen.queryByTestId('proveniencia-ia-badge')).toBeNull()
+  })
+})
+
+// ── Phase 49 / plano 49-41 — o sinal de revisão em «Sinais de atenção» (JORN-41) ─────
+//
+// Decisão (a) do operador (2026-09-29): uma entrada com imperativo nu dirigido à IA é
+// avaliada normalmente, e a EF da triagem grava `instrucao_ao_modelo` em
+// `analise_candidato_vaga.flags` (49-39). Uma marca que a tela mostra como código cru é
+// uma marca que o RH não entende. O rótulo vem do vocabulário ÚNICO (`_shared/sinal-revisao`)
+// — o teste também o lê de lá, para não virar a segunda cópia da frase.
+describe('AnaliseIABlock — o sinal de revisão com rótulo pt-BR (49-41 / JORN-41)', () => {
+  const comSinal = {
+    ...cheia,
+    flags: [SINAL_INSTRUCAO_AO_MODELO, 'cv_nao_extraido'],
+  }
+
+  it('mostra o RÓTULO do sinal, e não o código cru', () => {
+    render(<AnaliseIABlock analise={comSinal} />)
+    expect(
+      screen.getByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(SINAL_INSTRUCAO_AO_MODELO)).toBeNull()
+  })
+
+  it('os códigos de hoje continuam aparecendo como são (sem regressão)', () => {
+    render(<AnaliseIABlock analise={comSinal} />)
+    expect(screen.getByText('cv_nao_extraido')).toBeInTheDocument()
+  })
+
+  it('o rótulo mora em «Sinais de atenção» e não usa tom destrutivo (RNF-07a)', () => {
+    render(<AnaliseIABlock analise={comSinal} />)
+    const item = screen.getByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO))
+    expect(item.closest('div')).toHaveTextContent('Sinais de atenção')
+    expect(item.className).not.toMatch(/red|destructive/)
+    // o sinal não mexe na nota: o chip continua sendo o do modelo
+    expect(screen.getByText('82')).toBeInTheDocument()
   })
 })

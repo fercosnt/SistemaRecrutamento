@@ -38,6 +38,11 @@ import {
   COMPARATIVO_MAX_CANDIDATOS,
   COMPARATIVO_MIN_CANDIDATOS,
 } from '../../../../../supabase/functions/_shared/comparativo-config'
+// 49-41: o rótulo do sinal tem UMA fonte, a mesma que a EF escreve.
+import {
+  SINAL_INSTRUCAO_AO_MODELO,
+  rotuloDoSinal,
+} from '../../../../../supabase/functions/_shared/sinal-revisao'
 
 /**
  * Phase 17 (D-04): the "Ver Perfil" link is now an SPA <Link> (was a raw <a href>), so the
@@ -381,5 +386,59 @@ describe('Phase 45 — a candidatura encerrada a pedido é LEGÍVEL no RH', () =
     expect(texto).not.toMatch(/exclusão|exclusao|será apagad|serão apagad/i)
     expect(texto).not.toMatch(/\bem \d+ dias?\b/i)
     expect(texto).not.toMatch(/pedido de exclus/i)
+  })
+})
+
+// ── Phase 49 / plano 49-41 — o sinal de revisão no badge da linha (JORN-41) ──────────
+//
+// A EF da triagem grava `instrucao_ao_modelo` em `analise.flags` quando o texto do
+// candidato traz um imperativo nu dirigido à IA (decisão (a), 49-39). A linha mostra o
+// RÓTULO pt-BR do vocabulário único, em tom âmbar («resultado utilizável, confira») — nunca
+// o tom destrutivo, nunca uma ação a menos (RNF-07a: o sinal não é reprovação).
+describe('TriagemTable — o sinal de revisão com rótulo pt-BR (49-41 / JORN-41)', () => {
+  const linhaSinalizada = () =>
+    makeRow({
+      id: 's1',
+      analise: {
+        score_match: 78,
+        pontos_fortes: [],
+        gaps: [],
+        flags: [SINAL_INSTRUCAO_AO_MODELO, 'cv_nao_extraido'],
+        status: 'sucesso',
+      },
+    })
+
+  function renderSinalizada() {
+    return renderTable(
+      <TriagemTable
+        rows={[linhaSinalizada()]}
+        selectedIds={[]}
+        onToggleSelect={noop}
+        onCompare={noop}
+        onReprocess={noop}
+      />,
+    )
+  }
+
+  it('o badge mostra o RÓTULO do sinal, e não o código cru', () => {
+    renderSinalizada()
+    expect(
+      screen.getByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(SINAL_INSTRUCAO_AO_MODELO)).toBeNull()
+  })
+
+  it('os códigos de hoje continuam no badge como são (sem regressão)', () => {
+    renderSinalizada()
+    expect(screen.getByText('cv_nao_extraido')).toBeInTheDocument()
+  })
+
+  it('tom âmbar, nunca destrutivo; a nota e a seleção da linha ficam como estão (RNF-07a)', () => {
+    renderSinalizada()
+    const badge = screen.getByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO))
+    expect(badge.className).toMatch(/amber/)
+    expect(badge.className).not.toMatch(/red|destructive/)
+    expect(screen.getByText('78')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox')).not.toBeDisabled()
   })
 })
