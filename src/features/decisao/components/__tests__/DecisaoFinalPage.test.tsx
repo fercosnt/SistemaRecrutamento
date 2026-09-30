@@ -101,6 +101,10 @@ import {
   COMPARATIVO_MAX_CANDIDATOS,
   COMPARATIVO_MIN_CANDIDATOS,
 } from '../../../../../supabase/functions/_shared/comparativo-config'
+import {
+  SINAL_INSTRUCAO_AO_MODELO,
+  rotuloDoSinal,
+} from '../../../../../supabase/functions/_shared/sinal-revisao'
 
 const VAGA = 'vaga-1'
 
@@ -264,5 +268,48 @@ describe('DecisaoFinalPage — o rótulo vem da CHAVE `posicoes`, nunca da posi�
     await waitFor(() => expect(screen.getByText('C1')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /^avançar$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^rejeitar$/i })).not.toBeInTheDocument()
+  })
+})
+
+// ── Phase 49 / plano 49-42 — o ranking sinalizado aparece na Decisão Final (JORN-41) ─────
+// A página fia `sinaisRevisao` pelo `sinaisDe(comparativo.data?.ranking?.sinais_revisao)`. Este
+// ranking decide uma decisão final: o aviso de que o texto de um dos candidatos continha uma
+// possível instrução à IA tem de chegar aqui, e não só à tela do comparativo da vaga.
+describe('DecisaoFinalPage — o sinal de revisão do ranking chega ao comparativo embutido (49-42)', () => {
+  beforeEach(() => {
+    listFinalistasMock.mockReset()
+    getVagaIdMock.mockReset()
+    getDecisaoAtualMock.mockReset()
+    useComparativoMock.mockReset()
+  })
+
+  const ROTULO_SINAL = rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)
+
+  function dataCom(ranking: Record<string, unknown>) {
+    return {
+      ranking: { ranked_candidates: [ranked('C1', 1), ranked('C2', 2)], ...ranking },
+      posicoes: { C1: 'a', C2: 'b' },
+      provedor_ia: 'anthropic',
+      modelo_ia: 'claude-sonnet-4',
+      fallback_cause: null,
+    }
+  }
+
+  it('ranking com `sinais_revisao` ⇒ o rótulo pt-BR aparece acima do ranking', async () => {
+    renderPagina({
+      finalistas: ['a', 'b'].map(finalista),
+      data: dataCom({ sinais_revisao: [SINAL_INSTRUCAO_AO_MODELO] }),
+    })
+    await abrirComparativo()
+    await waitFor(() =>
+      expect(screen.getByTestId('comparativo-sinal-revisao')).toHaveTextContent(ROTULO_SINAL),
+    )
+  })
+
+  it('ranking SEM a chave ⇒ nenhum aviso (a EF deixa a chave ausente quando não há sinal)', async () => {
+    renderPagina({ finalistas: ['a', 'b'].map(finalista), data: dataCom({}) })
+    await abrirComparativo()
+    await waitFor(() => expect(screen.getByText('C1')).toBeInTheDocument())
+    expect(screen.queryByTestId('comparativo-sinal-revisao')).toBeNull()
   })
 })

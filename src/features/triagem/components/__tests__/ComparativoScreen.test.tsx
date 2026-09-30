@@ -65,6 +65,10 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { ComparativoScreen, type ComparativoCandidate } from '../ComparativoScreen'
 import { exportComparativo } from '../../pdf/exportComparativo'
+import {
+  SINAL_INSTRUCAO_AO_MODELO,
+  rotuloDoSinal,
+} from '../../../../../supabase/functions/_shared/sinal-revisao'
 
 function makeCandidate(over: Partial<ComparativoCandidate> & { candidaturaId: string }): ComparativoCandidate {
   return {
@@ -446,5 +450,67 @@ describe('ComparativoScreen — SEM_RESULTADO_IA não é erro de conexão (WINDO
       <ComparativoScreen candidates={[]} isError errorCode="MIXED_VAGA" onRetry={vi.fn()} />,
     )
     expect(document.body.textContent ?? '').toMatch(/pertencem a vagas diferentes/)
+  })
+})
+
+// ── Phase 49 / plano 49-42 — o aviso do ranking sinalizado (JORN-41) ─────────────────────
+//
+// O 49-40 acrescenta `sinais_revisao: ['instrucao_ao_modelo']` ao ranking quando o texto de um
+// dos candidatos continha uma possível instrução dirigida à IA. A tela mostra o rótulo pt-BR
+// (vocabulário ÚNICO, `_shared/sinal-revisao`) ACIMA do ranking, junto do selo de proveniência,
+// e o «Exportar PDF» leva o sinal junto (D-27b: o arquivo sai da empresa). Prop ausente =
+// «não fiado»: nada na tela e nada afirmado no PDF.
+// RED (49-42): a prop ainda não existe no tipo. O alias deixa o tsc do pre-commit passar enquanto
+// o COMPORTAMENTO reprova; o GREEN o remove.
+const TelaComSinais = ComparativoScreen as (
+  p: Parameters<typeof ComparativoScreen>[0] & { sinaisRevisao?: string[] },
+) => ReturnType<typeof ComparativoScreen>
+
+describe('ComparativoScreen — o sinal de revisão do ranking (49-42 / JORN-41)', () => {
+  const ROTULO_SINAL = rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)
+  const CANDS = [
+    makeCandidate({ candidaturaId: '1', rank: 1 }),
+    makeCandidate({ candidaturaId: '2', rank: 2 }),
+  ]
+
+  function tomDestrutivo(className: string): string[] {
+    return className.split(/\s+/).filter((t) => /^(bg|text|border)-(red|destructive)/.test(t))
+  }
+
+  it('com o código em `sinaisRevisao`, o rótulo pt-BR aparece ACIMA do ranking, em tom âmbar', () => {
+    render(<TelaComSinais candidates={CANDS} sinaisRevisao={[SINAL_INSTRUCAO_AO_MODELO]} />)
+    const aviso = screen.getByTestId('comparativo-sinal-revisao')
+    expect(aviso).toHaveTextContent(ROTULO_SINAL)
+    expect(aviso).not.toHaveTextContent(SINAL_INSTRUCAO_AO_MODELO)
+    expect(tomDestrutivo(aviso.className)).toEqual([])
+    // ACIMA da tabela: o aviso qualifica o ranking inteiro, e lido depois dele chegaria tarde.
+    const tabela = screen.getByRole('table')
+    expect(aviso.compareDocumentPosition(tabela) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('com `[]` ou sem a prop, o aviso NÃO aparece', () => {
+    const { unmount } = render(<TelaComSinais candidates={CANDS} sinaisRevisao={[]} />)
+    expect(screen.queryByTestId('comparativo-sinal-revisao')).toBeNull()
+    unmount()
+    render(<ComparativoScreen candidates={CANDS} />)
+    expect(screen.queryByTestId('comparativo-sinal-revisao')).toBeNull()
+    expect(screen.queryByText(ROTULO_SINAL)).toBeNull()
+  })
+
+  it('«Exportar PDF» com o sinal passa o código como 3º argumento do exportComparativo', async () => {
+    render(<TelaComSinais candidates={CANDS} sinaisRevisao={[SINAL_INSTRUCAO_AO_MODELO]} />)
+    fireEvent.click(screen.getByRole('button', { name: /exportar pdf/i }))
+    await waitFor(() => expect(exportComparativo).toHaveBeenCalledTimes(1))
+    const args = vi.mocked(exportComparativo).mock.calls[0] as unknown[]
+    expect(args[0]).toBe(CANDS)
+    expect(args[2]).toEqual([SINAL_INSTRUCAO_AO_MODELO])
+  })
+
+  it('«Exportar PDF» sem a prop: o 3º argumento é `undefined` (o PDF não afirma nada sobre sinal)', async () => {
+    render(<ComparativoScreen candidates={CANDS} />)
+    fireEvent.click(screen.getByRole('button', { name: /exportar pdf/i }))
+    await waitFor(() => expect(exportComparativo).toHaveBeenCalledTimes(1))
+    const args = vi.mocked(exportComparativo).mock.calls[0] as unknown[]
+    expect(args[2]).toBeUndefined()
   })
 })

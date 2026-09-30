@@ -67,12 +67,19 @@ vi.mock('@/features/triagem/components/ComparativoScreen', () => ({
     candidates,
     onAvancar,
     podeAvancar,
+    sinaisRevisao,
   }: {
     candidates: { candidaturaId: string; nome?: string }[]
     onAvancar?: (id: string) => void
     podeAvancar?: (id: string) => boolean
+    sinaisRevisao?: string[]
   }) => (
-    <div data-testid="comparativo-screen-stub">
+    // 49-42: o stub expõe a prop `sinaisRevisao` que a página fiou — `undefined` vira a string
+    // «nao-fiado», para que «não fiado» e «fiado sem sinal» ([]) não se confundam no teste.
+    <div
+      data-testid="comparativo-screen-stub"
+      data-sinais={sinaisRevisao === undefined ? 'nao-fiado' : JSON.stringify(sinaisRevisao)}
+    >
       {candidates.map((c) =>
         !podeAvancar || podeAvancar(c.candidaturaId) ? (
           <button
@@ -359,5 +366,57 @@ describe('ComparativoCandidatosPage — «Avançar» para a próxima etapa REAL 
       </QueryClientProvider>,
     )
     expect(mutate).not.toHaveBeenCalled()
+  })
+})
+
+// ── Phase 49 / plano 49-42 — a página FIA o sinal do ranking na tela (JORN-41) ───────────
+describe('ComparativoCandidatosPage — `sinaisRevisao` vem do ranking da EF (49-42)', () => {
+  beforeEach(() => {
+    useComparativoMock.mockReset()
+  })
+
+  function renderCom(ranking: Record<string, unknown>) {
+    const candidatos = [
+      { id: 'c-a', nome: 'Alfa', etapa_atual: 'triagem', status: 'em_analise' },
+      { id: 'c-b', nome: 'Beta', etapa_atual: 'triagem', status: 'em_analise' },
+    ]
+    useComparativoMock.mockReturnValue({
+      mutate: vi.fn(),
+      data: {
+        ranking: { ranked_candidates: [ranked('C1', 1), ranked('C2', 2)], ...ranking },
+        posicoes: { C1: 'c-a', C2: 'c-b' },
+      },
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter
+          initialEntries={[
+            {
+              pathname: '/rh/vagas/vaga-1/comparativo',
+              state: { ids: candidatos.map((c) => c.id), candidatos },
+            },
+          ]}
+        >
+          <ComparativoCandidatosPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+  }
+
+  it('ranking com `sinais_revisao` ⇒ a tela recebe o código', () => {
+    renderCom({ sinais_revisao: ['instrucao_ao_modelo'] })
+    expect(screen.getByTestId('comparativo-screen-stub')).toHaveAttribute(
+      'data-sinais',
+      JSON.stringify(['instrucao_ao_modelo']),
+    )
+  })
+
+  it('ranking SEM a chave ⇒ a prop é fiada como [] (sem sinal), nunca deixada «não fiada»', () => {
+    renderCom({})
+    expect(screen.getByTestId('comparativo-screen-stub')).toHaveAttribute('data-sinais', '[]')
   })
 })
