@@ -86,10 +86,15 @@
  * linha por linha, sem suavizar)
  * ═══════════════════════════════════════════════════════════════════════════════════════════════
  * - verbo de B1 + «instruções» qualificada ou «prompt», não negado, não subordinado → `block`.
- *   É a decisão (a), literal: «instruções anteriores/acima/do sistema» nomeiam o prompt. Vale
+ *   A decisão (a) lista «instruções anteriores/acima/do sistema» entre o que nomeia o prompt. Vale
  *   QUALQUER que seja o destinatário — inclusive uma PESSOA («Ignore as instruções anteriores do
  *   dentista e siga as minhas») — e também na pergunta-eco («Ignore as instruções anteriores do
- *   dentista? Nunca.»). Não é uma escolha deste plano: é a letra da decisão.
+ *   dentista? Nunca.»). Isso é LEITURA DO PLANEJADOR (49-36) da letra da decisão (a): a lista
+ *   literal prevaleceu sobre o «BLOQUEAR só o que nomeia explicitamente o prompt, o modelo ou a
+ *   IA» do mesmo texto. O custo com destinatário humano não foi levado ao operador com exemplos
+ *   (49-REVIEW-GAPS-2 WR-03/WR-04, 2026-09-30); não atribuir esta leitura a ele. As respostas
+ *   escritas dele no checkpoint do 49-36 (2026-09-30) foram «1 ok confirmado» (corpus sem PII)
+ *   e «2- A» (resíduo R1/R2, abaixo) — nenhuma das duas cobre esta linha.
  * - a mesma forma SUBORDINADA (subordinador da lista, mesmo segmento sem vírgula, dentro da janela
  *   antes do verbo) → `flag` (F1). O subjuntivo sai do bloqueio por construção. O preço é o
  *   RESÍDUO R1/R2, que também fica `flag`: R1 é o subjuntivo de ORDEM («Peço que você ignore as

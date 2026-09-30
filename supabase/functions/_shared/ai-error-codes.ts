@@ -99,8 +99,11 @@ export const PREFIXO_FALLBACK = "fallback_" as const;
 /**
  * Rótulo pt-BR de cada causa, para a tela do admin (49-15) e o selo de proveniência.
  *
- * São as palavras que o operador usou ao descrever o problema no kickoff — «não coube»,
- * «demorou», «fora do schema» —, não uma tradução literal dos códigos.
+ * As causas de fallback (`anthropic_*`) são as palavras que o operador usou ao descrever o
+ * problema no kickoff — «não coube», «demorou», «fora do schema» —, não uma tradução literal
+ * dos códigos. A EXCEÇÃO é a entrada `prompt_injection_flagged` (49-38): não é causa de
+ * fallback, e o rótulo dela é redação do PLANEJADOR, não palavra do operador
+ * (49-REVIEW-GAPS-2 WR-04, 2026-09-30). Ver o comentário junto dela.
  */
 export const CAUSA_FALLBACK_ROTULO = {
   anthropic_max_tokens: "não coube",
@@ -113,7 +116,8 @@ export const CAUSA_FALLBACK_ROTULO = {
   anthropic_retries_exhausted: "causa não registrada (antes da Phase 49)",
   // ⚠ NÃO é causa de fallback (49-38). Está neste mapa porque `causaLegivel` da tela do admin
   //   (`AiLogsPage`) lê ESTE mapa para qualquer `error_code`, e sem a entrada a linha-evento
-  //   do sinal apareceria com o código cru.
+  //   do sinal apareceria com o código cru. O rótulo é redação do planejador (49-38), NÃO
+  //   palavras do operador — a ressalva do docblock acima vale para esta linha.
   prompt_injection_flagged: "sinal de instrução à IA — a análise seguiu, marcada para revisão humana",
 } as const;
 
