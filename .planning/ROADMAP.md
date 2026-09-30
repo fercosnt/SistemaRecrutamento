@@ -456,17 +456,17 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 49-18-PLAN.md — Prova em PROD pela consulta: prontidão → jornada com contas de teste (comparativo de 4, A/B/A, injeção, recargas) → fallback forçado com aprovação
+- [x] 49-18-PLAN.md — Prova em PROD pela consulta: prontidão → jornada com contas de teste (comparativo de 4, A/B/A, injeção, recargas) → fallback forçado com aprovação
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 49-19-PLAN.md — Primeira execução real do motor novo, na conta descartável, com autorização e contagem antes/depois (JORN-36)
+- [x] 49-19-PLAN.md — Primeira execução real do motor novo, na conta descartável, com autorização e contagem antes/depois (JORN-36)
 
 **Fechamento de lacunas (gap closure, `49-VERIFICATION.md` 2026-09-29 — CR-03, CR-02, CR-01 e escrituração)**
 
 *Wave 1*
 
-- [ ] 49-30-PLAN.md — CR-03 no banco: `salvar_avaliacao_entrevista` ganha `p_analise_id` (migration nova `20260929000003`) e a forma antiga recusa escolher entre duas vigentes; smoke de duas vigentes, a mais antiga bandeirada, vermelho antes e mordente por mutação; serviço/hook/workspace mandando o id (JORN-12)
+- [x] 49-30-PLAN.md — CR-03 no banco: `salvar_avaliacao_entrevista` ganha `p_analise_id` (migration nova `20260929000003`) e a forma antiga recusa escolher entre duas vigentes; smoke de duas vigentes, a mais antiga bandeirada, vermelho antes e mordente por mutação; serviço/hook/workspace mandando o id (JORN-12)
 - [ ] 49-32-PLAN.md — CR-02: a linha do resultado de um fallback não leva mais a `idempotency_key`; fallback + retry bem-sucedido = duas linhas com ids distintos; invariante da chave sobre os 7 caminhos de gravação (JORN-28)
 
 *Wave 2*
@@ -567,7 +567,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 27/29 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 30/35 | In Progress|  |
 
 ---
 

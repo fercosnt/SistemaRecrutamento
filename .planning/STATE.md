@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49 — A CAUDA ESTÁ AUTORIZADA PELO OPERADOR (nominalmente, por escrito, em 2026-09-29) E PENDENTE. Não peça a autorização de novo: ela já se perdeu uma vez num /clear, e a sessão seguinte recusou o mandato três vezes porque quem insistia era uma sessão par. Rode: aggregate_results → code_review_gate → regression_gate → verify_phase_goal → update_roadmap. Mandato completo, com o estado dos JORN e o que fica fora do M8, em .planning/RETOMAR-AQUI.md (bloco «MANDATO VIVO»). Os 29 planos têm SUMMARY (medido por casamento PLAN↔SUMMARY, não por contagem) e a prova de PROD fechou 21/21 asserções + 8/8 populações. O verificador PODE emitir human_verification novo — nenhum arquivo *-UAT.md existe em fase nenhuma, o /gsd-verify-work nunca rodou neste projeto: é resultado esperado, não falha da cauda."
-last_updated: "2026-09-30T01:07:43.097Z"
+stopped_at: "Phase 49 — fechamento de lacunas: 49-30 CONCLUÍDO em 2026-09-29 (CR-03, metade de banco + cliente: salvar_avaliacao_entrevista grava na análise nomeada por id; migration 20260929000003 em PROD com md5 do ledger BATE; smoke novo 7/7 com M1..M5 mordendo; cliente no ar em EntrevistaWorkspace-BYiuiNMC.js). Próximo: 49-32 (serializado), depois 49-31 (painel por pendente), 49-33..35. JORN-12 segue «Gaps Found — … aguarda re-verificação» DE PROPÓSITO — o mark-complete do fim do 49-30 a recusou (not_found), como planejado. A cauda da fase roda de novo depois dos seis planos de lacuna."
+last_updated: "2026-09-30T01:42:00.000Z"
 last_activity: 2026-09-29
 state_head: 97020ccd7d0303d06cb3d6c828379f8c9f5d92aa
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 113
-  completed_plans: 105
-  percent: 93
+  completed_plans: 106
+  percent: 94
 current_phase_name: consertos-da-jornada-bloco-2
 current_phase: 49
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
@@ -905,6 +905,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P21 | 70 min | 1 tasks | 12 files |
 | Phase 49 P17 | 38 min + 30 min | 3 tasks | 16 files |
 | Phase 49 P29 | 3h 40min | 1 tasks | 3 files |
+| Phase 49 P30 | ~15 min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -1229,6 +1230,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-18: a prova p12_sem_hash_duplicado nasceu GLOBAL e reprovava com o conserto inteiro no ar — media 3 análises legadas de 2026-09-20 com o mesmo texto_hash e tipo NULL. Trocada por forma mais forte (nenhuma análise nova duplica nenhuma, inclusive as legadas), não por recorte de data. — Portão que congela o estado legado e se apresenta como invariante reprova trabalho correto com diagnóstico falso (CLAUDE.md, varra pela FORMA). Recorte por data esconderia o legado; a forma escolhida o inclui e continua verdadeira.
 - [Phase 49]: 49-18: a prova p37_trilha_sem_texto_da_decisao é escopada a criado_em > T0 de propósito — a D-47 foi RECUSADA pelo operador e as 5 linhas anteriores ficam. O global reprovaria para sempre. — Mesma razão do p49_12_pos_estado.sql: um portão que não distingue "não mudou porque foi recusado" de "não mudou porque falhou" dá a mesma mensagem vermelha nos dois casos, e a leitura óbvia dela levaria alguém a aplicar a migration declinada.
 - [Phase 49]: 49-18: a prova p39_agregacao_sem_falha é ESTRUTURAL (ai_cost_daily.provider é o mesmo enum llm_provider que ganhou none), em vez de esperar a janela 30 1 * * * do cron ai-cost-aggregation. — Exigir execução do cron depois de T0 obrigaria o operador a esperar o dia seguinte para fechar a fase. A pergunta real (a linha none quebra a agregação?) é estrutura, não tempo. A negativa sobre cron.job_run_details fica como rede.
+
+- [Phase 49]: 49-30 (CR-03): `salvar_avaliacao_entrevista` passa a receber `p_analise_id` e a gravar SÓ na análise que o cliente nomeia (da candidatura, vigente). A decisão do 49-10 de NÃO acrescentar o parâmetro valia para UMA vigente por candidatura; o próprio 49-10 tornou a vigente plural (uma por tipo), e o plural a tornou errada. A forma de três argumentos ficou como compatibilidade que RECUSA com mais de uma vigente e delega com exatamente uma — em vez de continuar escolhendo em silêncio ao lado da nova.
+- [Phase 49]: 49-30: a forma de três argumentos checa POSSE da vaga antes de contar as vigentes (um RH de outra vaga recebe 42501, não aprende quantas vigentes a candidatura alheia tem), e a de quatro seleciona com `FOR UPDATE OF ea` para fechar a janela entre «é vigente» e o UPDATE. Os dois são acréscimos ao texto do plano, registrados como desvio no SUMMARY.
 
 ### Roadmap Evolution
 
