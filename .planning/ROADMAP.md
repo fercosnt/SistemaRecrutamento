@@ -498,7 +498,7 @@ Plans:
 
 *Wave 4* (planos autônomos serializados: mesma árvore, `use_worktrees=false`)
 
-- [ ] 49-39-PLAN.md — Sinal no resultado da triagem (`flags`), da SJT (`motivos_revisao` + `pendente_humano`) e da redação cultural (`flags`), sem mudar nota (JORN-41)
+- [x] 49-39-PLAN.md — Sinal no resultado da triagem (`flags`), da SJT (`motivos_revisao` + `pendente_humano`) e da redação cultural (`flags`), sem mudar nota (JORN-41)
 
 *Wave 5*
 
@@ -601,7 +601,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 38/43 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 39/43 | In Progress|  |
 
 ---
 
