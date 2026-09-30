@@ -101,6 +101,7 @@ import { candidaturaEncerrada } from "../_shared/candidaturaEncerrada.ts";
 // cópia local nem uma lista de códigos de bloqueio: o predicado é estrutural, e é isso que
 // faz um bloqueio FUTURO ser pego sem ninguém editar esta EF.
 import { algumProvedorRespondeu } from "../_shared/resultado-de-provedor.ts";
+import { SINAL_INSTRUCAO_AO_MODELO } from "../_shared/sinal-revisao.ts";
 // SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
 // pacote da lista de dependências do deploy (ERR_MODULE_NOT_FOUND no runtime do EF). Precedente que
 // deploya E passa o `deno test` type-checked: `analise-schemas.ts` importa `npm:zod@3.25.76` estático.
@@ -482,8 +483,20 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
     // o 49-26 mediu no upsert de flags. Então a linha carrega um marcador EXPLÍCITO, com
     // zero chaves em comum com a forma de um ranking real: quem lê a auditoria (e o portão
     // do 49-18) distingue bloqueio de resultado por presença de chave, sem perícia de forma.
+    //
+    // Phase 49 / plano 49-40 · JORN-41 · decisão (a) do operador — o SINAL (`flag`). Quando o
+    // texto de uma análise traz um imperativo nu dirigido a quem lê, o `callAi` CHAMA o modelo
+    // e devolve `injection_flag` (49-38). O ranking do modelo segue como está, acrescido de
+    // `sinais_revisao` com o código: `ranking` é a única coluna `jsonb` desta tabela, e o
+    // 49-27 já grava nela um marcador explícito (precedente acima). A chave não colide com
+    // as do schema do ranking. Sem sinal, a chave fica AUSENTE — nunca `[]`, porque vazio e
+    // ausente dizem coisas diferentes a quem lê a auditoria (49-26). A resposta já devolve
+    // `ranking`, e o front (49-41) lê a chave de lá. O bloqueio vence: não há ranking a marcar.
+    const sinalizada = !bloqueado && result.parsed != null && result.injection_flag != null;
     const ranking = bloqueado
       ? { bloqueado: true, motivo }
+      : sinalizada
+      ? { ...(result.parsed as Record<string, unknown>), sinais_revisao: [SINAL_INSTRUCAO_AO_MODELO] }
       : (result.parsed ?? null);
 
     // ── 8. Persiste UMA linha de auditoria (RF-09) + proveniência (D-28) ──────
@@ -559,6 +572,7 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
       provider: result.provider,
       modelo_ia,
       fallback_cause: result.fallback_cause ?? null,
+      sinal: sinalizada,
     });
 
     // `posicoes` + proveniência são ADITIVOS no contrato: o bundle do front que está
