@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: "Phase 49 — fechamento de lacunas: 49-34 CONCLUÍDO em 2026-09-29 (deploy das 7 EFs de IA levando o CR-02 do 49-32 e o CR-01 do 49-33: v33/v23/v17/v20/v31/v31/v23, todas ACTIVE, verify_jwt preservado pela tabela do efdeploy.cjs; fonte publicada (sourcesContent do eszip) byte-igual ao disco em 84/84 arquivos, e o bundle anterior difere exatamente em ai-client.ts + injection-detector.ts = ae299ae8; marcadores de\\s+linguagem 0→2, 49-32 0→9, a.idempotency_key 2→0; detector publicado executado: 4/4 nas 7, controle anterior reprova; 0 linhas fallback_* com chave em PROD com população 1 não vazia; 3 legadas com chave para o WR-01). Antes: 49-30..49-33 CONCLUÍDOS. Próximo: 49-35 (fechamento; escrituração do JORN-41; UAT ponta a ponta das frases do 49-33). JORN-28 e JORN-12 seguem «Gaps Found — … aguarda re-verificação» DE PROPÓSITO; a célula do JORN-28 diz «CR-02 consertado (49-32) e no ar nas 7 EFs (49-34)». A cauda da fase roda de novo depois dos seis planos de lacuna."
-last_updated: "2026-09-30T02:19:25.207Z"
+status: verifying
+stopped_at: "Phase 49 — fechamento de lacunas: 49-35 CONCLUÍDO em 2026-09-29 (escrituração: JORN-37 sem a limpeza recusada, AR-49-01; JORN-41 em «Gaps Found — CR-01 consertado (49-33) e no ar (49-34); aguarda re-verificação»; JORN-42..49 roteados ao Bloco 3, fase a criar; 49-REVIEW-DISPOSITION open: 0 — CR-01..03 fixed, 19 WR/IN deferred a confirmar pelo operador). Os seis planos de lacuna 49-30..49-35 CONCLUÍDOS; nenhum requisito Complete antes do verificador. Próximo: a cauda da fase de novo (re-verificação de JORN-12/28/41 e do override do JORN-37), a UAT ponta a ponta das frases do 49-33 (human_verification), e com o operador: confirmar os 19 WR/IN, o checkpoint D-54 do WR-01 e criar a fase do Bloco 3."
+last_updated: "2026-09-30T02:26:06.051Z"
 last_activity: 2026-09-29
-state_head: e69f016d9d77a0f1da332f37b3fbdd43d0db9582
+state_head: 0a401fa057b8919926f68225297f1dd63d60e08d
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 113
-  completed_plans: 110
-  percent: 97
-current_phase_name: consertos-da-jornada-bloco-2
+  completed_plans: 111
+  percent: 98
 current_phase: 49
+current_phase_name: consertos-da-jornada-bloco-2
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
 ---
 
@@ -910,6 +910,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P31 | ~10 min | 2 tasks | 7 files |
 | Phase 49 P33 | ~9 min | 2 tasks | 2 files |
 | Phase 49 P34 | ~7 min | 2 tasks | 1 files |
+| Phase 49 P35 | ~4 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1244,6 +1245,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-33: limite ACEITO T-49-33-03 — «de nota maxima» sem acento e sem artigo, sozinho, deixou de ser detectado (era, pelo padrão 5 antigo): é lexicalmente a preposição de «avaliação de nota máxima». A frase do UAT sem acento segue detectada pelo padrão 1 e presa por teste; o detector é heurística e a nota nunca decide sozinha (RNF-07a).
 - [Phase 49]: 49-34: prova de publicação de EF pela FONTE — o eszip guarda `sourcesContent` por módulo; extraído e comparado byte a byte com o disco (84/84 iguais nas 7 EFs de IA), e o mesmo instrumento no bundle anterior mostra exatamente `ai-client.ts` + `injection-detector.ts` = `ae299ae8`. O fechamento se lê pelos sourcemaps (`"sources":["functions/…"]`), não por `strings | grep 'functions/…'`, que casa menções em comentário e dá falsa divergência.
 - [Phase 49]: 49-34: smoke pós-deploy do CR-01 feito executando o detector EXTRAÍDO do bundle publicado (controle: o bundle anterior reprova as benignas), não por invocação em PROD — a frase benigna faria chamada real e gravaria análise que pode virar vigente. A prova ponta a ponta (`provider='none'` sim/não) fica para o UAT do 49-35.
+- [Phase 49]: 49-35 (escrituração): JORN-37 reescrito sem a limpeza que a D-47 recusou — cópia nova impedida (49-06), as 5 linhas antigas aceitas como AR-49-01, BD-9 `open` (WINDOWS 74) carregada ao fecho do M8; JORN-41 de volta a `[ ]`/«Gaps Found — CR-01 consertado (49-33) e no ar (49-34); aguarda re-verificação» com o histórico íntegro; JORN-42..49 roteados pelo operador ao Bloco 3 (fase a criar), fora da linha Requirements do ROADMAP (que alimenta phase_req_ids). Nenhum ID Complete: o mark-complete real devolveu not_found e o arquivo saiu byte-igual.
+- [Phase 49]: 49-35: disposição do code review com `open: 0` — CR-01..03 `fixed` pelo plano que os consertou; os 19 WR/IN `deferred` como PROPOSTA do orquestrador, a confirmar pelo operador (nenhuma célula atribui a escolha a ele). WR-01 depende de liberar a chave de 3 linhas legadas `interview_guide` — UPDATE retroativo com checkpoint D-54, registrado e não executado.
 
 ### Roadmap Evolution
 
@@ -1570,9 +1573,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-26T19:29:13.808Z
-Stopped at: 49-18 Task 2 NÃO provada: a sessão 1 não chegou a PROD (zero linhas após T0; +claude7/8/9 inexistentes; nenhum login desde 2026-09-22). Aguardando execução real da jornada + relato de (a)-(f). Task 3 não alcançável antes disso.
-Resume file: .planning/phases/49-consertos-da-jornada-bloco-2/49-PROVA-PROD.md
+Last session: 2026-09-30T02:26:00.467Z
+Stopped at: Phase 49 — fechamento de lacunas: 49-35 CONCLUÍDO em 2026-09-29 (escrituração: JORN-37 sem a limpeza recusada, AR-49-01; JORN-41 em «Gaps Found — CR-01 consertado (49-33) e no ar (49-34); aguarda re-verificação»; JORN-42..49 roteados ao Bloco 3, fase a criar; 49-REVIEW-DISPOSITION open: 0 — CR-01..03 fixed, 19 WR/IN deferred a confirmar pelo operador). Os seis planos de lacuna 49-30..49-35 CONCLUÍDOS; nenhum requisito Complete antes do verificador. Próximo: a cauda da fase de novo (re-verificação de JORN-12/28/41 e do override do JORN-37), a UAT ponta a ponta das frases do 49-33 (human_verification), e com o operador: confirmar os 19 WR/IN, o checkpoint D-54 do WR-01 e criar a fase do Bloco 3.
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

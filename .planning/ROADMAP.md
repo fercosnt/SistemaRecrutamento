@@ -480,7 +480,7 @@ Plans:
 
 *Wave 4*
 
-- [ ] 49-35-PLAN.md — Escrituração: JORN-37 sem a promessa da limpeza recusada (AR-49-01), JORN-41 coerente com a re-verificação, JORN-42..49 roteados ao Bloco 3, caixas por casamento PLAN↔SUMMARY, nenhum requisito Complete antes do verificador, disposição dos 22 achados do review (JORN-37, JORN-41)
+- [x] 49-35-PLAN.md — Escrituração: JORN-37 sem a promessa da limpeza recusada (AR-49-01), JORN-41 coerente com a re-verificação, JORN-42..49 roteados ao Bloco 3, caixas por casamento PLAN↔SUMMARY, nenhum requisito Complete antes do verificador, disposição dos 22 achados do review (JORN-37, JORN-41)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
@@ -567,7 +567,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 34/35 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 35/35 | In Progress|  |
 
 ---
 
