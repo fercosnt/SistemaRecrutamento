@@ -12,6 +12,9 @@
 
 import { supabase } from '@/lib/supabase/client'
 import type { Database } from '../../../../../database.types'
+// Caminho RELATIVO para `_shared` (contrato de ZERO IMPORTS do módulo): o código do evento do
+// sinal é o MESMO literal que a Edge Function grava — nunca uma string repetida aqui (49-42).
+import { AI_ERROR_CODE } from '../../../../../supabase/functions/_shared/ai-error-codes'
 
 type LlmCallType = Database['public']['Enums']['llm_call_type']
 type LlmProvider = Database['public']['Enums']['llm_provider']
@@ -87,8 +90,12 @@ export interface AiLogsFilters {
   candidato_id?: string
   vaga_id?: string
   call_type?: LlmCallType
-  /** 'sucesso' | 'falha' */
-  status?: 'sucesso' | 'falha'
+  /**
+   * O ESTADO da chamada, no MESMO vocabulário da célula (`estadoDaChamada`). Até o 49-42 era
+   * `'sucesso' | 'falha'` traduzido para `success = …`, e o filtro discordava da célula em duas
+   * formas: «Sucesso» listava os fallbacks, e «Falha» listava a linha-evento do sinal.
+   */
+  status?: EstadoChamada
 }
 
 export interface AiLogsPagination {
@@ -116,6 +123,45 @@ export class AiLogsServiceError extends Error {
   }
 }
 
+/** Os quatro estados de uma chamada de IA — os três honestos do 49-15 (D-27c) e o do sinal (49-42). */
+export type EstadoChamada = 'sucesso' | 'falha' | 'fallback' | 'sinal'
+
+/** O código da linha-evento do sinal (49-38) — o literal da fonte única, não uma cópia. */
+const CODIGO_SINAL = AI_ERROR_CODE.prompt_injection_flagged
+
+/**
+ * Qual dos quatro estados esta linha é — o predicado ÚNICO da célula E do filtro de Status.
+ *
+ * Mora no serviço (49-42) para que o filtro de `listAiLogs`, logo abaixo, seja a tradução DESTA
+ * função para a consulta, estado por estado, e não uma segunda regra que envelhece sozinha. A
+ * `AiLogsPage` importa daqui (e reexporta, para os testes que a importam da página).
+ *
+ * ⚠ **`success = true` COM `error_code` é um FALLBACK**, e o predicado é esse — não o prefixo
+ * `fallback_`. O prefixo é a codificação que o plano 49-02 instalou; as 17 linhas vivas de
+ * `ai_call_logs` que estão nesse estado são ANTERIORES a ele e carregam o código CRU
+ * (`anthropic_retries_exhausted`). Um discriminante escrito só sobre `ehFallback()` deixaria
+ * exatamente essas 17 linhas verdes — as MESMAS que motivaram o conserto do 49-15. É a lição do
+ * CLAUDE.md §«Portões: varra pela FORMA, não pelo sintoma» aplicada ao discriminante: a forma
+ * («há código de erro numa chamada que deu certo») vigia a linha nova e a antiga; a lista de
+ * prefixos conhecidos vigiaria só metade.
+ *
+ * ⚠ **O código do SINAL é testado ANTES de `success` (49-42 / JORN-41).** A linha-evento do
+ * sinal (49-38) é `provider='none'`, `success=false`, `error_code='prompt_injection_flagged'`:
+ * `success=false` porque ela NÃO é chamada de modelo — é o registro de que o texto tinha uma
+ * possível instrução à IA, e a análise SEGUIU numa linha própria. Pela regra de `success`, ela
+ * seria «Falha», e isso é diagnóstico falso ao admin. Comparar com UM código específico aqui é
+ * ESCOPO deliberado (o estado existe para esse evento), não fotografia: um código novo cai nos
+ * estados de sempre, pela forma.
+ */
+export function estadoDaChamada(row: {
+  success: boolean
+  error_code: string | null
+}): EstadoChamada {
+  if (row.error_code === CODIGO_SINAL) return 'sinal'
+  if (!row.success) return 'falha'
+  return row.error_code ? 'fallback' : 'sucesso'
+}
+
 /**
  * Lista chamadas de IA registradas, paginação server-side (50/página default).
  * Usa o allowlist explícito — sem `select('*')`.
@@ -132,7 +178,31 @@ export async function listAiLogs(
     if (filters?.candidato_id) query = query.eq('candidato_id', filters.candidato_id)
     if (filters?.vaga_id) query = query.eq('vaga_id', filters.vaga_id)
     if (filters?.call_type) query = query.eq('call_type', filters.call_type)
-    if (filters?.status) query = query.eq('success', filters.status === 'sucesso')
+    // O filtro de Status é `estadoDaChamada` traduzida para a consulta, estado por estado (49-42).
+    // O teste de concordância (`aiLogsService.test.ts`) prova filtro ≡ célula em todas as formas.
+    //
+    // ⚠ «código diferente do sinal» NÃO é só `neq`: numa comparação de desigualdade o NULO some
+    // (NULL <> x é NULL), e a falha sem código deixaria de aparecer em «Falha». Daí a disjunção
+    // «é nulo OU diferente» na falha. No fallback o código já é não nulo, e o `neq` basta.
+    switch (filters?.status) {
+      case 'sinal':
+        query = query.eq('error_code', CODIGO_SINAL)
+        break
+      case 'falha':
+        query = query
+          .eq('success', false)
+          .or(`error_code.is.null,error_code.neq.${CODIGO_SINAL}`)
+        break
+      case 'fallback':
+        query = query
+          .eq('success', true)
+          .not('error_code', 'is', null)
+          .neq('error_code', CODIGO_SINAL)
+        break
+      case 'sucesso':
+        query = query.eq('success', true).is('error_code', null)
+        break
+    }
 
     query = query.order('created_at', { ascending: false })
 

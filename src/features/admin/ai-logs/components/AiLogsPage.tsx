@@ -17,6 +17,16 @@
  * O predicado do estado está em `estadoDaChamada` — leia o docblock dele antes de mexer:
  * ele NÃO é o prefixo `fallback_`, de propósito.
  *
+ * ─── Phase 49 / plano 49-42 — o quarto estado, «Sinal» (JORN-41) ───────────────────────
+ *
+ * A linha-evento do sinal (49-38: `provider='none'`, `success=false`,
+ * `error_code='prompt_injection_flagged'`) aparecia como «Falha», na célula E sob o filtro
+ * «Falha». Ela não é chamada de modelo: registra que o texto tinha uma possível instrução à IA,
+ * e a análise seguiu. Agora é «Sinal» (âmbar), com a causa legível do mapa. `estadoDaChamada`
+ * mudou para o SERVIÇO, e o filtro de Status é a tradução dele para a consulta — filtro e célula
+ * vêm do MESMO predicado, e o Select oferece os quatro estados (o que fecha também a discordância
+ * antiga em que «Sucesso» listava as linhas que a célula chama de «Fallback»).
+ *
  * @module features/admin/ai-logs/components/AiLogsPage
  * @see supabase/functions/_shared/ai-error-codes.ts (o prefixo e as causas — fonte única)
  * @see src/features/triagem/components/ProvenienciaIABadge.tsx (o mesmo âmbar, no lado do RH)
@@ -58,6 +68,10 @@ import {
 } from '../../../../components/ui/pagination'
 import { useAiLogs, useAiLogDetail } from '../hooks/useAiLogs'
 import type { AiLogListRow, AiLogsFilters } from '../services/aiLogsService'
+// O predicado do estado mora no serviço (49-42): o filtro de Status e a célula usam o MESMO.
+// Reexportado daqui porque os testes da tela o importam da página desde o 49-15.
+import { estadoDaChamada } from '../services/aiLogsService'
+export { estadoDaChamada }
 // ⚠ Caminho RELATIVO para `_shared`, de propósito: a tabela de causas legíveis e o
 // predicado de fallback têm UMA fonte, e é a mesma que a Edge Function escreve. O módulo tem
 // contrato de ZERO IMPORTS justamente para poder ser importado daqui. Precedentes vivos:
@@ -95,32 +109,6 @@ function formatBRL(usd: number | null): string {
   return `US$ ${usd.toFixed(4)}`
 }
 
-/** Os três estados honestos de uma chamada de IA (D-27c). */
-type EstadoChamada = 'sucesso' | 'falha' | 'fallback'
-
-/**
- * Qual dos três estados esta linha é.
- *
- * ⚠ **`success = true` COM `error_code` é um FALLBACK**, e o predicado é esse — não o prefixo
- * `fallback_`. O prefixo é a codificação que o plano 49-02 instalou; as 17 linhas vivas de
- * `ai_call_logs` que estão nesse estado são ANTERIORES a ele e carregam o código CRU
- * (`anthropic_retries_exhausted`). Um discriminante escrito só sobre `ehFallback()` deixaria
- * exatamente essas 17 linhas verdes — as MESMAS que motivaram este conserto. É a lição do
- * CLAUDE.md §«Portões: varra pela FORMA, não pelo sintoma» aplicada ao discriminante: a forma
- * («há código de erro numa chamada que deu certo») vigia a linha nova e a antiga; a lista de
- * prefixos conhecidos vigiaria só metade.
- *
- * `ehFallback` continua sendo consultado porque é ele que decide se o código tem prefixo a
- * remover antes de virar causa legível.
- */
-export function estadoDaChamada(row: {
-  success: boolean
-  error_code: string | null
-}): EstadoChamada {
-  if (!row.success) return 'falha'
-  return row.error_code ? 'fallback' : 'sucesso'
-}
-
 /**
  * Causa legível do `error_code`, em pt-BR — «não coube», «demorou», «fora do schema», …
  *
@@ -141,7 +129,16 @@ function StatusCell({ row }: { row: AiLogListRow }) {
 
   return (
     <span className="flex flex-wrap items-center gap-2">
-      {estado === 'fallback' ? (
+      {estado === 'sinal' ? (
+        <Badge
+          data-testid="ai-log-sinal"
+          // Âmbar, como o fallback: a análise SEGUIU — a linha registra um sinal para revisão
+          // humana, não uma falha. Nunca o vermelho de «Falha» (49-42).
+          className="border-amber-400/50 bg-amber-400/15 text-amber-100"
+        >
+          Sinal
+        </Badge>
+      ) : estado === 'fallback' ? (
         <Badge
           data-testid="ai-log-fallback"
           // Âmbar, não vermelho: o resultado é utilizável. O que o selo diz é que ele NÃO
@@ -255,8 +252,11 @@ export function AiLogsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
+                  {/* Os quatro estados da célula, no mesmo vocabulário (49-42). */}
                   <SelectItem value="sucesso">Sucesso</SelectItem>
+                  <SelectItem value="fallback">Fallback</SelectItem>
                   <SelectItem value="falha">Falha</SelectItem>
+                  <SelectItem value="sinal">Sinal</SelectItem>
                 </SelectContent>
               </Select>
             </div>

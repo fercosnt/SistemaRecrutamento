@@ -53,8 +53,7 @@ vi.mock('@/lib/supabase/client', () => {
   return { supabase: { from: vi.fn(() => makeQuery()) } }
 })
 
-import { listAiLogs, getAiLogDetail } from '../aiLogsService'
-import * as svc from '../aiLogsService'
+import { listAiLogs, getAiLogDetail, estadoDaChamada, type EstadoChamada } from '../aiLogsService'
 
 /** As colunas que NUNCA podem sair na listagem — conteúdo de prompt e resposta bruta. */
 const SENSIVEIS = [
@@ -125,7 +124,7 @@ describe('aiLogsService — projeção do DETALHE (onde o conteúdo é permitido
 // ─────────────────────────────────────────────────────────────────────────────────────────
 
 type Linha = { success: boolean; error_code: string | null }
-type Estado = 'sucesso' | 'fallback' | 'falha' | 'sinal'
+type Estado = EstadoChamada
 
 const SINAL = 'prompt_injection_flagged'
 
@@ -198,10 +197,9 @@ function seleciona(linha: Linha, aplicados: { metodo: string; args: unknown[] }[
 }
 
 /** Os filtros que `listAiLogs({ status })` aplica à consulta (sem a paginação/ordenação). */
-async function filtrosDoEstado(estado: string) {
+async function filtrosDoEstado(estado: Estado) {
   filtros.value = []
-  // RED (49-42): `status` ainda é 'sucesso' | 'falha' no tipo; o GREEN tira este cast.
-  await listAiLogs({ status: estado } as unknown as Parameters<typeof listAiLogs>[0])
+  await listAiLogs({ status: estado })
   return [...filtros.value]
 }
 
@@ -227,16 +225,11 @@ describe('aiLogsService — filtro de Status ≡ célula de Status (49-42 / JORN
   })
 
   it('o predicado mora no SERVIÇO e a tabela de formas é a da célula', () => {
-    const estadoDaChamada = (svc as Record<string, unknown>).estadoDaChamada as
-      | ((l: Linha) => Estado)
-      | undefined
     expect(typeof estadoDaChamada).toBe('function')
-    for (const f of FORMAS) expect([f.nome, estadoDaChamada!(f.linha)]).toEqual([f.nome, f.esperado])
+    for (const f of FORMAS) expect([f.nome, estadoDaChamada(f.linha)]).toEqual([f.nome, f.esperado])
   })
 
   it('concordância: para cada estado E e cada forma, o filtro de E seleciona a linha ⇔ estadoDaChamada(linha) === E', async () => {
-    const estadoDaChamada = (svc as Record<string, unknown>).estadoDaChamada as (l: Linha) => Estado
-    expect(typeof estadoDaChamada).toBe('function')
     const divergencias: string[] = []
     for (const estado of ESTADOS) {
       const aplicados = await filtrosDoEstado(estado)
