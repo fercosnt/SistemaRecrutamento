@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49 — 49-41 CONCLUÍDO em 2026-09-30 (as telas do RH mostram o sinal com o rótulo pt-BR de rotuloDoSinal: hub «Sinais de atenção» (AnaliseIABlock), badge âmbar na TriagemTable, seção SinaisDaRedacao no RedacaoReviewPanel (primeira vez que o painel mostra flags, plágio incluso) e o motivo sob «Requer revisão humana» no card caso_aberto da SJT (CasoAbertoMetadata.motivos_revisao declarado; sem ele o tsc iria a 90, medido); nenhuma nota, cor destrutiva ou ação muda; vitest 218/2346 verde; tsc 89; NADA publicado). Próximo: 49-42 (transcrição bias_flags, comparativo + PDF, log do admin). Restam 49-42 e 49-43. NÃO marcar JORN-41 Complete. NÃO deployar EF antes do 49-43 (migration 20260930000001 primeiro). ACHADO para o checkpoint do 49-43 (do 49-38): eventos de BLOQUEIO do JORN-39 contados como erro pelo cron (28/09: none 1/1)."
-last_updated: "2026-09-30T07:15:36.322Z"
+stopped_at: "Phase 49 — 49-42 CONCLUÍDO em 2026-09-30 (o sinal aparece nas superfícies que faltavam: aviso âmbar por análise na aba da transcrição, FORA de pendentes/bloqueado (o teste «sinal SEM trava» usa duas vigentes, e a mutação do plano morde); aviso acima do ranking no ComparativoScreen com a prop sinaisRevisao fiada nas DUAS páginas (ComparativoCandidatosPage e DecisaoFinalPage — os 2 consumidores da varredura); o PDF exportado imprime o rotuloDoSinal importado entre o título e a tabela; no admin, a linha-evento prompt_injection_flagged é «Sinal» e não «Falha», estadoDaChamada mudou para o aiLogsService e o filtro de Status é a tradução dele (Select com Fallback e Sinal; concordância filtro ≡ célula em 7 formas × 4 estados com a semântica SQL do nulo); vitest 218/2374 verde; tsc 89; NADA publicado). Próximo: 49-43 (apply da migration 20260930000001 ANTES do deploy das EFs, push do front, prova do marcador no chunk lazy certo, conferência visual e checkpoint do operador). Resta só o 49-43. NÃO marcar JORN-41 Complete. ACHADO para o checkpoint do 49-43 (do 49-38): eventos de BLOQUEIO do JORN-39 contados como erro pelo cron (28/09: none 1/1)."
+last_updated: "2026-09-30T07:32:42.884Z"
 last_activity: 2026-09-30
-state_head: 75f8e969b553e9bfdda6b085c7ae0299138dc9f8
+state_head: 7f72c77595d75e32cc03609f2f5c63978f5c46e2
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 121
-  completed_plans: 117
-  percent: 97
+  completed_plans: 118
+  percent: 98
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
@@ -666,7 +666,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 49 (49-41 concluído; próximo 49-42)
+Status: Executing Phase 49 (49-42 concluído; próximo 49-43 — o último plano da fase)
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -917,6 +917,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P39 | 7min | 3 tasks | 6 files |
 | Phase 49 P40 | 7min | 3 tasks | 6 files |
 | Phase 49 P41 | 7 min | 2 tasks | 9 files |
+| Phase 49 P42 | 14min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -1265,6 +1266,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-40: guia e devolutiva ficam só com a linha-evento — 25 blocos do Big Five e 4 rawInput do guia classificam none (propriedade provada por teste)
 - [Phase 49]: 49-41: as telas do RH (hub, triagem, revisão da redação, card SJT) leem o sinal só por _shared/sinal-revisao (rotuloDoSinal/sinaisDe), e os testes também; tom âmbar só no badge da triagem, neutro nas demais; o rótulo da SJT aparece sempre que o código está em motivos_revisao, não só enquanto pendente
 - [Phase 49]: 49-41: RedacaoReviewPanel passa a renderizar redacoes_candidato.flags (SinaisDaRedacao, some com lista vazia); CasoAbertoMetadata declara motivos_revisao (sem ele: TS2339, tsc 89→90, medido)
+- [Phase 49]: 49-42: o sinal de instrução à IA é marca de LEITURA na aba da transcrição (fora de pendentes/bloqueado, como o portão avancar_etapa); o PDF do comparativo imprime o rotuloDoSinal importado (precedente D-27b aplicado pelo planejador); no admin, estadoDaChamada mora no aiLogsService e o filtro de Status é a tradução dele (filtro ≡ célula provado sobre 7 formas × 4 estados, com a semântica SQL do nulo)
 
 ### Roadmap Evolution
 
@@ -1591,8 +1593,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-30T06:10:03.688Z
-Stopped at: Completed 49-36-PLAN.md
+Last session: 2026-09-30T07:32:42.533Z
+Stopped at: Completed 49-42-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

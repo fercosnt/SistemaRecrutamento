@@ -510,7 +510,7 @@ Plans:
 
 *Wave 7*
 
-- [ ] 49-42-PLAN.md — Telas: aviso na aba da transcrição (sem trava), no comparativo e na Decisão Final, e estado «Sinal» no log do admin com o filtro de Status derivado do mesmo predicado da célula (JORN-41)
+- [x] 49-42-PLAN.md — Telas: aviso na aba da transcrição (sem trava), no comparativo e na Decisão Final, e estado «Sinal» no log do admin com o filtro de Status derivado do mesmo predicado da célula (JORN-41)
 
 *Wave 8*
 
@@ -601,7 +601,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 41/43 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 42/43 | In Progress|  |
 
 ---
 
