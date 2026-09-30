@@ -68,6 +68,20 @@
 -- AS CONTAGENS GLOBAIS DE (z) NÃO SÃO FOTOGRAFIA (D-17): baseline capturada NA PRÓPRIA
 -- execução. A asserção que decide é a de resíduo ESCOPADA às fixtures; a global é o cinto.
 --
+-- O PORTÃO MORDE — mutações provadas no 49-30 (Task 2, 2026-09-29), cada uma numa
+-- requisição que aborta: `CREATE OR REPLACE` da função MUTADA + este smoke +
+-- `RAISE 'MUTACAO_TERMINOU'`. Cada uma reprovou na letra abaixo e nenhuma chegou ao
+-- marcador; depois das cinco, os md5(prosrc) vivos eram os do pós-portão. A próxima
+-- redefinição destas funções tem de re-provar esta tabela (re-pin consciente,
+-- PATTERNS §C) — uma cláusula nova sem mutação que a reprove é cláusula não vigiada:
+--   | Mutação | Inversão                                                           | Reprova |
+--   |---------|--------------------------------------------------------------------|---------|
+--   | M1      | três argumentos com o corpo ANTERIOR (o do 20260922000008)          | (a)     |
+--   | M2      | quatro argumentos SEM `ea.candidatura_id = p_candidatura_id`        | (e)     |
+--   | M3      | quatro argumentos SEM a exigência de vigente                        | (e)     |
+--   | M4      | quatro argumentos que ignoram o id e pegam a vigente mais recente   | (d)     |
+--   | M5      | quatro argumentos com o guard de papel sem o `coalesce`             | (f)     |
+--
 -- COMO RODAR: `node p46apply.cjs run supabase/tests/p49_revisao_por_analise_smoke.sql` —
 -- UMA requisição, UMA sessão. O `SELECT` final devolve `{smoke, pass, esperado, ...}`;
 -- qualquer FAIL é `RAISE EXCEPTION` e o `p46apply` sai com código ≠ 0.
