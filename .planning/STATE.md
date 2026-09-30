@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49 — fechamento de lacunas: 49-31 CONCLUÍDO em 2026-09-29 (CR-03, metade de tela, NO AR: o painel mostra e deixa confirmar TODA vigente com bandeira pendente, um botão por pendente com o id da própria análise; o scorecard diz sobre qual análise grava e deixa escolher entre vigentes; RED provado (bloco de bandeira ausente com a online bandeirada atrás da presencial limpa), negativos mordidos por N1/N2; suíte 2333/2333; os dois marcadores em EntrevistaWorkspace-wNA6aToS.js servido; população (b) remedida 0). O push levou também os commits do 49-32 (só _shared, nenhum workflow publica EF). Antes: 49-30 e 49-32 CONCLUÍDOS. Próximo: 49-33 (depende do 49-32), depois 49-34 (deploy das 7 EFs) e 49-35. JORN-28 e JORN-12 seguem «Gaps Found — … aguarda re-verificação» DE PROPÓSITO — o mark-complete do fim do 49-31 recusou o JORN-12 (not_found), como planejado; a célula diz «CR-03 consertado (49-30 banco, 49-31 tela) e no ar». A cauda da fase roda de novo depois dos seis planos de lacuna."
-last_updated: "2026-09-30T02:03:00.000Z"
+stopped_at: "Phase 49 — fechamento de lacunas: 49-33 CONCLUÍDO em 2026-09-29 (CR-01, JORN-41, só disco: os padrões pt-BR do detector de injeção exigem que o ALVO seja o MODELO — IA, modelo de linguagem, bot, assistente qualificado — e a ordem de nota na forma imperativa; o imperativo negado sai por lookbehind. RED real: exatamente as 8 frases do consultório reprovaram (RED_EVIDENCE_OK); GREEN 36/0; 10 mutações mordem nas duas direções (L1..L5 reprovam benigno, E1..E5 reprovam malicioso); regressão _shared + 7 EFs 420/0. Limite ACEITO T-49-33-03: «de nota maxima» sem acento e sem artigo, sozinho, não é detectado; a frase do UAT sem acento segue presa pelo padrão 1). Antes: 49-30, 49-31 e 49-32 CONCLUÍDOS. Próximo: 49-34 (deploy das 7 EFs levando _shared/ai-client.ts do 49-32 E _shared/injection-detector.ts deste; marcador de bundle `modelo\\s+de\\s+linguagem`) e 49-35. JORN-28 e JORN-12 seguem «Gaps Found — … aguarda re-verificação» DE PROPÓSITO; a escrituração do JORN-41 fica com o 49-35. A cauda da fase roda de novo depois dos seis planos de lacuna."
+last_updated: "2026-09-30T02:11:07.703Z"
 last_activity: 2026-09-29
-state_head: 97020ccd7d0303d06cb3d6c828379f8c9f5d92aa
+state_head: 353ce962ba4306bf73b420f95951e0421913d77a
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 113
-  completed_plans: 108
+  completed_plans: 109
   percent: 96
 current_phase_name: consertos-da-jornada-bloco-2
 current_phase: 49
@@ -908,6 +908,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P30 | ~15 min | 3 tasks | 8 files |
 | Phase 49 P32 | ~6 min | 2 tasks | 2 files |
 | Phase 49 P31 | ~10 min | 2 tasks | 7 files |
+| Phase 49 P33 | ~9 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1238,6 +1239,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-32 (CR-02): só a resposta primária cacheável é dona da `idempotency_key` (promote). O fallback OpenAI virou EVENTO de auditoria — chave nula, insert simples — como já eram as tentativas e os bloqueios `none`; o campo saiu de `FallbackArgs`, então nenhum caminho do fallback consegue gravá-la sem mudar a assinatura. add-alongside (coluna nova) rejeitado: migration para um problema que nenhum leitor tem.
 - [Phase 49]: 49-32: WR-01 (replay reconhecer fallback pelo provedor) NÃO aplicado — 3 linhas legadas `interview_guide` (06/09, provider=openai, sem prefixo `fallback_`) ainda possuem chave; tirá-las do replay sem liberar a chave as exporia ao mesmo sobrescrito por upsert que o CR-02 fecha.
 - [Phase 49]: 49-31 (CR-03, tela): `vigenteMaisRecente` deixou de ser a fonte da bandeira e do botão de confirmar (promote) e virou só o PADRÃO do scorecard. O painel deriva `pendentes` de `vigentes`, como o portão `avancar_etapa` deriva, e oferece uma confirmação por pendente. O scorecard nomeia a análise que recebe a nota e, com duas vigentes, o RH escolhe; uma escolha que deixou de ser vigente cai de volta no padrão.
+- [Phase 49]: 49-33 (CR-01, JORN-41): os padrões pt-BR do detector de injeção exigem que o ALVO do verbo seja o MODELO (IA, inteligência artificial, modelo de linguagem, bot/chatbot, ou assistente/modelo/sistema qualificado por virtual/de IA/diferente/sem restrições…); ignorar/esquecer só sobre a instrução ou o saber do modelo e nunca com o imperativo negado; a ordem de nota só na forma imperativa. `assistente`, `modelo` e `nov[oa]` sozinhos deixaram de ser alvo — numa clínica que contrata assistentes, «você é uma assistente» é a pergunta da entrevista.
+- [Phase 49]: 49-33: limite ACEITO T-49-33-03 — «de nota maxima» sem acento e sem artigo, sozinho, deixou de ser detectado (era, pelo padrão 5 antigo): é lexicalmente a preposição de «avaliação de nota máxima». A frase do UAT sem acento segue detectada pelo padrão 1 e presa por teste; o detector é heurística e a nota nunca decide sozinha (RNF-07a).
 
 ### Roadmap Evolution
 
