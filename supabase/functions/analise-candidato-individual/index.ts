@@ -56,6 +56,7 @@ import {
 import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared/prompt-loader.ts";
 import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import { AnaliseBodySchema, CvJobMatchSchema } from "../_shared/analise-schemas.ts";
+import { comSinal, SINAL_INSTRUCAO_AO_MODELO } from "../_shared/sinal-revisao.ts";
 // SDKs + unpdf como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
 // pacote da lista de dependências do deploy → ERR_MODULE_NOT_FOUND no runtime do EF (o EF nunca rodou
 // em PROD). Precedente que deploya E passa o `deno test` type-checked: `analise-schemas.ts` importa
@@ -555,6 +556,15 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       throw new Error(result.error_code ?? "prompt_injection_detected");
     }
 
+    // JORN-41 / 49-39, decisão (a) do operador (2026-09-29): uma entrada `flag` (imperativo
+    // nu dirigido a quem lê, sem nomear prompt/modelo/IA) NÃO recusa a análise — o callAi
+    // chamou o modelo e devolveu `injection_flag`. A análise segue NORMAL, e o código do
+    // sinal entra em `flags`, que é a lista que o RH lê como «Sinais de atenção». O sinal é
+    // marca de revisão, nunca nota: não altera `score_match` nem `status` (RNF-07a). As
+    // duas guardas acima (sem resultado; `block`) ficam como estavam.
+    const sinalizada = result.injection_flag != null;
+    const flagsFinais = sinalizada ? comSinal(flags, SINAL_INSTRUCAO_AO_MODELO) : flags;
+
     // 6. Mapeia chaves INGLESAS → colunas pt-BR.
     const parsed = (result.parsed ?? {}) as {
       match_score?: number;
@@ -624,7 +634,7 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
         score_match: typeof parsed.match_score === "number" ? parsed.match_score : null,
         pontos_fortes: pontosFortes,
         gaps: gapsList,
-        flags,
+        flags: flagsFinais,
         resumo_cv: resumoCvFallback ? "CV não pôde ser extraído — análise baseada nas respostas." : cvText.slice(0, 2000),
         resumo_respostas: parsed.reasoning ?? null,
         status: "sucesso",
@@ -660,6 +670,8 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       // D-28: o modelo REAL no log, ao lado do provedor — um id de modelo não é dado do
       // titular, e é o que permite ver um fallback no log sem consultar a tabela.
       modelo_ia: result.model,
+      // JORN-41: só o booleano — nunca o padrão casado nem o texto do candidato.
+      sinal: sinalizada,
     });
 
     return jsonResponse({ ok: true, status: "sucesso" }, 200);
