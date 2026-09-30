@@ -33,6 +33,13 @@
  * Superada e falha continuam sem botão: a RPC as recusa (`check_violation`), e oferecer a
  * ação faria a tela parecer quebrada por causa de um acerto do banco.
  *
+ * **O sinal de instrução à IA é marca de LEITURA, não bandeira de avanço (49-42 / JORN-41).**
+ * A EF grava `{ sinal: 'instrucao_ao_modelo' }` como elemento de `bias_flags`, e deixa
+ * `bloqueio_avanco` só com a bandeira de língua/sotaque (`49-40-PLAN.md` `<decisions>`). A tela
+ * mostra o rótulo pt-BR junto da análise, e o sinal NÃO entra em `pendentes`/`bloqueado` nem no
+ * `disabled` do Avançar: o portão `avancar_etapa` não trava por ele, e uma tela que travasse o
+ * que o servidor não trava repetiria a discordância do CR-03 no sentido oposto.
+ *
  * O anti-viés regional (RF-24): quando a bandeira de linguagem/sotaque dispara (o
  * `bloqueio_avanco` da EF), um bloco em tom destrutivo + um RevisaoHumanaMarker
  * renderizam e o CTA "Avançar etapa" fica DESABILITADO enquanto houver pendente. O único
@@ -64,6 +71,9 @@ import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from '@/features/triagem/components/SugestaoIABadge'
 import { ProvenienciaIABadge } from '@/features/triagem/components/ProvenienciaIABadge'
 import { formatDataHoraSP } from '@/lib/datetime/formatDataHoraSP'
+// O vocabulário do sinal vem da MESMA fonte que a Edge Function escreve (`_shared/sinal-revisao.ts`,
+// zero imports) — nenhuma cópia da frase no front.
+import { rotuloDoSinal, sinaisDe } from '../../../../supabase/functions/_shared/sinal-revisao'
 import type {
   AnalisesPorVigencia,
   AnaliseTranscricaoResultado,
@@ -182,6 +192,33 @@ function RevisaoDaSuperada({ analise }: { analise: EntrevistaAnaliseRow }) {
       {TRANSCRICAO_COPY.revisadaPorEquipe}
       {quando ? ` em ${quando}` : ''}.
     </p>
+  )
+}
+
+/**
+ * O aviso do sinal de revisão de UMA análise (49-42 / JORN-41): o rótulo pt-BR de cada código
+ * distinto que o servidor gravou em `bias_flags` (o elemento `{ sinal }`, lido por `sinaisDe`;
+ * as flags de viés do modelo são ignoradas). Sem código, nada renderiza.
+ *
+ * Tom ÂMBAR — o do selo de proveniência e do badge da triagem (49-41): «resultado utilizável,
+ * confira o texto». Nunca o destrutivo da bandeira, e nenhuma ação depende dele (RNF-07a).
+ */
+function SinalRevisaoAviso({ biasFlags }: { biasFlags: unknown }) {
+  const codigos = [...new Set(sinaisDe(biasFlags))]
+  if (codigos.length === 0) return null
+  return (
+    <div
+      role="note"
+      data-testid="analise-sinal-revisao"
+      className="space-y-1 rounded-lg border border-amber-400/50 bg-amber-400/15 px-3 py-2 text-amber-100"
+    >
+      {codigos.map((c) => (
+        <p key={c} className="flex items-start gap-2 text-sm leading-relaxed">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{rotuloDoSinal(c)}</span>
+        </p>
+      ))}
+    </div>
   )
 }
 
@@ -340,6 +377,7 @@ function AnaliseVigenteBloco({ analise }: { analise: EntrevistaAnaliseRow }) {
           <EstadoRevisaoBadge analise={analise} />
         </div>
         {criadaEm ? <p className="text-sm text-white/60">Analisada em {criadaEm}.</p> : null}
+        <SinalRevisaoAviso biasFlags={analise.bias_flags} />
       </div>
       <ul className="space-y-3">
         {competencias.map((c, i) => (
@@ -387,6 +425,7 @@ function AnaliseSuperadaItem({ analise }: { analise: EntrevistaAnaliseRow }) {
         </summary>
         <div className="space-y-3 border-t border-white/10 px-4 py-3">
           {criadaEm ? <p className="text-sm text-white/60">Analisada em {criadaEm}.</p> : null}
+          <SinalRevisaoAviso biasFlags={analise.bias_flags} />
           <RevisaoDaSuperada analise={analise} />
           {competencias.length > 0 ? (
             <ul className="space-y-3">
@@ -491,7 +530,8 @@ export function TranscricaoReviewPanel({
   const superadas = analises?.superadas ?? []
   const falhas = analises?.falhas ?? []
   // A bandeira é derivada como o portão `avancar_etapa` a deriva: sobre TODAS as vigentes.
-  // Cada pendente é confirmável pelo próprio id (49-31, CR-03).
+  // Cada pendente é confirmável pelo próprio id (49-31, CR-03). O sinal de instrução à IA
+  // (`bias_flags` `{ sinal }`) NÃO entra aqui — o servidor não trava por ele (49-42).
   const pendentes = vigentes.filter((a) => a.bloqueio_avanco && !a.revisao_confirmada_em)
   const flagFired = vigentes.some((a) => a.bloqueio_avanco)
   const bloqueado = pendentes.length > 0

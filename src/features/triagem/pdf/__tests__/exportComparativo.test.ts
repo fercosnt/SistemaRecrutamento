@@ -184,14 +184,6 @@ describe('exportComparativo — o PDF que já existia continua funcionando', () 
 // O PDF é o resultado FORA da tela. Um ranking sinalizado exportado sem a marca circularia como
 // resultado limpo — o mesmo argumento da proveniência (D-27b), aplicado ao sinal. A cópia é a
 // da tela, IMPORTADA de `_shared/sinal-revisao.ts` (e aqui também: nenhuma cópia da frase).
-// RED (49-42): a assinatura de hoje só aceita dois argumentos. O alias deixa o tsc do
-// pre-commit passar enquanto o COMPORTAMENTO reprova; o GREEN o remove.
-const exportarComSinais = exportComparativo as (
-  c: RankedCandidate[],
-  p?: Parameters<typeof exportComparativo>[1],
-  s?: string[],
-) => void
-
 /** O startY da última tabela, lido por função (o TS estreitaria a propriedade a `null`). */
 function startYDaTabela(): number {
   return (autoTableOpts.value as { startY: number } | null)!.startY
@@ -205,19 +197,36 @@ describe('exportComparativo — o sinal de revisão no cabeçalho (49-42 / JORN-
     return textCalls.filter((c) => c.texto === ROTULO)
   }
 
+  /**
+   * A folga que a linha de proveniência JÁ tem até a tabela, medida na própria execução (e não
+   * copiada como constante): a linha do sinal não pode ficar mais colada à tabela que ela.
+   * «startY maior que o y da linha» sozinho aceitaria a tabela a 1–2 mm da base do texto.
+   */
+  function folgaDaProveniencia(): number {
+    const prov = { provedorIa: 'anthropic', modeloIa: 'claude-sonnet-4-6' }
+    const antes = textCalls.length
+    exportComparativo(CANDIDATOS, prov)
+    const linha = textCalls.slice(antes).find((c) => c.texto === textoProveniencia(prov))!
+    const folga = startYDaTabela() - linha.y
+    textCalls.length = antes
+    return folga
+  }
+
   it('com o código em `sinais`, imprime EXATAMENTE o rótulo, abaixo do título e acima da tabela', () => {
-    exportarComSinais(CANDIDATOS, undefined, [SINAL_INSTRUCAO_AO_MODELO])
+    const folga = folgaDaProveniencia()
+    exportComparativo(CANDIDATOS, undefined, [SINAL_INSTRUCAO_AO_MODELO])
     const titulo = textCalls[0]
     const sinal = linhasDoSinal()
     expect(sinal).toHaveLength(1)
     expect(sinal[0].y).toBeGreaterThan(titulo.y)
     expect(sinal[0].x).toBe(titulo.x)
-    expect(startYDaTabela()).toBeGreaterThan(sinal[0].y)
+    expect(startYDaTabela() - sinal[0].y).toBeGreaterThanOrEqual(folga)
   })
 
   it('com proveniência E sinal, as duas linhas saem em y DISTINTOS, as duas acima da tabela', () => {
+    const folga = folgaDaProveniencia()
     const prov = { provedorIa: 'openai', modeloIa: 'gpt-4o-mini', fallbackCause: 'anthropic_timeout' }
-    exportarComSinais(CANDIDATOS, prov, [SINAL_INSTRUCAO_AO_MODELO])
+    exportComparativo(CANDIDATOS, prov, [SINAL_INSTRUCAO_AO_MODELO])
     const titulo = textCalls[0]
     const linhaProv = textCalls.find((c) => c.texto === textoProveniencia(prov))
     const sinal = linhasDoSinal()
@@ -227,11 +236,11 @@ describe('exportComparativo — o sinal de revisão no cabeçalho (49-42 / JORN-
     expect(sinal[0].y).toBeGreaterThan(titulo.y)
     expect(sinal[0].y).not.toBe(linhaProv!.y)
     expect(startYDaTabela()).toBeGreaterThan(linhaProv!.y)
-    expect(startYDaTabela()).toBeGreaterThan(sinal[0].y)
+    expect(startYDaTabela() - sinal[0].y).toBeGreaterThanOrEqual(folga)
   })
 
   it('o mesmo código repetido sai UMA vez (a marca não empilha)', () => {
-    exportarComSinais(CANDIDATOS, undefined, [SINAL_INSTRUCAO_AO_MODELO, SINAL_INSTRUCAO_AO_MODELO])
+    exportComparativo(CANDIDATOS, undefined, [SINAL_INSTRUCAO_AO_MODELO, SINAL_INSTRUCAO_AO_MODELO])
     expect(linhasDoSinal()).toHaveLength(1)
   })
 
@@ -239,13 +248,13 @@ describe('exportComparativo — o sinal de revisão no cabeçalho (49-42 / JORN-
     for (const sinais of [undefined, [] as string[]]) {
       textCalls.length = 0
       autoTableOpts.value = null
-      exportarComSinais(CANDIDATOS, undefined, sinais)
+      exportComparativo(CANDIDATOS, undefined, sinais)
       expect(textCalls).toHaveLength(1)
       const semProv = startYDaTabela()
 
       textCalls.length = 0
       autoTableOpts.value = null
-      exportarComSinais(CANDIDATOS, { provedorIa: 'anthropic', modeloIa: 'claude-sonnet-4-6' }, sinais)
+      exportComparativo(CANDIDATOS, { provedorIa: 'anthropic', modeloIa: 'claude-sonnet-4-6' }, sinais)
       expect(textCalls).toHaveLength(2)
       const comProv = startYDaTabela()
 
