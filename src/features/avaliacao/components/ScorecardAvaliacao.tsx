@@ -11,6 +11,13 @@
  * never changes etapa by score. The candidate never reaches this surface (RLS +
  * allowlist deny in `scoresRhService`).
  *
+ * ⚠ NÃO MONTADO (49-REVIEW-GAPS-3 CR-02, 2026-09-30): este componente só é exportado pelo
+ * barril; nenhuma rota nem tela o renderiza, e o build o descarta por tree-shaking. Um teste
+ * verde AQUI não prova que o RH vê coisa alguma. O sinal de revisão da SJT que o RH VÊ mora na
+ * Decisão Final (`features/decisao/components/ConsolidacaoDashboard.tsx`,
+ * `data-testid="decisao-sjt-sinal-revisao"`), alimentado por `consolidar-decisao-final`
+ * (`breakdown[].sinais_revisao`). Montá-lo ou apagá-lo é decisão fora do conserto do CR-02.
+ *
  * @module features/avaliacao/components/ScorecardAvaliacao
  * @see src/features/triagem/components/SugestaoIABadge.tsx (reused verbatim — not re-authored)
  * @see .planning/phases/11-avalia-o-ass-ncrona-infra-work-sample-sjt-etapa-3/11-UI-SPEC.md (§RH Scorecard View)

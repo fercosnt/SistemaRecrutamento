@@ -49,6 +49,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // forma aqui. Assim a EF e o contract test do client validam o MESMO módulo
 // (`.uuid()` restaurado — de-drift). [[feedback_integration_contract_gap]]
 import { ConsolidacaoRequestSchema } from "../../../src/features/decisao/schemas/consolidacaoSchema.ts";
+// 49-REVIEW-GAPS-3 CR-02: o vocabulário do SINAL de revisão (fonte única, zero imports).
+import { ROTULO_SINAL, sinaisDe } from "../_shared/sinal-revisao.ts";
 
 // ---------------------------------------------------------------------------
 // CORS + response helpers (copiados verbatim de comparativo-candidatos :56-73)
@@ -112,6 +114,12 @@ interface BreakdownRow {
   weight: number | null;
   /** peso renormalizado sobre as etapas present; null caso contrário. */
   effective_weight: number | null;
+  /**
+   * 49-REVIEW-GAPS-3 CR-02: códigos de SINAL de revisão (`_shared/sinal-revisao.ts`) em
+   * `metadata.motivos_revisao` das linhas que CONTAM na etapa. ADITIVO — nenhuma nota, peso,
+   * recomendação ou N/A depende dele. AUSENTE sem sinal (nunca `[]`, lição do 49-26).
+   */
+  sinais_revisao?: string[];
 }
 
 interface ScoreRow {
@@ -161,14 +169,40 @@ function normalizeWeighted(
  * está confirmada.
  */
 export function normalizeSjtComposite(sjtRows: ScoreRow[]): number | null {
-  const confirmed = sjtRows.filter(
-    (r) => r.status === "sucesso" && r.score != null && r.score_max != null && r.score_max > 0,
-  );
+  const confirmed = sjtRows.filter(sjtSubLinhaConta);
   if (confirmed.length === 0) return null;
   const sumScore = confirmed.reduce((acc, r) => acc + (r.score as number), 0);
   const sumMax = confirmed.reduce((acc, r) => acc + (r.score_max as number), 0);
   if (sumMax === 0) return null;
   return (sumScore / sumMax) * 100;
+}
+
+/**
+ * A sub-linha de SJT CONTA na etapa? Predicado único de `normalizeSjtComposite` e de
+ * `sinaisDasLinhas` (CR-02): o sinal exibido é sempre o das linhas que formam a nota exibida.
+ * Extraído sem mudar a condição (a mesma que vivia inline no `filter`).
+ */
+function sjtSubLinhaConta(r: ScoreRow): boolean {
+  return r.status === "sucesso" && r.score != null && r.score_max != null && r.score_max > 0;
+}
+
+/**
+ * 49-REVIEW-GAPS-3 CR-02 (operador, 2026-09-30, «1»): os códigos de SINAL de revisão presentes
+ * em `metadata.motivos_revisao` das linhas dadas — só os do vocabulário do sinal
+ * (`ROTULO_SINAL`), sem duplicar, na ordem em que aparecem. Os demais motivos
+ * (`abaixo_do_corte`, `red_flag`…) decidem `pendente_humano` e não chegam a linhas que contam.
+ */
+function sinaisDasLinhas(rows: ScoreRow[]): string[] {
+  const sinais: string[] = [];
+  for (const r of rows) {
+    const motivos = (r.metadata as { motivos_revisao?: unknown } | null)?.motivos_revisao;
+    for (const c of sinaisDe(motivos)) {
+      if (Object.prototype.hasOwnProperty.call(ROTULO_SINAL, c) && !sinais.includes(c)) {
+        sinais.push(c);
+      }
+    }
+  }
+  return sinais;
 }
 
 /** Recomendação DETERMINÍSTICA/templada (NUNCA LLM) keyed no consolidado + N/A + pendências. */
@@ -338,12 +372,22 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
       // NaN no consolidado (que o dashboard exibe). Coage defensivamente p/ number|null.
       const rawW = pesos[key];
       const weight = typeof rawW === "number" && Number.isFinite(rawW) ? rawW : null;
+      // 49-REVIEW-GAPS-3 CR-02: o sinal de revisão das linhas que CONTAM nesta etapa (as que
+      // formam o `normalized` acima). Uma etapa N/A não tem linha que conte → sem sinal.
+      // Nada abaixo lê `sinais` para calcular: é campo ADITIVO de exibição.
+      const linhasQueContam = !present
+        ? []
+        : key === "work_sample_sjt"
+        ? sjtRows.filter(sjtSubLinhaConta)
+        : [scoreByTipo.get(TIPO_BY_KEY[key])!];
+      const sinais = sinaisDasLinhas(linhasQueContam);
       return {
         etapa: key,
         normalized: present ? Math.round(normalized! * 100) / 100 : null,
         status: present ? "present" : "na",
         weight,
         effective_weight: null, // preenchido após a renormalização
+        ...(sinais.length > 0 ? { sinais_revisao: sinais } : {}),
       } as BreakdownRow;
     });
 

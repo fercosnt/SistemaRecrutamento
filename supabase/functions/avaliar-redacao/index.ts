@@ -445,7 +445,10 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     // sem bloquear … O `callAi` segue, e o resultado sai marcado para revisão humana». Ler
     // «marcado» como `pendente_humano` foi leitura do planejador (49-39), e é a que o CR-01
     // abaixo desfaz. O sinal só MARCA: a nota composta é gravada normalmente e o código vai
-    // para `motivos_revisao` abaixo, para o card mostrar o aviso. Ele NÃO decide o `status`.
+    // para `motivos_revisao` abaixo. Ele NÃO decide o `status`. Quem MOSTRA o aviso é a
+    // Decisão Final: `consolidar-decisao-final` devolve `sinais_revisao` na etapa SJT e o
+    // `ConsolidacaoDashboard` exibe o rótulo (49-REVIEW-GAPS-3 CR-02). O `ScorecardAvaliacao`
+    // também lê o código, mas não está montado em tela nenhuma.
     //
     // 49-REVIEW-GAPS-2 CR-01 (2026-09-30): até esta data `sinalizada` entrava no `status` e
     // mandava a linha para `pendente_humano` — escolha do PLANEJADOR no 49-39, não do

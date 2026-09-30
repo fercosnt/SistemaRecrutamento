@@ -12,6 +12,8 @@
  *      (`border-white/15 bg-white/5 text-white/70`); a missing/unapplied etapa renders a
  *      neutral "N/A" pill + tooltip ("Etapa não aplicada — não pondera no agregado").
  *      Context rows (big_five/cognitivo) are marked contextual (never weighted).
+ *      49-REVIEW-GAPS-3 CR-02: a etapa que traz `sinais_revisao` (hoje, a SJT com caso aberto
+ *      sinalizado que PONDERA) mostra o rótulo do sinal DENTRO da própria linha, em âmbar.
  *   3. RECOMMENDATION block — carries `SugestaoIABadge variant="full"` (the ONLY place
  *      the advisory badge appears — never on the score or breakdown rows) + the advisory
  *      note. The recommendation is advisory; the decision is always human (RNF-07a).
@@ -24,6 +26,7 @@
  * @see src/features/triagem/components/SugestaoIABadge.tsx (advisory badge — recommendation only)
  * @see .planning/phases/15-decis-o-final-audit-vel-lgpd-art-20/15-UI-SPEC.md (copy + color)
  */
+import { AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   Tooltip,
@@ -36,6 +39,9 @@ import { SugestaoIABadge } from '@/features/triagem/components/SugestaoIABadge'
 import { useConsolidacao } from '../hooks/useConsolidacao'
 import { DecisaoServiceError } from '../services/decisaoService'
 import type { ConsolidacaoBreakdownRow } from '../schemas/consolidacaoSchema'
+// 49-REVIEW-GAPS-3 CR-02: o rótulo do sinal vem da MESMA fonte que as Edge Functions escrevem
+// (`_shared/sinal-revisao.ts`, zero imports → caminho relativo, como no 49-41/49-42).
+import { rotuloDoSinal } from '../../../../supabase/functions/_shared/sinal-revisao'
 
 /** Pull the EF `error_code` (e.g. AI_UNAVAILABLE) off a DecisaoServiceError — code-only, no PII. */
 function errorCodeOf(error: unknown): string | undefined {
@@ -61,9 +67,17 @@ const ETAPA_LABEL: Record<string, string> = {
   cognitivo: 'Cognitivo',
 }
 
+/**
+ * 49-REVIEW-GAPS-3 CR-02 — o marcador ESTÁVEL do aviso do sinal na etapa SJT. É o que o portão
+ * de publicação do 49-43 procura no chunk lazy da rota da Decisão Final: só este aviso o tem
+ * (o antigo `instrucao_ao_modelo` mora no chunk compartilhado e passa com ou sem esta tela).
+ */
+const MARCADOR_SINAL_SJT = 'decisao-sjt-sinal-revisao'
+
 /** A single breakdown row — neutral presentation, N/A pill for missing etapas. */
 function BreakdownRow({ row }: { row: ConsolidacaoBreakdownRow }) {
   const label = ETAPA_LABEL[row.etapa] ?? row.etapa
+  const sinais = row.sinais_revisao ?? []
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
@@ -104,6 +118,23 @@ function BreakdownRow({ row }: { row: ConsolidacaoBreakdownRow }) {
           </TooltipProvider>
         )}
       </span>
+      {/* 49-REVIEW-GAPS-3 CR-02 / decisão (a): o resultado que PONDERA sai marcado para revisão
+          humana. Âmbar (o tom do aviso do comparativo), nunca o destrutivo: o sinal pede a
+          leitura do texto, não reprova, não muda a nota e não trava ação nenhuma (RNF-07a). */}
+      {sinais.length > 0 ? (
+        <div
+          role="note"
+          data-testid={row.etapa === 'work_sample_sjt' ? MARCADOR_SINAL_SJT : 'decisao-etapa-sinal-revisao'}
+          className="basis-full space-y-1 rounded-md border border-amber-400/50 bg-amber-400/15 px-3 py-2 text-amber-100"
+        >
+          {sinais.map((c) => (
+            <p key={c} className="flex items-start gap-2 text-xs leading-relaxed">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>{rotuloDoSinal(c)}</span>
+            </p>
+          ))}
+        </div>
+      ) : null}
     </li>
   )
 }
