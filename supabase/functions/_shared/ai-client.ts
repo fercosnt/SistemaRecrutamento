@@ -523,6 +523,13 @@ async function tryIdempotencyReplay(
     //   segundo, sem nenhuma linha nova em `ai_call_logs` — a mesma saída do `gpt-4o-mini`
     //   que o fez clicar de novo. O clique é justamente o pedido de tentar o Sonnet:
     //   devolver `null` aqui derruba para uma chamada nova.
+    // Phase 49 / 49-32 · CR-02: fallbacks NOVOS já não possuem chave (a linha do resultado
+    //   grava `idempotency_key` nula), então nunca chegam a este lookup. A guarda fica como
+    //   DEFESA para linhas gravadas com chave entre o deploy do 49-02 e o deste conserto
+    //   (medidas em 2026-09-29: 0). Não reconhecer fallback pelo `provider` (WR-01): 3 linhas
+    //   legadas `interview_guide` (06/09, `provider='openai'`, sem prefixo) ainda possuem
+    //   chave e são replayadas — tirá-las do replay sem liberar a chave as exporia ao mesmo
+    //   sobrescrito por upsert que o CR-02 fecha.
     if (ehFallback(existing.error_code as string | null | undefined)) return null;
     const modelSnapshot = existing.model_snapshot;
     const logId = existing.id;
@@ -780,9 +787,10 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   if (!breaker.canRequest()) {
     // Disjuntor aberto = NENHUMA tentativa foi feita, logo NÃO há linha de tentativa a
     // gravar (só a linha do resultado, com `fallback_anthropic_circuit_open`).
+    // Phase 49 / 49-32 · CR-02: a chave NÃO vai para o fallback (ver `FallbackArgs`).
     return await runOpenAIFallback({
       prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
-      idempotency_key: idempotencyKeyEfetiva, timeoutMs, totalBudgetMs,
+      timeoutMs, totalBudgetMs,
       openai, supabase, zodResponseFormat, start,
       causa: AI_ERROR_CODE.anthropic_circuit_open,
     });
@@ -991,9 +999,9 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
     });
   }
 
+  // Phase 49 / 49-32 · CR-02: a chave NÃO vai para o fallback (ver `FallbackArgs`).
   return await runOpenAIFallback({
     prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
-    idempotency_key: idempotencyKeyEfetiva,
     timeoutMs, totalBudgetMs, openai, supabase, zodResponseFormat, start,
     triggerError: lastErr,
     causa: causaFinal,
@@ -1007,7 +1015,10 @@ interface FallbackArgs {
   candidato_id: string | null;
   vaga_id: string;
   schema?: unknown;
-  idempotency_key?: string;
+  // ⚠ Phase 49 / 49-32 · CR-02: NÃO há campo de `idempotency_key` aqui, e isso é a
+  //   garantia por construção. O fallback não RECEBE a chave, logo nenhum caminho dele —
+  //   presente ou futuro — consegue gravá-la sem mudar esta assinatura. Só o sucesso
+  //   primário do `callAi` é dono da chave efetiva (ver a linha do resultado abaixo).
   /** Teto por-chamada herdado do callAi (override de AI_CALL_TIMEOUT_MS). */
   timeoutMs?: number;
   /** Orçamento total herdado do callAi — limita o teto DESTE fallback ao que sobrou. */
@@ -1131,7 +1142,16 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
     //   com que `provider=openai` aparecesse com `error_message: "Request timed out."`,
     //   exatamente o registro enganoso do guia de 06/09. A mensagem agora mora na linha da
     //   tentativa Anthropic, ao lado da causa que ela explica.
-    idempotency_key: a.idempotency_key,
+    //
+    // ⚠ Phase 49 / 49-32 · CR-02: chave NULA. O fallback é um EVENTO de auditoria, não a
+    //   resposta cacheável — o replay nem o serve (guarda `ehFallback`), então o clique
+    //   seguinte chama o Sonnet com a MESMA chave efetiva. Com a chave aqui, o sucesso
+    //   desse clique faria `upsert … ON CONFLICT (idempotency_key) DO UPDATE` POR CIMA
+    //   desta linha: sumiriam `provider='openai'`, o `cost_usd` e o `error_code`
+    //   `fallback_*`, e o `id` continuaria o mesmo — o `ai_call_log_id` de uma análise
+    //   antiga (D-38) passaria a descrever outra chamada. Só o sucesso primário é dono da
+    //   chave; tentativas, fallbacks e bloqueios `none` gravam nula (insert simples).
+    idempotency_key: null,
   });
 
   return {

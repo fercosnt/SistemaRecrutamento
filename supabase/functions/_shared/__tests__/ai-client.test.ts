@@ -1075,7 +1075,15 @@ Deno.test("JORN-28/A — truncamento grava DUAS linhas: a tentativa Anthropic co
     MODELO_OPENAI_REAL,
     "o snapshot do resultado é o modelo REAL da OpenAI, não o Sonnet configurado",
   );
-  assert(resultado.row.idempotency_key != null, "a linha do RESULTADO leva a chave efetiva");
+  // Phase 49 / 49-32 · CR-02: esta asserção dizia o CONTRÁRIO («a linha do RESULTADO leva
+  // a chave efetiva») e congelava o defeito — com a chave, o sucesso de um retry fazia
+  // upsert por cima desta linha. O fallback é evento de auditoria: chave nula, insert simples.
+  assertEquals(
+    resultado.row.idempotency_key,
+    null,
+    "CR-02: a linha do RESULTADO do fallback NÃO leva a chave — só o sucesso primário é dono dela",
+  );
+  assertEquals(resultado.via, "insert", "chave nula ⇒ insert simples: nenhum upsert alcança esta linha");
 });
 
 // ── Teste B — o fallback respeita o prompt ───────────────────────────────────
@@ -1543,21 +1551,66 @@ Deno.test("JORN-28 — LengthFinishReasonError da OpenAI grava `openai_max_token
  * Supabase que impõe a UNIQUE de `idempotency_key` E serve o lookup do teto de custo,
  * com as linhas do dia MUTÁVEIS (para o mesmo mock atravessar «acima do teto» e
  * «abaixo do teto» na mesma sessão de teste).
+ *
+ * Phase 49 / 49-32 (CR-02): o mock passou a modelar o Postgres de verdade, porque o
+ * defeito do CR-02 só aparece com a semântica exata do `ON CONFLICT`:
+ *   · cada linha NOVA recebe um `id` próprio (o `gen_random_uuid()` da tabela);
+ *   · UPSERT com chave existente SOBRESCREVE a linha NO LUGAR e CONSERVA o `id` antigo
+ *     (`ON CONFLICT (idempotency_key) DO UPDATE` sem `id` no payload) — é assim que um
+ *     `ai_call_log_id` antigo passa a descrever outra chamada;
+ *   · INSERT simples com chave existente devolve 23505;
+ *   · o `select … eq(idempotency_key) … maybeSingle()` do replay e o lookup do teto de
+ *     custo respondem sobre as MESMAS linhas que as escritas produziram.
+ * Os dois testes JORN-39 continuam lendo `porChave`/`linhasChaveNula` como antes.
  */
 function makeMockSupabaseBloqueio(custoDoDia: Array<{ cost_usd: number }>) {
   const porChave = new Map<string, Record<string, unknown>>();
   const linhasChaveNula: Record<string, unknown>[] = [];
+  /** TODAS as linhas de `ai_call_logs`, na ordem de criação, cada uma com o seu `id`. */
+  const linhas: Record<string, unknown>[] = [];
   const alertas: Record<string, unknown>[] = [];
   const rows = { atual: custoDoDia };
-  const builder = {
-    eq: (_c: string, _v: unknown) => builder,
-    gte: (_c: string, _v: unknown) => builder,
-    then: (resolve: (r: { data: Array<{ cost_usd: number }>; error: null }) => unknown) =>
-      resolve({ data: rows.atual, error: null }),
+  let n = 0;
+  /** Resposta do PostgREST: thenable (quem só faz `await`) e com `.select("id").single()`. */
+  const resposta = (linha: Record<string, unknown> | null, error: unknown) => ({
+    then: (resolve: (r: { data: null; error: unknown }) => unknown) => resolve({ data: null, error }),
+    select: (_c: string) => ({
+      single: () => Promise.resolve({ data: error ? null : { id: linha?.id }, error }),
+    }),
+  });
+  const nova = (r: Record<string, unknown>) => {
+    const linha = { ...r, id: `linha-${++n}` };
+    linhas.push(linha);
+    if (r.idempotency_key == null) linhasChaveNula.push(linha);
+    else porChave.set(String(r.idempotency_key), linha);
+    return linha;
+  };
+  const selecionar = (_c: string) => {
+    const filtros: Array<[string, unknown]> = [];
+    const b = {
+      eq: (c: string, v: unknown) => {
+        filtros.push([c, v]);
+        return b;
+      },
+      gte: (_c: string, _v: unknown) => b,
+      // Replay (AI-05): a linha que possui a chave, se houver.
+      maybeSingle: () => {
+        const k = filtros.find(([c]) => c === "idempotency_key")?.[1];
+        return Promise.resolve({ data: k == null ? null : porChave.get(String(k)) ?? null, error: null });
+      },
+      // Teto de custo (AI-06): o custo-base do dia + o de tudo que foi gravado aqui.
+      then: (resolve: (r: { data: Array<{ cost_usd: number }>; error: null }) => unknown) =>
+        resolve({
+          data: [...rows.atual, ...linhas.map((l) => ({ cost_usd: Number(l.cost_usd) || 0 }))],
+          error: null,
+        }),
+    };
+    return b;
   };
   return {
     porChave,
     linhasChaveNula,
+    linhas,
     alertas,
     /** Troca o custo do dia — o 3º clique passa a estar ABAIXO do teto. */
     definirCustoDoDia(novo: Array<{ cost_usd: number }>) {
@@ -1578,26 +1631,26 @@ function makeMockSupabaseBloqueio(custoDoDia: Array<{ cost_usd: number }>) {
       }
       return {
         insert: (r: Record<string, unknown>) => {
-          if (r.idempotency_key == null) {
-            // NULLs são distintos na UNIQUE do Postgres: cada bloqueio é uma linha.
-            linhasChaveNula.push(r);
-            return Promise.resolve({ data: null, error: null });
-          }
-          if (porChave.has(String(r.idempotency_key))) {
-            return Promise.resolve({
-              data: null,
-              error: { code: "23505", message: "duplicate key value violates unique constraint" },
+          // NULLs são distintos na UNIQUE do Postgres: cada linha sem chave é uma linha.
+          if (r.idempotency_key != null && porChave.has(String(r.idempotency_key))) {
+            return resposta(null, {
+              code: "23505",
+              message: "duplicate key value violates unique constraint",
             });
           }
-          porChave.set(String(r.idempotency_key), r);
-          return Promise.resolve({ data: null, error: null });
+          return resposta(nova(r), null);
         },
         upsert: (r: Record<string, unknown>, _o?: { onConflict?: string }) => {
-          if (r.idempotency_key == null) linhasChaveNula.push(r);
-          else porChave.set(String(r.idempotency_key), r);
-          return Promise.resolve({ data: null, error: null });
+          const existente = r.idempotency_key == null ? undefined : porChave.get(String(r.idempotency_key));
+          if (existente) {
+            // ON CONFLICT DO UPDATE: a linha é reescrita NO LUGAR e o `id` é o ANTIGO.
+            const idAntigo = existente.id;
+            Object.assign(existente, r, { id: idAntigo });
+            return resposta(existente, null);
+          }
+          return resposta(nova(r), null);
         },
-        select: (_c: string) => builder,
+        select: selecionar,
       };
     },
   };
@@ -1660,6 +1713,80 @@ Deno.test("JORN-39 — um sucesso posterior com a MESMA chave não apaga nenhum 
   } finally {
     Deno.env.delete("AI_DAILY_COST_CAP_USD");
   }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Phase 49 / 49-32 — CR-02: a linha de um FALLBACK sobrevive a um retry
+//
+// O replay pula fallbacks (JORN-28): o clique seguinte chama o Sonnet de novo com a
+// MESMA chave efetiva. Enquanto a linha do resultado do fallback carregava a chave, o
+// sucesso desse clique fazia `upsert … ON CONFLICT (idempotency_key) DO UPDATE` POR CIMA
+// dela — sumiam `provider='openai'`, o custo e o `error_code` `fallback_*`, e o `id`
+// continuava o mesmo: um `entrevista_analises.ai_call_log_id` antigo (D-38) passava a
+// descrever outra chamada. Medido em 2026-09-29: 0 linhas `fallback_*` com chave em PROD —
+// o defeito era latente. Este teste REPROVOU antes do conserto (ver 49-32-SUMMARY).
+// ══════════════════════════════════════════════════════════════════════════════
+Deno.test("CR-02 — fallback seguido de retry bem-sucedido com a MESMA chave deixa DUAS linhas com ids distintos", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseBloqueio([]);
+  // 400 genérico: NÃO retentável ⇒ `anthropic_api_error` ⇒ fallback já na 1ª tentativa.
+  // O mock falha só na primeira chamada; a segunda responde.
+  const anthropic = makeMockAnthropic({ failTimes: 1, error: erroComStatus(400, "invalid_request_error") });
+  const args = { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:cv" };
+  const deps = { anthropic, openai: makeMockOpenAI(), supabase, breaker: makeBreakerEspiao() };
+
+  // ── Chamada 1: Anthropic falha ⇒ fallback OpenAI com sucesso ──────────────
+  const um = await callAi(args, deps);
+  assertEquals(um.provider, "openai", "a 1ª chamada cai para o fallback");
+  assertEquals(um.fallback_cause, "anthropic_api_error");
+  const idFallback = um.log_id;
+  assert(typeof idFallback === "string", `o fallback devolve o id da sua linha (D-38); veio ${idFallback}`);
+  const custoFallback = um.cost_usd;
+  assert(custoFallback > 0, "o fallback foi cobrado — é esse custo que não pode sumir");
+
+  // ── Chamada 2: MESMA chave, mesmo input — o Sonnet responde ───────────────
+  const dois = await callAi(args, deps);
+  assertEquals(anthropic.calls.length, 2, "o replay pula o fallback: o clique seguinte tenta o Sonnet");
+  assertEquals(dois.provider, "anthropic");
+  assertEquals(dois.replayed, false);
+
+  // ── D-38: o ponteiro devolvido pelo fallback ainda descreve o fallback ─────
+  const linhaF = supabase.linhas.find((l) => l.id === idFallback);
+  assert(linhaF, `a linha ${idFallback} tem de continuar existindo`);
+  assertEquals(
+    linhaF!.provider,
+    "openai",
+    `CR-02: o retry reescreveu a linha do fallback no lugar (${idFallback} agora diz ` +
+      `provider=${linhaF!.provider}, error_code=${linhaF!.error_code}) — o ai_call_log_id ` +
+      "de uma análise antiga passaria a descrever outra chamada",
+  );
+  assertEquals(linhaF!.error_code, "fallback_anthropic_api_error", "a causa do fallback sobrevive");
+  assertEquals(linhaF!.cost_usd, custoFallback, "o custo do fallback sobrevive (IA-02 / AI-06)");
+  assertEquals(linhaF!.model_snapshot, MODELO_OPENAI_REAL);
+  assertEquals(linhaF!.idempotency_key, null, "o fallback é EVENTO de auditoria, não resposta cacheável");
+  assert(
+    dois.log_id !== idFallback,
+    `o sucesso do retry é OUTRA linha — ids coincidiram (${dois.log_id}): o upsert caiu em cima do fallback`,
+  );
+
+  // ── A linha do sucesso é a dona da chave ───────────────────────────────────
+  const linhaS = supabase.linhas.find((l) => l.id === dois.log_id);
+  assert(linhaS, `a linha do sucesso ${dois.log_id} existe`);
+  assertEquals(linhaS!.provider, "anthropic");
+  assertEquals(linhaS!.success, true);
+  assert(
+    String(linhaS!.idempotency_key).startsWith("cand:cv:"),
+    `só o sucesso primário leva a chave efetiva; veio ${linhaS!.idempotency_key}`,
+  );
+
+  // ── Nada foi apagado: tentativa + fallback + sucesso ───────────────────────
+  assertEquals(supabase.linhas.length, 3, "tentativa Anthropic + resultado do fallback + sucesso do retry");
+  const tentativa = supabase.linhas[0];
+  assertEquals(tentativa.provider, "anthropic");
+  assertEquals(tentativa.success, false);
+  assertEquals(tentativa.error_code, "anthropic_api_error");
+  assertEquals(tentativa.idempotency_key, null);
+  assertEquals(supabase.porChave.size, 1, "uma única linha possui a chave — a do sucesso primário");
 });
 
 Deno.test("JORN-39 — falha de INSERT da linha `none` vira alerta em recruiter_alerts, e nada lança", async () => {
