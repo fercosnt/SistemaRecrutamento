@@ -476,8 +476,8 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     // uma instrução ao modelo no texto do candidato: a nota VALE, mas o texto precisa
     // ser lido antes de considerá-la. Este último é o ÚNICO motivo que não decide o
     // `status` (CR-01): numa linha `sucesso` ele pode aparecer, sempre sozinho. Inferir da
-    // ausência de flag produziria uma explicação plausível e falsa. Lista COMPLETA sempre que houver motivo — nunca um
-    // único motivo escolhido por precedência.
+    // ausência de flag produziria uma explicação plausível e falsa. Lista COMPLETA sempre
+    // que houver motivo — nunca um único motivo escolhido por precedência.
     const motivosRevisao: string[] = [];
     if (desconhecidas.length > 0) motivosRevisao.push("dimensao_desconhecida");
     if (insufficientDaIa) motivosRevisao.push("insufficient_evidence");

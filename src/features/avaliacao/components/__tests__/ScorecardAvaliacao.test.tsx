@@ -76,7 +76,7 @@ describe('ScorecardAvaliacao — UX-07 Big Five banda neutra (sem percentil cru)
 // é o que as OUTRAS causas decidirem — desde o 49-REVIEW-GAPS-2 CR-01 o sinal não manda mais a
 // linha para `pendente_humano`, então o aviso aparece com qualquer status. Este plano mostra
 // SÓ o motivo do sinal — os outros motivos têm dono próprio e não são renderizados aqui.
-describe('ScorecardAvaliacao — o motivo do sinal junto de pendente_humano (49-41 / JORN-41)', () => {
+describe('ScorecardAvaliacao — o motivo do sinal, com qualquer status (49-41 / JORN-41)', () => {
   function casoAberto(motivos: string[] | undefined): ScoreRow {
     return {
       id: 'ca-1',
