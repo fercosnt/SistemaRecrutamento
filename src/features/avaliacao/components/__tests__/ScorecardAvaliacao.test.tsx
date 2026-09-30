@@ -72,10 +72,10 @@ describe('ScorecardAvaliacao — UX-07 Big Five banda neutra (sem percentil cru)
 // ── Phase 49 / plano 49-41 — o motivo «instrução à IA» no card da SJT (JORN-41) ────────
 //
 // Na SJT caso aberto, uma resposta com imperativo nu dirigido à IA é avaliada normalmente:
-// a nota composta É gravada, a linha vai a `pendente_humano` e o código entra em
-// `metadata.motivos_revisao` (49-39). O marcador neutro já dizia «Requer revisão humana»;
-// sem o motivo, o RH não sabe O QUE revisar. Este plano mostra SÓ o motivo do sinal — os
-// outros motivos têm dono próprio e não são renderizados aqui.
+// a nota composta É gravada e o código entra em `metadata.motivos_revisao` (49-39). O status
+// é o que as OUTRAS causas decidirem — desde o 49-REVIEW-GAPS-2 CR-01 o sinal não manda mais a
+// linha para `pendente_humano`, então o aviso aparece com qualquer status. Este plano mostra
+// SÓ o motivo do sinal — os outros motivos têm dono próprio e não são renderizados aqui.
 describe('ScorecardAvaliacao — o motivo do sinal junto de pendente_humano (49-41 / JORN-41)', () => {
   function casoAberto(motivos: string[] | undefined): ScoreRow {
     return {
@@ -118,6 +118,20 @@ describe('ScorecardAvaliacao — o motivo do sinal junto de pendente_humano (49-
     mockRows([casoAberto(undefined)])
     render(<ScorecardAvaliacao candidaturaId="cand-1" />)
     expect(screen.queryByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO))).toBeNull()
+  })
+
+  // 49-REVIEW-GAPS-2 CR-01 (2026-09-30): o sinal deixou de mandar a linha para
+  // `pendente_humano` — uma resposta sinalizada sem outra causa é gravada `sucesso`, com o
+  // código em `motivos_revisao`. O aviso tem de aparecer MESMO ASSIM (é a única marca que
+  // sobra), e o marcador «Requer revisão humana» — decidido só pelo status — não.
+  it('linha `sucesso` com o código em motivos_revisao: o rótulo aparece, sem o marcador de revisão', () => {
+    mockRows([{ ...casoAberto([SINAL_INSTRUCAO_AO_MODELO]), status: 'sucesso' } as ScoreRow])
+    render(<ScorecardAvaliacao candidaturaId="cand-1" />)
+    expect(
+      screen.getByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Requer revisão humana')).toBeNull()
+    expect(screen.getByText('17')).toBeInTheDocument()
   })
 
   it('tom neutro e a nota composta intacta (RNF-07a)', () => {
