@@ -27,7 +27,7 @@
  * @see .planning/phases/49-consertos-da-jornada-bloco-2/49-02-SUMMARY.md (o prefixo e as causas)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 const useAiLogsMock = vi.fn()
@@ -50,7 +50,38 @@ vi.mock('../../../../../components/RHLayout', () => ({
   RHLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
-import { AiLogsPage } from '../AiLogsPage'
+// 49-42: o Radix Select vira um `<select>` nativo (o idioma do repositório, ver
+// `ComparativoScreen.test.tsx`): as OPÇÕES do filtro de Status ficam observáveis sem abrir
+// portal, e trocar a opção é um `fireEvent.change`.
+vi.mock('../../../../../components/ui/select', async () => {
+  const React = await vi.importActual<typeof import('react')>('react')
+  return {
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: {
+      value?: string
+      onValueChange: (v: string) => void
+      children?: React.ReactNode
+    }) =>
+      React.createElement(
+        'select',
+        { value: value ?? '', onChange: (e: { target: { value: string } }) => onValueChange(e.target.value) },
+        children,
+      ),
+    SelectTrigger: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
+    SelectValue: () => null,
+    SelectContent: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
+    SelectItem: ({ value, children }: { value: string; children?: React.ReactNode }) =>
+      React.createElement('option', { value }, children),
+  }
+})
+
+import { AiLogsPage, estadoDaChamada } from '../AiLogsPage'
+import { CAUSA_FALLBACK_ROTULO } from '../../../../../../supabase/functions/_shared/ai-error-codes'
 
 /**
  * A forma que a LISTAGEM projeta depois deste plano. Tipada aqui, não importada: ver o
@@ -216,5 +247,87 @@ describe('AiLogsPage — a coluna Modelo mostra o modelo REAL', () => {
   it('cai para `model_id` quando `model_snapshot` é NULL — nunca célula vazia', () => {
     montar([linha({ id: 'log-sem-snapshot', model_snapshot: null, model_id: 'modelo-configurado' })])
     expect(screen.getByText('modelo-configurado')).toBeInTheDocument()
+  })
+})
+
+// ── Phase 49 / plano 49-42 — a linha-evento do SINAL é «Sinal», não «Falha» (JORN-41) ────
+//
+// O 49-38 grava `provider='none'`, `success=false`, `error_code='prompt_injection_flagged'`
+// quando o detector classifica a entrada como `flag`: a análise SEGUIU, e o resultado do modelo
+// vem numa linha própria. `success=false` porque a linha-evento não é chamada de modelo — e
+// «Falha» seria um diagnóstico falso ao admin.
+const EVENTO_SINAL = linha({
+  id: 'log-evento-sinal',
+  success: false,
+  provider: 'none',
+  error_code: 'prompt_injection_flagged',
+  model_snapshot: 'evento-sinal-snapshot',
+})
+
+/** Tokens de cor destrutiva (o idioma do 49-41: por TOKEN, não por substring). */
+function tomDestrutivo(className: string): string[] {
+  return className.split(/\s+/).filter((t) => /^(bg|text|border)-(red|destructive)/.test(t))
+}
+
+describe('AiLogsPage — o estado «Sinal» (49-42 / JORN-41)', () => {
+  beforeEach(() => {
+    useAiLogsMock.mockReset()
+    useAiLogDetailMock.mockReset()
+  })
+
+  it('estadoDaChamada: o código do sinal é «sinal», antes de olhar `success`', () => {
+    expect(estadoDaChamada({ success: false, error_code: 'prompt_injection_flagged' })).toBe('sinal')
+  })
+
+  it('os três estados de hoje ficam iguais na célula', () => {
+    expect(estadoDaChamada({ success: false, error_code: 'anthropic_timeout' })).toBe('falha')
+    expect(estadoDaChamada({ success: false, error_code: null })).toBe('falha')
+    expect(estadoDaChamada({ success: false, error_code: 'prompt_injection_detected' })).toBe('falha')
+    expect(estadoDaChamada({ success: true, error_code: 'fallback_anthropic_timeout' })).toBe('fallback')
+    expect(estadoDaChamada({ success: true, error_code: null })).toBe('sucesso')
+  })
+
+  it('a linha-evento mostra «Sinal» com a causa legível do mapa — e NUNCA «Falha»', () => {
+    montar([EVENTO_SINAL])
+    const tr = linhaDe('evento-sinal-snapshot')
+    const selo = within(tr).getByTestId('ai-log-sinal')
+    expect(selo).toHaveTextContent(/^Sinal$/)
+    expect(within(tr).getByText(CAUSA_FALLBACK_ROTULO.prompt_injection_flagged)).toBeInTheDocument()
+    expect(tr).not.toHaveTextContent('Falha')
+    expect(tomDestrutivo(selo.className)).toEqual([])
+  })
+
+  it('as cinco formas convivem: «Sinal» só na linha-evento, «Falha» só na falha', () => {
+    montar([FALLBACK_NOVO, FALHA, SUCESSO, FALLBACK_ANTIGO, EVENTO_SINAL])
+    expect(screen.getAllByTestId('ai-log-sinal')).toHaveLength(1)
+    expect(screen.getAllByTestId('ai-log-fallback')).toHaveLength(2)
+    expect(linhaDe('claude-sonnet-4-6-20260101')).toHaveTextContent(/Falha/)
+  })
+
+  it('o Select de Status oferece «Todos», «Sucesso», «Fallback», «Falha» e «Sinal»', () => {
+    montar([])
+    const status = screen
+      .getAllByRole('combobox')
+      .find((el) => within(el).queryByRole('option', { name: 'Falha' }))
+    expect(status).toBeDefined()
+    expect(within(status!).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Todos',
+      'Sucesso',
+      'Fallback',
+      'Falha',
+      'Sinal',
+    ])
+  })
+
+  it('escolher «Sinal» manda `status: \'sinal\'` ao serviço', () => {
+    montar([])
+    const status = screen
+      .getAllByRole('combobox')
+      .find((el) => within(el).queryByRole('option', { name: 'Falha' }))!
+    fireEvent.change(status, { target: { value: 'sinal' } })
+    const [filtros] = useAiLogsMock.mock.calls[useAiLogsMock.mock.calls.length - 1] as [
+      Record<string, unknown>,
+    ]
+    expect(filtros).toEqual({ status: 'sinal' })
   })
 })
