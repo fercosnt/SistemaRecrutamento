@@ -239,3 +239,12 @@ Nenhum.
 - FOUND commits: `307e759b`, `87b40234`, `6c70cb69`, `9890ad9f`, `dbb94ea3`, `7a958313`.
 - `commits: 6` foi medido por `git rev-list --count f9ab3f45..HEAD` antes do commit deste SUMMARY. `plan_head_after` = `7a958313202c9d765b7564d1abf58c3996128f77`.
 - Critérios de aceitação: `grep -c 'SINAL_INSTRUCAO_AO_MODELO'` dá 2 em cada um dos três `index.ts` (import e uso), ou seja, ≥ 1 em todos. RED → GREEN nas três tasks. M1, M2a, M2b e M3 com exit ≠ 0 e sha256 restaurado. Porcelain do escopo vazio.
+
+## Correção pós-revisão (49-REVIEW-GAPS-2 CR-01) — 2026-09-30
+
+Acrescentada depois; o texto acima fica como foi escrito.
+
+- **A afirmação «Nenhuma nota, cor, recomendação ou `bloqueio_avanco` muda por causa do sinal» (frontmatter e corpo) era FALSA para a SJT caso aberto.** O sinal mandava a linha para `pendente_humano`. O `consolidar-decisao-final` (`normalizeSjtComposite`) só soma sub-linhas `sucesso`, e o caso aberto não tem caminho de confirmação humana: a nota composta saía da Decisão Final para sempre, e com ela mudava o texto de `buildRecommendation`. O revisor mediu a etapa SJT de 74,3 → 40,0. Os testes deste plano comparavam só a LINHA gravada, e nenhum olhava a consolidação.
+- **O que mudou (commits `fix(49-43)` do CR-01):** `sinalizada` saiu da condição do `status` em `avaliar-redacao`. O código `instrucao_ao_modelo` continua em `metadata.motivos_revisao`, inclusive em linha `sucesso`. Um teste novo roda o `normalizeSjtComposite` real sobre MC + caso aberto gravado pelo handler, com e sem a frase, e exige o mesmo valor. No RED: com sinal 40, sem sinal 68,57.
+- **Onde esta SUMMARY diz** «a linha vai a `pendente_humano`», «`sinalizada` entra no cálculo de `status`» e «a SJT vai a `pendente_humano`» (frontmatter, corpo, T-49-39-01), **leia:** a linha fica com o status que as outras causas decidirem, e o sinal só marca.
+- A escolha do `pendente_humano` era do PLANEJADOR, como esta SUMMARY já registrava. A correção não cria nem atribui decisão do operador. O escopo do conserto foi aprovado pelo operador em 2026-09-30 («1- sim»).

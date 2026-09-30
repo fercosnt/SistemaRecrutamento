@@ -67,7 +67,8 @@ export interface CasoAbertoMetadata {
    * Por que esta linha foi para revisão humana — lista de códigos escrita pelo SERVIDOR
    * (`avaliar-redacao`), nunca pelo modelo. Ausente quando não há motivo. Desde o 49-39
    * pode conter `instrucao_ao_modelo` (`_shared/sinal-revisao.ts`): a nota composta VALE,
-   * mas o texto precisa ser lido. Leia com `sinaisDe`, que tolera qualquer forma.
+   * mas o texto precisa ser lido. Esse código NÃO decide o status (49-REVIEW-GAPS-2 CR-01):
+   * uma linha `sucesso` pode tê-lo, sozinho. Leia com `sinaisDe`, que tolera qualquer forma.
    */
   motivos_revisao?: string[]
 }

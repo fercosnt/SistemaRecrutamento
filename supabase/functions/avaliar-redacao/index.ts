@@ -439,17 +439,28 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     const { composite, insufficientDaIa, hasInsufficient, desconhecidas } =
       mapDimensionsToComposite(dims, rubricWeights, chavesValidas);
 
-    // JORN-41 / 49-39, decisão (a) do operador (2026-09-29): uma resposta `flag`
-    // (imperativo nu dirigido a quem lê) NÃO recusa a avaliação — o callAi chamou o
-    // modelo e devolveu `injection_flag`. A nota composta é gravada normalmente (o sinal
-    // não a zera); a linha vai para revisão humana e o motivo fica escrito abaixo.
+    // JORN-41 / 49-39: uma resposta `flag` (imperativo nu dirigido a quem lê) NÃO recusa a
+    // avaliação — o callAi chamou o modelo e devolveu `injection_flag`. Decisão (a)
+    // (operador, 2026-09-29), no texto registrado no `<decisions>` do 49-36-PLAN: «SINALIZAR,
+    // sem bloquear … O `callAi` segue, e o resultado sai marcado para revisão humana». Ler
+    // «marcado» como `pendente_humano` foi leitura do planejador (49-39), e é a que o CR-01
+    // abaixo desfaz. O sinal só MARCA: a nota composta é gravada normalmente e o código vai
+    // para `motivos_revisao` abaixo, para o card mostrar o aviso. Ele NÃO decide o `status`.
+    //
+    // 49-REVIEW-GAPS-2 CR-01 (2026-09-30): até esta data `sinalizada` entrava no `status` e
+    // mandava a linha para `pendente_humano` — escolha do PLANEJADOR no 49-39, não do
+    // operador. O `consolidar-decisao-final` (`normalizeSjtComposite`) só soma sub-linhas
+    // `sucesso`, e o caso aberto não tem caminho de confirmação humana: a nota saía da
+    // Decisão Final para sempre (medido: etapa SJT 74,3 → 40,0). Não devolver `sinalizada`
+    // ao `status` sem antes criar esse caminho e levar a escolha ao operador.
     const sinalizada = result.injection_flag != null;
 
-    // <13/25 OU ≥1 red_flag OU qualquer insufficient_evidence OU sinal → pendente_humano.
+    // <13/25 OU ≥1 red_flag OU qualquer insufficient_evidence → pendente_humano.
     // JORN-35: dimensão desconhecida marca `hasInsufficient`, então ela cai AQUI —
     // revisão humana. O limiar em si NÃO mudou (RNF-07a: nenhuma rejeição por score).
+    // O sinal (acima) NÃO está nesta condição — ver CR-01.
     const status =
-      composite < 13 || redFlags.length > 0 || hasInsufficient || sinalizada
+      composite < 13 || redFlags.length > 0 || hasInsufficient
         ? "pendente_humano"
         : "sucesso";
 
@@ -460,8 +471,9 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     // `insufficient_evidence` é sobre a RESPOSTA do candidato, `red_flag` é conteúdo
     // ético/clínico, `abaixo_do_corte` é só a nota, e `instrucao_ao_modelo` (JORN-41) é
     // uma instrução ao modelo no texto do candidato: a nota VALE, mas o texto precisa
-    // ser lido antes de considerá-la. Inferir da ausência de flag produziria uma
-    // explicação plausível e falsa. Lista COMPLETA sempre que houver motivo — nunca um
+    // ser lido antes de considerá-la. Este último é o ÚNICO motivo que não decide o
+    // `status` (CR-01): numa linha `sucesso` ele pode aparecer, sempre sozinho. Inferir da
+    // ausência de flag produziria uma explicação plausível e falsa. Lista COMPLETA sempre que houver motivo — nunca um
     // único motivo escolhido por precedência.
     const motivosRevisao: string[] = [];
     if (desconhecidas.length > 0) motivosRevisao.push("dimensao_desconhecida");
@@ -485,8 +497,10 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
         has_insufficient_evidence: hasInsufficient,
         // A causa, separada do sinal combinado acima (ver `mapDimensionsToComposite`).
         insufficient_evidence_da_ia: insufficientDaIa,
-        // Presente SÓ quando há motivo — em `sucesso` a chave não existe, e isso é
+        // Presente SÓ quando há motivo — sem motivo a chave não existe, e isso é
         // inequívoco (não há «lista vazia» que se confunda com «motivo não registrado»).
+        // Desde o CR-01, uma linha `sucesso` PODE ter a chave: só com o sinal
+        // (`instrucao_ao_modelo`), que marca sem decidir o status.
         ...(motivosRevisao.length > 0 ? { motivos_revisao: motivosRevisao } : {}),
         // D-68: quem produziu esta nota.
         ...prov,

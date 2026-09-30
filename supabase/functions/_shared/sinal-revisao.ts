@@ -28,8 +28,9 @@
  * |----------------------------------------------|----------------------------------------------------|
  * | `analise_candidato_vaga.flags` (`text[]`)    | contém o código                                    |
  * | `redacoes_candidato.flags` (`text[]`)        | contém o código                                    |
- * | `scores_candidato.metadata.motivos_revisao`  | contém o código; a linha vai a `pendente_humano`   |
- * |   (SJT, `jsonb`)                             |                                                    |
+ * | `scores_candidato.metadata.motivos_revisao`  | contém o código; o `status` NÃO muda por ele       |
+ * |   (SJT, `jsonb`)                             | (49-REVIEW-GAPS-2 CR-01, 2026-09-30: antes ia a    |
+ * |                                              | `pendente_humano` e saía da Decisão Final)         |
  * | `entrevista_analises.bias_flags` (`jsonb`)   | ganha um elemento `{ "sinal": <código> }`, escrito |
  * |                                              | pelo SERVIDOR, nunca pelo modelo                   |
  * | `comparativo_solicitado.ranking.sinais_revisao` | contém o código; a chave fica AUSENTE sem sinal,|

@@ -258,3 +258,12 @@ Nenhum.
 - FOUND commits: `0347bf8a`, `0e856ba8`, `99a4345f`, `a0e428f8`.
 - `commits: 4` foi medido por `git rev-list --count af9068e7..HEAD` antes do commit deste SUMMARY. `plan_head_after` = `a0e428f8432ce56340d6fcaf718c04cbaee2f6fc`.
 - Critérios de aceitação: RED → GREEN nas duas tasks; `sinal-revisao` ≥ 1 nos dois arquivos da Task 1; `motivos_revisao` ≥ 1 em `scoresRhService.ts`; guard `forbidden-strings` verde; vitest inteiro verde (218/2346); `error TS` em 89 no início e no fim (≤ 90, sem subir).
+
+## Correção pós-revisão (49-REVIEW-GAPS-2 CR-01) — 2026-09-30
+
+Acrescentada depois; o texto acima fica como foi escrito.
+
+- **O card da SJT não mostra mais o sinal «sob o marcador de `pendente_humano`» na linha sinalizada sem outra causa.** Desde o conserto do CR-01, o sinal não manda a linha para `pendente_humano`: ela é gravada `sucesso`, com `instrucao_ao_modelo` em `motivos_revisao`. Antes disso, a nota composta saía da Decisão Final (`normalizeSjtComposite` só soma `sucesso`).
+- **O componente não precisou mudar.** A key-decision desta SUMMARY («o rótulo aparece sempre que o código está em motivos_revisao, e não só enquanto a linha está pendente_humano; o marcador neutro segue decidido só pelo status») já cobria o caso. Um teste novo prende isso: linha `sucesso` com o código mostra o rótulo e NÃO mostra «Requer revisão humana».
+- **Onde esta SUMMARY diz** «o rótulo junto do marcador «Requer revisão humana»» e «mostra o motivo sob «Requer revisão humana»», **leia:** junto do marcador só quando outra causa pôs a linha em `pendente_humano`, e sozinho numa linha `sucesso`.
+- A afirmação «nenhuma nota … muda por causa do sinal» valia para as telas deste plano. Ela não valia para a consolidação da SJT, que era efeito do 49-39 (ver a correção no 49-39-SUMMARY).

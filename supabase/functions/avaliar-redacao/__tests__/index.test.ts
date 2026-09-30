@@ -1041,8 +1041,8 @@ Deno.test("49-23 / RNF-07a — dimensão inventada NÃO toca `candidaturas` e o 
 
 // ── JORN-41 / 49-39: resposta com imperativo nu (flag) → nota gravada + sinal marcado ─
 //
-// Decisão (a) do operador (2026-09-29, «SINALIZAR, sem bloquear»): o `flag` não recusa a
-// avaliação. O `callAi` REAL (só o SDK é mock) classifica a frase como `flag`, chama o modelo
+// Decisão (a) (operador, 2026-09-29; texto registrado no `<decisions>` do 49-36-PLAN:
+// «SINALIZAR, sem bloquear»): o `flag` não recusa a avaliação. O `callAi` REAL (só o SDK é mock) classifica a frase como `flag`, chama o modelo
 // e devolve `injection_flag`. A linha é gravada COM a nota composta e com o STATUS que as
 // outras causas decidiriam sozinhas — o sinal só MARCA: o código vai para
 // `metadata.motivos_revisao` e o card da SJT mostra o aviso.
