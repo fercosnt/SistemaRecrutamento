@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49 — 49-36 CONCLUÍDO em 2026-09-30 (RED do contrato de três níveis do detector de injeção; corpus real mascarado de PROD commitado após leitura do operador, «1 ok confirmado» / resíduo R1/R2 «2- A»). Próximo: 49-37 (GREEN do detector). Restam 49-37..49-43. NÃO marcar JORN-41 Complete."
-last_updated: "2026-09-30T06:10:04.024Z"
+stopped_at: "Phase 49 — 49-37 CONCLUÍDO em 2026-09-30 (GREEN do detector de injeção em três níveis: classifyPromptInjection block/flag/none, contrato do 49-36 verde sem edição 244/244, 132 mutações do plano mordendo, --varrer de PROD fora do corpus 0; nada deployado). Próximo: 49-38 (callAi registra o flag). Restam 49-38..49-43. NÃO marcar JORN-41 Complete. NÃO deployar EF antes do 49-43."
+last_updated: "2026-09-30T06:26:15.313Z"
 last_activity: 2026-09-30
-state_head: eecca0b122c3a065cac9f410a9ae0de1528bdbdb
+state_head: 0f24c5fcf5dfda81a6f8dd969275fb60ce938efc
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 121
-  completed_plans: 112
+  completed_plans: 113
   percent: 93
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
@@ -666,7 +666,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 49 (49-36 concluído; próximo 49-37)
+Status: Executing Phase 49 (49-37 concluído; próximo 49-38)
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -912,6 +912,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P34 | ~7 min | 2 tasks | 1 files |
 | Phase 49 P35 | ~4 min | 3 tasks | 3 files |
 | Phase 49 P36 | 30min | 3 tasks | 4 files |
+| Phase 49 P37 | 14 min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -1251,6 +1252,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-36: operador em 2026-09-30 respondeu «1 ok confirmado» (corpus lido: sem PII) e «2- A» (resíduo R1/R2 aceito como flag); item opcional 3 sem resposta
 - [Phase 49]: 49-36: contrato de três níveis (classifyPromptInjection, limite por frase, quadro das listas como dados) VERMELHO contra HEAD e d32d201f (97/244 cada, conjuntos diferentes); GREEN é do 49-37, detector intocado
 - [Phase 49]: 49-36: classe benigna real quase vazia (3 frases não-sistema de 1.508); proteção contra rebaixamento no GREEN vem das frases nomeadas e do quadro
+- [Phase 49]: 49-37: detector de injeção em três níveis — detectPromptInjection é a PROJEÇÃO do bloqueio de classifyPromptInjection (uma lista por nível, nunca duas); famílias pt-BR compostas das 22 constantes do quadro do 49-36 (arrays literais, um elemento por alternativa). Classes de acento fora das três que o contrato prende ficam como tolerância não presa por teste (grupo X do 49-37-SUMMARY) — observação para o 49-43, não PARADA.
 
 ### Roadmap Evolution
 

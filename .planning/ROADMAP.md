@@ -490,7 +490,7 @@ Plans:
 
 *Wave 2*
 
-- [ ] 49-37-PLAN.md — Detector `classifyPromptInjection`: bloquear só o que nomeia prompt/modelo/IA fora da oração subordinada, sinalizar imperativo nu e ordem de nota; docblock com o nível verdadeiro de cada ambiguidade e o caminho de PARADA; contrato do 49-36 verde sem ser tocado; 18 mutações nas duas direções; varredura de todas as frases de PROD (JORN-41)
+- [x] 49-37-PLAN.md — Detector `classifyPromptInjection`: bloquear só o que nomeia prompt/modelo/IA fora da oração subordinada, sinalizar imperativo nu e ordem de nota; docblock com o nível verdadeiro de cada ambiguidade e o caminho de PARADA; contrato do 49-36 verde sem ser tocado; 18 mutações nas duas direções; varredura de todas as frases de PROD (JORN-41)
 
 *Wave 3*
 
@@ -601,7 +601,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 36/43 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 37/43 | In Progress|  |
 
 ---
 
