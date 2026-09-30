@@ -63,6 +63,13 @@ export interface DimensionScore {
 export interface CasoAbertoMetadata {
   dimension_scores?: DimensionScore[]
   composite_0_25?: number
+  /**
+   * Por que esta linha foi para revisão humana — lista de códigos escrita pelo SERVIDOR
+   * (`avaliar-redacao`), nunca pelo modelo. Ausente quando não há motivo. Desde o 49-39
+   * pode conter `instrucao_ao_modelo` (`_shared/sinal-revisao.ts`): a nota composta VALE,
+   * mas o texto precisa ser lido. Leia com `sinaisDe`, que tolera qualquer forma.
+   */
+  motivos_revisao?: string[]
 }
 
 /** One OCEAN dimension from a big_five `metadata.dimensoes` row (CONTEXTUAL). */

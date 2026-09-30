@@ -35,6 +35,14 @@ import {
   type CasoAbertoMetadata,
   type BigFiveMetadata,
 } from '../services/scoresRhService'
+// Phase 49 / plano 49-41 — JORN-41, decisão (a). O vocabulário do sinal tem UMA fonte, a mesma
+// que a Edge Function escreve; contrato de ZERO IMPORTS, por isso o caminho relativo
+// (precedente: `ProvenienciaIABadge` ← `_shared/ai-error-codes`).
+import {
+  SINAL_INSTRUCAO_AO_MODELO,
+  rotuloDoSinal,
+  sinaisDe,
+} from '../../../../supabase/functions/_shared/sinal-revisao'
 
 export interface ScorecardAvaliacaoProps {
   candidaturaId: string
@@ -132,6 +140,10 @@ function CasoAbertoBreakdown({ row }: { row: ScoreRow }) {
   const composite = meta.composite_0_25 ?? row.score
   const pendente = row.status === 'pendente_humano'
   const falhou = row.status === 'falhou'
+  // 49-41: o motivo «instrução à IA» (49-39). Só ESTE motivo é mostrado aqui — os outros de
+  // `motivos_revisao` têm UX própria, fora deste plano. Tom neutro: o sinal pede leitura do
+  // texto, não reprova nada, não trava ação e não mexe no composto (RNF-07a).
+  const sinalInstrucao = sinaisDe(meta.motivos_revisao).includes(SINAL_INSTRUCAO_AO_MODELO)
   const citacoes = Array.isArray(row.citacoes) ? (row.citacoes as unknown[]) : []
   const redFlags = Array.isArray(row.red_flags) ? (row.red_flags as unknown[]) : []
 
@@ -145,6 +157,14 @@ function CasoAbertoBreakdown({ row }: { row: ScoreRow }) {
             {pendente ? <RevisaoHumanaMarker /> : null}
           </div>
         </div>
+        {sinalInstrucao ? (
+          <p
+            data-testid="sjt-sinal-revisao"
+            className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs leading-relaxed text-white/80"
+          >
+            {rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)}
+          </p>
+        ) : null}
         <CardDescription className="text-white/70">
           {falhou ? (
             'Pontuação indisponível'

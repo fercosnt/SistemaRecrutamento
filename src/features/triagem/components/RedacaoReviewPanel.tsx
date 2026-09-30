@@ -70,6 +70,9 @@ import {
 // `AutorizacoesStep.tsx:50` (`consent-text.json`). Duas tabelas de rubrica divergem em
 // silêncio — e o lado que divergiu foi justamente o que ninguém iria conferir (D-25).
 import { DIMENSOES_REDACAO } from '../../../../supabase/functions/_shared/bars-redacao'
+// Phase 49 / plano 49-41 — JORN-41. O mesmo idioma: o rótulo do sinal de revisão tem UMA
+// fonte, a que a Edge Function escreve (`_shared/sinal-revisao.ts`, zero imports).
+import { rotuloDoSinal } from '../../../../supabase/functions/_shared/sinal-revisao'
 
 /** Reads a per-dimension AI score (number | 'insufficient_evidence' | null). */
 function dimValue(scores: ScoresDimensao | null, key: string): number | null {
@@ -119,6 +122,40 @@ export function RedacaoRubricaVersaoAviso({ rubricaVersao }: { rubricaVersao: st
 }
 
 /**
+ * Os `flags` da redação — «Sinais de atenção» (Phase 49 / plano 49-41, JORN-41).
+ *
+ * O SELECT de `revisaoRedacaoService` sempre trouxe `flags`, e esta tela nunca os mostrou:
+ * nem o `possivel_plagio_intercandidato` (Phase 13) nem, desde o 49-39, o
+ * `instrucao_ao_modelo` que a EF grava quando o texto traz um imperativo nu dirigido à IA.
+ * Marca gravada e não vista é marca que o revisor não recebe. Cada código passa por
+ * `rotuloDoSinal`: o do sinal vira a frase pt-BR; os demais voltam como são.
+ *
+ * A seção SOME quando a lista está vazia — uma seção vazia treinaria o revisor a ignorá-la.
+ * Tom neutro, nenhuma ação desabilitada, nenhuma nota alterada (RNF-07a).
+ */
+export function SinaisDaRedacao({ flags }: { flags: string[] | null | undefined }) {
+  const lista = Array.isArray(flags)
+    ? flags.filter((f): f is string => typeof f === 'string' && f.length > 0)
+    : []
+  if (lista.length === 0) return null
+  return (
+    <div
+      data-testid="redacao-sinais"
+      className="space-y-1 rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2"
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+        Sinais de atenção
+      </p>
+      <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-white/80">
+        {lista.map((f) => (
+          <li key={f}>{rotuloDoSinal(f)}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/**
  * The "Análise da IA" block — score, raciocínio e citações POR DIMENSÃO + o resumo
  * qualitativo, com o rótulo vindo de `DIMENSOES_REDACAO` (a rubrica que o modelo recebeu).
  *
@@ -138,6 +175,8 @@ export function AnaliseIA({ row }: { row: RedacaoReviewRow }) {
       </div>
 
       <RedacaoRubricaVersaoAviso rubricaVersao={row.rubrica_versao} />
+
+      <SinaisDaRedacao flags={row.flags} />
 
       <ul className="space-y-4">
         {DIMENSOES_REDACAO.map((dim) => {
