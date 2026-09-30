@@ -494,7 +494,7 @@ Plans:
 
 *Wave 3*
 
-- [ ] 49-38-PLAN.md — `callAi`: entrada sinalizada chega ao modelo, deixa linha-evento `prompt_injection_flagged` (chave nula) e volta com `injection_flag` — sem reusar `flagged_for_human_review`; vocabulário único `_shared/sinal-revisao.ts`; migration do cron `ai-cost-aggregation` que tira a linha-evento da contagem de falhas (ensaiada e desfeita; aplicada no 49-43) (JORN-41)
+- [x] 49-38-PLAN.md — `callAi`: entrada sinalizada chega ao modelo, deixa linha-evento `prompt_injection_flagged` (chave nula) e volta com `injection_flag` — sem reusar `flagged_for_human_review`; vocabulário único `_shared/sinal-revisao.ts`; migration do cron `ai-cost-aggregation` que tira a linha-evento da contagem de falhas (ensaiada e desfeita; aplicada no 49-43) (JORN-41)
 
 *Wave 4* (planos autônomos serializados: mesma árvore, `use_worktrees=false`)
 
@@ -601,7 +601,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 37/43 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 38/43 | In Progress|  |
 
 ---
 

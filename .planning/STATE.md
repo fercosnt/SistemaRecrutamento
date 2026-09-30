@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49 — 49-37 CONCLUÍDO em 2026-09-30 (GREEN do detector de injeção em três níveis: classifyPromptInjection block/flag/none, contrato do 49-36 verde sem edição 244/244, 132 mutações do plano mordendo, --varrer de PROD fora do corpus 0; nada deployado). Próximo: 49-38 (callAi registra o flag). Restam 49-38..49-43. NÃO marcar JORN-41 Complete. NÃO deployar EF antes do 49-43."
-last_updated: "2026-09-30T06:26:15.313Z"
+stopped_at: "Phase 49 — 49-38 CONCLUÍDO em 2026-09-30 (callAi: entrada flag chega ao modelo, grava linha-evento none prompt_injection_flagged com chave nula e volta com injection_flag, sem reusar flagged_for_human_review; _shared/sinal-revisao.ts; A1..A6 mordem; migration 20260930000001 do cron ai-cost-aggregation ENSAIADA e desfeita em PROD, NÃO aplicada — apply é do 49-43, antes das EFs). Próximo: 49-39. Restam 49-39..49-43. NÃO marcar JORN-41 Complete. NÃO deployar EF antes do 49-43. ACHADO para o checkpoint do 49-43: eventos de BLOQUEIO do JORN-39 contados como erro pelo cron (28/09: none 1/1)."
+last_updated: "2026-09-30T06:46:15.678Z"
 last_activity: 2026-09-30
-state_head: 0f24c5fcf5dfda81a6f8dd969275fb60ce938efc
+state_head: e61fd8bccfafbbafda5822251e042dad751acce7
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 121
-  completed_plans: 113
-  percent: 93
+  completed_plans: 114
+  percent: 94
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
@@ -666,7 +666,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 49 (49-37 concluído; próximo 49-38)
+Status: Executing Phase 49 (49-38 concluído; próximo 49-39)
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -913,6 +913,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P35 | ~4 min | 3 tasks | 3 files |
 | Phase 49 P36 | 30min | 3 tasks | 4 files |
 | Phase 49 P37 | 14 min | 2 tasks | 1 files |
+| Phase 49 P38 | 16 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1253,6 +1254,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-36: contrato de três níveis (classifyPromptInjection, limite por frase, quadro das listas como dados) VERMELHO contra HEAD e d32d201f (97/244 cada, conjuntos diferentes); GREEN é do 49-37, detector intocado
 - [Phase 49]: 49-36: classe benigna real quase vazia (3 frases não-sistema de 1.508); proteção contra rebaixamento no GREEN vem das frases nomeadas e do quadro
 - [Phase 49]: 49-37: detector de injeção em três níveis — detectPromptInjection é a PROJEÇÃO do bloqueio de classifyPromptInjection (uma lista por nível, nunca duas); famílias pt-BR compostas das 22 constantes do quadro do 49-36 (arrays literais, um elemento por alternativa). Classes de acento fora das três que o contrato prende ficam como tolerância não presa por teste (grupo X do 49-37-SUMMARY) — observação para o 49-43, não PARADA.
+- [Phase 49]: 49-38: sinal flag do detector vira campo próprio CallAiResult.injection_flag + linha-evento none prompt_injection_flagged (chave nula); flagged_for_human_review NÃO é reusado (3 EFs o leem como «sem resultado»)
+- [Phase 49]: 49-38: migration 20260930000001 tira a classe prompt_injection_flagged do cron ai-cost-aggregation (IS DISTINCT FROM); portão compara o comando vivo (versão compactada, md5 fdd283dc) sem espaço em branco; aplicar só no 49-43, antes das EFs
 
 ### Roadmap Evolution
 
