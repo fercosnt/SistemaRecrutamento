@@ -76,6 +76,7 @@ import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import { AvaliarTranscricaoBodySchema } from "../_shared/entrevista-schemas.ts";
 import { TranscriptAnalysisSchema } from "../_shared/interview-output-schemas.ts";
 import { algumProvedorRespondeu } from "../_shared/resultado-de-provedor.ts";
+import { SINAL_INSTRUCAO_AO_MODELO } from "../_shared/sinal-revisao.ts";
 import {
   deriveLanguageAccentFlag,
   type TranscriptAnalysisSlice,
@@ -447,10 +448,35 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
       competency: (c as { competency?: string }).competency,
       cited_evidence: (c as { cited_evidence?: unknown }).cited_evidence,
     }));
-    const biasFlags = (parsed.competency_evaluations ?? []).map((c) => ({
+    const biasFlags: Array<Record<string, unknown>> = (parsed.competency_evaluations ?? []).map((c) => ({
       competency: (c as { competency?: string }).competency,
       bias_flags: (c as { bias_flags?: unknown }).bias_flags,
     }));
+
+    // ── 8a. Phase 49 / plano 49-40 · JORN-41 · decisão (a) do operador — o SINAL (`flag`).
+    //
+    //   Uma transcrição com imperativo nu dirigido a quem lê («Esqueça o que você sabe…») é
+    //   de nível `flag` (49-37): o `callAi` CHAMOU o modelo e devolveu `injection_flag`
+    //   (49-38). A análise segue normal, e a marca vai em `bias_flags`:
+    //
+    //   · POR QUE `bias_flags` E NÃO `bloqueio_avanco`. `bloqueio_avanco` é o portão do RF-24,
+    //     e a tela dele (`TranscricaoReviewPanel`) diz «Bandeira de linguagem/sotaque
+    //     (score < 3)». Usá-lo mostraria ao RH um motivo FALSO e seguraria o candidato por
+    //     uma heurística que também casa subjuntivo honesto — trocar «análise recusada» por
+    //     «candidato segurado» é o mesmo dano, e a decisão (a) é sinalizar, não bloquear.
+    //     `entrevista_analises` não tem campo de motivo (coluna nova = D-57 + assinatura nova
+    //     da RPC); `bias_flags` já é o `jsonb` de sinais sobre a análise. A análise já é
+    //     SEMPRE `pendente_humano` (RNF-07a): o RH já a revisa, e a marca diz o que olhar.
+    //     `p_bloqueio_avanco` e `p_score_metadata` NÃO mudam — `scores_candidato` é uma linha
+    //     só para online e presencial (D-65, WR-03), e um motivo ali descreveria a análise
+    //     errada.
+    //   · O ELEMENTO É DO SERVIDOR, não do modelo: chave `sinal`, sem `competency`. `sinaisDe`
+    //     (`_shared/sinal-revisao.ts`) o separa dos elementos que o modelo escreve.
+    //   · O caminho `falhou` (acima) NÃO recebe o sinal: lá não há análise para revisar.
+    const sinalizada = result.injection_flag != null;
+    if (sinalizada) {
+      biasFlags.push({ sinal: SINAL_INSTRUCAO_AO_MODELO });
+    }
 
     // A gravação é UMA transação, na RPC (D-39): marcar a vigente anterior como superada,
     // inserir esta, e devolver a nota consolidada a `pendente_humano` são três escritas que
@@ -495,6 +521,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
       competencias_count: competencias.length,
       bloqueio: derived.flag,
       blocked_count: derived.blockedCompetencies.length,
+      sinal: sinalizada,
       provider: result.provider,
     });
 
