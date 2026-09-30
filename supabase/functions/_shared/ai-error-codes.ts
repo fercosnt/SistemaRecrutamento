@@ -72,6 +72,15 @@ export const AI_ERROR_CODE = {
   cost_cap_exceeded: "cost_cap_exceeded",
   /** Injeção de prompt detectada no input do candidato (RF-PL-18). */
   prompt_injection_detected: "prompt_injection_detected",
+
+  // ── Eventos sem provedor que NÃO bloqueiam (`provider='none'`, 49-38 / JORN-41).
+  /**
+   * Sinal de revisão: o detector classificou a entrada como `flag` (imperativo nu, sem
+   * nomear prompt/modelo/IA). A análise SEGUE — esta linha é só o evento de auditoria, e o
+   * resultado do modelo vem numa linha própria logo depois. Chave nula, `success=false`,
+   * custo 0; o cron `ai-cost-aggregation` a exclui da contagem (migration 20260930000001).
+   */
+  prompt_injection_flagged: "prompt_injection_flagged",
 } as const;
 
 export type AiErrorCode = typeof AI_ERROR_CODE[keyof typeof AI_ERROR_CODE];
@@ -102,6 +111,10 @@ export const CAUSA_FALLBACK_ROTULO = {
   anthropic_api_error: "erro do provedor",
   anthropic_circuit_open: "disjuntor aberto",
   anthropic_retries_exhausted: "causa não registrada (antes da Phase 49)",
+  // ⚠ NÃO é causa de fallback (49-38). Está neste mapa porque `causaLegivel` da tela do admin
+  //   (`AiLogsPage`) lê ESTE mapa para qualquer `error_code`, e sem a entrada a linha-evento
+  //   do sinal apareceria com o código cru.
+  prompt_injection_flagged: "sinal de instrução à IA — a análise seguiu, marcada para revisão humana",
 } as const;
 
 /**

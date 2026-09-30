@@ -16,8 +16,12 @@
  *
  * Fluxo (RESEARCH Patterns 1+2):
  *   1. idempotency replay (se idempotency_key ja registrado)
- *   2. detectPromptInjection -> se detectado, NENHUMA chamada de API; score baixo
- *      + flagged_for_human_review + error_code='prompt_injection_detected'
+ *   2. classifyPromptInjection (49-37/49-38, três níveis):
+ *      block -> NENHUMA chamada de API; score baixo + flagged_for_human_review +
+ *               error_code='prompt_injection_detected'
+ *      flag  -> linha-evento `none` com error_code='prompt_injection_flagged' (chave nula),
+ *               e a chamada SEGUE; o retorno leva `injection_flag` (JORN-41)
+ *      none  -> segue sem rastro
  *   3. maskPII(dynamicInput)
  *   4. breaker.canRequest()
  *   5. CLOSED -> anthropic.messages.parse com system=[{system_template,ephemeral},
@@ -48,7 +52,8 @@
 
 import { maskPII } from "./pii-masker.ts";
 import { AI_ERROR_CODE, ehFallback, PREFIXO_FALLBACK } from "./ai-error-codes.ts";
-import { detectPromptInjection } from "./injection-detector.ts";
+import { classifyPromptInjection, detectPromptInjection } from "./injection-detector.ts";
+import { SINAL_INSTRUCAO_AO_MODELO } from "./sinal-revisao.ts";
 import { CircuitBreaker, sharedBreaker } from "./circuit-breaker.ts";
 import { calculateCost } from "./ai-cost.ts";
 import { computeInputHash, emitAuditLossAlert, inputHashDe, logAiCall } from "./audit-logger.ts";
@@ -58,9 +63,12 @@ import type { LoadedPrompt } from "./prompt-loader.ts";
 // Re-exporta os composables para os consumidores (Fase 10+) que so importam ai-client.
 // `inputHashDe` entra aqui (Phase 49 / D-38) para a EF de análise de entrevista gravar
 // `entrevista_analises.texto_hash` sem importar o audit-logger direto.
+// `classifyPromptInjection` entra aqui (Phase 49 / 49-38) ao lado de `detectPromptInjection`:
+// o primeiro dá os três níveis (block/flag/none), o segundo segue sendo a projeção do bloqueio.
 export {
   CircuitBreaker,
   calculateCost,
+  classifyPromptInjection,
   detectPromptInjection,
   inputHashDe,
   loadPrompt,
@@ -322,6 +330,26 @@ interface CallAiResult {
    * `null` quando não houve fallback. O `error_code` do retorno carrega o prefixo.
    */
   fallback_cause: string | null;
+  /**
+   * Sinal de revisão (Phase 49 / 49-38 · JORN-41 · decisão (a) do operador, 2026-09-29).
+   *
+   * Não nulo quando `classifyPromptInjection(rawInput)` deu `flag` — o imperativo nu que não
+   * nomeia prompt/modelo/IA. A análise SEGUIU (o modelo foi chamado, ou o resultado veio do
+   * replay/fallback) e o resultado precisa chegar ao RH MARCADO: as EFs gravam
+   * `SINAL_INSTRUCAO_AO_MODELO` nas formas persistidas de `_shared/sinal-revisao.ts`.
+   * `pattern` é o padrão que casou (o mesmo que vai na linha-evento de `ai_call_logs`).
+   *
+   * Nulo em entrada `none` e nos retornos de BLOQUEIO (teto de custo e injeção `block`): o
+   * bloqueio não é sinal, é recusa.
+   *
+   * ⚠ NÃO reusa `flagged_for_human_review`: três EFs (`analise-candidato-individual`,
+   *   `avaliar-redacao-cultural`, `avaliar-redacao`) leem aquela flag como «sem resultado»,
+   *   e reusá-la transformaria o sinal em bloqueio por outro caminho.
+   *
+   * OBRIGATÓRIO (precedente 49-16): todo construtor de `CallAiResult` declara o campo, e o
+   * compilador reprova o que esquecer.
+   */
+  injection_flag: { pattern: string } | null;
 }
 
 /**
@@ -552,6 +580,9 @@ async function tryIdempotencyReplay(
       replayed: true,
       // Uma linha de fallback nunca chega aqui (guarda acima), logo nunca há causa.
       fallback_cause: null,
+      // Placeholder: `callAi` sobrescreve com a classificação da entrada (49-38). A linha
+      // replayada é do MESMO input mascarado (ele entra na impressão digital da chave).
+      injection_flag: null,
     };
   } catch {
     return null;
@@ -674,8 +705,19 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       await requestFingerprint(prompt, vagaRubricBlock, maskedInput, schema, zodOutputFormat)
     }`
     : undefined;
+  // Phase 49 / 49-38 (JORN-41): a classificação da entrada é calculada UMA vez, aqui em cima.
+  // É pura (só o texto), e o replay precisa dela: um resultado sinalizado devolvido do log
+  // sem a marca chegaria ao RH como se nada tivesse sido sinalizado. A ORDEM dos passos não
+  // muda — replay → teto de custo → bloqueio de injeção → provedor.
+  const injecao = classifyPromptInjection(rawInput);
+  /** O sinal do nível `flag` para os retornos de SUCESSO (modelo, fallback, replay). */
+  const sinalDaEntrada = injecao.severity === "flag" ? { pattern: injecao.pattern ?? "" } : null;
+
   const replay = await tryIdempotencyReplay(supabase, idempotencyKeyEfetiva);
-  if (replay) return { ...replay, prompt_version: prompt.prompt_version };
+  if (replay) {
+    // O replay não grava linha nova (nem a linha-evento do sinal): ele não é uma chamada.
+    return { ...replay, prompt_version: prompt.prompt_version, injection_flag: sinalDaEntrada };
+  }
 
   // ── 0.5. Kill-switch de custo PRÉ-chamada (AI-06) — corte de gasto em RUNTIME
   // Soma o custo do dia por vaga e RECUSA a chamada acima do teto HARD, ANTES de
@@ -730,12 +772,16 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       log_id: null,
       replayed: false,
       fallback_cause: null,
+      // Bloqueio não é sinal (49-38): nenhum resultado saiu para ser marcado.
+      injection_flag: null,
     };
   }
 
   // ── 1. Deteccao de prompt injection — curto-circuito ANTES de qualquer API ─
-  const injection = detectPromptInjection(rawInput);
-  if (injection.detected) {
+  // `block` (49-37: nomeia o prompt, o modelo ou a IA) segue o caminho de sempre: nenhuma
+  // chamada de API, linha `none` com `prompt_injection_detected` e o stub `hold`.
+  // `injecao.severity === 'block'` é exatamente `detectPromptInjection(rawInput).detected`.
+  if (injecao.severity === "block") {
     const latency_ms = Date.now() - start;
     const { error: erroDoLog } = await logAiCall(supabase, {
       candidato_id,
@@ -749,7 +795,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       system_prompt: prompt.system_template,
       user_prompt_template: rawInput, // logAiCall mascara antes de escrever
       input_token_count: 0,
-      raw_response: { error: AI_ERROR_CODE.prompt_injection_detected, pattern: injection.pattern },
+      raw_response: { error: AI_ERROR_CODE.prompt_injection_detected, pattern: injecao.pattern },
       output_token_count: 0,
       latency_ms,
       attempt_number: 1,
@@ -777,7 +823,48 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       log_id: null,
       replayed: false,
       fallback_cause: null,
+      injection_flag: null,
     };
+  }
+
+  // ── 1.5. Sinal de revisão (`flag`) — a análise SEGUE, com rastro (49-38 · JORN-41) ─
+  // Decisão (a) do operador (2026-09-29): o imperativo nu não recusa a análise e também não
+  // passa em silêncio. Aqui fica o RASTRO: uma linha-evento na mesma forma dos bloqueios do
+  // JORN-39 (`provider='none'`, custo 0, `success=false`), com o código próprio do sinal. O
+  // resultado do modelo vem numa linha SEPARADA, logo depois, e o retorno leva
+  // `injection_flag` — nunca `flagged_for_human_review` (ver `CallAiResult.injection_flag`).
+  if (sinalDaEntrada) {
+    const { error: erroDoLog } = await logAiCall(supabase, {
+      candidato_id,
+      vaga_id,
+      call_type: prompt.call_type,
+      prompt_version_id: prompt.prompt_version_id ?? prompt.prompt_version,
+      prompt_version: prompt.prompt_version,
+      prompt_hash: prompt.prompt_hash ?? "",
+      provider: "none",
+      model_id: prompt.model_id,
+      system_prompt: prompt.system_template,
+      user_prompt_template: rawInput, // logAiCall mascara antes de escrever
+      input_token_count: 0,
+      raw_response: { sinal: SINAL_INSTRUCAO_AO_MODELO, pattern: sinalDaEntrada.pattern },
+      output_token_count: 0,
+      latency_ms: Date.now() - start,
+      attempt_number: 1,
+      cost_usd: 0,
+      success: false,
+      error_code: AI_ERROR_CODE.prompt_injection_flagged,
+      // ⚠ Chave NULA (Pitfall 1 / CR-02): o sucesso primário desta MESMA chamada grava pela
+      //   chave efetiva logo em seguida, e o upsert `ON CONFLICT (idempotency_key) DO UPDATE`
+      //   reescreveria esta linha no lugar — o sinal sumiria do log sem deixar vestígio.
+      idempotency_key: null,
+      recommendation: "hold",
+    });
+    if (erroDoLog) {
+      // O sinal ACONTECEU e não ficou registrado. Nunca lança (a análise segue) — vira alerta,
+      // o mesmo dos dois caminhos de bloqueio.
+      await emitAuditLossAlert(supabase, prompt.call_type, AI_ERROR_CODE.prompt_injection_flagged);
+    }
+    // Segue para o disjuntor, a Anthropic e o fallback, exatamente como uma entrada `none`.
   }
 
   // (o mascaramento do input — Pitfall 6 — subiu para o passo 0, junto da impressao
@@ -793,6 +880,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       timeoutMs, totalBudgetMs,
       openai, supabase, zodResponseFormat, start,
       causa: AI_ERROR_CODE.anthropic_circuit_open,
+      injection_flag: sinalDaEntrada,
     });
   }
 
@@ -944,6 +1032,8 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
         log_id: logId,
         replayed: false,
         fallback_cause: null,
+        // 49-38: o resultado de uma entrada sinalizada sai MARCADO (nulo sem sinal).
+        injection_flag: sinalDaEntrada,
       };
     } catch (err) {
       lastErr = err;
@@ -1005,6 +1095,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
     timeoutMs, totalBudgetMs, openai, supabase, zodResponseFormat, start,
     triggerError: lastErr,
     causa: causaFinal,
+    injection_flag: sinalDaEntrada,
   });
 }
 
@@ -1035,6 +1126,12 @@ interface FallbackArgs {
    * isso 17 fallbacks de PROD, com três causas diferentes, ficaram com o mesmo código.
    */
   causa: string;
+  /**
+   * Sinal de revisão da entrada (49-38 · JORN-41), repassado sem mudança ao retorno: um
+   * resultado de fallback de uma entrada sinalizada é tão sinalizado quanto o do primário.
+   * Obrigatório, como em `CallAiResult` — quem chama o fallback declara o que sabe.
+   */
+  injection_flag: { pattern: string } | null;
 }
 
 /** Caminho de fallback OpenAI gpt-4o-mini (disjuntor OPEN ou Anthropic falhou). */
@@ -1168,5 +1265,6 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
     log_id: logId,
     replayed: false,
     fallback_cause: a.causa,
+    injection_flag: a.injection_flag,
   };
 }
