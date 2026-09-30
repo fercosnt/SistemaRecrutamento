@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49 — 49-40 CONCLUÍDO em 2026-09-30 (o sinal flag chega à entrevista e ao comparativo: avaliar-transcricao-entrevista grava { sinal: instrucao_ao_modelo } em entrevista_analises.bias_flags, com bloqueio_avanco SÓ pela bandeira de língua do RF-24 (T1b prova que o sinal virando trava reprova); comparativo-candidatos grava e devolve ranking.sinais_revisao com o ranking do modelo intacto, chave AUSENTE sem sinal, block vence flag; guia e devolutiva ficam só com a linha-evento, provado por teste: 25 blocos do Big Five e 4 rawInput do guia classificam none; regressão 664/0; NADA deployado). Próximo: 49-41 (telas do RH leem as formas com sinaisDe/rotuloDoSinal). Restam 49-41..49-43. NÃO marcar JORN-41 Complete. NÃO deployar EF antes do 49-43 (migration 20260930000001 primeiro). ACHADO para o checkpoint do 49-43 (do 49-38): eventos de BLOQUEIO do JORN-39 contados como erro pelo cron (28/09: none 1/1)."
-last_updated: "2026-09-30T07:05:57.768Z"
+stopped_at: "Phase 49 — 49-41 CONCLUÍDO em 2026-09-30 (as telas do RH mostram o sinal com o rótulo pt-BR de rotuloDoSinal: hub «Sinais de atenção» (AnaliseIABlock), badge âmbar na TriagemTable, seção SinaisDaRedacao no RedacaoReviewPanel (primeira vez que o painel mostra flags, plágio incluso) e o motivo sob «Requer revisão humana» no card caso_aberto da SJT (CasoAbertoMetadata.motivos_revisao declarado; sem ele o tsc iria a 90, medido); nenhuma nota, cor destrutiva ou ação muda; vitest 218/2346 verde; tsc 89; NADA publicado). Próximo: 49-42 (transcrição bias_flags, comparativo + PDF, log do admin). Restam 49-42 e 49-43. NÃO marcar JORN-41 Complete. NÃO deployar EF antes do 49-43 (migration 20260930000001 primeiro). ACHADO para o checkpoint do 49-43 (do 49-38): eventos de BLOQUEIO do JORN-39 contados como erro pelo cron (28/09: none 1/1)."
+last_updated: "2026-09-30T07:15:36.322Z"
 last_activity: 2026-09-30
-state_head: a1eddcf4e03ee23113e01b3bea1c307c305aca18
+state_head: 75f8e969b553e9bfdda6b085c7ae0299138dc9f8
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 121
-  completed_plans: 116
-  percent: 96
+  completed_plans: 117
+  percent: 97
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
@@ -666,7 +666,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 49 (49-40 concluído; próximo 49-41)
+Status: Executing Phase 49 (49-41 concluído; próximo 49-42)
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -916,6 +916,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P38 | 16 min | 3 tasks | 6 files |
 | Phase 49 P39 | 7min | 3 tasks | 6 files |
 | Phase 49 P40 | 7min | 3 tasks | 6 files |
+| Phase 49 P41 | 7 min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -1262,6 +1263,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-40: transcrição sinalizada grava { sinal: instrucao_ao_modelo } em entrevista_analises.bias_flags; bloqueio_avanco segue só a bandeira de língua (RF-24), provado por mutação
 - [Phase 49]: 49-40: comparativo sinalizado grava/devolve ranking.sinais_revisao com o ranking do modelo intacto; chave ausente sem sinal; block vence flag
 - [Phase 49]: 49-40: guia e devolutiva ficam só com a linha-evento — 25 blocos do Big Five e 4 rawInput do guia classificam none (propriedade provada por teste)
+- [Phase 49]: 49-41: as telas do RH (hub, triagem, revisão da redação, card SJT) leem o sinal só por _shared/sinal-revisao (rotuloDoSinal/sinaisDe), e os testes também; tom âmbar só no badge da triagem, neutro nas demais; o rótulo da SJT aparece sempre que o código está em motivos_revisao, não só enquanto pendente
+- [Phase 49]: 49-41: RedacaoReviewPanel passa a renderizar redacoes_candidato.flags (SinaisDaRedacao, some com lista vazia); CasoAbertoMetadata declara motivos_revisao (sem ele: TS2339, tsc 89→90, medido)
 
 ### Roadmap Evolution
 

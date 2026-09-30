@@ -506,7 +506,7 @@ Plans:
 
 *Wave 6*
 
-- [ ] 49-41-PLAN.md — Telas: o sinal com rótulo no hub, na triagem, na revisão da redação e no card da SJT (`CasoAbertoMetadata.motivos_revisao` declarado) (JORN-41)
+- [x] 49-41-PLAN.md — Telas: o sinal com rótulo no hub, na triagem, na revisão da redação e no card da SJT (`CasoAbertoMetadata.motivos_revisao` declarado) (JORN-41)
 
 *Wave 7*
 
@@ -601,7 +601,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 40/43 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 41/43 | In Progress|  |
 
 ---
 
