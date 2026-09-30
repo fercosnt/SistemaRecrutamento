@@ -471,7 +471,7 @@ Plans:
 
 *Wave 2*
 
-- [ ] 49-31-PLAN.md — CR-03 na tela: uma confirmação por vigente com bandeira pendente (`bloqueado = pendentes.length > 0`) e o scorecard dizendo/escolhendo a análise avaliada; JORN-12 anotado à espera da re-verificação (JORN-12)
+- [x] 49-31-PLAN.md — CR-03 na tela: uma confirmação por vigente com bandeira pendente (`bloqueado = pendentes.length > 0`) e o scorecard dizendo/escolhendo a análise avaliada; JORN-12 anotado à espera da re-verificação (JORN-12)
 - [ ] 49-33-PLAN.md — CR-01: as frases do consultório entram como benignas e reprovam primeiro; padrões pt-BR ancorados no modelo e no imperativo, mordida provada nas duas direções (JORN-41) — depois do 49-32: os dois mutam `_shared` em disco
 
 *Wave 3*
@@ -567,7 +567,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 31/35 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 32/35 | In Progress|  |
 
 ---
 
