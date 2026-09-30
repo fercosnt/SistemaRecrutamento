@@ -765,3 +765,80 @@ Deno.test("49-26 / T-49-26-03 — sem nada a sinalizar, a chave `flags` fica AUS
     }`,
   );
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// Phase 49 / plano 49-40 · JORN-41 — o texto do SISTEMA que passa pelo detector é `none`
+//
+// Esta EF fica SÓ com a linha-evento do 49-38 (nenhuma marca no guia), e isso é uma
+// propriedade PROVADA: todo `rawInput` que ela entrega ao `callAi` é instrução do sistema
+// (`guideInput` online/presencial e o re-prompt com `extraInstruction`); o perfil da vaga vai
+// em `vagaRubricBlock`, que o detector não lê. O teste roda o handler REAL, com a 1ª passada
+// deixando uma dimensão fraca descoberta para FORÇAR o re-prompt, e captura o `content` da
+// mensagem `user` que chega ao SDK — é o `rawInput` mascarado, byte a byte o que o modelo lê.
+// Se algum classificasse como `flag`/`block`, seria falso positivo do detector em texto
+// NOSSO — a correção é no detector (49-37), nunca aqui.
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+function makeRequestTipo(tipo: "online" | "presencial"): Request {
+  return new Request("http://localhost/functions/v1/gerar-guia-entrevista", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer rh-jwt-fixture" },
+    body: JSON.stringify({ candidatura_id: CAND_ID, vaga_id: VAGA_ID, tipo }),
+  });
+}
+
+/** Anthropic que CAPTURA o `content` da mensagem `user` e devolve um roteiro que NÃO cobre a dimensão fraca. */
+function makeMockAnthropicQueCaptura(capturas: Array<{ tipo: string; content: string }>, tipo: string) {
+  return {
+    messages: {
+      parse: (params: { messages?: Array<{ role: string; content: unknown }> }) => {
+        for (const m of params.messages ?? []) {
+          if (m.role === "user") capturas.push({ tipo, content: String(m.content) });
+        }
+        return Promise.resolve({
+          parsed_output: { questions: [{ question: "Fale de um conflito que você mediou.", competency: "Comunicação" }] },
+          model: MODELO_REAL_DATADO,
+          usage: { input_tokens: 800, cache_read_input_tokens: 0, output_tokens: 200 },
+        });
+      },
+    },
+  };
+}
+
+Deno.test("JORN-41 / 49-40 — os rawInput do guia (online, presencial e re-prompt) classificam como none", async () => {
+  const { classifyPromptInjection } = await import("../../_shared/injection-detector.ts");
+  const capturas: Array<{ tipo: string; content: string }> = [];
+
+  for (const tipo of ["online", "presencial"] as const) {
+    const supabaseAdmin = makeMockSupabaseAdmin({ questions: [MANUAL_QUESTION] }, null, 0, SCORE_ROWS_COM_DIM_FRACA);
+    const deps: GerarGuiaDeps = {
+      anthropic: makeMockAnthropicQueCaptura(capturas, tipo),
+      openai: makeMockOpenAI(),
+      supabaseAdmin,
+      supabaseUser,
+    };
+    const res = await handler(makeRequestTipo(tipo), deps);
+    assertEquals(res.status, 200, `${tipo}: o handler respondeu`);
+  }
+
+  // Cada tipo tem de ter produzido a 1ª passada E o re-prompt — senão a prova não cobre o
+  // `extraInstruction`, que é o único rawInput montado com dado de fora do literal.
+  for (const tipo of ["online", "presencial"]) {
+    const doTipo = capturas.filter((c) => c.tipo === tipo);
+    assertEquals(doTipo.length, 2, `${tipo}: 1ª passada + re-prompt; veio ${doTipo.length}`);
+    assert(doTipo[0].content.includes(`Gere um roteiro de entrevista ${tipo}.`), `${tipo}: a 1ª passada é o guideInput`);
+    assert(doTipo[1].content.includes("NÃO foram cobertas"), `${tipo}: a 2ª passada é o re-prompt`);
+  }
+
+  const naoNone = capturas
+    .map((c, i) => ({ i, tipo: c.tipo, r: classifyPromptInjection(c.content) }))
+    .filter((x) => x.r.severity !== "none")
+    .map((x) => `#${x.i} ${x.tipo}: ${x.r.severity} (${x.r.pattern ?? ""})`);
+  assertEquals(
+    naoNone,
+    [],
+    `texto do sistema disparou o detector — falso positivo a reportar ao 49-37, não a ajustar aqui: ${naoNone.join(" | ")}`,
+  );
+  assert(capturas.length >= 3, `capturou ${capturas.length} entradas; a prova pede ≥ 3`);
+  console.log(`[49-40] rawInput do guia capturados e classificados: ${capturas.length}`);
+});

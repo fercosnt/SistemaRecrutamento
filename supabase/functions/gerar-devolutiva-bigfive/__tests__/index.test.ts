@@ -480,3 +480,65 @@ Deno.test("UX-07 — buildDevolutivaUserBlock emite banda qualitativa, nunca o p
   // (c) nenhum dígito de percentil vaza para o texto do prompt (guard forte)
   assert(!/\d/.test(block), "nenhum dígito de percentil pode entrar no prompt do LLM (UX-07)");
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// Phase 49 / plano 49-40 · JORN-41 — o texto do SISTEMA que passa pelo detector é `none`
+//
+// Esta EF fica SÓ com a linha-evento do 49-38 (nenhuma marca no resultado), e isso é uma
+// propriedade PROVADA, não uma omissão: o `rawInput` que o `callAiAdapter` entrega ao
+// `callAi` é `buildDevolutivaUserBlock` sobre o texto OFICIAL da banda (Likert-only, nenhum
+// texto livre do candidato), e a personalização está desligada (`PERSONALIZACAO_IA_ATIVA`).
+// Se algum desses 25 blocos classificasse como `flag`/`block`, seria falso positivo do
+// detector em texto NOSSO — a correção é no detector (49-37), nunca aqui.
+//
+// Os rótulos de dimensão vêm do PRÓPRIO handler (caminho da personalização, com a IA
+// mockada): `DIM_LABEL` não é exportado, e copiá-lo aqui seria testar uma cópia.
+// A iteração é sobre as CHAVES de uma cópia em memória de `BAND_TEMPLATES`, e a contagem é
+// conferida contra as chaves da fonte — nunca contra uma constante.
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+Deno.test("JORN-41 / 49-40 — os 25 blocos oficiais do Big Five (buildDevolutivaUserBlock × BAND_TEMPLATES) classificam como none", async () => {
+  const mod = await import("../index.ts");
+  const { classifyPromptInjection } = await import("../../_shared/injection-detector.ts");
+  const { handler, BAND_TEMPLATES } = await loadHandler();
+  const build = (mod as {
+    buildDevolutivaUserBlock: (a: { dim_label: string; banda: string; rawInput: string }) => string;
+  }).buildDevolutivaUserBlock;
+
+  // Rótulos reais: o handler, com a personalização ligada, passa `dim_label` a cada chamada.
+  const callAi = makeMockCallAi([TEXT_IN_RANGE]);
+  await handler(
+    { score_id: SCORE_ID },
+    { supabaseAdmin: makeMockSupabaseAdmin(bigfiveScoreRow({ O: 8, C: 25, E: 50, A: 75, N: 92 })), callAi: callAi.fn, personalizar: true },
+  );
+  const rotulo: Record<string, string> = {};
+  for (const c of callAi.calls as Array<{ dim: string; dim_label: string; banda: string; rawInput: string }>) {
+    rotulo[c.dim] = c.dim_label;
+    // O `rawInput` que o handler entrega é o template oficial — o que a iteração abaixo lê.
+    assertEquals(c.rawInput, BAND_TEMPLATES[c.dim][c.banda], `${c.dim}/${c.banda}: rawInput = template oficial`);
+  }
+
+  const mapa = structuredClone(BAND_TEMPLATES) as Record<string, Record<string, string>>;
+  const esperado = Object.values(BAND_TEMPLATES).reduce((n, bandas) => n + Object.keys(bandas).length, 0);
+
+  let iteradas = 0;
+  const naoNone: string[] = [];
+  for (const dim of Object.keys(mapa)) {
+    assert(rotulo[dim], `o handler não passou rótulo para a dimensão ${dim}`);
+    for (const banda of Object.keys(mapa[dim])) {
+      iteradas++;
+      const bloco = build({ dim_label: rotulo[dim], banda, rawInput: mapa[dim][banda] });
+      const c = classifyPromptInjection(bloco);
+      if (c.severity !== "none") naoNone.push(`${dim}/${banda}: ${c.severity} (${c.pattern ?? ""})`);
+    }
+  }
+
+  assertEquals(
+    naoNone,
+    [],
+    `texto do sistema disparou o detector — falso positivo a reportar ao 49-37, não a ajustar aqui: ${naoNone.join(" | ")}`,
+  );
+  assert(esperado > 0, "BAND_TEMPLATES vazio: a iteração não provaria nada");
+  assertEquals(iteradas, esperado, "iterou exatamente as combinações lidas das chaves de BAND_TEMPLATES");
+  console.log(`[49-40] blocos oficiais do Big Five classificados: ${iteradas}`);
+});
