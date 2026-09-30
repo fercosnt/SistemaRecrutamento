@@ -476,7 +476,7 @@ Plans:
 
 *Wave 3*
 
-- [ ] 49-34-PLAN.md — Redeploy das 7 EFs de IA com CR-01 e CR-02, provado pelo bundle publicado; nenhuma linha de fallback com chave depois do deploy; JORN-28 anotado à espera da re-verificação (JORN-28, JORN-41)
+- [x] 49-34-PLAN.md — Redeploy das 7 EFs de IA com CR-01 e CR-02, provado pelo bundle publicado; nenhuma linha de fallback com chave depois do deploy; JORN-28 anotado à espera da re-verificação (JORN-28, JORN-41)
 
 *Wave 4*
 
@@ -567,7 +567,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 33/35 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 34/35 | In Progress|  |
 
 ---
 

@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49 — fechamento de lacunas: 49-33 CONCLUÍDO em 2026-09-29 (CR-01, JORN-41, só disco: os padrões pt-BR do detector de injeção exigem que o ALVO seja o MODELO — IA, modelo de linguagem, bot, assistente qualificado — e a ordem de nota na forma imperativa; o imperativo negado sai por lookbehind. RED real: exatamente as 8 frases do consultório reprovaram (RED_EVIDENCE_OK); GREEN 36/0; 10 mutações mordem nas duas direções (L1..L5 reprovam benigno, E1..E5 reprovam malicioso); regressão _shared + 7 EFs 420/0. Limite ACEITO T-49-33-03: «de nota maxima» sem acento e sem artigo, sozinho, não é detectado; a frase do UAT sem acento segue presa pelo padrão 1). Antes: 49-30, 49-31 e 49-32 CONCLUÍDOS. Próximo: 49-34 (deploy das 7 EFs levando _shared/ai-client.ts do 49-32 E _shared/injection-detector.ts deste; marcador de bundle `modelo\\s+de\\s+linguagem`) e 49-35. JORN-28 e JORN-12 seguem «Gaps Found — … aguarda re-verificação» DE PROPÓSITO; a escrituração do JORN-41 fica com o 49-35. A cauda da fase roda de novo depois dos seis planos de lacuna."
-last_updated: "2026-09-30T02:11:07.703Z"
+stopped_at: "Phase 49 — fechamento de lacunas: 49-34 CONCLUÍDO em 2026-09-29 (deploy das 7 EFs de IA levando o CR-02 do 49-32 e o CR-01 do 49-33: v33/v23/v17/v20/v31/v31/v23, todas ACTIVE, verify_jwt preservado pela tabela do efdeploy.cjs; fonte publicada (sourcesContent do eszip) byte-igual ao disco em 84/84 arquivos, e o bundle anterior difere exatamente em ai-client.ts + injection-detector.ts = ae299ae8; marcadores de\\s+linguagem 0→2, 49-32 0→9, a.idempotency_key 2→0; detector publicado executado: 4/4 nas 7, controle anterior reprova; 0 linhas fallback_* com chave em PROD com população 1 não vazia; 3 legadas com chave para o WR-01). Antes: 49-30..49-33 CONCLUÍDOS. Próximo: 49-35 (fechamento; escrituração do JORN-41; UAT ponta a ponta das frases do 49-33). JORN-28 e JORN-12 seguem «Gaps Found — … aguarda re-verificação» DE PROPÓSITO; a célula do JORN-28 diz «CR-02 consertado (49-32) e no ar nas 7 EFs (49-34)». A cauda da fase roda de novo depois dos seis planos de lacuna."
+last_updated: "2026-09-30T02:19:25.207Z"
 last_activity: 2026-09-29
-state_head: 353ce962ba4306bf73b420f95951e0421913d77a
+state_head: e69f016d9d77a0f1da332f37b3fbdd43d0db9582
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 113
-  completed_plans: 109
-  percent: 96
+  completed_plans: 110
+  percent: 97
 current_phase_name: consertos-da-jornada-bloco-2
 current_phase: 49
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
@@ -909,6 +909,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P32 | ~6 min | 2 tasks | 2 files |
 | Phase 49 P31 | ~10 min | 2 tasks | 7 files |
 | Phase 49 P33 | ~9 min | 2 tasks | 2 files |
+| Phase 49 P34 | ~7 min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -1241,6 +1242,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-31 (CR-03, tela): `vigenteMaisRecente` deixou de ser a fonte da bandeira e do botão de confirmar (promote) e virou só o PADRÃO do scorecard. O painel deriva `pendentes` de `vigentes`, como o portão `avancar_etapa` deriva, e oferece uma confirmação por pendente. O scorecard nomeia a análise que recebe a nota e, com duas vigentes, o RH escolhe; uma escolha que deixou de ser vigente cai de volta no padrão.
 - [Phase 49]: 49-33 (CR-01, JORN-41): os padrões pt-BR do detector de injeção exigem que o ALVO do verbo seja o MODELO (IA, inteligência artificial, modelo de linguagem, bot/chatbot, ou assistente/modelo/sistema qualificado por virtual/de IA/diferente/sem restrições…); ignorar/esquecer só sobre a instrução ou o saber do modelo e nunca com o imperativo negado; a ordem de nota só na forma imperativa. `assistente`, `modelo` e `nov[oa]` sozinhos deixaram de ser alvo — numa clínica que contrata assistentes, «você é uma assistente» é a pergunta da entrevista.
 - [Phase 49]: 49-33: limite ACEITO T-49-33-03 — «de nota maxima» sem acento e sem artigo, sozinho, deixou de ser detectado (era, pelo padrão 5 antigo): é lexicalmente a preposição de «avaliação de nota máxima». A frase do UAT sem acento segue detectada pelo padrão 1 e presa por teste; o detector é heurística e a nota nunca decide sozinha (RNF-07a).
+- [Phase 49]: 49-34: prova de publicação de EF pela FONTE — o eszip guarda `sourcesContent` por módulo; extraído e comparado byte a byte com o disco (84/84 iguais nas 7 EFs de IA), e o mesmo instrumento no bundle anterior mostra exatamente `ai-client.ts` + `injection-detector.ts` = `ae299ae8`. O fechamento se lê pelos sourcemaps (`"sources":["functions/…"]`), não por `strings | grep 'functions/…'`, que casa menções em comentário e dá falsa divergência.
+- [Phase 49]: 49-34: smoke pós-deploy do CR-01 feito executando o detector EXTRAÍDO do bundle publicado (controle: o bundle anterior reprova as benignas), não por invocação em PROD — a frase benigna faria chamada real e gravaria análise que pode virar vigente. A prova ponta a ponta (`provider='none'` sim/não) fica para o UAT do 49-35.
 
 ### Roadmap Evolution
 
