@@ -362,9 +362,11 @@ export async function emitAuditLossAlert(
   error_code: string,
 ): Promise<void> {
   // O QUE aconteceu e não ficou registrado (WR-05). O teste WR-05 do ai-client prende as
-  // duas mensagens.
+  // duas mensagens. No sinal, este alerta sai ANTES do disjuntor e da chamada ao modelo
+  // (49-REVIEW-GAPS-3 IN-06): o texto fala da chamada no presente/futuro, nunca no passado —
+  // se os dois provedores falharem, a análise termina em `falhou`.
   const oQue = error_code === AI_ERROR_CODE.prompt_injection_flagged
-    ? "o sinal de revisão ACONTECEU (o modelo foi chamado e a análise seguiu, marcada)"
+    ? "o sinal de revisão ACONTECEU (a análise não foi recusada: o modelo é chamado em seguida e a análise segue, marcada)"
     : "o bloqueio ACONTECEU";
   try {
     const { error } = await supabaseAdmin.from("recruiter_alerts").insert({

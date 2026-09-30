@@ -2117,9 +2117,16 @@ Deno.test("WR-05 — linha-evento do SINAL que não grava: o alerta diz que a an
     !/bloqueio/i.test(msgFlag),
     `no \`flag\` não houve bloqueio — a mensagem não pode dizer «bloqueio»; veio: ${msgFlag}`,
   );
+  // 49-REVIEW-GAPS-3 IN-06: o alerta é emitido ANTES do disjuntor e da chamada ao modelo — se
+  // os dois provedores falharem, a análise vai a `falhou`. A mensagem não pode afirmar, no
+  // passado, uma chamada que ainda não aconteceu.
   assert(
-    /an[aá]lise seguiu/i.test(msgFlag),
-    `a mensagem do \`flag\` diz que a análise seguiu; veio: ${msgFlag}`,
+    /modelo [eé] chamado em seguida e a an[aá]lise segue/i.test(msgFlag),
+    `a mensagem do \`flag\` diz que o modelo é chamado EM SEGUIDA; veio: ${msgFlag}`,
+  );
+  assert(
+    !/foi chamado|an[aá]lise seguiu/i.test(msgFlag),
+    `a mensagem do \`flag\` não afirma no passado a chamada ao modelo; veio: ${msgFlag}`,
   );
 
   // Caminho `block`: a linha `none` do bloqueio falha — a mensagem de sempre, inalterada.
