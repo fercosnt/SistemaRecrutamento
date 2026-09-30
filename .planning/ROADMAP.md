@@ -486,29 +486,35 @@ Plans:
 
 *Wave 1*
 
-- [ ] 49-36-PLAN.md — RED primeiro: corpus benigno de texto REAL de PROD mascarado (M1..M5, portões de PII G1/G2 que mordem) e contrato de três níveis com limite por frase — as frases honestas da re-verificação e os 5 quase-ataques que regrediram; vermelho contra o detector de hoje nas duas direções (JORN-41)
+- [ ] 49-36-PLAN.md — RED primeiro: corpus benigno de texto REAL de PROD mascarado (M1..M5 com fronteira de palavra e teto de rotulagem; portões de PII G1/G2 que mordem; leitura humana bloqueante antes do primeiro commit) e contrato de três níveis com limite por frase — as frases honestas da re-verificação, os 5 quase-ataques que regrediram, as formas qualificadas/possessivas rebaixadas a `flag`, o subjuntivo subordinado e o teste de tempo patológico; vermelho contra o detector de hoje nas duas direções (JORN-41)
 
 *Wave 2*
 
-- [ ] 49-37-PLAN.md — Detector `classifyPromptInjection`: bloquear só o que nomeia prompt/modelo/IA, sinalizar imperativo nu e ordem de nota; contrato do 49-36 verde sem ser tocado; 15 mutações nas duas direções; varredura de todas as frases de PROD (JORN-41)
+- [ ] 49-37-PLAN.md — Detector `classifyPromptInjection`: bloquear só o que nomeia prompt/modelo/IA fora da oração subordinada, sinalizar imperativo nu e ordem de nota; docblock com o nível verdadeiro de cada ambiguidade e o caminho de PARADA; contrato do 49-36 verde sem ser tocado; 18 mutações nas duas direções; varredura de todas as frases de PROD (JORN-41)
 
 *Wave 3*
 
-- [ ] 49-38-PLAN.md — `callAi`: entrada sinalizada chega ao modelo, deixa linha-evento `prompt_injection_flagged` (chave nula) e volta com `injection_flag` — sem reusar `flagged_for_human_review`; vocabulário único `_shared/sinal-revisao.ts` (JORN-41)
+- [ ] 49-38-PLAN.md — `callAi`: entrada sinalizada chega ao modelo, deixa linha-evento `prompt_injection_flagged` (chave nula) e volta com `injection_flag` — sem reusar `flagged_for_human_review`; vocabulário único `_shared/sinal-revisao.ts`; migration do cron `ai-cost-aggregation` que tira a linha-evento da contagem de falhas (ensaiada e desfeita; aplicada no 49-43) (JORN-41)
 
-*Wave 4*
+*Wave 4* (planos autônomos serializados: mesma árvore, `use_worktrees=false`)
 
 - [ ] 49-39-PLAN.md — Sinal no resultado da triagem (`flags`), da SJT (`motivos_revisao` + `pendente_humano`) e da redação cultural (`flags`), sem mudar nota (JORN-41)
-- [ ] 49-40-PLAN.md — Sinal na análise da entrevista (`bias_flags`, sem tocar `bloqueio_avanco`) e no comparativo (`ranking.sinais_revisao`); guia e devolutiva provados como texto do sistema (JORN-41)
-- [ ] 49-41-PLAN.md — Telas: o sinal com rótulo no hub, na triagem, na revisão da redação e no card da SJT (JORN-41)
 
 *Wave 5*
 
-- [ ] 49-42-PLAN.md — Telas: aviso na aba da transcrição (sem trava), no comparativo e na Decisão Final, e estado «Sinal» no log do admin — depois do 49-41 (portão `tsc` na mesma árvore) (JORN-41)
+- [ ] 49-40-PLAN.md — Sinal na análise da entrevista (`bias_flags`, sem tocar `bloqueio_avanco`) e no comparativo (`ranking.sinais_revisao`); guia e devolutiva provados como texto do sistema (JORN-41)
 
 *Wave 6*
 
-- [ ] 49-43-PLAN.md — Re-revisão adversarial ANTES de publicar (checkpoint); 7 EFs redeployadas com fonte publicada byte-igual e o contrato verde sobre o código publicado; front provado pelo chunk lazy; JORN-41 anotado à espera do verificador (JORN-41)
+- [ ] 49-41-PLAN.md — Telas: o sinal com rótulo no hub, na triagem, na revisão da redação e no card da SJT (`CasoAbertoMetadata.motivos_revisao` declarado) (JORN-41)
+
+*Wave 7*
+
+- [ ] 49-42-PLAN.md — Telas: aviso na aba da transcrição (sem trava), no comparativo e na Decisão Final, e estado «Sinal» no log do admin com o filtro de Status derivado do mesmo predicado da célula (JORN-41)
+
+*Wave 8*
+
+- [ ] 49-43-PLAN.md — Re-revisão adversarial ANTES de publicar (checkpoint); front → migration do cron → 7 EFs redeployadas com fonte publicada byte-igual e o contrato verde sobre o código publicado; front provado pelo chunk lazy; JORN-41 anotado à espera do verificador (JORN-41)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
