@@ -2077,6 +2077,36 @@ Deno.test("JORN-41/flag + fallback — o sinal sobrevive ao fallback: linha-even
   assertEquals(r.flagged_for_human_review, undefined);
 });
 
+Deno.test("JORN-41/replay — o replay de uma entrada sinalizada volta MARCADO e não grava linha nova", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseBloqueio([]);
+  const anthropic = makeMockAnthropic();
+  const args = { prompt: SONNET_PROMPT, ...baseArgs, rawInput: ENTRADA_FLAG, idempotency_key: "cand:sinal-replay" };
+  const deps = { anthropic, openai: makeMockOpenAI(), supabase, breaker: makeBreakerEspiao() };
+
+  const primeira = await callAi(args, deps);
+  assertEquals(primeira.replayed, false);
+  assert(primeira.injection_flag != null);
+  const linhasAntes = supabase.linhas.length;
+  assertEquals(supabase.linhas.map(classeDaLinha), ["sinal_injecao", "sucesso_primario"]);
+
+  // MESMA chave, MESMA entrada: o lookup encontra a linha de sucesso (dona da chave).
+  const segunda = await callAi(args, deps);
+  assertEquals(segunda.replayed, true, "a segunda chamada é servida do log");
+  assertEquals(anthropic.calls.length, 1, "o replay não toca o provedor");
+  assertEquals(
+    supabase.linhas.length,
+    linhasAntes,
+    "o replay não é uma chamada: nem resultado novo, nem outra linha-evento do sinal",
+  );
+  assert(
+    segunda.injection_flag != null && segunda.injection_flag.pattern.length > 0,
+    "sem a marca, o resultado sinalizado chegaria ao RH pelo replay como se nada tivesse sido sinalizado",
+  );
+  assertEquals(segunda.injection_flag, primeira.injection_flag, "a mesma entrada dá o mesmo sinal");
+  assertEquals(segunda.flagged_for_human_review, undefined);
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Phase 49 / 49-32 — CR-02: invariante da chave varrido PELA FORMA (D-50)
 //
