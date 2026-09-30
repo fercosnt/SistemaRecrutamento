@@ -142,8 +142,9 @@ function normalizeWeighted(
   // (triagem NÃO pondera mais — UX-09 — e é montada como row de contexto à parte.)
   if (!scoreRow || scoreRow.status !== "sucesso") return null;
   if (key === "entrevista") {
-    // entrevista: score só existe após confirmação humana (status='sucesso'). Open Q1 —
-    // pendente_humano → N/A (NUNCA pondera um score de IA não confirmado, RNF-07a).
+    // entrevista: PRESENT só com status='sucesso' (Open Q1 — pendente_humano → N/A). Esta
+    // EF NÃO verifica se a linha `sucesso` passou por um humano: confia no `status` que o
+    // escritor gravou (49-REVIEW-GAPS-3 IN-07 — ver o docblock de `normalizeSjtComposite`).
     if (scoreRow.score == null || scoreRow.score_max == null || scoreRow.score_max === 0) {
       return null;
     }
@@ -158,10 +159,22 @@ function normalizeWeighted(
  * Normaliza a etapa COMPOSTA work_sample_sjt para 0..100 (DEC-CONSOLIDA-SJT-01).
  *
  * SJT carrega DUAS sub-rows em scores_candidato (tipo='sjt'): subtipo='mc' (múltipla
- * escolha, determinística, status='sucesso') e subtipo='caso_aberto' (caso aberto,
- * BARS por IA, status='pendente_humano' até a confirmação humana). O agregado soma
- * APENAS as sub-rows status='sucesso' (RNF-07a — NUNCA pondera um score de IA não
- * confirmado) e um caso_aberto pendente_humano NÃO zera a etapa.
+ * escolha, determinística, status='sucesso') e subtipo='caso_aberto' (caso aberto, BARS
+ * por IA, gravado pelo `avaliar-redacao`). O agregado soma TODA sub-row status='sucesso'
+ * — inclusive a do caso aberto, cuja nota é da IA — e um caso_aberto pendente_humano NÃO
+ * zera a etapa.
+ *
+ * O QUE ISTO NÃO GARANTE (49-REVIEW-GAPS-3 IN-07, 2026-09-30): até esta data o docblock
+ * dizia que o caso aberto ficava `pendente_humano` «até a confirmação humana» e que o
+ * agregado «NUNCA pondera um score de IA não confirmado». Não é o que acontece:
+ *   - o `avaliar-redacao` grava `sucesso` direto da IA desde a Phase 11 (composto ≥ 13,
+ *     sem red flag, sem insufficient_evidence) — e não existe caminho de confirmação
+ *     humana do caso aberto;
+ *   - desde o 49-REVIEW-GAPS-2 CR-01, isso vale também para a linha com o sinal
+ *     `instrucao_ao_modelo`, que chega à Decisão Final como `sinais_revisao` (CR-02 do -3).
+ * RNF-07a segue cumprido no sentido estrito (nada rejeita nem move etapa; o consolidado é
+ * advisory). DECISÃO ABERTA, não tomada aqui: se a nota da IA no caso aberto deve ponderar
+ * sem confirmação humana. Mudar isso muda a Decisão Final e vai ao operador.
  *
  * Antes, a leitura colapsava as duas sub-rows numa única por `tipo` (first-occurrence
  * no Map) — quando o caso_aberto pendente_humano vinha primeiro a etapa INTEIRA virava
