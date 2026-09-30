@@ -55,19 +55,18 @@ export const ALLOWLIST_MAIUSCULAS: ReadonlySet<string> = new Set([
   "Profa",
 ]);
 
-/** Placeholders que a máscara produz; o token entre colchetes não é nome. */
-const PLACEHOLDERS: ReadonlySet<string> = new Set([
-  "NOME",
-  "N",
-  "URL",
-  "CPF",
-  "CNPJ",
-  "EMAIL",
-  "DATA_NASC",
-  "TELEFONE",
-  "ENDERECO",
-  "RG",
-]);
+/**
+ * Placeholders que a máscara produz; o que está DENTRO deles não é nome. Casados como TRECHO, não
+ * como token: `[DATA_NASC]` vira dois tokens de letra («DATA», «NASC») e o segundo não é vizinho
+ * de colchete.
+ */
+const PLACEHOLDER_RE = /\[(?:NOME|N|URL|CPF|CNPJ|EMAIL|DATA_NASC|TELEFONE|ENDERECO|RG)\]/gu;
+
+function dentroDePlaceholder(texto: string): (idx: number) => boolean {
+  const spans: Array<[number, number]> = [];
+  for (const m of texto.matchAll(PLACEHOLDER_RE)) spans.push([m.index ?? 0, (m.index ?? 0) + m[0].length]);
+  return (idx) => spans.some(([a, b]) => idx >= a && idx < b);
+}
 
 /** Abreviações de tratamento: o ponto delas NÃO abre oração («Dr. Fulano»). */
 const TRATAMENTOS: ReadonlySet<string> = new Set(["dr", "dra", "sr", "sra", "srta", "prof", "profa"]);
@@ -102,12 +101,13 @@ export function verificarPII(texto: string): Violacao[] {
   if (maskPII(texto).placeholders.length > 0) v.push("maskPII");
   if (/\d{2,}/u.test(texto)) v.push("digitos");
   if (texto.includes("@")) v.push("arroba");
+  const emPlaceholder = dentroDePlaceholder(texto);
   for (const m of texto.matchAll(/[\p{L}\p{M}]+/gu)) {
     const tok = m[0];
     const idx = m.index ?? 0;
     if (!/^\p{Lu}/u.test(tok)) continue;
     if (ALLOWLIST_MAIUSCULAS.has(tok)) continue;
-    if (texto[idx - 1] === "[" && texto[idx + tok.length] === "]" && PLACEHOLDERS.has(tok)) continue;
+    if (emPlaceholder(idx)) continue;
     if (abreOracao(texto, idx)) continue;
     v.push("maiuscula");
     break;
@@ -137,6 +137,7 @@ Deno.test("G1 autoteste: não acusa texto limpo (o verificador não reprova tudo
     "A Beauty Smile usa IA no RH. Você viu o CV? Sim.",
     "Falei com o Dr. [NOME] e com a Sra. [NOME] hoje.",
     "Resumo: Ela chegou cedo.\nDepois saiu.",
+    "Nasceu em [DATA_NASC], mora na [ENDERECO] e o perfil é [URL].",
   ];
   for (const t of limpas) assertEquals(verificarPII(t), [], `falso positivo do verificador em «${t}»`);
 });
