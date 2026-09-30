@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49 — 49-39 CONCLUÍDO em 2026-09-30 (o sinal flag chega ao resultado que o RH revisa: triagem grava instrucao_ao_modelo em analise_candidato_vaga.flags com status 'sucesso' e a nota do modelo; SJT caso aberto vai a pendente_humano COM a nota composta e o código em metadata.motivos_revisao; redação cultural grava o código em redacoes_candidato.flags sem mudar scores, cor nem bloqueio_avanco; M1/M2a/M2b/M3 + extras X1..X3 mordem; regressão 656/0; NADA deployado). Próximo: 49-40. Restam 49-40..49-43. NÃO marcar JORN-41 Complete. NÃO deployar EF antes do 49-43 (migration 20260930000001 primeiro). Até o 49-41 as telas mostrariam o código cru. ACHADO para o checkpoint do 49-43 (do 49-38): eventos de BLOQUEIO do JORN-39 contados como erro pelo cron (28/09: none 1/1)."
-last_updated: "2026-09-30T06:56:14.810Z"
+stopped_at: "Phase 49 — 49-40 CONCLUÍDO em 2026-09-30 (o sinal flag chega à entrevista e ao comparativo: avaliar-transcricao-entrevista grava { sinal: instrucao_ao_modelo } em entrevista_analises.bias_flags, com bloqueio_avanco SÓ pela bandeira de língua do RF-24 (T1b prova que o sinal virando trava reprova); comparativo-candidatos grava e devolve ranking.sinais_revisao com o ranking do modelo intacto, chave AUSENTE sem sinal, block vence flag; guia e devolutiva ficam só com a linha-evento, provado por teste: 25 blocos do Big Five e 4 rawInput do guia classificam none; regressão 664/0; NADA deployado). Próximo: 49-41 (telas do RH leem as formas com sinaisDe/rotuloDoSinal). Restam 49-41..49-43. NÃO marcar JORN-41 Complete. NÃO deployar EF antes do 49-43 (migration 20260930000001 primeiro). ACHADO para o checkpoint do 49-43 (do 49-38): eventos de BLOQUEIO do JORN-39 contados como erro pelo cron (28/09: none 1/1)."
+last_updated: "2026-09-30T07:05:57.768Z"
 last_activity: 2026-09-30
-state_head: dfcb872044bca9334c495cfaf82ac9bd46968bb8
+state_head: a1eddcf4e03ee23113e01b3bea1c307c305aca18
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 121
-  completed_plans: 115
-  percent: 95
+  completed_plans: 116
+  percent: 96
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
@@ -666,7 +666,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 49 (49-39 concluído; próximo 49-40)
+Status: Executing Phase 49 (49-40 concluído; próximo 49-41)
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -915,6 +915,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P37 | 14 min | 2 tasks | 1 files |
 | Phase 49 P38 | 16 min | 3 tasks | 6 files |
 | Phase 49 P39 | 7min | 3 tasks | 6 files |
+| Phase 49 P40 | 7min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1258,6 +1259,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-38: sinal flag do detector vira campo próprio CallAiResult.injection_flag + linha-evento none prompt_injection_flagged (chave nula); flagged_for_human_review NÃO é reusado (3 EFs o leem como «sem resultado»)
 - [Phase 49]: 49-38: migration 20260930000001 tira a classe prompt_injection_flagged do cron ai-cost-aggregation (IS DISTINCT FROM); portão compara o comando vivo (versão compactada, md5 fdd283dc) sem espaço em branco; aplicar só no 49-43, antes das EFs
 - [Phase 49]: 49-39: o sinal flag vai ao campo que cada tabela JÁ usa para revisão — analise_candidato_vaga.flags (status e nota intactos), scores_candidato.metadata.motivos_revisao + pendente_humano COM a nota composta (SJT), redacoes_candidato.flags (cor e bloqueio_avanco só pela cor); nenhuma coluna nova; testes comparam com a execução sem a frase
+- [Phase 49]: 49-40: transcrição sinalizada grava { sinal: instrucao_ao_modelo } em entrevista_analises.bias_flags; bloqueio_avanco segue só a bandeira de língua (RF-24), provado por mutação
+- [Phase 49]: 49-40: comparativo sinalizado grava/devolve ranking.sinais_revisao com o ranking do modelo intacto; chave ausente sem sinal; block vence flag
+- [Phase 49]: 49-40: guia e devolutiva ficam só com a linha-evento — 25 blocos do Big Five e 4 rawInput do guia classificam none (propriedade provada por teste)
 
 ### Roadmap Evolution
 

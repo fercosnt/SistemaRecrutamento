@@ -502,7 +502,7 @@ Plans:
 
 *Wave 5*
 
-- [ ] 49-40-PLAN.md — Sinal na análise da entrevista (`bias_flags`, sem tocar `bloqueio_avanco`) e no comparativo (`ranking.sinais_revisao`); guia e devolutiva provados como texto do sistema (JORN-41)
+- [x] 49-40-PLAN.md — Sinal na análise da entrevista (`bias_flags`, sem tocar `bloqueio_avanco`) e no comparativo (`ranking.sinais_revisao`); guia e devolutiva provados como texto do sistema (JORN-41)
 
 *Wave 6*
 
@@ -601,7 +601,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 39/43 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 40/43 | In Progress|  |
 
 ---
 
