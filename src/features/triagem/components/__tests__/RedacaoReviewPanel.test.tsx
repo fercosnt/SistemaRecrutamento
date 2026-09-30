@@ -44,6 +44,11 @@ import {
   RUBRICA_REDACAO_VERSAO,
   VALORES_BEAUTY_SMILE,
 } from '../../../../../supabase/functions/_shared/bars-redacao'
+// 49-41: o vocabulário do sinal tem UMA fonte, a mesma que a EF escreve.
+import {
+  SINAL_INSTRUCAO_AO_MODELO,
+  rotuloDoSinal,
+} from '../../../../../supabase/functions/_shared/sinal-revisao'
 
 /** Raciocínio/citações determinísticos por chave — o texto carrega a chave para poder casar. */
 function dimensionScore(chave: string): DimensionScoreIA {
@@ -246,5 +251,44 @@ describe('AnaliseIA — proveniência e versão da rubrica (D-26 / D-27b)', () =
     expect(screen.getByTestId('proveniencia-ia-badge')).toHaveTextContent(
       /modelo não registrado/,
     )
+  })
+})
+
+// ── Phase 49 / plano 49-41 — os `flags` da redação chegam ao revisor (JORN-41) ─────────
+//
+// A EF da redação cultural grava `instrucao_ao_modelo` em `redacoes_candidato.flags`
+// quando o texto traz um imperativo nu dirigido à IA (decisão (a), 49-39) — e o SELECT do
+// serviço já trazia `flags` desde sempre. Mas o painel NUNCA os renderizou: nem o sinal, nem
+// o `possivel_plagio_intercandidato` que existe desde a Phase 13. Marca gravada e não vista é
+// marca que o humano não recebe. A seção some quando a lista está vazia: uma seção vazia
+// treinaria o revisor a ignorá-la.
+describe('AnaliseIA — os flags da redação, com o rótulo do sinal (49-41 / JORN-41)', () => {
+  const PLAGIO = 'possivel_plagio_intercandidato'
+
+  it('mostra o RÓTULO pt-BR do sinal e o código de plágio, numa seção de sinais', () => {
+    render(<AnaliseIA row={row({ flags: [SINAL_INSTRUCAO_AO_MODELO, PLAGIO] })} />)
+    const secao = screen.getByTestId('redacao-sinais')
+    expect(
+      within(secao).getByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)),
+    ).toBeInTheDocument()
+    expect(within(secao).getByText(PLAGIO)).toBeInTheDocument()
+    // o código cru do sinal NÃO aparece: o revisor lê a frase, não o identificador
+    expect(screen.queryByText(SINAL_INSTRUCAO_AO_MODELO)).toBeNull()
+  })
+
+  it('flags vazio ⇒ a seção NÃO aparece', () => {
+    render(<AnaliseIA row={row({ flags: [] })} />)
+    expect(screen.queryByTestId('redacao-sinais')).toBeNull()
+  })
+
+  it('o sinal não usa tom destrutivo e não mexe nas notas da IA (RNF-07a)', () => {
+    render(<AnaliseIA row={row({ flags: [SINAL_INSTRUCAO_AO_MODELO] })} />)
+    const item = screen.getByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO))
+    const classes = [item.className, item.closest('[data-testid="redacao-sinais"]')?.className ?? '']
+      .join(' ')
+      .split(/\s+/)
+    expect(classes.filter((t) => /^(bg|text|border)-(red|destructive)/.test(t))).toEqual([])
+    // as notas por dimensão continuam as da IA
+    expect(screen.getByText('5 / 5')).toBeInTheDocument()
   })
 })
