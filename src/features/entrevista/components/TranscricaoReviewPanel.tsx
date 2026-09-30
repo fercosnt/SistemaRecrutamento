@@ -22,18 +22,23 @@
  *
  * ─── A REGRA DA REVISÃO ──────────────────────────────────────────────────────────────
  *
- * A revisão humana é oferecida SÓ sobre `vigenteMaisRecente` — exatamente a linha que
- * `salvar_avaliacao_entrevista` grava e que `confirmar_revisao_entrevista` aceita
- * (49-10). Oferecer o botão numa superada ou numa falha seria oferecer uma ação que o
- * servidor recusa (`check_violation`), e a tela ficaria parecendo quebrada por causa de
- * um acerto do banco.
+ * A revisão humana é oferecida sobre CADA vigente com bandeira pendente
+ * (`bloqueio_avanco` sem `revisao_confirmada_em`) — uma confirmação por item, rotulada pela
+ * entrevista de que a análise é. É o que o servidor olha: o portão `avancar_etapa` bloqueia
+ * por QUALQUER vigente pendente, e `confirmar_revisao_entrevista` aceita qualquer vigente
+ * por id (49-10). Uma tela que olhasse menos vigentes que o portão esconderia uma bandeira
+ * que o servidor aplica, e o RH ficaria com o avanço recusado e sem caminho para liberá-lo
+ * (49-31, gap CR-03, D-39).
+ *
+ * Superada e falha continuam sem botão: a RPC as recusa (`check_violation`), e oferecer a
+ * ação faria a tela parecer quebrada por causa de um acerto do banco.
  *
  * O anti-viés regional (RF-24): quando a bandeira de linguagem/sotaque dispara (o
  * `bloqueio_avanco` da EF), um bloco em tom destrutivo + um RevisaoHumanaMarker
- * renderizam e o CTA "Avançar etapa" fica DESABILITADO. O único caminho habilitado é
- * "Confirmar revisão humana" → grava `revisao_confirmada_em` → libera o guard
- * `avancar_etapa` do servidor. O bloqueio real é do servidor (14-03); a tela é
- * defesa-em-profundidade (RNF-07a). RH-facing only.
+ * renderizam e o CTA "Avançar etapa" fica DESABILITADO enquanto houver pendente. O único
+ * caminho habilitado é "Confirmar revisão humana" de cada pendente → grava
+ * `revisao_confirmada_em` → libera o guard `avancar_etapa` do servidor. O bloqueio real é
+ * do servidor (14-03); a tela é defesa-em-profundidade (RNF-07a). RH-facing only.
  *
  * WR-02: o avanço do funil NÃO é ligado nesta superfície — avançar a etapa é a decisão
  * final da Phase 15. O CTA "Avançar etapa" é renderizado DESABILITADO com tooltip
@@ -461,7 +466,7 @@ export interface TranscricaoReviewPanelProps {
  * The transcript paste + analysis + flag-block panel. O seletor diz de qual entrevista é
  * o texto; a tela mostra a vigente de cada entrevista, as anteriores e as falhas; a
  * bandeira de linguagem/sotaque gateia o CTA Avançar e "Confirmar revisão humana" é o
- * único caminho habilitado — sempre e só sobre a vigente mais recente.
+ * único caminho habilitado — um por vigente com bandeira pendente, pelo id dela.
  */
 export function TranscricaoReviewPanel({
   analises,
@@ -485,13 +490,11 @@ export function TranscricaoReviewPanel({
   const vigentes = analises?.vigentes ?? []
   const superadas = analises?.superadas ?? []
   const falhas = analises?.falhas ?? []
-  // A revisão só é oferecida sobre esta linha — a que a RPC grava (49-10).
-  const vigenteMaisRecente = analises?.vigenteMaisRecente ?? null
-
-  // The flag fires when the EF set bloqueio_avanco AND no human confirmed review yet.
-  const flagFired = !!vigenteMaisRecente?.bloqueio_avanco
-  const revisaoConfirmada = !!vigenteMaisRecente?.revisao_confirmada_em
-  const bloqueado = flagFired && !revisaoConfirmada
+  // A bandeira é derivada como o portão `avancar_etapa` a deriva: sobre TODAS as vigentes.
+  // Cada pendente é confirmável pelo próprio id (49-31, CR-03).
+  const pendentes = vigentes.filter((a) => a.bloqueio_avanco && !a.revisao_confirmada_em)
+  const flagFired = vigentes.some((a) => a.bloqueio_avanco)
+  const bloqueado = pendentes.length > 0
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -612,6 +615,7 @@ export function TranscricaoReviewPanel({
       {/* Language/accent flag block — gates the Avançar CTA (RF-24). */}
       {flagFired ? (
         <div
+          data-testid="transcricao-bandeiras"
           className={cn(
             'space-y-3 rounded-lg border px-4 py-3',
             bloqueado
@@ -624,17 +628,41 @@ export function TranscricaoReviewPanel({
               <AlertTriangle className="h-4 w-4" aria-hidden="true" />
               Bandeiras
             </span>
-            <RevisaoHumanaMarker confirmada={revisaoConfirmada} />
+            <RevisaoHumanaMarker confirmada={!bloqueado} />
           </div>
 
           {bloqueado ? (
-            <p className="text-base leading-relaxed">
-              <span className="font-semibold">
-                Bandeira de linguagem/sotaque (score &lt; 3).
-              </span>{' '}
-              O avanço está bloqueado até a revisão humana ser confirmada. Esta bandeira
-              evita viés regional — não é um julgamento de mérito.
-            </p>
+            /* Uma confirmação por vigente PENDENTE, cada uma pelo id da própria análise e
+               rotulada pela entrevista de que ela é. O portão `avancar_etapa` bloqueia por
+               qualquer vigente pendente e `confirmar_revisao_entrevista` aceita qualquer
+               vigente por id (49-10) — a tela olha as mesmas vigentes que o servidor
+               (49-31, CR-03). Superada e falha não entram aqui: a RPC as recusa com
+               `check_violation`. */
+            <ul data-testid="transcricao-revisao-pendente" className="space-y-4">
+              {pendentes.map((a) => {
+                const rotulo = rotuloTipoAnalise(a.tipo)
+                return (
+                  <li key={a.id} className="space-y-2">
+                    <p className="text-base leading-relaxed">
+                      <span className="font-semibold">
+                        Bandeira de linguagem/sotaque (score &lt; 3).
+                      </span>{' '}
+                      O avanço está bloqueado até a revisão humana ser confirmada. Esta
+                      bandeira evita viés regional — não é um julgamento de mérito.
+                    </p>
+                    <p className="text-sm font-semibold">{rotulo}</p>
+                    <button
+                      type="button"
+                      onClick={() => onConfirmarRevisao?.(a.id)}
+                      disabled={confirming}
+                      className="min-h-[44px] rounded-lg border border-white/20 bg-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/30 disabled:opacity-50"
+                    >
+                      {`Confirmar revisão humana — ${rotulo}`}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
           ) : (
             <p className="text-base leading-relaxed">
               <span className="font-semibold">Revisão humana confirmada.</span> O avanço
@@ -643,23 +671,6 @@ export function TranscricaoReviewPanel({
           )}
 
           <div className="flex flex-wrap gap-2">
-            {/* Confirmar revisão humana — the only enabled path while blocked, e SEMPRE
-                sobre `vigenteMaisRecente`: é a única análise que
-                `confirmar_revisao_entrevista` aceita (49-10). Numa superada ou numa falha
-                a RPC responde `check_violation`. */}
-            {bloqueado ? (
-              <button
-                type="button"
-                onClick={() =>
-                  vigenteMaisRecente?.id && onConfirmarRevisao?.(vigenteMaisRecente.id)
-                }
-                disabled={confirming || !vigenteMaisRecente?.id}
-                className="min-h-[44px] rounded-lg border border-white/20 bg-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/30 disabled:opacity-50"
-              >
-                Confirmar revisão humana
-              </button>
-            ) : null}
-
             {/* Avançar etapa (WR-02): there is NO funil-advance service on this
                 surface — advancing the funil is the Phase-15 decisão final. The CTA
                 is rendered DISABLED with a tooltip naming where the advance happens,

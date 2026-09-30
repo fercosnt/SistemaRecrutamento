@@ -543,10 +543,11 @@ export interface AnalisesPorVigencia {
    */
   falhas: EntrevistaAnaliseRow[]
   /**
-   * A ÚNICA análise sobre a qual a revisão humana é oferecida: a vigente mais recente —
-   * exatamente a linha que `salvar_avaliacao_entrevista` grava e que
-   * `confirmar_revisao_entrevista` aceita (49-10). Oferecer revisar outra seria oferecer
-   * uma ação que o servidor recusa.
+   * A vigente mais recente — o PADRÃO do scorecard (a análise pré-selecionada), nunca a
+   * única revisável. Toda vigente é revisável: `confirmar_revisao_entrevista` e
+   * `salvar_avaliacao_entrevista` aceitam qualquer vigente por id, e o portão
+   * `avancar_etapa` bloqueia por qualquer vigente com bandeira pendente. A bandeira e o
+   * botão de confirmar da tela derivam de `vigentes`, não daqui (49-30/49-31, CR-03).
    */
   vigenteMaisRecente: EntrevistaAnaliseRow | null
 }
@@ -626,9 +627,10 @@ export async function getAnalises(candidaturaId: string): Promise<AnalisesPorVig
 }
 
 /**
- * A análise VIGENTE mais recente de uma candidatura — a que o scorecard pontua e a que
- * a revisão humana pode confirmar. Retorna null quando nenhuma transcrição produziu
- * análise que valha.
+ * A análise VIGENTE mais recente de uma candidatura — o PADRÃO do scorecard, não a única
+ * análise revisável: com mais de uma vigente (online e presencial), cada uma é revisável e
+ * avaliável pelo próprio id, e quem precisa de todas lê `getAnalises().vigentes`
+ * (49-31, CR-03). Retorna null quando nenhuma transcrição produziu análise que valha.
  *
  * ⚠ Até o plano 49-16 esta função devolvia a linha mais nova de QUALQUER estado
  * (`order('created_at', desc).limit(1)`). Com isso uma análise que falhou passava a ser

@@ -14,9 +14,10 @@
  *    mais nova de qualquer estado no lugar da que vale.
  * 3. **D-42** — a revisão humana que uma superada teve continua legível, e a vigente sem
  *    revisão aparece como «aguardando revisão humana».
- * 4. **A revisão é oferecida SÓ na vigente mais recente** — é a única linha que
- *    `confirmar_revisao_entrevista` aceita (49-10). Um botão numa superada ofereceria uma
- *    ação que o servidor recusa com `check_violation`.
+ * 4. **A revisão é oferecida em CADA vigente com bandeira pendente (49-31, CR-03)** — o
+ *    portão `avancar_etapa` bloqueia por qualquer uma, e `confirmar_revisao_entrevista`
+ *    aceita qualquer vigente por id. Uma superada ou uma falha NÃO recebe botão: a RPC as
+ *    recusa com `check_violation`.
  * 5. **D-40** — `reaproveitada` e `falhou` são DITOS, em vez de a tela simular uma
  *    análise nova que não houve.
  * 6. **D-27b** — `provedor_ia='openai'` ⇒ selo de contingência.
@@ -264,40 +265,180 @@ describe('TranscricaoReviewPanel — vigente, superadas e falhas (D-39 / D4 / D-
   })
 })
 
-describe('TranscricaoReviewPanel — a revisão só na vigente mais recente (49-10)', () => {
-  const comBandeira = analise({
-    id: 'vigente-com-bandeira',
+/**
+ * O botão de confirmar leva o rótulo da entrevista como sufixo («… — Entrevista online»).
+ * Toda consulta NEGATIVA ou de CONTAGEM usa este prefixo em regex: uma consulta pelo rótulo
+ * antigo como string exata devolveria null com o botão na tela — um negativo vácuo, verde
+ * para sempre (49-31, D-56). A regex fica escrita em cada consulta, e não numa constante,
+ * para que o `<verify>` do plano conte as consultas que a usam.
+ */
+
+describe('TranscricaoReviewPanel — a revisão em CADA vigente pendente (CR-03)', () => {
+  // O portão `avancar_etapa` bloqueia por QUALQUER vigente com bandeira pendente, e
+  // `confirmar_revisao_entrevista` aceita qualquer vigente por id. A tela tem de olhar as
+  // mesmas vigentes — não só a mais recente (D-39).
+  const onlineAntigaComBandeira = analise({
+    id: 'v-online-bandeira',
+    tipo: 'online',
     bloqueio_avanco: true,
     revisao_confirmada_em: null,
+    created_at: '2026-09-20T10:00:00Z',
   })
-  const superada = analise({ id: 'superada', superada_em: '2026-09-22T10:00:00Z' })
+  const presencialNovaSemBandeira = analise({
+    id: 'v-presencial-limpa',
+    tipo: 'presencial',
+    bloqueio_avanco: false,
+    created_at: '2026-09-25T10:00:00Z',
+  })
 
-  it('confirma a revisão SOBRE a vigente mais recente (o id que a RPC aceita)', () => {
+  it('a bandeira da vigente MAIS ANTIGA aparece, nomeia a entrevista e confirma pelo id DELA', async () => {
     const onConfirmarRevisao = vi.fn()
+    // A presencial vem PRIMEIRO, como o `getAnalises` ordena — ela é a `vigenteMaisRecente`.
+    const g = grupo({ vigentes: [presencialNovaSemBandeira, onlineAntigaComBandeira] })
+    expect(g.vigenteMaisRecente?.id).toBe('v-presencial-limpa')
     render(
       <TranscricaoReviewPanel
-        analises={grupo({ vigentes: [comBandeira], superadas: [superada] })}
+        analises={g}
+        onConfirmarRevisao={onConfirmarRevisao}
+        onAvancarEtapa={vi.fn()}
+      />,
+    )
+    const pendentes = screen.getByTestId('transcricao-revisao-pendente')
+    expect(within(pendentes).getByText(TRANSCRICAO_COPY.online)).toBeInTheDocument()
+    expect(within(pendentes).queryByText(TRANSCRICAO_COPY.presencial)).toBeNull()
+    expect(screen.getAllByRole('button', { name: /^Confirmar revisão humana/ })).toHaveLength(1)
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: `Confirmar revisão humana — ${TRANSCRICAO_COPY.online}`,
+      }),
+    )
+    expect(onConfirmarRevisao).toHaveBeenCalledTimes(1)
+    expect(onConfirmarRevisao).toHaveBeenCalledWith('v-online-bandeira')
+    // O avanço fica desabilitado PELA BANDEIRA (há handler, então não é o «sem avanço»).
+    const avancar = screen.getByRole('button', { name: 'Avançar etapa' })
+    expect(avancar).toBeDisabled()
+    fireEvent.focus(avancar.parentElement as HTMLElement)
+    expect(
+      (await screen.findAllByText(
+        'Revise a bandeira de linguagem/sotaque antes de avançar a etapa.',
+      )).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('duas vigentes bandeiradas e não confirmadas ⇒ dois botões, cada um com o id da SUA análise', () => {
+    const onConfirmarRevisao = vi.fn()
+    const presencialComBandeira = analise({
+      ...presencialNovaSemBandeira,
+      id: 'v-presencial-bandeira',
+      bloqueio_avanco: true,
+    })
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({ vigentes: [presencialComBandeira, onlineAntigaComBandeira] })}
         onConfirmarRevisao={onConfirmarRevisao}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar revisão humana' }))
-    expect(onConfirmarRevisao).toHaveBeenCalledWith('vigente-com-bandeira')
-    expect(onConfirmarRevisao).not.toHaveBeenCalledWith('superada')
+    expect(screen.getAllByRole('button', { name: /^Confirmar revisão humana/ })).toHaveLength(2)
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: `Confirmar revisão humana — ${TRANSCRICAO_COPY.presencial}`,
+      }),
+    )
+    expect(onConfirmarRevisao).toHaveBeenLastCalledWith('v-presencial-bandeira')
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: `Confirmar revisão humana — ${TRANSCRICAO_COPY.online}`,
+      }),
+    )
+    expect(onConfirmarRevisao).toHaveBeenLastCalledWith('v-online-bandeira')
+    expect(onConfirmarRevisao).toHaveBeenCalledTimes(2)
   })
 
-  it('a superada NÃO oferece botão de revisar — é uma ação que o servidor recusa', () => {
+  it('uma confirmada e outra pendente ⇒ continua bloqueado, e SÓ a pendente tem botão', () => {
+    const onConfirmarRevisao = vi.fn()
+    const presencialConfirmada = analise({
+      ...presencialNovaSemBandeira,
+      id: 'v-presencial-confirmada',
+      bloqueio_avanco: true,
+      revisada_por: 'rh-uuid',
+      revisao_confirmada_em: '2026-09-26T10:00:00Z',
+    })
     render(
       <TranscricaoReviewPanel
-        analises={grupo({ vigentes: [comBandeira], superadas: [superada] })}
+        analises={grupo({ vigentes: [presencialConfirmada, onlineAntigaComBandeira] })}
+        onConfirmarRevisao={onConfirmarRevisao}
+        onAvancarEtapa={vi.fn()}
+      />,
+    )
+    const botoes = screen.getAllByRole('button', { name: /^Confirmar revisão humana/ })
+    expect(botoes).toHaveLength(1)
+    expect(botoes[0]).toHaveAccessibleName(`Confirmar revisão humana — ${TRANSCRICAO_COPY.online}`)
+    fireEvent.click(botoes[0])
+    expect(onConfirmarRevisao).toHaveBeenCalledWith('v-online-bandeira')
+    expect(onConfirmarRevisao).not.toHaveBeenCalledWith('v-presencial-confirmada')
+    expect(screen.getByRole('button', { name: 'Avançar etapa' })).toBeDisabled()
+  })
+
+  it('todas as bandeiradas confirmadas ⇒ «Revisão humana confirmada», nenhum botão, sem tom destrutivo', () => {
+    const confirmada = (a: EntrevistaAnaliseRow) =>
+      analise({ ...a, bloqueio_avanco: true, revisao_confirmada_em: '2026-09-26T10:00:00Z' })
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({
+          vigentes: [confirmada(presencialNovaSemBandeira), confirmada(onlineAntigaComBandeira)],
+        })}
+        onAvancarEtapa={vi.fn()}
+      />,
+    )
+    const bandeiras = screen.getByTestId('transcricao-bandeiras')
+    expect(within(bandeiras).getAllByText(/Revisão humana confirmada/).length).toBeGreaterThan(0)
+    expect(bandeiras.className).not.toMatch(/red-/)
+    expect(screen.queryAllByRole('button', { name: /^Confirmar revisão humana/ })).toHaveLength(0)
+    expect(screen.queryByTestId('transcricao-revisao-pendente')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Avançar etapa' })).toBeEnabled()
+  })
+
+  it('vigente do grupo SEM tipo, bandeirada ⇒ botão rotulado «Entrevista não identificada»', () => {
+    const onConfirmarRevisao = vi.fn()
+    const semTipo = analise({ id: 'v-sem-tipo', tipo: null, bloqueio_avanco: true })
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({ vigentes: [semTipo] })}
+        onConfirmarRevisao={onConfirmarRevisao}
+      />,
+    )
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: `Confirmar revisão humana — ${TRANSCRICAO_COPY.semTipo}`,
+      }),
+    )
+    expect(onConfirmarRevisao).toHaveBeenCalledWith('v-sem-tipo')
+  })
+
+  it('a superada bandeirada NÃO oferece botão de revisar — é uma ação que o servidor recusa', () => {
+    const superadaComBandeira = analise({
+      id: 'superada-bandeira',
+      bloqueio_avanco: true,
+      superada_em: '2026-09-22T10:00:00Z',
+    })
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({ vigentes: [presencialNovaSemBandeira], superadas: [superadaComBandeira] })}
       />,
     )
     const item = screen.getByTestId('analise-superada')
     expect(within(item).queryByRole('button')).toBeNull()
+    expect(screen.queryAllByRole('button', { name: /^Confirmar revisão humana/ })).toHaveLength(0)
   })
 
   it('sem bandeira disparada não há botão de confirmar revisão em lugar nenhum', () => {
-    render(<TranscricaoReviewPanel analises={grupo({ vigentes: [analise()] })} />)
-    expect(screen.queryByRole('button', { name: 'Confirmar revisão humana' })).toBeNull()
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({ vigentes: [presencialNovaSemBandeira, analise({ id: 'v-limpa' })] })}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /^Confirmar revisão humana/ })).toBeNull()
+    expect(screen.queryByTestId('transcricao-bandeiras')).toBeNull()
   })
 })
 
