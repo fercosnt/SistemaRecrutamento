@@ -402,7 +402,7 @@ Plans:
 **Guardrails**: os do Bloco 1. Migrations pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), Edge Functions por `efdeploy.cjs`; depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**. Teto de `tsc` **medido no kickoff: 90**.
 **Portão destrutivo**: há escrita retroativa, decidida no kickoff — limpar 9 justificativas grudadas (17), limpar as cópias de justificativa de decisão no histórico (37; medidas 5 linhas em 4 candidaturas pela pesquisa), marcar vigente/superadas em 6 análises (12); os snapshots sem mudança **ficam** (3b). Cada uma é checkpoint com contagem antes/depois. **E o 36 mexe no motor de exclusão** (mecanismo destrutivo): apply com portão e prova em conta de teste. Nenhuma escrita desta fase apaga linha, **com uma exceção decidida no portão (D-62)**: o passo novo do motor apaga as linhas do titular excluído em `respostas_raven`/`respostas_bigfive`/`respostas_disc`/`respostas_formulario`, cujos valores inteiros e de enum não aceitam sentinela. Portão fechado em 2026-09-22 (D-59..D-68 em `49-CONTEXT.md`).
 **Fora de escopo**: Blocos 3 e 4 da fila. A pendência **P1** (avaliar trocar o modelo das funções de IA) não faz parte do 28: o 28 torna o fallback visível, não escolhe modelo. As decisões D1–D8 (JORNADA) e D-01..D-23 (Phase 48) não são reabertas. JORN-42..49 (UAT de 27–29/09) roteados ao Bloco 3 — próxima fase, a criar; não são escopo desta (roteamento decidido pelo operador em 2026-09-29).
-**Plans**: 35 plans
+**Plans**: 43 plans
 
 Plans:
 
@@ -481,6 +481,34 @@ Plans:
 *Wave 4*
 
 - [x] 49-35-PLAN.md — Escrituração: JORN-37 sem a promessa da limpeza recusada (AR-49-01), JORN-41 coerente com a re-verificação, JORN-42..49 roteados ao Bloco 3, caixas por casamento PLAN↔SUMMARY, nenhum requisito Complete antes do verificador, disposição dos 22 achados do review (JORN-37, JORN-41)
+
+**Fechamento de lacunas 2 (re-verificação de 2026-09-30 — CR-01 / JORN-41; decisão do operador (a) `block` × `flag`, 2026-09-29)**
+
+*Wave 1*
+
+- [ ] 49-36-PLAN.md — RED primeiro: corpus benigno de texto REAL de PROD mascarado (M1..M5, portões de PII G1/G2 que mordem) e contrato de três níveis com limite por frase — as frases honestas da re-verificação e os 5 quase-ataques que regrediram; vermelho contra o detector de hoje nas duas direções (JORN-41)
+
+*Wave 2*
+
+- [ ] 49-37-PLAN.md — Detector `classifyPromptInjection`: bloquear só o que nomeia prompt/modelo/IA, sinalizar imperativo nu e ordem de nota; contrato do 49-36 verde sem ser tocado; 15 mutações nas duas direções; varredura de todas as frases de PROD (JORN-41)
+
+*Wave 3*
+
+- [ ] 49-38-PLAN.md — `callAi`: entrada sinalizada chega ao modelo, deixa linha-evento `prompt_injection_flagged` (chave nula) e volta com `injection_flag` — sem reusar `flagged_for_human_review`; vocabulário único `_shared/sinal-revisao.ts` (JORN-41)
+
+*Wave 4*
+
+- [ ] 49-39-PLAN.md — Sinal no resultado da triagem (`flags`), da SJT (`motivos_revisao` + `pendente_humano`) e da redação cultural (`flags`), sem mudar nota (JORN-41)
+- [ ] 49-40-PLAN.md — Sinal na análise da entrevista (`bias_flags`, sem tocar `bloqueio_avanco`) e no comparativo (`ranking.sinais_revisao`); guia e devolutiva provados como texto do sistema (JORN-41)
+- [ ] 49-41-PLAN.md — Telas: o sinal com rótulo no hub, na triagem, na revisão da redação e no card da SJT (JORN-41)
+
+*Wave 5*
+
+- [ ] 49-42-PLAN.md — Telas: aviso na aba da transcrição (sem trava), no comparativo e na Decisão Final, e estado «Sinal» no log do admin — depois do 49-41 (portão `tsc` na mesma árvore) (JORN-41)
+
+*Wave 6*
+
+- [ ] 49-43-PLAN.md — Re-revisão adversarial ANTES de publicar (checkpoint); 7 EFs redeployadas com fonte publicada byte-igual e o contrato verde sobre o código publicado; front provado pelo chunk lazy; JORN-41 anotado à espera do verificador (JORN-41)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
