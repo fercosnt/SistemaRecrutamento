@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 49 — fechamento de lacunas: 49-30 CONCLUÍDO em 2026-09-29 (CR-03, metade de banco + cliente: salvar_avaliacao_entrevista grava na análise nomeada por id; migration 20260929000003 em PROD com md5 do ledger BATE; smoke novo 7/7 com M1..M5 mordendo; cliente no ar em EntrevistaWorkspace-BYiuiNMC.js). Próximo: 49-32 (serializado), depois 49-31 (painel por pendente), 49-33..35. JORN-12 segue «Gaps Found — … aguarda re-verificação» DE PROPÓSITO — o mark-complete do fim do 49-30 a recusou (not_found), como planejado. A cauda da fase roda de novo depois dos seis planos de lacuna."
-last_updated: "2026-09-30T01:42:00.000Z"
+stopped_at: "Phase 49 — fechamento de lacunas: 49-32 CONCLUÍDO em 2026-09-29 (CR-02, só disco: runOpenAIFallback não recebe mais a idempotency_key e grava a linha do resultado com chave nula — um retry bem-sucedido não sobrescreve mais provedor, custo, causa fallback_* nem o ponteiro D-38; RED provado (linha do fallback virou provider=anthropic), invariante da chave sobre as 7 chamadas `await logAiCall(` lidas do fonte, mutações M1/M2 mordendo; suíte _shared + 7 EFs 408/408). NADA deployado — as 7 EFs sobem no 49-34, junto com o 49-33. Antes: 49-30 CONCLUÍDO (CR-03). Próximo: 49-31 (painel por pendente) e 49-33 (depende do 49-32), depois 49-34 (deploy das 7 EFs) e 49-35. JORN-28 e JORN-12 seguem «Gaps Found — … aguarda re-verificação» DE PROPÓSITO — o mark-complete do fim do 49-32 recusou o JORN-28 (not_found), como planejado. A cauda da fase roda de novo depois dos seis planos de lacuna."
+last_updated: "2026-09-30T01:55:00.000Z"
 last_activity: 2026-09-29
 state_head: 97020ccd7d0303d06cb3d6c828379f8c9f5d92aa
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 113
-  completed_plans: 106
-  percent: 94
+  completed_plans: 107
+  percent: 95
 current_phase_name: consertos-da-jornada-bloco-2
 current_phase: 49
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
@@ -906,6 +906,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P17 | 38 min + 30 min | 3 tasks | 16 files |
 | Phase 49 P29 | 3h 40min | 1 tasks | 3 files |
 | Phase 49 P30 | ~15 min | 3 tasks | 8 files |
+| Phase 49 P32 | ~6 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1233,6 +1234,8 @@ Log completo em PROJECT.md Key Decisions.
 
 - [Phase 49]: 49-30 (CR-03): `salvar_avaliacao_entrevista` passa a receber `p_analise_id` e a gravar SÓ na análise que o cliente nomeia (da candidatura, vigente). A decisão do 49-10 de NÃO acrescentar o parâmetro valia para UMA vigente por candidatura; o próprio 49-10 tornou a vigente plural (uma por tipo), e o plural a tornou errada. A forma de três argumentos ficou como compatibilidade que RECUSA com mais de uma vigente e delega com exatamente uma — em vez de continuar escolhendo em silêncio ao lado da nova.
 - [Phase 49]: 49-30: a forma de três argumentos checa POSSE da vaga antes de contar as vigentes (um RH de outra vaga recebe 42501, não aprende quantas vigentes a candidatura alheia tem), e a de quatro seleciona com `FOR UPDATE OF ea` para fechar a janela entre «é vigente» e o UPDATE. Os dois são acréscimos ao texto do plano, registrados como desvio no SUMMARY.
+- [Phase 49]: 49-32 (CR-02): só a resposta primária cacheável é dona da `idempotency_key` (promote). O fallback OpenAI virou EVENTO de auditoria — chave nula, insert simples — como já eram as tentativas e os bloqueios `none`; o campo saiu de `FallbackArgs`, então nenhum caminho do fallback consegue gravá-la sem mudar a assinatura. add-alongside (coluna nova) rejeitado: migration para um problema que nenhum leitor tem.
+- [Phase 49]: 49-32: WR-01 (replay reconhecer fallback pelo provedor) NÃO aplicado — 3 linhas legadas `interview_guide` (06/09, provider=openai, sem prefixo `fallback_`) ainda possuem chave; tirá-las do replay sem liberar a chave as exporia ao mesmo sobrescrito por upsert que o CR-02 fecha.
 
 ### Roadmap Evolution
 

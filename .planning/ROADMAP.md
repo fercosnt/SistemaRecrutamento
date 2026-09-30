@@ -467,7 +467,7 @@ Plans:
 *Wave 1*
 
 - [x] 49-30-PLAN.md — CR-03 no banco: `salvar_avaliacao_entrevista` ganha `p_analise_id` (migration nova `20260929000003`) e a forma antiga recusa escolher entre duas vigentes; smoke de duas vigentes, a mais antiga bandeirada, vermelho antes e mordente por mutação; serviço/hook/workspace mandando o id (JORN-12)
-- [ ] 49-32-PLAN.md — CR-02: a linha do resultado de um fallback não leva mais a `idempotency_key`; fallback + retry bem-sucedido = duas linhas com ids distintos; invariante da chave sobre os 7 caminhos de gravação (JORN-28)
+- [x] 49-32-PLAN.md — CR-02: a linha do resultado de um fallback não leva mais a `idempotency_key`; fallback + retry bem-sucedido = duas linhas com ids distintos; invariante da chave sobre os 7 caminhos de gravação (JORN-28)
 
 *Wave 2*
 
@@ -567,7 +567,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 30/35 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 31/35 | In Progress|  |
 
 ---
 
