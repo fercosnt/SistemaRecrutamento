@@ -85,7 +85,10 @@ export function EntrevistaWorkspace() {
     analisar,
     confirmarRevisao,
   } = useTranscricaoAnalise(candidaturaId)
-  // A análise que o scorecard pontua e que a revisão humana pode confirmar (49-10).
+  // A análise cujas competências o scorecard mostra — e, por isso, a que o salvar NOMEIA
+  // por id (49-30 / D-39): a RPC não escolhe mais entre as vigentes; com online e
+  // presencial vigentes, a nota vai para a linha que a tela mostra. A ESCOLHA entre
+  // vigentes e o rótulo de qual está sendo avaliada são do 49-31.
   const analiseVigente = analises?.vigenteMaisRecente ?? null
 
   const {
@@ -124,7 +127,13 @@ export function EntrevistaWorkspace() {
   }
 
   function handleSalvarAvaliacao(payload: { scoresHumanos: Record<string, number>; notas: string }) {
-    salvarAvaliacao.mutate(payload, {
+    // Sem análise vigente não há onde gravar: antes o servidor recusava com no_data_found
+    // e a tela mostrava o erro genérico; agora a frase diz o que falta.
+    if (!analiseVigente?.id) {
+      toast.error('Não há análise vigente para registrar a avaliação. Analise a transcrição primeiro.')
+      return
+    }
+    salvarAvaliacao.mutate({ ...payload, analiseId: analiseVigente.id }, {
       onSuccess: () => SCORECARD_TOAST.success(),
       onError: () => SCORECARD_TOAST.error(),
     })
@@ -225,10 +234,10 @@ export function EntrevistaWorkspace() {
           <TabsContent value="avaliacao">
             <Glass variant="white" blur="lg" className="rounded-xl p-6">
               <EntrevistaScorecardInline
-                // 49-10/49-16: as competências da análise VIGENTE mais recente — a mesma
-                // linha em que `salvar_avaliacao_entrevista` grava a nota humana. Antes
-                // vinham da mais nova de qualquer estado, então uma falha de IA (sem
-                // competências) apagava o scorecard da análise que tinha funcionado.
+                // 49-10/49-16/49-30: as competências da análise VIGENTE que a tela mostra —
+                // e o salvar manda o id DESSA análise, então a nota humana cai na mesma
+                // linha (a RPC não escolhe mais). Antes vinham da mais nova de qualquer
+                // estado, então uma falha de IA (sem competências) apagava o scorecard.
                 competenciasIA={analiseVigente?.competencias ?? null}
                 saving={salvarAvaliacao.isPending}
                 onSalvar={handleSalvarAvaliacao}

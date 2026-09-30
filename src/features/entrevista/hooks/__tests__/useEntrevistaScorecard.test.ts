@@ -52,7 +52,7 @@ import { useEntrevistaScorecard, useGuiaEntrevista } from '../useEntrevistaScore
 import { decisaoKeys } from '@/features/decisao/hooks/useConsolidacao'
 import { entrevistaKeys } from '../useEntrevistaScorecard'
 import type {
-  SalvarAvaliacaoPayload,
+  SalvarAvaliacaoArgs,
   GuiaPergunta,
 } from '../../services/entrevistaService'
 
@@ -79,7 +79,11 @@ describe('useEntrevistaScorecard — PERF-04 Gap A targeted invalidation (Plan 1
       wrapper,
     })
 
-    const payload: SalvarAvaliacaoPayload = { scoresHumanos: { comunicacao: 4 }, notas: 'ok' }
+    const payload: SalvarAvaliacaoArgs = {
+      analiseId: 'analise-uuid',
+      scoresHumanos: { comunicacao: 4 },
+      notas: 'ok',
+    }
     result.current.salvarAvaliacao.mutate(payload)
 
     await waitFor(() => expect(result.current.salvarAvaliacao.isSuccess).toBe(true))
@@ -98,7 +102,11 @@ describe('useEntrevistaScorecard — PERF-04 Gap A targeted invalidation (Plan 1
       wrapper,
     })
 
-    const payload: SalvarAvaliacaoPayload = { scoresHumanos: { comunicacao: 4 }, notas: 'ok' }
+    const payload: SalvarAvaliacaoArgs = {
+      analiseId: 'analise-uuid',
+      scoresHumanos: { comunicacao: 4 },
+      notas: 'ok',
+    }
     result.current.salvarAvaliacao.mutate(payload)
 
     await waitFor(() => expect(result.current.salvarAvaliacao.isSuccess).toBe(true))
@@ -112,6 +120,48 @@ describe('useEntrevistaScorecard — PERF-04 Gap A targeted invalidation (Plan 1
 
     // Guard against an accidental over-broad sweep: never decisaoKeys.all.
     expect(spy).not.toHaveBeenCalledWith({ queryKey: decisaoKeys.all })
+  })
+
+  // 49-30 / JORN-12: a RPC carimba `revisao_confirmada_em` na análise que grava. Sem
+  // invalidar `entrevistaKeys.analise`, o painel da transcrição segue mostrando a
+  // bandeira como pendente até o próximo refetch.
+  it('invalidates entrevistaKeys.analise(candidaturaId) on salvar success — the panel reflects the review the RPC stamped', async () => {
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+
+    const { result } = renderHook(() => useEntrevistaScorecard(CAND_ID, { vagaId: VAGA_ID }), {
+      wrapper,
+    })
+
+    const payload: SalvarAvaliacaoArgs = {
+      analiseId: 'analise-uuid',
+      scoresHumanos: { comunicacao: 4 },
+      notas: 'ok',
+    }
+    result.current.salvarAvaliacao.mutate(payload)
+
+    await waitFor(() => expect(result.current.salvarAvaliacao.isSuccess).toBe(true))
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: entrevistaKeys.analise(CAND_ID) })
+    // PERF-04 unchanged alongside it.
+    expect(spy).toHaveBeenCalledWith({ queryKey: entrevistaKeys.scorecard(CAND_ID) })
+    expect(spy).toHaveBeenCalledWith({ queryKey: decisaoKeys.consolidacao(CAND_ID, VAGA_ID) })
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: decisaoKeys.all })
+  })
+
+  it('passes the analiseId through to the service (the RPC writes only on the named analysis)', async () => {
+    const { result } = renderHook(() => useEntrevistaScorecard(CAND_ID, { vagaId: VAGA_ID }), {
+      wrapper,
+    })
+
+    const payload: SalvarAvaliacaoArgs = {
+      analiseId: 'analise-uuid',
+      scoresHumanos: { comunicacao: 4 },
+      notas: 'ok',
+    }
+    result.current.salvarAvaliacao.mutate(payload)
+
+    await waitFor(() => expect(result.current.salvarAvaliacao.isSuccess).toBe(true))
+    expect(mocks.salvarAvaliacao).toHaveBeenCalledWith(CAND_ID, payload)
   })
 })
 

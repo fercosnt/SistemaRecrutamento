@@ -29,7 +29,7 @@ import {
   type EntrevistaGuiaRow,
   type AnalisesPorVigencia,
   type EntrevistaScoreRow,
-  type SalvarAvaliacaoPayload,
+  type SalvarAvaliacaoArgs,
   type TipoEntrevista,
   type GuiaPergunta,
 } from '../services/entrevistaService'
@@ -175,8 +175,9 @@ export type UseEntrevistaScorecardOptions = Omit<
 
 /**
  * The inline scorecard hook — reads the interview + cognitive score rows + exposes
- * a `salvar` mutation (BARS notas_humanas via the salvar_avaliacao_entrevista RPC)
- * that invalidates the scorecard on success. The human always decides (RNF-07a).
+ * a `salvar` mutation (BARS notas_humanas via the salvar_avaliacao_entrevista RPC, on
+ * the analysis the caller names by `analiseId`) that invalidates the scorecard and the
+ * analysis panel on success. The human always decides (RNF-07a).
  */
 export function useEntrevistaScorecard(
   candidaturaId: string | undefined,
@@ -196,11 +197,17 @@ export function useEntrevistaScorecard(
   })
 
   const salvar = useMutation({
-    mutationFn: (payload: SalvarAvaliacaoPayload) =>
-      salvarAvaliacao(candidaturaId!, payload),
+    mutationFn: (args: SalvarAvaliacaoArgs) =>
+      salvarAvaliacao(candidaturaId!, args),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: entrevistaKeys.scorecard(candidaturaId || ''),
+      })
+      // 49-30 / JORN-12: a RPC carimba `revisao_confirmada_em` na análise que grava —
+      // é a mesma chave que o `useTranscricaoAnalise` lê e o `confirmarRevisao` já
+      // invalida. Sem isto o painel segue mostrando a bandeira como pendente.
+      queryClient.invalidateQueries({
+        queryKey: entrevistaKeys.analise(candidaturaId || ''),
       })
       // PERF-04 Gap A: a scorecard save changes the Decisão Final consolidation
       // input → invalidate the TARGETED consolidacao key (never decisaoKeys.all)
