@@ -250,3 +250,54 @@ describe('saveGuiaEdits write-path contract (ENTREV-06/07/08 / RNF-07a)', () => 
     expect(supaMocks.rpc.mock.calls[0][0]).toBe('save_entrevista_guia_edits')
   })
 })
+
+// ── salvarAvaliacao write-path contract (JORN-12 / CR-03 / Plan 49-30) ──
+// Com a vigência por (candidatura, tipo), a candidatura pode ter DUAS análises vigentes
+// (online e presencial). A RPC de quatro argumentos grava SÓ na análise que o cliente
+// nomeia; sem o id, a forma antiga recusa escolher. O serviço exige o id e o manda.
+import { salvarAvaliacao } from '../services/entrevistaService'
+
+describe('salvarAvaliacao write-path contract (JORN-12 / CR-03)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    supaMocks.rpc.mockResolvedValue({ data: null, error: null })
+  })
+
+  const args = {
+    analiseId: 'analise-online-1',
+    scoresHumanos: { Comunicacao: 4, Responsabilizacao: 5 },
+    notas: 'Notas do gestor.',
+  }
+
+  it('calls supabase.rpc("salvar_avaliacao_entrevista") with exactly { p_candidatura_id, p_analise_id, p_scores_humanos, p_notas }', async () => {
+    await salvarAvaliacao('cand-1', args)
+    expect(supaMocks.rpc).toHaveBeenCalledTimes(1)
+    const [fn, payload] = supaMocks.rpc.mock.calls[0] as [string, Record<string, unknown>]
+    expect(fn).toBe('salvar_avaliacao_entrevista')
+    expect(Object.keys(payload).sort()).toEqual(
+      ['p_analise_id', 'p_candidatura_id', 'p_notas', 'p_scores_humanos'],
+    )
+    expect(payload).toEqual({
+      p_candidatura_id: 'cand-1',
+      p_analise_id: 'analise-online-1',
+      p_scores_humanos: { Comunicacao: 4, Responsabilizacao: 5 },
+      p_notas: 'Notas do gestor.',
+    })
+  })
+
+  it('throws INVALID_INPUT when analiseId is empty (no RPC call)', async () => {
+    await expect(salvarAvaliacao('cand-1', { ...args, analiseId: '' })).rejects.toMatchObject({
+      name: 'EntrevistaServiceError',
+      code: 'INVALID_INPUT',
+    })
+    expect(supaMocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('maps an RPC 42501 (insufficient_privilege) → FORBIDDEN', async () => {
+    supaMocks.rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'forbidden' } })
+    await expect(salvarAvaliacao('cand-1', args)).rejects.toMatchObject({
+      name: 'EntrevistaServiceError',
+      code: 'FORBIDDEN',
+    })
+  })
+})

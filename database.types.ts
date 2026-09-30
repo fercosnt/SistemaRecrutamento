@@ -6116,14 +6116,24 @@ export type Database = {
         }
         Returns: string
       }
-      salvar_avaliacao_entrevista: {
-        Args: {
-          p_candidatura_id: string
-          p_notas: string
-          p_scores_humanos: Json
-        }
-        Returns: Json
-      }
+      salvar_avaliacao_entrevista:
+        | {
+            Args: {
+              p_analise_id: string
+              p_candidatura_id: string
+              p_notas: string
+              p_scores_humanos: Json
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_candidatura_id: string
+              p_notas: string
+              p_scores_humanos: Json
+            }
+            Returns: Json
+          }
       salvar_config_purga: {
         Args: {
           p_cap_titulares: number

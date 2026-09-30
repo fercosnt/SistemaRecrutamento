@@ -721,22 +721,38 @@ export interface SalvarAvaliacaoPayload {
 }
 
 /**
- * Records the gestor's interview scorecard via the LIVE `salvar_avaliacao_entrevista`
- * SECURITY DEFINER RPC — NEVER a direct UPDATE. The RPC enforces role + own-vaga and
- * NEVER advances the funil / auto-rejects (RNF-07a). Error map: 42501 → FORBIDDEN,
- * 23514 → INVALID_INPUT, P0002/no_data_found → NOT_FOUND, else → NETWORK_ERROR.
+ * Args of the scorecard save: the payload plus the id of the analysis whose
+ * competencies the scorecard is showing (JORN-12 / CR-03 / 49-30).
+ */
+export interface SalvarAvaliacaoArgs extends SalvarAvaliacaoPayload {
+  analiseId: string
+}
+
+/**
+ * Records the gestor's interview scorecard via the LIVE
+ * `salvar_avaliacao_entrevista(p_candidatura_id, p_analise_id, p_scores_humanos, p_notas)`
+ * SECURITY DEFINER RPC — NEVER a direct UPDATE. The RPC does NOT choose the analysis:
+ * since 49-10 a candidatura can have one VIGENTE analysis per interview type (online and
+ * presencial), so the caller names the one the screen shows. The RPC refuses an analysis
+ * of another candidatura (P0002) or one that is not vigente (23514), enforces role +
+ * own-vaga and NEVER advances the funil / auto-rejects (RNF-07a). Error map: 42501 →
+ * FORBIDDEN, 23514 → INVALID_INPUT, P0002/no_data_found → NOT_FOUND, else → NETWORK_ERROR.
  */
 export async function salvarAvaliacao(
   candidaturaId: string,
-  payload: SalvarAvaliacaoPayload,
+  args: SalvarAvaliacaoArgs,
 ): Promise<void> {
   if (!candidaturaId) {
     throw new EntrevistaServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
+  if (!args.analiseId) {
+    throw new EntrevistaServiceError('analiseId é obrigatório', 'INVALID_INPUT')
+  }
   const { error } = await supabase.rpc('salvar_avaliacao_entrevista', {
     p_candidatura_id: candidaturaId,
-    p_scores_humanos: payload.scoresHumanos,
-    p_notas: payload.notas ?? '',
+    p_analise_id: args.analiseId,
+    p_scores_humanos: args.scoresHumanos,
+    p_notas: args.notas ?? '',
   })
   if (error) {
     throw mapRpcError(error, 'Não foi possível salvar a avaliação. Tente novamente.')
