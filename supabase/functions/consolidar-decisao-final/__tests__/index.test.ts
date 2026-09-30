@@ -469,3 +469,112 @@ Deno.test("FIX-01: MC sucesso preserved when caso_aberto pendente (8/10 → 80, 
     80,
   );
 });
+
+// ── 49-REVIEW-GAPS-3 CR-02: o SINAL de revisão chega à Decisão Final ────────────────────
+//
+// Desde o conserto do CR-01 do -2, um caso aberto sinalizado (`instrucao_ao_modelo` em
+// `metadata.motivos_revisao`) sem outra causa é gravado `sucesso` e PONDERA na etapa SJT. A
+// marca, porém, só existia no `ScorecardAvaliacao`, que não está montado em tela nenhuma: a
+// nota contava e ninguém via o aviso. Decisão do operador (2026-09-30, «1»): a consolidação
+// devolve os sinais de revisão das linhas que CONTAM na etapa e a Decisão Final mostra o
+// rótulo junto da etapa SJT. Campo ADITIVO: nenhuma nota, peso, recomendação ou N/A muda.
+//
+// Forma das linhas: exatamente o que o `avaliar-redacao` grava (`metadata.motivos_revisao`
+// só existe quando há motivo; numa linha `sucesso` o único motivo possível é o sinal).
+function sjtRowsComCasoAberto(motivos?: string[]): Record<string, unknown>[] {
+  return [
+    { id: "s-sjt-mc", candidatura_id: "cand-1", tipo: "sjt", subtipo: "mc", score: 4, score_max: 10, status: "sucesso", metadata: {} },
+    {
+      id: "s-sjt-open",
+      candidatura_id: "cand-1",
+      tipo: "sjt",
+      subtipo: "caso_aberto",
+      score: 20,
+      score_max: 25,
+      status: "sucesso",
+      metadata: motivos
+        ? { composite_0_25: 20, motivos_revisao: motivos }
+        : { composite_0_25: 20 },
+    },
+    { id: "s-red", candidatura_id: "cand-1", tipo: "redacao", subtipo: null, score: 20, score_max: 25, status: "sucesso", metadata: {} },
+    { id: "s-ent", candidatura_id: "cand-1", tipo: "entrevista", subtipo: null, score: null, score_max: null, status: "pendente_humano", metadata: {} },
+  ];
+}
+
+async function consolidar(scores: Record<string, unknown>[]): Promise<Record<string, unknown>> {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabaseAdmin(scores, ANALISE_TRIAGEM);
+  const res = await handler(makeRequest(BODY), { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) });
+  assertEquals(res.status, 200);
+  return await res.json();
+}
+
+function etapa(json: Record<string, unknown>, key: string): Record<string, unknown> {
+  const row = (json.breakdown as Array<Record<string, unknown>>).find((b) => b.etapa === key);
+  assertExists(row, `breakdown sem a etapa '${key}'`);
+  return row;
+}
+
+/** A resposta sem o campo novo — para provar que o resto é byte a byte o mesmo. */
+function semSinais(json: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...json,
+    breakdown: (json.breakdown as Array<Record<string, unknown>>).map((b) => {
+      const { sinais_revisao: _descartado, ...resto } = b;
+      return resto;
+    }),
+  };
+}
+
+Deno.test("CR-02 — caso aberto sinalizado que CONTA: a etapa work_sample_sjt devolve sinais_revisao ['instrucao_ao_modelo']", async () => {
+  const json = await consolidar(sjtRowsComCasoAberto(["instrucao_ao_modelo"]));
+  const sjt = etapa(json, "work_sample_sjt");
+  assertEquals(sjt.status, "present");
+  assertEquals(sjt.sinais_revisao, ["instrucao_ao_modelo"]);
+  // As outras etapas não herdam o sinal da SJT.
+  for (const k of ["triagem", "redacao_cultural", "entrevista", "big_five", "cognitivo"]) {
+    assertEquals("sinais_revisao" in etapa(json, k), false, `a etapa '${k}' não tem sinal`);
+  }
+});
+
+Deno.test("CR-02 — sem sinal, a chave sinais_revisao fica AUSENTE (nunca [])", async () => {
+  const json = await consolidar(sjtRowsComCasoAberto());
+  for (const b of json.breakdown as Array<Record<string, unknown>>) {
+    assertEquals("sinais_revisao" in b, false, `etapa '${b.etapa}' não pode trazer a chave sem sinal`);
+  }
+});
+
+Deno.test("CR-02 — o sinal é ADITIVO: nota da etapa, pesos, consolidado e recomendação IDÊNTICOS com e sem o sinal", async () => {
+  const com = await consolidar(sjtRowsComCasoAberto(["instrucao_ao_modelo"]));
+  const sem = await consolidar(sjtRowsComCasoAberto());
+  // Pré-condição: o caso aberto CONTA na etapa (≠ valor só do MC 4/10 = 40).
+  // (4+20)/(10+25)*100 = 68.57
+  assertEquals(etapa(sem, "work_sample_sjt").normalized, 68.57);
+  assertEquals(etapa(com, "work_sample_sjt").normalized, 68.57);
+  assertEquals(com.consolidated, sem.consolidated);
+  assertEquals(com.recommendation, sem.recommendation);
+  // Tudo o que não é o campo novo é o MESMO objeto.
+  assertEquals(semSinais(com), sem);
+});
+
+Deno.test("CR-02 — sinal de sub-linha que NÃO conta (pendente_humano) não é atribuído à etapa", async () => {
+  // O caso aberto sinalizado E abaixo do corte vai a pendente_humano e sai da soma; a etapa
+  // SJT fica só com o MC. O sinal dessa linha não descreve a nota exibida.
+  const rows = sjtRowsComCasoAberto(["abaixo_do_corte", "instrucao_ao_modelo"]).map((r) =>
+    r.id === "s-sjt-open" ? { ...r, score: 8, status: "pendente_humano" } : r
+  );
+  const json = await consolidar(rows);
+  const sjt = etapa(json, "work_sample_sjt");
+  assertEquals(sjt.normalized, 40, "a etapa SJT é só o MC 4/10");
+  assertEquals("sinais_revisao" in sjt, false);
+});
+
+Deno.test("CR-02 — só códigos do vocabulário do sinal saem, sem duplicar entre sub-linhas", async () => {
+  // Defensivo: linha `sucesso` com motivo fora do vocabulário do sinal (não deveria existir,
+  // mas o jsonb não impede) e duas sub-linhas com o mesmo sinal.
+  const rows = sjtRowsComCasoAberto(["abaixo_do_corte", "instrucao_ao_modelo"]).map((r) =>
+    r.id === "s-sjt-mc" ? { ...r, metadata: { motivos_revisao: ["instrucao_ao_modelo"] } } : r
+  );
+  const json = await consolidar(rows);
+  assertEquals(etapa(json, "work_sample_sjt").sinais_revisao, ["instrucao_ao_modelo"]);
+});

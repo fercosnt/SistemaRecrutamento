@@ -55,6 +55,13 @@ export interface ConsolidacaoBreakdownRow {
   weight: number | null
   /** Peso renormalized over the PRESENT etapas; null otherwise. */
   effective_weight: number | null
+  /**
+   * 49-REVIEW-GAPS-3 CR-02 (operador, 2026-09-30, «1»): códigos de SINAL de revisão
+   * (`_shared/sinal-revisao.ts`, ex. `instrucao_ao_modelo`) presentes em
+   * `metadata.motivos_revisao` das linhas que CONTAM na etapa. ADITIVO — não muda nota, peso,
+   * recomendação nem N/A. AUSENTE quando não há sinal (nunca `[]`).
+   */
+  sinais_revisao?: string[]
 }
 
 /**

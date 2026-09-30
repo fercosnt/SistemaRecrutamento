@@ -13,6 +13,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import type { ConsolidacaoBreakdownRow } from '../../schemas/consolidacaoSchema'
+import { ROTULO_SINAL } from '../../../../../supabase/functions/_shared/sinal-revisao'
 
 vi.mock('../../hooks/useConsolidacao', () => ({
   useConsolidacao: vi.fn(),
@@ -92,5 +93,65 @@ describe('ConsolidacaoDashboard — UX-09 supressão do agregado com <2 etapas',
     expect(screen.getByText('90 / 100')).toBeInTheDocument()
     // as 3 rows de contexto (triagem/big_five/cognitivo) carregam o marcador "não pondera"
     expect(screen.getAllByText('Contextual · não pondera').length).toBeGreaterThan(0)
+  })
+})
+
+// ── 49-REVIEW-GAPS-3 CR-02: o sinal de revisão da SJT aparece na Decisão Final ────────────
+//
+// Um caso aberto sinalizado (`instrucao_ao_modelo`) sem outra causa é `sucesso` e PONDERA na
+// etapa SJT. A marca só existia no `ScorecardAvaliacao`, que não está montado em tela nenhuma.
+// Decisão do operador (2026-09-30, «1»): a Decisão Final mostra o rótulo junto da etapa SJT.
+// O rótulo vem da fonte ÚNICA (`_shared/sinal-revisao.ts`), nunca de uma cópia no teste.
+describe('ConsolidacaoDashboard — CR-02 sinal de revisão da etapa SJT', () => {
+  const ROTULO = ROTULO_SINAL.instrucao_ao_modelo
+
+  function breakdownComSjt(sjt: ConsolidacaoBreakdownRow): ConsolidacaoBreakdownRow[] {
+    return [
+      ctx('triagem', 90),
+      sjt,
+      present('redacao_cultural', 80, 20),
+      na('entrevista'),
+      ctx('big_five', null),
+      ctx('cognitivo', null),
+    ]
+  }
+
+  it('SJT com sinal → o rótulo aparece JUNTO da etapa SJT, sem tom de reprovação e sem travar ação', () => {
+    mockConsolidacao(
+      73.94,
+      breakdownComSjt({
+        ...present('work_sample_sjt', 68.57, 30),
+        sinais_revisao: ['instrucao_ao_modelo'],
+      }),
+      'Aderência moderada nas etapas avaliadas. Sugestão advisory — a decisão final é sempre humana (RNF-07a).',
+    )
+    render(<ConsolidacaoDashboard candidaturaId="cand-1" vagaId="v1" />)
+
+    const aviso = screen.getByTestId('decisao-sjt-sinal-revisao')
+    expect(aviso).toHaveTextContent(ROTULO)
+    // Junto da etapa SJT — dentro da MESMA linha do breakdown.
+    const linha = aviso.closest('li')
+    expect(linha).not.toBeNull()
+    expect(linha).toHaveTextContent('Work sample (SJT)')
+    expect(linha).toHaveTextContent('68.57 / 100')
+    // Só UM aviso, e nenhuma outra etapa leva o rótulo.
+    expect(screen.getAllByText(ROTULO)).toHaveLength(1)
+    // Tom âmbar/neutro, nunca o de reprovação (RNF-07a).
+    expect(aviso.className).not.toMatch(/red|destructive|rose/)
+    // O número consolidado segue exibido; nenhuma ação desabilitada pelo sinal.
+    expect(screen.getByText('73.94')).toBeInTheDocument()
+    expect(document.querySelectorAll('[disabled], [aria-disabled="true"]')).toHaveLength(0)
+  })
+
+  it('SJT sem sinal → nenhum aviso', () => {
+    mockConsolidacao(
+      73.94,
+      breakdownComSjt(present('work_sample_sjt', 68.57, 30)),
+      'Aderência moderada nas etapas avaliadas. Sugestão advisory — a decisão final é sempre humana (RNF-07a).',
+    )
+    render(<ConsolidacaoDashboard candidaturaId="cand-1" vagaId="v1" />)
+
+    expect(screen.queryByTestId('decisao-sjt-sinal-revisao')).toBeNull()
+    expect(screen.queryByText(ROTULO)).toBeNull()
   })
 })
