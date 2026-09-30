@@ -39,6 +39,10 @@ import type {
   AnalisesPorVigencia,
   EntrevistaAnaliseRow,
 } from '../../services/entrevistaService'
+import {
+  SINAL_INSTRUCAO_AO_MODELO,
+  rotuloDoSinal,
+} from '../../../../../supabase/functions/_shared/sinal-revisao'
 
 /** Uma análise com os campos de vigência/proveniência que a allowlist agora projeta. */
 function analise(over: Partial<EntrevistaAnaliseRow> = {}): EntrevistaAnaliseRow {
@@ -439,6 +443,169 @@ describe('TranscricaoReviewPanel — a revisão em CADA vigente pendente (CR-03)
     )
     expect(screen.queryByRole('button', { name: /^Confirmar revisão humana/ })).toBeNull()
     expect(screen.queryByTestId('transcricao-bandeiras')).toBeNull()
+  })
+})
+
+// ── Phase 49 / plano 49-42 — o sinal de instrução à IA na análise (JORN-41) ─────────────
+//
+// O 49-40 grava `{ sinal: 'instrucao_ao_modelo' }` como elemento de `bias_flags`, escrito pelo
+// SERVIDOR, e deixa `bloqueio_avanco` só com a bandeira de língua/sotaque (RF-24). A tela mostra
+// o rótulo pt-BR do vocabulário ÚNICO (`_shared/sinal-revisao`) junto da análise, e o sinal NÃO
+// entra em `pendentes`/`bloqueado`: o portão `avancar_etapa` do servidor não trava por ele, e
+// uma tela que travasse o que o servidor não trava repetiria a discordância do CR-03.
+
+/** O `bias_flags` como o 49-40 grava: as flags de viés do MODELO + o elemento do servidor. */
+const BIAS_FLAGS_COM_SINAL = [
+  {
+    competency: 'Resolução de conflitos',
+    bias_flags: { content_dependent_only: true, regional_markers_ignored: true },
+  },
+  { sinal: SINAL_INSTRUCAO_AO_MODELO },
+] as unknown as EntrevistaAnaliseRow['bias_flags']
+
+const BIAS_FLAGS_SEM_SINAL = [
+  {
+    competency: 'Resolução de conflitos',
+    bias_flags: { content_dependent_only: true, regional_markers_ignored: true },
+  },
+] as unknown as EntrevistaAnaliseRow['bias_flags']
+
+const ROTULO = rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)
+
+/** Tokens de cor destrutiva (o idioma do 49-41: por TOKEN, não por substring). */
+function tomDestrutivo(className: string): string[] {
+  return className.split(/\s+/).filter((t) => /^(bg|text|border)-(red|destructive)/.test(t))
+}
+
+describe('TranscricaoReviewPanel — o sinal de instrução à IA (49-42 / JORN-41)', () => {
+  it('vigente com o elemento { sinal } ⇒ o RÓTULO pt-BR aparece na análise, sem bandeira e sem botão de confirmar', () => {
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({
+          vigentes: [analise({ id: 'v-sinal', bias_flags: BIAS_FLAGS_COM_SINAL })],
+        })}
+        onAvancarEtapa={vi.fn()}
+      />,
+    )
+    const bloco = screen.getByTestId('analise-vigente')
+    const aviso = within(bloco).getByTestId('analise-sinal-revisao')
+    expect(aviso).toHaveTextContent(ROTULO)
+    // Nunca o código cru.
+    expect(aviso).not.toHaveTextContent(SINAL_INSTRUCAO_AO_MODELO)
+    // Tom âmbar/neutro, nunca o destrutivo da bandeira (RNF-07a).
+    expect(tomDestrutivo(aviso.className)).toEqual([])
+    // O sinal sozinho NÃO é bandeira de avanço.
+    expect(screen.queryByTestId('transcricao-bandeiras')).toBeNull()
+    expect(screen.queryAllByRole('button', { name: /^Confirmar revisão humana/ })).toHaveLength(0)
+  })
+
+  it('vigente com o sinal E a bandeira de língua pendente ⇒ os DOIS avisos, cada um com o seu texto; o gating é o de hoje', async () => {
+    const onConfirmarRevisao = vi.fn()
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({
+          vigentes: [
+            analise({
+              id: 'v-sinal-bandeira',
+              bias_flags: BIAS_FLAGS_COM_SINAL,
+              bloqueio_avanco: true,
+            }),
+          ],
+        })}
+        onConfirmarRevisao={onConfirmarRevisao}
+        onAvancarEtapa={vi.fn()}
+      />,
+    )
+    const aviso = screen.getByTestId('analise-sinal-revisao')
+    const bandeiras = screen.getByTestId('transcricao-bandeiras')
+    expect(aviso).toHaveTextContent(ROTULO)
+    expect(aviso).not.toHaveTextContent(/linguagem\/sotaque/)
+    expect(bandeiras).toHaveTextContent(/Bandeira de linguagem\/sotaque/)
+    expect(bandeiras).not.toHaveTextContent(ROTULO)
+    // Um botão só, o da BANDEIRA, pelo id da análise.
+    const botoes = screen.getAllByRole('button', { name: /^Confirmar revisão humana/ })
+    expect(botoes).toHaveLength(1)
+    fireEvent.click(botoes[0])
+    expect(onConfirmarRevisao).toHaveBeenCalledWith('v-sinal-bandeira')
+    const avancar = screen.getByRole('button', { name: 'Avançar etapa' })
+    expect(avancar).toBeDisabled()
+    fireEvent.focus(avancar.parentElement as HTMLElement)
+    expect(
+      (await screen.findAllByText(
+        'Revise a bandeira de linguagem/sotaque antes de avançar a etapa.',
+      )).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('sinal SEM trava: bandeira confirmada numa vigente + sinal na outra ⇒ avanço liberado e nenhum botão de confirmar', () => {
+    // O caso que distingue «o sinal é marca de leitura» de «o sinal é pendência»: a bandeira
+    // de língua já foi confirmada, e só resta o sinal. O servidor libera o avanço; a tela
+    // também tem de liberar. Se o sinal entrasse em `pendentes`, apareceria um botão de
+    // confirmar para a presencial e o Avançar ficaria desabilitado.
+    const onlineConfirmada = analise({
+      id: 'v-online-confirmada',
+      tipo: 'online',
+      bloqueio_avanco: true,
+      revisada_por: 'rh-uuid',
+      revisao_confirmada_em: '2026-09-26T10:00:00Z',
+    })
+    const presencialComSinal = analise({
+      id: 'v-presencial-sinal',
+      tipo: 'presencial',
+      bias_flags: BIAS_FLAGS_COM_SINAL,
+      bloqueio_avanco: false,
+    })
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({ vigentes: [presencialComSinal, onlineConfirmada] })}
+        onConfirmarRevisao={vi.fn()}
+        onAvancarEtapa={vi.fn()}
+      />,
+    )
+    expect(screen.getAllByTestId('analise-sinal-revisao')).toHaveLength(1)
+    const bandeiras = screen.getByTestId('transcricao-bandeiras')
+    expect(within(bandeiras).getAllByText(/Revisão humana confirmada/).length).toBeGreaterThan(0)
+    expect(tomDestrutivo(bandeiras.className)).toEqual([])
+    expect(screen.queryAllByRole('button', { name: /^Confirmar revisão humana/ })).toHaveLength(0)
+    expect(screen.queryByTestId('transcricao-revisao-pendente')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Avançar etapa' })).toBeEnabled()
+  })
+
+  it('vigente SEM o elemento { sinal } (só as flags do modelo, ou null) ⇒ o aviso NÃO aparece', () => {
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({
+          vigentes: [
+            analise({ id: 'v-flags-modelo', tipo: 'online', bias_flags: BIAS_FLAGS_SEM_SINAL }),
+            analise({ id: 'v-null', tipo: 'presencial', bias_flags: null }),
+          ],
+        })}
+      />,
+    )
+    expect(screen.getAllByTestId('analise-vigente')).toHaveLength(2)
+    expect(screen.queryByTestId('analise-sinal-revisao')).toBeNull()
+    expect(screen.queryByText(ROTULO)).toBeNull()
+  })
+
+  it('a SUPERADA que teve o sinal também o mostra — a marca é da análise, não da vigência', () => {
+    render(
+      <TranscricaoReviewPanel
+        analises={grupo({
+          vigentes: [analise({ id: 'v-limpa' })],
+          superadas: [
+            analise({
+              id: 's-sinal',
+              superada_em: '2026-09-22T10:00:00Z',
+              bias_flags: BIAS_FLAGS_COM_SINAL,
+            }),
+          ],
+        })}
+      />,
+    )
+    const vigente = screen.getByTestId('analise-vigente')
+    expect(within(vigente).queryByTestId('analise-sinal-revisao')).toBeNull()
+    const superada = screen.getByTestId('analise-superada')
+    expect(within(superada).getByTestId('analise-sinal-revisao')).toHaveTextContent(ROTULO)
   })
 })
 

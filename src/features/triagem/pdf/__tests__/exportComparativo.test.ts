@@ -53,6 +53,10 @@ vi.mock('jspdf-autotable', () => ({
 
 import { exportComparativo, type RankedCandidate } from '../exportComparativo'
 import { PROVENIENCIA_IA_COPY, textoProveniencia } from '../../components/ProvenienciaIABadge'
+import {
+  SINAL_INSTRUCAO_AO_MODELO,
+  rotuloDoSinal,
+} from '../../../../../supabase/functions/_shared/sinal-revisao'
 
 function cand(nome: string, rank: number): RankedCandidate {
   return {
@@ -172,5 +176,87 @@ describe('exportComparativo — o PDF que já existia continua funcionando', () 
   it('o download continua sendo disparado com o mesmo nome de arquivo', () => {
     exportComparativo(CANDIDATOS, { provedorIa: 'openai', modeloIa: 'gpt-4o-mini' })
     expect(saveMock).toHaveBeenCalledWith('comparativo-candidatos.pdf')
+  })
+})
+
+// ── Phase 49 / plano 49-42 — o sinal de revisão vai no PDF (decisão (a) + D-27b) ────────
+//
+// O PDF é o resultado FORA da tela. Um ranking sinalizado exportado sem a marca circularia como
+// resultado limpo — o mesmo argumento da proveniência (D-27b), aplicado ao sinal. A cópia é a
+// da tela, IMPORTADA de `_shared/sinal-revisao.ts` (e aqui também: nenhuma cópia da frase).
+// RED (49-42): a assinatura de hoje só aceita dois argumentos. O alias deixa o tsc do
+// pre-commit passar enquanto o COMPORTAMENTO reprova; o GREEN o remove.
+const exportarComSinais = exportComparativo as (
+  c: RankedCandidate[],
+  p?: Parameters<typeof exportComparativo>[1],
+  s?: string[],
+) => void
+
+/** O startY da última tabela, lido por função (o TS estreitaria a propriedade a `null`). */
+function startYDaTabela(): number {
+  return (autoTableOpts.value as { startY: number } | null)!.startY
+}
+
+describe('exportComparativo — o sinal de revisão no cabeçalho (49-42 / JORN-41)', () => {
+  const ROTULO = rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)
+
+  /** A linha do sinal, achada pelo texto EXATO (não pela posição). */
+  function linhasDoSinal() {
+    return textCalls.filter((c) => c.texto === ROTULO)
+  }
+
+  it('com o código em `sinais`, imprime EXATAMENTE o rótulo, abaixo do título e acima da tabela', () => {
+    exportarComSinais(CANDIDATOS, undefined, [SINAL_INSTRUCAO_AO_MODELO])
+    const titulo = textCalls[0]
+    const sinal = linhasDoSinal()
+    expect(sinal).toHaveLength(1)
+    expect(sinal[0].y).toBeGreaterThan(titulo.y)
+    expect(sinal[0].x).toBe(titulo.x)
+    expect(startYDaTabela()).toBeGreaterThan(sinal[0].y)
+  })
+
+  it('com proveniência E sinal, as duas linhas saem em y DISTINTOS, as duas acima da tabela', () => {
+    const prov = { provedorIa: 'openai', modeloIa: 'gpt-4o-mini', fallbackCause: 'anthropic_timeout' }
+    exportarComSinais(CANDIDATOS, prov, [SINAL_INSTRUCAO_AO_MODELO])
+    const titulo = textCalls[0]
+    const linhaProv = textCalls.find((c) => c.texto === textoProveniencia(prov))
+    const sinal = linhasDoSinal()
+    expect(linhaProv).toBeDefined()
+    expect(sinal).toHaveLength(1)
+    expect(linhaProv!.y).toBeGreaterThan(titulo.y)
+    expect(sinal[0].y).toBeGreaterThan(titulo.y)
+    expect(sinal[0].y).not.toBe(linhaProv!.y)
+    expect(startYDaTabela()).toBeGreaterThan(linhaProv!.y)
+    expect(startYDaTabela()).toBeGreaterThan(sinal[0].y)
+  })
+
+  it('o mesmo código repetido sai UMA vez (a marca não empilha)', () => {
+    exportarComSinais(CANDIDATOS, undefined, [SINAL_INSTRUCAO_AO_MODELO, SINAL_INSTRUCAO_AO_MODELO])
+    expect(linhasDoSinal()).toHaveLength(1)
+  })
+
+  it('`sinais` ausente ou [] ⇒ nenhuma linha nova e o startY de hoje (o PDF não afirma nada sobre sinal)', () => {
+    for (const sinais of [undefined, [] as string[]]) {
+      textCalls.length = 0
+      autoTableOpts.value = null
+      exportarComSinais(CANDIDATOS, undefined, sinais)
+      expect(textCalls).toHaveLength(1)
+      const semProv = startYDaTabela()
+
+      textCalls.length = 0
+      autoTableOpts.value = null
+      exportarComSinais(CANDIDATOS, { provedorIa: 'anthropic', modeloIa: 'claude-sonnet-4-6' }, sinais)
+      expect(textCalls).toHaveLength(2)
+      const comProv = startYDaTabela()
+
+      // Os valores históricos (22 sem proveniência, 26 com) — medidos contra a chamada SEM o
+      // terceiro argumento, e não contra constantes copiadas para cá.
+      textCalls.length = 0
+      exportComparativo(CANDIDATOS)
+      expect(semProv).toBe(startYDaTabela())
+      exportComparativo(CANDIDATOS, { provedorIa: 'anthropic', modeloIa: 'claude-sonnet-4-6' })
+      expect(comProv).toBe(startYDaTabela())
+    }
+    expect(textCalls.some((c) => c.texto === ROTULO)).toBe(false)
   })
 })
