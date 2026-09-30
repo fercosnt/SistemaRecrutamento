@@ -64,16 +64,25 @@ const INJECTION_PATTERNS: RegExp[] = [
   // com biosseguranca. O infinitivo («ignorar»), o indicativo («ignoro») e o
   // objeto humano ficam de fora por construcao, nao por sorte.
 
-  // 1 · imperativo + objeto de INSTRUCAO (nunca `regras`: vira biosseguranca).
-  /\b(ignore|ignorem|desconsidere|desconsiderem|despreze|desprezem)\s+(todas?\s+)?(as\s+)?(instru[çc][õo]es|ordens|orienta[çc][õo]es|diretrizes)/i,
-  // 2 · o que se manda esquecer e o que o MODELO sabe — exige `voce`/`suas instrucoes`.
-  /\besque[çc]am?\s+(tudo\s+)?(o\s+que\s+)?(voc[êe]|suas?\s+instru[çc][õo]es)/i,
-  // 3 · troca de identidade declarada.
-  /voc[êe]\s+(agora\s+)?[ée]\s+(um|uma)\s+(outr[oa]|nov[oa]|assistente|modelo|sistema|IA)/i,
-  // 4 · «aja como» só quando o alvo e a IDENTIDADE do modelo, nao um papel humano.
-  /\b(aja|atue|comporte-se|finja)\s+como\s+(se\s+(voc[êe]\s+)?fosse|um[ao]?\s*(outr[oa]|nov[oa])?\s*(modelo|assistente|sistema|bot|IA|intelig[êe]ncia))/i,
-  // 5 · ordem de pontuacao — imperativo; «recebi/dei nota maxima» fica de fora.
-  /\b(d[êe]|atribua|conceda|coloque)\s+(a\s+)?(nota|pontua[çc][ãa]o|score)\s+m[áa]xim/i,
+  // 1 · imperativo NAO negado + objeto que e a INSTRUCAO do modelo:
+  //     `instrucoes`, ou `ordens/orientacoes/diretrizes/regras` so quando
+  //     qualificadas (`anteriores/acima/previas/iniciais/do sistema`).
+  //     «nao ignore as orientacoes pos-operatorias» fica de fora duas vezes.
+  /(?<!\b(?:n[ãa]o|nunca)\s+)\b(ignore|ignorem|desconsidere|desconsiderem|despreze|desprezem)\s+(todas?\s+)?(as\s+)?(instru[çc][õo]es|(ordens|orienta[çc][õo]es|diretrizes|regras)\s+(anteriores|acima|pr[ée]vias|iniciais|do\s+sistema))/i,
+  // 2 · o que se manda esquecer e o que o MODELO sabe ou recebeu — nao
+  //     «o que voce leu na internet»; o imperativo negado fica de fora.
+  /(?<!\b(?:n[ãa]o|nunca)\s+)\besque[çc]am?\s+(tudo\s+)?((o\s+)?que\s+voc[êe]\s+(j[áa]\s+)?(sabe|aprendeu|recebeu)|suas?\s+instru[çc][õo]es|as\s+instru[çc][õo]es\s+(anteriores|acima))/i,
+  // 3 · troca de identidade cujo alvo e O MODELO. `assistente`, `modelo` e
+  //     `nov[oa]` sozinhos NAO sao alvo: numa clinica que contrata
+  //     assistentes, «voce e uma assistente» e a pergunta da entrevista.
+  /voc[êe]\s+(agora\s+)?[ée]\s+(um|uma)\s+(outr[oa]\s+|nov[oa]\s+)?(IA\b|intelig[êe]ncia\s+artificial|modelo\s+de\s+linguagem|chatbot\b|bot\b|(assistente|modelo|sistema|bot|chatbot)\s+(virtual|de\s+IA\b|diferente|sem\s+(restri[çc][õo]es|filtros?|limites?|censura)))/i,
+  // 4 · «aja como» com o MESMO alvo do 3 — inclusive no braço `se fosse`:
+  //     «aja como se fosse o dono da clinica» e um papel humano.
+  /\b(aja|atue|comporte-se|finja)\s+como\s+(se\s+(voc[êe]\s+)?fosse\s+)?(um[ao]?\s+)?(outr[oa]\s+|nov[oa]\s+)?(IA\b|intelig[êe]ncia\s+artificial|modelo\s+de\s+linguagem|chatbot\b|bot\b|(assistente|modelo|sistema|bot|chatbot)\s+(virtual|de\s+IA\b|diferente|sem\s+(restri[çc][õo]es|filtros?|limites?|censura)))/i,
+  // 5 · ordem de pontuacao na forma IMPERATIVA: `dê` com acento, ou `d[êe]`
+  //     seguido de artigo, ou `atribua/conceda/coloque`. A preposicao «de»
+  //     («avaliacao de nota maxima») fica de fora — ver o limite aceito no topo.
+  /(\bd[êe]\s+(a|uma)\s+|\bdê\s+|\b(atribua|conceda|coloque)\s+(a\s+)?)(nota|pontua[çc][ãa]o|score)\s+m[áa]xim/i,
 ];
 
 /**
