@@ -42,6 +42,7 @@ import {
   COMPARATIVO_MAX_CANDIDATOS,
   COMPARATIVO_MIN_CANDIDATOS,
 } from '../../../../supabase/functions/_shared/comparativo-config'
+import { sinaisDe } from '../../../../supabase/functions/_shared/sinal-revisao'
 import { ConsolidacaoDashboard } from './ConsolidacaoDashboard'
 import { RegistrarDecisaoForm } from './RegistrarDecisaoForm'
 import { useRegistrarDecisao } from '../hooks/useRegistrarDecisao'
@@ -255,6 +256,9 @@ export function DecisaoFinalPage() {
                   provedorIa={comparativoData?.provedor_ia ?? null}
                   modeloIa={comparativoData?.modelo_ia ?? null}
                   fallbackCause={comparativoData?.fallback_cause ?? null}
+                  // 49-42 / JORN-41: o sinal de revisão do ranking chega também aqui — este
+                  // ranking decide uma decisão final. `sinaisDe` devolve sempre um array.
+                  sinaisRevisao={sinaisDe(comparativoData?.ranking?.sinais_revisao)}
                   isLoading={isPending}
                   isError={isError}
                   errorCode={errorCodeOf(comparativoError)}

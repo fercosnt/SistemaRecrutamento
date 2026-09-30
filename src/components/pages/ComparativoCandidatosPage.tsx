@@ -44,6 +44,7 @@ import {
   COMPARATIVO_MAX_CANDIDATOS,
   COMPARATIVO_MIN_CANDIDATOS,
 } from '../../../supabase/functions/_shared/comparativo-config'
+import { sinaisDe } from '../../../supabase/functions/_shared/sinal-revisao'
 
 /** Pull the EF `error_code` (AI_UNAVAILABLE / MIXED_VAGA) off a TriagemServiceError — code-only. */
 function errorCodeOf(error: unknown): string | undefined {
@@ -248,6 +249,9 @@ export function ComparativoCandidatosPage() {
               provedorIa={data?.provedor_ia ?? null}
               modeloIa={data?.modelo_ia ?? null}
               fallbackCause={data?.fallback_cause ?? null}
+              // 49-42 / JORN-41: o sinal de revisão do ranking (a chave fica AUSENTE sem sinal).
+              // `sinaisDe` devolve sempre um array — a prop sai FIADA, e `[]` quer dizer «sem sinal».
+              sinaisRevisao={sinaisDe(data?.ranking?.sinais_revisao)}
               onAvancar={handleAvancar}
               onRejeitar={handleRejeitar}
               podeAvancar={podeAvancar}

@@ -15,7 +15,7 @@
  */
 
 import { useState } from 'react'
-import { Download, Loader2, ArrowRight, X } from 'lucide-react'
+import { Download, Loader2, ArrowRight, X, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { AsyncState } from '@/components/ui/AsyncState'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +34,9 @@ import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from './SugestaoIABadge'
 import { ProvenienciaIABadge } from './ProvenienciaIABadge'
 import { RejeitarCandidaturaDialog } from './RejeitarCandidaturaDialog'
+// O vocabulário do sinal de revisão vem da MESMA fonte que a Edge Function escreve
+// (`_shared/sinal-revisao.ts`, zero imports) — nenhuma cópia da frase no front (49-42).
+import { rotuloDoSinal, sinaisDe } from '../../../../supabase/functions/_shared/sinal-revisao'
 // PERF-03 (Plan 19-02): TYPE-ONLY import at top level — the runtime `exportComparativo`
 // value (which statically pulls in jspdf + jspdf-autotable) is loaded via a call-site
 // `await import()` in handleExport so jsPDF is emitted in a separate async chunk and
@@ -103,6 +106,17 @@ export interface ComparativoScreenProps {
   provedorIa?: string | null
   modeloIa?: string | null
   fallbackCause?: string | null
+  /**
+   * Códigos de sinal de revisão do ranking (Phase 49 / plano 49-42 · JORN-41), lidos pelo
+   * consumidor com `sinaisDe(comparativo.data?.ranking?.sinais_revisao)`. Com o código
+   * `instrucao_ao_modelo`, o texto de um dos candidatos continha uma possível instrução dirigida
+   * à IA: o aviso aparece acima do ranking e viaja com o PDF.
+   *
+   * ⚠ O mesmo idioma de `provedorIa`: `undefined` = o consumidor NÃO fiou a prop (nada na tela e
+   * nada afirmado no PDF); `[]` = fiou, e o ranking não tem sinal. Ausência nunca quer dizer
+   * «sem sinal».
+   */
+  sinaisRevisao?: string[]
 }
 
 /**
@@ -163,6 +177,7 @@ export function ComparativoScreen({
   provedorIa,
   modeloIa,
   fallbackCause,
+  sinaisRevisao,
 }: ComparativoScreenProps) {
   const [isGenerating, setIsGenerating] = useState(false)
 
@@ -170,6 +185,10 @@ export function ComparativoScreen({
 
   // Ver a advertência em `provedorIa`: só `undefined` nos dois campos significa «não fiado».
   const temProveniencia = provedorIa !== undefined || modeloIa !== undefined
+
+  // Códigos distintos do sinal de revisão (49-42). Vazio quando a prop não foi fiada OU quando
+  // o ranking não tem sinal — nos dois casos a tela não mostra aviso nenhum.
+  const codigosSinal = [...new Set(sinaisDe(sinaisRevisao))]
 
   // UX-06: a linha de Ação (Avançar/Rejeitar) só renderiza quando AMBOS os handlers são
   // fornecidos. Consumidores read-only (DecisaoFinalPage) omitem os handlers → nenhum
@@ -208,6 +227,10 @@ export function ComparativoScreen({
               fallbackCause: fallbackCause ?? null,
             }
           : undefined,
+        // 49-42: o sinal de revisão viaja com o PDF pelo mesmo motivo que a proveniência — o
+        // arquivo sai da empresa, e um ranking sinalizado sem a marca circularia como limpo.
+        // `undefined` quando o consumidor não fiou a prop: o PDF não afirma nada sobre sinal.
+        sinaisRevisao,
       )
       toast.success('PDF exportado.')
     } catch {
@@ -265,6 +288,25 @@ export function ComparativoScreen({
           )}
         </button>
       </div>
+
+      {/* 49-42 / JORN-41: o aviso do sinal de revisão, ACIMA do ranking e junto do selo de
+          proveniência — pelo mesmo motivo que o selo fica aqui: ele qualifica a tabela inteira.
+          Tom ÂMBAR (o do selo de contingência e do badge da triagem): «resultado utilizável,
+          revise o texto». Nunca o destrutivo, e nenhuma ação da tabela muda por ele (RNF-07a). */}
+      {codigosSinal.length > 0 && (
+        <div
+          role="note"
+          data-testid="comparativo-sinal-revisao"
+          className="space-y-1 rounded-lg border border-amber-400/50 bg-amber-400/15 px-4 py-3 text-amber-100"
+        >
+          {codigosSinal.map((c) => (
+            <p key={c} className="flex items-start gap-2 text-sm leading-relaxed">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{rotuloDoSinal(c)}</span>
+            </p>
+          ))}
+        </div>
+      )}
 
       {/* Candidatos = colunas; atributos = linhas. Scroll horizontal no overflow. */}
       <div className="overflow-x-auto rounded-xl border border-white/10">

@@ -222,7 +222,13 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     // `exportComparativo` ganhou um 2º parâmetro (a proveniência, D-27b). Este consumidor
     // não fia a proveniência, então o 2º argumento é `undefined` — o PDF então não afirma
     // nada sobre o modelo, em vez de afirmar «não registrado» por conta própria.
-    await waitFor(() => expect(exportComparativo).toHaveBeenCalledWith(candidates, undefined))
+    //
+    // ⚠ 49-42: o 3º parâmetro (os sinais de revisão) entrou na chamada, e o `toHaveBeenCalledWith`
+    // confere a ARIDADE. Sem a prop `sinaisRevisao`, o 3º argumento é `undefined` — o PDF não
+    // afirma nada sobre sinal, pelo mesmo idioma do 2º.
+    await waitFor(() =>
+      expect(exportComparativo).toHaveBeenCalledWith(candidates, undefined, undefined),
+    )
   })
 
   it('com proveniência fiada, o PDF recebe a proveniência junto (D-27b — o arquivo sai da empresa)', async () => {
@@ -242,11 +248,16 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: /exportar pdf/i }))
     await waitFor(() =>
-      expect(exportComparativo).toHaveBeenCalledWith(candidates, {
-        provedorIa: 'openai',
-        modeloIa: 'gpt-4o-mini-2024',
-        fallbackCause: 'anthropic_max_tokens',
-      }),
+      expect(exportComparativo).toHaveBeenCalledWith(
+        candidates,
+        {
+          provedorIa: 'openai',
+          modeloIa: 'gpt-4o-mini-2024',
+          fallbackCause: 'anthropic_max_tokens',
+        },
+        // 49-42: sem `sinaisRevisao`, o 3º argumento é `undefined` (ver o teste anterior).
+        undefined,
+      ),
     )
   })
 })
@@ -460,12 +471,6 @@ describe('ComparativoScreen — SEM_RESULTADO_IA não é erro de conexão (WINDO
 // (vocabulário ÚNICO, `_shared/sinal-revisao`) ACIMA do ranking, junto do selo de proveniência,
 // e o «Exportar PDF» leva o sinal junto (D-27b: o arquivo sai da empresa). Prop ausente =
 // «não fiado»: nada na tela e nada afirmado no PDF.
-// RED (49-42): a prop ainda não existe no tipo. O alias deixa o tsc do pre-commit passar enquanto
-// o COMPORTAMENTO reprova; o GREEN o remove.
-const TelaComSinais = ComparativoScreen as (
-  p: Parameters<typeof ComparativoScreen>[0] & { sinaisRevisao?: string[] },
-) => ReturnType<typeof ComparativoScreen>
-
 describe('ComparativoScreen — o sinal de revisão do ranking (49-42 / JORN-41)', () => {
   const ROTULO_SINAL = rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)
   const CANDS = [
@@ -478,7 +483,7 @@ describe('ComparativoScreen — o sinal de revisão do ranking (49-42 / JORN-41)
   }
 
   it('com o código em `sinaisRevisao`, o rótulo pt-BR aparece ACIMA do ranking, em tom âmbar', () => {
-    render(<TelaComSinais candidates={CANDS} sinaisRevisao={[SINAL_INSTRUCAO_AO_MODELO]} />)
+    render(<ComparativoScreen candidates={CANDS} sinaisRevisao={[SINAL_INSTRUCAO_AO_MODELO]} />)
     const aviso = screen.getByTestId('comparativo-sinal-revisao')
     expect(aviso).toHaveTextContent(ROTULO_SINAL)
     expect(aviso).not.toHaveTextContent(SINAL_INSTRUCAO_AO_MODELO)
@@ -489,7 +494,7 @@ describe('ComparativoScreen — o sinal de revisão do ranking (49-42 / JORN-41)
   })
 
   it('com `[]` ou sem a prop, o aviso NÃO aparece', () => {
-    const { unmount } = render(<TelaComSinais candidates={CANDS} sinaisRevisao={[]} />)
+    const { unmount } = render(<ComparativoScreen candidates={CANDS} sinaisRevisao={[]} />)
     expect(screen.queryByTestId('comparativo-sinal-revisao')).toBeNull()
     unmount()
     render(<ComparativoScreen candidates={CANDS} />)
@@ -498,7 +503,7 @@ describe('ComparativoScreen — o sinal de revisão do ranking (49-42 / JORN-41)
   })
 
   it('«Exportar PDF» com o sinal passa o código como 3º argumento do exportComparativo', async () => {
-    render(<TelaComSinais candidates={CANDS} sinaisRevisao={[SINAL_INSTRUCAO_AO_MODELO]} />)
+    render(<ComparativoScreen candidates={CANDS} sinaisRevisao={[SINAL_INSTRUCAO_AO_MODELO]} />)
     fireEvent.click(screen.getByRole('button', { name: /exportar pdf/i }))
     await waitFor(() => expect(exportComparativo).toHaveBeenCalledTimes(1))
     const args = vi.mocked(exportComparativo).mock.calls[0] as unknown[]
