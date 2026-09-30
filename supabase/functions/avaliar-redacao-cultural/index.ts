@@ -78,6 +78,7 @@ import {
 } from "../_shared/bars-redacao.ts";
 import { AvaliarRedacaoCulturalBodySchema } from "../_shared/redacao-schemas.ts";
 import { computeScoreAndCors, normalizeForHash } from "./_local/compute-score.ts";
+import { SINAL_INSTRUCAO_AO_MODELO } from "../_shared/sinal-revisao.ts";
 // SDKs como import ESTÁTICO `npm:` — clone de analise-candidato-individual:50-53. O
 // runtime-constructed `["npm:",pkg].join("")` (avaliar-redacao SJT) escondia o pacote
 // da lista de deps do deploy → ERR_MODULE_NOT_FOUND. NÃO copiar aquela linha.
@@ -448,6 +449,15 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
       : [];
     if (referenciaMatch.length > 0) flags.push("possivel_plagio_intercandidato");
 
+    // JORN-41 / 49-39, decisão (a) do operador (2026-09-29): uma redação `flag`
+    // (imperativo nu dirigido a quem lê) NÃO recusa a avaliação — o callAi chamou o
+    // modelo e devolveu `injection_flag`. O código do sinal entra em `flags`, ao lado de
+    // `possivel_plagio_intercandidato`; a deduplicação do `new Set` abaixo cuida da
+    // repetição. Marca de revisão, nunca nota (RNF-07a): scores, cor, `status_analise` e
+    // `bloqueio_avanco` (só pela cor) não mudam por causa dele.
+    const sinalizada = result.injection_flag != null;
+    if (sinalizada) flags.push(SINAL_INSTRUCAO_AO_MODELO);
+
     // ── 10. Persiste UMA linha (UPSERT). status_analise='pendente_humano' SEMPRE;
     //       bloqueio_avanco SÓ no vermelho. NUNCA toca candidaturas (RNF-07a).
     //       `.select('id').single()` é OBRIGATÓRIO (CR-03) — sem ele supabase-js v2
@@ -497,6 +507,8 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
       cor: classificacaoCor,
       bloqueio: classificacaoCor === "vermelho",
       flags_count: flags.length,
+      // JORN-41: só o booleano — nunca o padrão casado nem o texto da redação.
+      sinal: sinalizada,
       provider: result.provider,
       // D-26/D-28 — o que foi gravado na linha, para o log e a linha concordarem.
       modelo_ia: result.model,
