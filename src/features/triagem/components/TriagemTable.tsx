@@ -58,6 +58,13 @@ import {
   COMPARATIVO_MAX_CANDIDATOS,
   COMPARATIVO_MIN_CANDIDATOS,
 } from '../../../../supabase/functions/_shared/comparativo-config'
+/**
+ * Phase 49 / plano 49-41 — JORN-41, decisão (a). O código que a EF da triagem grava em
+ * `analise.flags` quando o texto do candidato traz um imperativo nu dirigido à IA vira aqui o
+ * RÓTULO pt-BR do vocabulário único (`_shared/sinal-revisao.ts`, zero imports — o mesmo
+ * idioma do import acima). Código desconhecido volta como ele mesmo: os flags de hoje não mudam.
+ */
+import { rotuloDoSinal } from '../../../../supabase/functions/_shared/sinal-revisao'
 
 // Re-export so the Wave-0 test (and downstream Plans 11-15) can import either path.
 export { SugestaoIABadge } from './SugestaoIABadge'
@@ -430,14 +437,27 @@ export function TriagemTable({
                       </Link>
                       {flags.length > 0 && (
                         <div className="flex flex-wrap gap-1">
-                          {flags.map((flag) => (
-                            <Badge
-                              key={flag}
-                              className="border-white/20 bg-white/10 text-[10px] font-semibold text-white/70"
-                            >
-                              {flag}
-                            </Badge>
-                          ))}
+                          {flags.map((flag) => {
+                            const rotulo = rotuloDoSinal(flag)
+                            // Um código do vocabulário do sinal (o rótulo difere do código) ganha
+                            // o tom ÂMBAR do selo de proveniência — «resultado utilizável, confira».
+                            // Nunca o destrutivo, e nenhuma ação da linha muda por ele (RNF-07a).
+                            const ehSinal = rotulo !== flag
+                            return (
+                              <Badge
+                                key={flag}
+                                data-sinal-revisao={ehSinal ? 'true' : undefined}
+                                className={cn(
+                                  'text-[10px] font-semibold',
+                                  ehSinal
+                                    ? 'max-w-[16rem] whitespace-normal text-left border-amber-400/50 bg-amber-400/15 text-amber-100'
+                                    : 'border-white/20 bg-white/10 text-white/70',
+                                )}
+                              >
+                                {rotulo}
+                              </Badge>
+                            )
+                          })}
                         </div>
                       )}
                     </div>

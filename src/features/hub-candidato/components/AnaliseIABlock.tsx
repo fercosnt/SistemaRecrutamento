@@ -26,6 +26,10 @@ import { SugestaoIABadge } from '@/features/triagem/components/SugestaoIABadge'
 import { ProvenienciaIABadge } from '@/features/triagem/components/ProvenienciaIABadge'
 import type { AnaliseHubRow } from '../services/analiseCandidatoService'
 import { HubSection } from './HubSection'
+// Phase 49 / plano 49-41 — JORN-41, decisão (a). O vocabulário do sinal de revisão tem UMA
+// fonte, a mesma que a Edge Function escreve; o módulo tem contrato de ZERO IMPORTS para poder
+// ser importado daqui por caminho relativo (precedente: `ProvenienciaIABadge` ← `ai-error-codes`).
+import { rotuloDoSinal } from '../../../../supabase/functions/_shared/sinal-revisao'
 
 export interface AnaliseIABlockProps {
   /** The allowlist-projected IA analysis, or null when none exists. */
@@ -140,7 +144,12 @@ export function AnaliseIABlock({ analise, isLoading, isError }: AnaliseIABlockPr
           {/* Pontos fortes / Gaps — NA ÍNTEGRA (sem .slice — o corte é só na tabela vaga-level). */}
           <ListaCompleta titulo="Pontos fortes" itens={analise.pontos_fortes} />
           <ListaCompleta titulo="Gaps" itens={analise.gaps} />
-          <ListaCompleta titulo="Sinais de atenção" itens={analise.flags} />
+          {/* 49-41: o código do sinal (`instrucao_ao_modelo`) vira o rótulo pt-BR; os demais
+              códigos voltam como são. O sinal não mexe na nota nem em ação alguma (RNF-07a). */}
+          <ListaCompleta
+            titulo="Sinais de atenção"
+            itens={analise.flags.map((flag) => rotuloDoSinal(flag))}
+          />
         </div>
       )}
     </HubSection>

@@ -389,6 +389,18 @@ describe('Phase 45 — a candidatura encerrada a pedido é LEGÍVEL no RH', () =
   })
 })
 
+/**
+ * 49-41: as classes de COR destrutiva de um elemento (fundo, texto, borda em red/destructive).
+ * Por token, e não por substring: a base do `Badge` carrega `aria-invalid:border-destructive`,
+ * que é estado de formulário inválido e não a cor do elemento — uma busca por substring
+ * reprovaria todo badge, e um portão que reprova tudo não distingue nada.
+ */
+function tomDestrutivo(className: string): string[] {
+  return className
+    .split(/\s+/)
+    .filter((t) => /^(bg|text|border)-(red|destructive)/.test(t))
+}
+
 // ── Phase 49 / plano 49-41 — o sinal de revisão no badge da linha (JORN-41) ──────────
 //
 // A EF da triagem grava `instrucao_ao_modelo` em `analise.flags` quando o texto do
@@ -437,7 +449,7 @@ describe('TriagemTable — o sinal de revisão com rótulo pt-BR (49-41 / JORN-4
     renderSinalizada()
     const badge = screen.getByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO))
     expect(badge.className).toMatch(/amber/)
-    expect(badge.className).not.toMatch(/red|destructive/)
+    expect(tomDestrutivo(badge.className)).toEqual([])
     expect(screen.getByText('78')).toBeInTheDocument()
     expect(screen.getByRole('checkbox')).not.toBeDisabled()
   })

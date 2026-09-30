@@ -155,6 +155,18 @@ describe('AnaliseIABlock — selo de proveniência (49-16 / D-27b / JORN-28)', (
   })
 })
 
+/**
+ * 49-41: as classes de COR destrutiva de um elemento (fundo, texto, borda em red/destructive).
+ * Por token, e não por substring: a base do `Badge` carrega `aria-invalid:border-destructive`,
+ * que é estado de formulário inválido e não a cor do elemento — uma busca por substring
+ * reprovaria todo badge, e um portão que reprova tudo não distingue nada.
+ */
+function tomDestrutivo(className: string): string[] {
+  return className
+    .split(/\s+/)
+    .filter((t) => /^(bg|text|border)-(red|destructive)/.test(t))
+}
+
 // ── Phase 49 / plano 49-41 — o sinal de revisão em «Sinais de atenção» (JORN-41) ─────
 //
 // Decisão (a) do operador (2026-09-29): uma entrada com imperativo nu dirigido à IA é
@@ -185,7 +197,7 @@ describe('AnaliseIABlock — o sinal de revisão com rótulo pt-BR (49-41 / JORN
     render(<AnaliseIABlock analise={comSinal} />)
     const item = screen.getByText(rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO))
     expect(item.closest('div')).toHaveTextContent('Sinais de atenção')
-    expect(item.className).not.toMatch(/red|destructive/)
+    expect(tomDestrutivo(item.className)).toEqual([])
     // o sinal não mexe na nota: o chip continua sendo o do modelo
     expect(screen.getByText('82')).toBeInTheDocument()
   })
