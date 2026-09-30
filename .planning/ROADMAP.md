@@ -486,7 +486,7 @@ Plans:
 
 *Wave 1*
 
-- [ ] 49-36-PLAN.md — RED primeiro: corpus benigno de texto REAL de PROD mascarado (M1..M5 com fronteira de palavra e teto de rotulagem; portões de PII G1/G2 que mordem; leitura humana bloqueante antes do primeiro commit) e contrato de três níveis com limite por frase — as frases honestas da re-verificação, os 5 quase-ataques que regrediram, as formas qualificadas/possessivas rebaixadas a `flag`, o subjuntivo subordinado e o teste de tempo patológico; vermelho contra o detector de hoje nas duas direções (JORN-41)
+- [x] 49-36-PLAN.md — RED primeiro: corpus benigno de texto REAL de PROD mascarado (M1..M5 com fronteira de palavra e teto de rotulagem; portões de PII G1/G2 que mordem; leitura humana bloqueante antes do primeiro commit) e contrato de três níveis com limite por frase — as frases honestas da re-verificação, os 5 quase-ataques que regrediram, as formas qualificadas/possessivas rebaixadas a `flag`, o subjuntivo subordinado e o teste de tempo patológico; vermelho contra o detector de hoje nas duas direções (JORN-41)
 
 *Wave 2*
 
@@ -601,7 +601,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 35/35 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 36/43 | In Progress|  |
 
 ---
 
