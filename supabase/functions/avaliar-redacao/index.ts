@@ -67,6 +67,7 @@ import {
   type DimensaoRubricaVaga,
   montarBlocoRubricaSjt,
 } from "../_shared/sjt-rubrica.ts";
+import { SINAL_INSTRUCAO_AO_MODELO } from "../_shared/sinal-revisao.ts";
 // SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
 // pacote da lista de dependências do deploy (ERR_MODULE_NOT_FOUND no runtime do EF — AVAL-03 gap).
 // Precedente que deploya E passa o `deno test` type-checked: comparativo-candidatos/index.ts.
@@ -438,27 +439,36 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     const { composite, insufficientDaIa, hasInsufficient, desconhecidas } =
       mapDimensionsToComposite(dims, rubricWeights, chavesValidas);
 
-    // <13/25 OU ≥1 red_flag OU qualquer insufficient_evidence → pendente_humano.
+    // JORN-41 / 49-39, decisão (a) do operador (2026-09-29): uma resposta `flag`
+    // (imperativo nu dirigido a quem lê) NÃO recusa a avaliação — o callAi chamou o
+    // modelo e devolveu `injection_flag`. A nota composta é gravada normalmente (o sinal
+    // não a zera); a linha vai para revisão humana e o motivo fica escrito abaixo.
+    const sinalizada = result.injection_flag != null;
+
+    // <13/25 OU ≥1 red_flag OU qualquer insufficient_evidence OU sinal → pendente_humano.
     // JORN-35: dimensão desconhecida marca `hasInsufficient`, então ela cai AQUI —
     // revisão humana. O limiar em si NÃO mudou (RNF-07a: nenhuma rejeição por score).
     const status =
-      composite < 13 || redFlags.length > 0 || hasInsufficient
+      composite < 13 || redFlags.length > 0 || hasInsufficient || sinalizada
         ? "pendente_humano"
         : "sucesso";
 
     // POR QUE esta linha foi para revisão humana. Até 2026-09-22 a linha dizia só
-    // `pendente_humano` e as quatro causas eram indistinguíveis — e elas pedem
-    // consertos OPOSTOS: uma `dimensao_desconhecida` é defeito da AVALIAÇÃO (a IA
-    // inventou o nome da dimensão; o nome devolvido está em `dimensoes_desconhecidas`),
+    // `pendente_humano` e as causas eram indistinguíveis — e elas pedem consertos
+    // OPOSTOS: uma `dimensao_desconhecida` é defeito da AVALIAÇÃO (a IA inventou o nome
+    // da dimensão; o nome devolvido está em `dimensoes_desconhecidas`),
     // `insufficient_evidence` é sobre a RESPOSTA do candidato, `red_flag` é conteúdo
-    // ético/clínico e `abaixo_do_corte` é só a nota. Inferir da ausência de flag
-    // produziria uma explicação plausível e falsa. Lista COMPLETA sempre que houver
-    // motivo — nunca um único motivo escolhido por precedência.
+    // ético/clínico, `abaixo_do_corte` é só a nota, e `instrucao_ao_modelo` (JORN-41) é
+    // uma instrução ao modelo no texto do candidato: a nota VALE, mas o texto precisa
+    // ser lido antes de considerá-la. Inferir da ausência de flag produziria uma
+    // explicação plausível e falsa. Lista COMPLETA sempre que houver motivo — nunca um
+    // único motivo escolhido por precedência.
     const motivosRevisao: string[] = [];
     if (desconhecidas.length > 0) motivosRevisao.push("dimensao_desconhecida");
     if (insufficientDaIa) motivosRevisao.push("insufficient_evidence");
     if (redFlags.length > 0) motivosRevisao.push("red_flag");
     if (composite < 13) motivosRevisao.push("abaixo_do_corte");
+    if (sinalizada) motivosRevisao.push(SINAL_INSTRUCAO_AO_MODELO);
 
     // ── 8. Persiste UMA linha de score (NUNCA toca candidaturas — RNF-07a) ────
     const { error: scoreErr } = await supabaseAdmin.from("scores_candidato").insert({
