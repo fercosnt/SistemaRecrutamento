@@ -514,7 +514,7 @@ Plans:
 
 *Wave 8*
 
-- [ ] 49-43-PLAN.md — Re-revisão adversarial ANTES de publicar (checkpoint); front → migration do cron → 7 EFs redeployadas com fonte publicada byte-igual e o contrato verde sobre o código publicado; front provado pelo chunk lazy; JORN-41 anotado à espera do verificador (JORN-41)
+- [ ] 49-43-PLAN.md — Re-revisão adversarial ANTES de publicar (checkpoint; rodadas -2/-3/-4 feitas, falta o -5 com 0 críticos); migration do cron → `consolidar-decisao-final` → front (marcador `decisao-sjt-sinal-revisao` servido num chunk lazy, portão provado mordente) → 6 EFs de IA → `avaliar-redacao` por último, com fonte publicada byte-igual e o contrato verde sobre o código publicado; JORN-41 anotado à espera do verificador; STATE corrigido sobre a `consolidar` (JORN-41)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
