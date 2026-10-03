@@ -160,3 +160,58 @@ export async function getScores(candidaturaId: string): Promise<ScoreRow[]> {
 
   return (data as unknown as ScoreRow[] | null) ?? []
 }
+
+/**
+ * 49-44 / WR-07 — a situação da resposta do caso aberto da SJT, como a RPC
+ * `ler_resposta_caso_aberto_sjt` a devolve. Só `removida_pelo_titular` nomeia causa (o
+ * marcador `redigido` do motor de exclusão a prova); `indisponivel` não alega por que o
+ * texto falta.
+ */
+export type SituacaoRespostaCasoAberto =
+  | 'disponivel'
+  | 'sem_resposta_enviada'
+  | 'indisponivel'
+  | 'removida_pelo_titular'
+
+/** O texto gravado na resposta do caso aberto (só em `disponivel`), lido pelo RH. */
+export interface RespostaCasoAbertoRh {
+  situacao: SituacaoRespostaCasoAberto
+  texto: string | null
+}
+
+/**
+ * 49-44 / WR-07 — lê, para o RH, o texto que o candidato gravou na resposta do caso aberto
+ * da SJT. A RPC (SECURITY DEFINER) aplica o predicado WR-04 de `rh_le_scores`: administrador,
+ * ou `rh` dono da vaga. Só depois do envio — o rascunho nunca sai.
+ */
+export async function getRespostaCasoAbertoSjt(
+  candidaturaId: string,
+): Promise<RespostaCasoAbertoRh> {
+  if (!candidaturaId) {
+    throw new ScoresRhServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
+  }
+
+  // NARROW confined cast: `ler_resposta_caso_aberto_sjt` ainda não está em `database.types.ts`
+  // (a migration 20261003000001 só é aplicada no 49-45). Só o nome e os args da RPC são
+  // alargados — NÃO um cliente sem tipos. Quem o retira: o primeiro plano que rodar
+  // `npm run db:types < /dev/null` depois do apply do 49-45 apaga este cast no mesmo commit.
+  const { data, error } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: { p_candidatura_id: string },
+  ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>)(
+    'ler_resposta_caso_aberto_sjt',
+    { p_candidatura_id: candidaturaId },
+  )
+
+  if (error) {
+    const code =
+      error.code === '42501' ? 'UNAUTHORIZED' : error.code === 'P0002' ? 'NOT_FOUND' : 'DATABASE_ERROR'
+    throw new ScoresRhServiceError(
+      'Não foi possível carregar a resposta do caso aberto.',
+      code,
+      error,
+    )
+  }
+
+  return data as RespostaCasoAbertoRh
+}

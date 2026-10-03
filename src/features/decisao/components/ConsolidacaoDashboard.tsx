@@ -42,6 +42,8 @@ import type { ConsolidacaoBreakdownRow } from '../schemas/consolidacaoSchema'
 // 49-REVIEW-GAPS-3 CR-02: o rótulo do sinal vem da MESMA fonte que as Edge Functions escrevem
 // (`_shared/sinal-revisao.ts`, zero imports → caminho relativo, como no 49-41/49-42).
 import { rotuloDoSinal } from '../../../../supabase/functions/_shared/sinal-revisao'
+// 49-44 / WR-07: o RH lê, dentro do aviso da SJT, o texto que o aviso manda revisar.
+import { RespostaCasoAbertoSjt } from './RespostaCasoAbertoSjt'
 
 /** Pull the EF `error_code` (e.g. AI_UNAVAILABLE) off a DecisaoServiceError — code-only, no PII. */
 function errorCodeOf(error: unknown): string | undefined {
@@ -75,7 +77,13 @@ const ETAPA_LABEL: Record<string, string> = {
 const MARCADOR_SINAL_SJT = 'decisao-sjt-sinal-revisao'
 
 /** A single breakdown row — neutral presentation, N/A pill for missing etapas. */
-function BreakdownRow({ row }: { row: ConsolidacaoBreakdownRow }) {
+function BreakdownRow({
+  row,
+  candidaturaId,
+}: {
+  row: ConsolidacaoBreakdownRow
+  candidaturaId: string
+}) {
   const label = ETAPA_LABEL[row.etapa] ?? row.etapa
   const sinais = row.sinais_revisao ?? []
 
@@ -133,6 +141,10 @@ function BreakdownRow({ row }: { row: ConsolidacaoBreakdownRow }) {
               <span>{rotuloDoSinal(c)}</span>
             </p>
           ))}
+          {/* 49-44 / WR-07: só no aviso da etapa SJT — o texto lido é o do caso aberto. */}
+          {row.etapa === 'work_sample_sjt' ? (
+            <RespostaCasoAbertoSjt candidaturaId={candidaturaId} />
+          ) : null}
         </div>
       ) : null}
     </li>
@@ -174,7 +186,7 @@ export function ConsolidacaoDashboard({ candidaturaId, vagaId }: ConsolidacaoDas
           </p>
         </div>
       ) : (
-        <ConsolidacaoBody data={data} breakdown={breakdown} />
+        <ConsolidacaoBody data={data} breakdown={breakdown} candidaturaId={candidaturaId} />
       )}
     </AsyncState>
   )
@@ -184,9 +196,11 @@ export function ConsolidacaoDashboard({ candidaturaId, vagaId }: ConsolidacaoDas
 function ConsolidacaoBody({
   data,
   breakdown,
+  candidaturaId,
 }: {
   data: ReturnType<typeof useConsolidacao>['data']
   breakdown: ConsolidacaoBreakdownRow[]
+  candidaturaId: string
 }) {
   return (
     <div className="space-y-8">
@@ -222,7 +236,7 @@ function ConsolidacaoBody({
         <h3 className="text-xl font-semibold text-white">Breakdown por etapa</h3>
         <ul className="divide-y divide-white/10">
           {breakdown.map((row) => (
-            <BreakdownRow key={row.etapa} row={row} />
+            <BreakdownRow key={row.etapa} row={row} candidaturaId={candidaturaId} />
           ))}
         </ul>
       </div>
