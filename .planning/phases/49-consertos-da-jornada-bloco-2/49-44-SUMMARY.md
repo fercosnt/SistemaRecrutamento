@@ -236,3 +236,72 @@ Pronto para o 49-45: tudo o que ele publica existe, está testado e foi ensaiado
 
 - FOUND: os 5 arquivos criados e os 4 modificados; FOUND: commits `fe9c4e2d`, `981445c2`, `25ee0f94`; FOUND: `refs/gsd/49-44/base` = 46f2a52d.
 - PROD (só leitura, depois de tudo): `sem_rpc=true`, `sem_helper=true`, `policies_total=2`, `congela=0`, `ledger=0`.
+
+## Rodada de conserto (REVIEW-GAPS-8)
+
+**Quando:** 2026-10-03, antes do apply do 49-45. **Fonte:** `49-REVIEW-GAPS-8.md` (0 crítico, 6 WARNING, 9 INFO).
+**Disposição, de quem:** decisão do operador em 2026-10-03, verbatim «Aceito», à recomendação do orquestrador:
+(a) as escolhas do planejador do 49-44 ficam aceitas; (c) publicar com os resíduos R1–R4 REGISTRADOS (rota (iii)), sem fechar
+nenhum agora; consertar WR-01, WR-02, WR-03, WR-04 e WR-06 antes do apply. O WR-05 já estava consertado (`3a06c102`).
+Esta seção registra o que foi feito. A disposição formal de cada achado no 49-45-SUMMARY continua sendo do executor do 49-45.
+
+| Achado | Disposição | Commit(s) |
+|---|---|---|
+| WR-01 | Consertado. O estado passou a ser `removida`, neutro, com a mesma detecção (`respostas ? 'redigido'`). A cópia da tela agora é «O texto desta resposta não está mais disponível.». O cabeçalho (ESTADOS), o `COMMENT ON FUNCTION`, o docblock do serviço e o da tela dizem por que o estado é neutro: o motor grava o MESMO marcador no direito do titular e na purga de retenção (`v_ramo_purga`, `purgar-retencao/index.ts:520`). Dois testes novos: o serviço recusa o literal antigo como fora do contrato, e a frase de `removida` não pode atribuir causa | `756a951e` (código), `ea6a45e9` (PLAN) |
+| WR-02 | Consertado. A sonda nova fica em (d): `sub` válido (o dono da vaga) com `app_metadata` vazio deve dar 42501. A mutação M9 troca `coalesce(v_role, '') NOT IN` por `v_role NOT IN`. A sonda ficou DENTRO de (d), e não numa cláusula nova, porque é mais uma negativa da guarda sobre a mesma fixture. Assim **o esperado segue 9**, e nenhum consumidor do `esperado === 9` (49-45 Task 2, `<verify>` 2 e must_haves) muda | `10e6ee18`, `ea6a45e9` |
+| WR-03 | Consertado no texto. A rota (i) fecha R1 e a edição na mesma aba só ENQUANTO o envio está pendente. Ela NÃO fecha a edição na mesma aba depois que o cliente desiste da resposta da EF. Medido em `SjtCasoAbertoScreen.tsx`: o `catch` em `:146-152`, o `finally { setSubmitting(false) }` em `:153-155`, e o `Textarea` em `:233-241` sem `disabled`/`readOnly`. Corrigido no cabeçalho da migration, na escolha 4, no item (c) do 49-45 e na linha do STATE da Task 3 do 49-45 | `e43efa00`, `1cc8e5b9`, `ea6a45e9` |
+| WR-04 | Consertado no texto. **R4** está nomeado no cabeçalho, na escolha 4, na T-49-44-13, no item (c) e na linha do STATE do 49-45: depois da linha de score, um cliente modificado chama a EF com outra pergunta de caso aberto, e nasce uma segunda nota sobre outro texto enquanto o RH lê o primeiro. «NENHUMA das rotas (i)–(iii) fecha R4». Não é alegado fechado. O `<verify>` da linha do STATE passou a exigir `R4` | `7e1db519`, `1cc8e5b9`, `ea6a45e9` |
+| WR-05 | Já consertado antes desta rodada | `3a06c102` |
+| WR-06 | Consertado. Há três comandos LITERAIS no 49-45: Task 2 Passo 0, Task 3 Passo 1 (enumeração + `git push origin "$S":refs/heads/main`) e Task 3 Passo 4. A enumeração julga pelos ARQUIVOS (`git diff-tree`). Commit só em `.planning/` passa. Código só passa se TODOS os arquivos forem da lista dos nove do 49-44 E o assunto for `feat\|test\|fix\|refactor(49-44)`. `docs(…)` não é passe para código, e merge no intervalo = PARAR | `c696e7e7` |
+| IN-07 | Tocado só onde a edição do WR-01 passou: o parágrafo ESTADOS do cabeçalho agora diz «escolha 5 do planejador, vetável no 49-45 (a)». As outras marcas do IN-07 ficam como estavam | `756a951e` |
+| IN-01..IN-06, IN-08, IN-09 | Não tocados, fora do pedido desta rodada. O IN-01 propunha chamar de «R4» a janela do flush antigo em voo. O operador fixou R4 = a janela do WR-04, então a do IN-01 segue sem nome | — |
+
+**Migration nova:** `supabase/migrations/20261003000001_p49_44_resposta_caso_aberto_rh.sql`, 29851 octetos,
+**md5 `7750c40767d99f7c8dc597ece70172be`**. O md5 antes desta rodada era `8cb2400f0d9df453301cc6ad5e0c0302`.
+
+**Mutações** (`node scripts/p49_44_mutacoes.cjs`, 2026-10-03; cada requisição aborta, sem `LOCK TIMEOUT` nem `STATEMENT TIMEOUT`):
+
+| Rodada | Inversão | Reprovou em | Rótulos (g) | ms |
+|---|---|---|---|---|
+| CONTROLE | — | sentinela, sem FAIL | — | 770 |
+| M1 | RPC sem a posse do `rh` | (d) | — | 724 |
+| M2 | RPC sem a guarda de papel inteira | (d) | — | 643 |
+| M3 | RPC sem a condição de envio | (e) | — | 660 |
+| M4 | helper sempre falso | (g) | upsert,upd,del,md5,g_ins | 1367 |
+| M5 | `GRANT EXECUTE` da RPC a anon | (a) | — | 708 |
+| M6 | `_ins` sem `AS RESTRICTIVE` | (g) | g_ins | 1029 |
+| M7 | `_upd` sem `AS RESTRICTIVE` | (g) | upd,md5 | 785 |
+| M8 | `_del` sem `AS RESTRICTIVE` | (g) | del,md5 | 2571 |
+| **M9** | guarda sem o `coalesce` (papel nulo com `sub` válido) | **(d)** | — | 1206 |
+
+Linha final: «controle verde; 9/9 mutacoes mordem; nada persistiu». (d) tem várias sondas, e o runner só confere a letra.
+Por isso a M9 foi rodada mais uma vez, numa requisição que também aborta, para ler a mensagem. Ela reprova na sonda NOVA:
+`P49C FAIL (d): sub VALIDO (o dono da vaga) SEM app_metadata.role devolveu «ACEITO:disponivel» (esperado 42501)`. Sem o
+`coalesce`, o texto teria saído. O sentinela não foi alcançado.
+
+**PROD limpo** (`node p46apply.cjs sql`, `set transaction read only`, depois das duas execuções):
+`{"sem_rpc":true,"sem_helper":true,"politicas":0,"ledger":0,"policies_total":2}`. As duas funções estão ausentes, há 0 políticas
+`cand_congela_caso_aberto%`, o ledger não tem `20261003000001`, e a tabela segue com as 2 policies do titular.
+
+**Portões depois da rodada:**
+- `CI=true npx vitest run`: 219 arquivos, **2410 testes** (eram 2408; +2 desta rodada), exit 0.
+- `npx tsc --noEmit | grep -c "error TS"` = **89**.
+- `npm run build`: exit 0. O marcador `decisao-sjt-resposta-caso-aberto` está só em `build/assets/DecisaoFinalPage-Zw-MAwxN.js`, o chunk lazy. A cópia nova está no mesmo chunk, e a antiga não aparece em nenhum.
+- Os `<verify>` estáticos 0, 3, 4, 6 e 10 do 49-44-PLAN estão verdes sobre o código consertado: tracer, congelamento, contrato `esperado=9`, varredura D-56 (326 linhas, 0 achados) e invariantes.
+- `supabase/functions/_shared/sinal-revisao.ts` e `database.types.ts` estão byte-iguais à base: o blob `196a4801…` do `sinal-revisao.ts` é o mesmo na base, em HEAD e na árvore. `supabase/functions/` não foi tocado.
+
+**WR-06, prova dos comandos antes de escrevê-los no plano** (nada empurrado; o remoto real não foi contactado na simulação):
+- Os três comandos passam pelo `~/.claude/hooks/guard-git.sh` real (exit 0). Os controles do hook são barrados (exit 2): `push … -f`, e `cut -f1` DEPOIS da palavra `push`. O hook casa ` -f` em qualquer ponto depois de `push`, no texto inteiro do comando Bash e não só em comandos que começam por `git`. Um `cut -f1` ANTES do `push` passa. Os comandos do plano não têm ` -f` em lugar nenhum.
+- A simulação rodou num clone de rascunho com um `origin` bare de rascunho, com o push trocado por `echo`, em bash e em zsh. Os três comandos dão verde. O Passo 4 morde quando o commit do STATE carrega outro arquivo.
+- Num repo de rascunho, a enumeração morde nos três casos: `docs(49-45)` com código, `fix(49-44)` com arquivo fora da lista, e merge no intervalo. Os três saem 1.
+- No repo real, `refs/gsd/49-44/base..HEAD` deu 11 commits classificados, `enumeracao ok`. O ref `refs/gsd/49-45/sha` NÃO foi criado.
+
+**Commits desta rodada:** `756a951e`, `10e6ee18`, `e43efa00`, `7e1db519` (fix(49-44)); `1cc8e5b9`, `c696e7e7` (docs(49-45));
+`ea6a45e9` (docs(49-44), PLAN); e este SUMMARY. **Nenhum push. Nada persistido em PROD.** O `REQUIREMENTS.md` não foi tocado,
+e o JORN-41 segue `[ ]`.
+
+**Consequência para o 49-45:** código fora de `.planning/` e o `49-45-PLAN.md` mudaram depois do `reviewed_head`
+(`e2f1f500`) do REVIEW-GAPS-8. Por isso o `<verify>` da Task 1 do 49-45 fica VERMELHO por construção até existir uma re-revisão
+`49-REVIEW-GAPS-9.md`, que é o passo 3 da própria Task 1. Registrado e não reescrito: a linha de log do `STATE.md` (`[Phase 49]: 49-44: …`)
+ainda diz «8/8 mutações» e «R1–R3». Ela é a entrada datada de quando o 49-44 fechou, e quem fechar o 49-45 acrescenta uma linha
+nova.
