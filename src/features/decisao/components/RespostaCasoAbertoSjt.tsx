@@ -9,8 +9,10 @@
  * Nada aqui é desabilitado, nem durante o carregamento: o sinal pede leitura, não trava ação
  * (RNF-07a).
  *
- * Cópia: nenhuma frase nomeia mecanismo de IA nem causa que o servidor não provou (só
- * `removida_pelo_titular` nomeia causa, provada pelo marcador do motor de exclusão), e nenhuma
+ * Cópia: nenhuma frase nomeia mecanismo de IA nem causa. `removida` é NEUTRO de propósito: o
+ * marcador `redigido` prova que o motor de exclusão redigiu o texto, não quem pediu — o motor
+ * grava o mesmo marcador no direito do titular e na purga de retenção, e dizer «a pedido do
+ * titular» afirmaria ao RH um exercício de direito LGPD que pode não ter havido. Nenhuma frase
  * diz que o texto mostrado é o que foi avaliado — o mecanismo não garante isso (R1–R3 no
  * cabeçalho da migration 20261003000001).
  *
@@ -28,7 +30,7 @@ export const COPY_RESPOSTA_CASO_ABERTO = {
   botaoOcultar: 'Ocultar a resposta',
   titulo: 'Resposta do candidato ao caso aberto',
   carregando: 'Carregando a resposta…',
-  removidaPeloTitular: 'O texto foi removido a pedido do titular dos dados.',
+  removida: 'O texto desta resposta não está mais disponível.',
   indisponivel: 'O texto desta resposta não está disponível.',
   semRespostaEnviada: 'Não há resposta enviada ao caso aberto.',
   erro: 'Não foi possível carregar a resposta.',
@@ -86,8 +88,8 @@ function RespostaCasoAbertoConteudo({ candidaturaId }: { candidaturaId: string }
   }
 
   const frase =
-    data.situacao === 'removida_pelo_titular'
-      ? COPY.removidaPeloTitular
+    data.situacao === 'removida'
+      ? COPY.removida
       : data.situacao === 'sem_resposta_enviada'
         ? COPY.semRespostaEnviada
         : COPY.indisponivel

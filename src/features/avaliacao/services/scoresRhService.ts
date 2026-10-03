@@ -163,15 +163,16 @@ export async function getScores(candidaturaId: string): Promise<ScoreRow[]> {
 
 /**
  * 49-44 / WR-07 — a situação da resposta do caso aberto da SJT, como a RPC
- * `ler_resposta_caso_aberto_sjt` a devolve. Só `removida_pelo_titular` nomeia causa (o
- * marcador `redigido` do motor de exclusão a prova); `indisponivel` não alega por que o
- * texto falta.
+ * `ler_resposta_caso_aberto_sjt` a devolve. Nenhum estado nomeia causa: `removida` diz só
+ * que o marcador `redigido` do motor de exclusão está na linha — o motor grava o MESMO
+ * marcador no direito do titular e na purga de retenção, então ele não prova quem pediu;
+ * `indisponivel` não alega por que o texto falta.
  */
 export const SITUACOES_RESPOSTA_CASO_ABERTO = [
   'disponivel',
   'sem_resposta_enviada',
   'indisponivel',
-  'removida_pelo_titular',
+  'removida',
 ] as const
 
 export type SituacaoRespostaCasoAberto = (typeof SITUACOES_RESPOSTA_CASO_ABERTO)[number]

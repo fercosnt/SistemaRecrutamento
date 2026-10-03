@@ -39,10 +39,16 @@
 --   (3) Só depois do envio: o texto sai só quando existe a linha `scores_candidato`
 --       `sjt`/`caso_aberto`; o rascunho de um caso aberto não enviado nunca sai.
 --
--- ESTADOS (sem causa inventada): `disponivel` (texto inteiro, sem aparar); `sem_resposta_enviada`
---   (sem a linha de score; `texto` nulo mesmo havendo rascunho); `indisponivel` (enviado, e sem
---   texto gravado — a função não alega por quê); `removida_pelo_titular` (o marcador `redigido`
---   que o motor de exclusão grava prova a causa). Sempre as duas chaves, `situacao` e `texto`.
+-- ESTADOS (sem causa inventada; escolha 5 do planejador, vetável no 49-45 (a)): `disponivel`
+--   (texto inteiro, sem aparar); `sem_resposta_enviada` (sem a linha de score; `texto` nulo mesmo
+--   havendo rascunho); `indisponivel` (enviado, e sem texto gravado — a função não alega por quê);
+--   `removida` (o marcador `redigido` está na linha). `removida` é NEUTRO de propósito: o marcador
+--   prova que o MOTOR de exclusão redigiu o texto, não QUEM pediu. O motor tem dois ramos e os
+--   dois gravam o MESMO `{"redigido":"anonimizacao_p49"}`: (I) o direito do titular, via
+--   `executar-direito-titular`; (II) a purga de retenção, via `purgar-retencao`
+--   (20260923000002, `v_ramo_purga`). Um estado que dissesse «a pedido do titular» afirmaria ao
+--   RH, sobre uma candidatura purgada por retenção, um exercício de direito LGPD que ninguém fez.
+--   Sempre as duas chaves, `situacao` e `texto`.
 --
 -- POR QUE CONGELAR (escolha 4 do planejador; medição do código em 2026-10-03).
 --   A tela do caso aberto reaberta depois do envio começa com o buffer vazio, e o `onBlur` do
@@ -239,7 +245,8 @@ BEGIN
     RETURN jsonb_build_object('situacao', 'sem_resposta_enviada', 'texto', NULL);
   END IF;
 
-  -- (iv) O texto gravado. Só `removida_pelo_titular` nomeia causa (o marcador do motor a prova).
+  -- (iv) O texto gravado. `removida` não nomeia causa: o marcador prova a redação pelo motor,
+  --      e o motor grava o mesmo marcador no direito do titular e na purga de retenção.
   SELECT ra.respostas INTO v_resp
     FROM public.respostas_avaliacao ra
    WHERE ra.candidatura_id = p_candidatura_id
@@ -248,7 +255,7 @@ BEGIN
     RETURN jsonb_build_object('situacao', 'indisponivel', 'texto', NULL);
   END IF;
   IF jsonb_typeof(v_resp) = 'object' AND v_resp ? 'redigido' THEN
-    RETURN jsonb_build_object('situacao', 'removida_pelo_titular', 'texto', NULL);
+    RETURN jsonb_build_object('situacao', 'removida', 'texto', NULL);
   END IF;
   IF jsonb_typeof(v_resp) = 'object'
      AND jsonb_typeof(v_resp -> 'texto') = 'string'
@@ -264,7 +271,7 @@ REVOKE ALL ON FUNCTION public.ler_resposta_caso_aberto_sjt(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.ler_resposta_caso_aberto_sjt(uuid) TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.ler_resposta_caso_aberto_sjt(uuid) IS
-  'P49-44 / WR-07: devolve ao RH o texto que o candidato gravou na resposta do caso aberto da SJT, para revisar o sinal da Decisao Final. Predicado WR-04 (o de rh_le_scores): administrador, ou rh dono da vaga (vagas.created_by = auth.uid()); guarda fail-closed. So depois do envio (linha scores_candidato sjt/caso_aberto) — nunca o rascunho. Retorno {situacao, texto}: disponivel | sem_resposta_enviada | indisponivel | removida_pelo_titular.';
+  'P49-44 / WR-07: devolve ao RH o texto que o candidato gravou na resposta do caso aberto da SJT, para revisar o sinal da Decisao Final. Predicado WR-04 (o de rh_le_scores): administrador, ou rh dono da vaga (vagas.created_by = auth.uid()); guarda fail-closed. So depois do envio (linha scores_candidato sjt/caso_aberto) — nunca o rascunho. Retorno {situacao, texto}: disponivel | sem_resposta_enviada | indisponivel | removida. removida e neutro: o marcador redigido prova a redacao pelo motor de exclusao, nao quem a pediu (o motor grava o mesmo marcador no direito do titular e na purga de retencao).';
 
 
 -- ─────────────────────────────────────────────────────────────────────────────

@@ -135,8 +135,13 @@ describe('scoresRhService — getRespostaCasoAbertoSjt (contrato da RPC ler_resp
 
   it('SITUACOES_RESPOSTA_CASO_ABERTO são exatamente os quatro literais da RPC', () => {
     expect([...SITUACOES_RESPOSTA_CASO_ABERTO].sort()).toEqual(
-      ['disponivel', 'indisponivel', 'removida_pelo_titular', 'sem_resposta_enviada'].sort(),
+      ['disponivel', 'indisponivel', 'removida', 'sem_resposta_enviada'].sort(),
     )
+  })
+
+  it('o literal antigo removida_pelo_titular (alegava causa; WR-01 do REVIEW-GAPS-8) é recusado como fora do contrato', async () => {
+    rpcDevolve({ situacao: 'removida_pelo_titular', texto: null })
+    await expect(getRespostaCasoAbertoSjt('c-1')).rejects.toMatchObject({ code: 'DATABASE_ERROR' })
   })
 
   it('situacao fora da lista → DATABASE_ERROR, sem ecoar o retorno na mensagem', async () => {
@@ -157,7 +162,7 @@ describe('scoresRhService — getRespostaCasoAbertoSjt (contrato da RPC ler_resp
     await expect(getRespostaCasoAbertoSjt('c-1')).rejects.toMatchObject({ code: 'DATABASE_ERROR' })
   })
 
-  it.each(['sem_resposta_enviada', 'indisponivel', 'removida_pelo_titular'] as const)(
+  it.each(['sem_resposta_enviada', 'indisponivel', 'removida'] as const)(
     '%s → texto normalizado para null (mesmo se a RPC mandasse algo)',
     async (situacao) => {
       rpcDevolve({ situacao, texto: 'nao deveria aparecer' })

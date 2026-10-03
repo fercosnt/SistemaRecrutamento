@@ -55,7 +55,7 @@ describe('RespostaCasoAbertoSjt — cópia exportada (49-44)', () => {
       botaoOcultar: 'Ocultar a resposta',
       titulo: 'Resposta do candidato ao caso aberto',
       carregando: 'Carregando a resposta…',
-      removidaPeloTitular: 'O texto foi removido a pedido do titular dos dados.',
+      removida: 'O texto desta resposta não está mais disponível.',
       indisponivel: 'O texto desta resposta não está disponível.',
       semRespostaEnviada: 'Não há resposta enviada ao caso aberto.',
       erro: 'Não foi possível carregar a resposta.',
@@ -68,6 +68,12 @@ describe('RespostaCasoAbertoSjt — cópia exportada (49-44)', () => {
     for (const frase of Object.values(COPY_RESPOSTA_CASO_ABERTO ?? {})) {
       expect(frase).not.toMatch(/\bIA\b|intelig[eê]ncia|modelo|analisad|avaliad/i)
     }
+  })
+
+  it('a frase de `removida` não atribui causa: o marcador sai do motor no direito do titular E na purga de retenção (WR-01 do REVIEW-GAPS-8)', () => {
+    expect(COPY_RESPOSTA_CASO_ABERTO.removida).not.toMatch(
+      /titular|pedido|solicit|exclus|purga|reten|LGPD|pol[ií]tica|apagad|removid/i,
+    )
   })
 })
 
@@ -111,7 +117,7 @@ describe('RespostaCasoAbertoSjt — leitura sob demanda (49-44 / WR-07)', () => 
   })
 
   it.each([
-    ['removida_pelo_titular', 'removidaPeloTitular'],
+    ['removida', 'removida'],
     ['indisponivel', 'indisponivel'],
     ['sem_resposta_enviada', 'semRespostaEnviada'],
   ] as const)('%s → a frase própria (COPY.%s), e nada desabilitado', async (situacao, chave) => {
@@ -120,7 +126,7 @@ describe('RespostaCasoAbertoSjt — leitura sob demanda (49-44 / WR-07)', () => 
     vi.mocked(getRespostaCasoAbertoSjt).mockResolvedValue({ situacao, texto: null })
     await abrir()
     expect(await screen.findByText(frase)).toBeInTheDocument()
-    for (const outra of [COPY.removidaPeloTitular, COPY.indisponivel, COPY.semRespostaEnviada]) {
+    for (const outra of [COPY.removida, COPY.indisponivel, COPY.semRespostaEnviada]) {
       if (outra !== frase) expect(screen.queryByText(outra)).toBeNull()
     }
     nadaDesabilitado()

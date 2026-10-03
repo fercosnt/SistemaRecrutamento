@@ -51,8 +51,9 @@
 --       `candidato` com `sub` = o titular de A ⇒ 42501; candidatura inexistente com claims `rh` do
 --       dono ⇒ 42501 (inexistente e alheia indistinguíveis); inexistente com administrador ⇒ P0002.
 --   (e) B ⇒ `sem_resposta_enviada`, `texto` nulo, e nem o rascunho nem o md5 dele aparecem no
---       retorno; C ⇒ `indisponivel`; D ⇒ `removida_pelo_titular`; E (encerrada) ⇒ `disponivel` para
---       o dono, com o texto de E.
+--       retorno; C ⇒ `indisponivel`; D ⇒ `removida`; E (encerrada) ⇒ `disponivel` para
+--       o dono, com o texto de E. `removida` é neutro: o marcador `redigido` sai do motor de
+--       exclusão tanto no direito do titular quanto na purga de retenção, e não prova quem pediu.
 --   (f) Sob `SET LOCAL ROLE authenticated`, `count(*)` direto de `respostas_avaliacao` da
 --       candidatura A = 0 para o RH dono, o administrador e o titular de F; como `postgres` = 1
 --       (população). Sob `SET LOCAL ROLE anon`, nem contagem ≥ 1 nem leitura: o retorno registra
@@ -70,7 +71,7 @@
 --       VÁCUA (o controle não passou), não «portão aberto».
 --   (h) Como `postgres` (o papel do motor `anonimizar_candidato`, SECURITY DEFINER, dono da tabela,
 --       sem FORCE RLS), o UPDATE de F para o marcador `redigido` afeta 1 linha, e a RPC com claims
---       do dono devolve `removida_pelo_titular`. No catálogo: `relforcerowsecurity` falso; toda
+--       do dono devolve `removida`. No catálogo: `relforcerowsecurity` falso; toda
 --       sobrecarga de `anonimizar_candidato` é `prosecdef` com dono = dono de `respostas_avaliacao`
 --       (população: ≥ 1 sobrecarga).
 --   (z) nada das fixtures sobrevive; contagens globais = baseline capturada NA execução.
@@ -572,7 +573,7 @@ BEGIN
   IF e_c_state IS DISTINCT FROM 'ACEITO' OR e_c_ret ->> 'situacao' IS DISTINCT FROM 'indisponivel' OR e_c_ret -> 'texto' IS DISTINCT FROM 'null'::jsonb THEN
     RAISE EXCEPTION 'P49C FAIL (e): C (enviada, sem autosave) devolveu estado «%» e %', e_c_state, e_c_ret;
   END IF;
-  IF e_d_state IS DISTINCT FROM 'ACEITO' OR e_d_ret ->> 'situacao' IS DISTINCT FROM 'removida_pelo_titular' OR e_d_ret -> 'texto' IS DISTINCT FROM 'null'::jsonb THEN
+  IF e_d_state IS DISTINCT FROM 'ACEITO' OR e_d_ret ->> 'situacao' IS DISTINCT FROM 'removida' OR e_d_ret -> 'texto' IS DISTINCT FROM 'null'::jsonb THEN
     RAISE EXCEPTION 'P49C FAIL (e): D (enviada, redigida pelo motor) devolveu estado «%» e %', e_d_state, e_d_ret;
   END IF;
   IF e_e_encerrada IS DISTINCT FROM true THEN
@@ -619,8 +620,8 @@ BEGIN
   PERFORM set_config('smoke4944.pass', (current_setting('smoke4944.pass')::int + 1)::text, false);
 
   -- (h)
-  IF h_upd IS DISTINCT FROM 1 OR h_state IS DISTINCT FROM 'ACEITO' OR h_sit IS DISTINCT FROM 'removida_pelo_titular' THEN
-    RAISE EXCEPTION 'P49C FAIL (h): como postgres, o UPDATE de F para o marcador redigido afetou % linha(s) (esperado 1) e a RPC do dono devolveu estado «%» situacao=% (esperado removida_pelo_titular) — o congelamento nao pode impedir o motor de exclusao',
+  IF h_upd IS DISTINCT FROM 1 OR h_state IS DISTINCT FROM 'ACEITO' OR h_sit IS DISTINCT FROM 'removida' THEN
+    RAISE EXCEPTION 'P49C FAIL (h): como postgres, o UPDATE de F para o marcador redigido afetou % linha(s) (esperado 1) e a RPC do dono devolveu estado «%» situacao=% (esperado removida) — o congelamento nao pode impedir o motor de exclusao',
       h_upd, h_state, h_sit;
   END IF;
   IF h_force IS DISTINCT FROM false OR h_n_anon < 1 OR h_n_ok IS DISTINCT FROM h_n_anon THEN
