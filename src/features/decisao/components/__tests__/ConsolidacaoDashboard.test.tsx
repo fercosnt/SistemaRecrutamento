@@ -11,6 +11,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import type { ConsolidacaoBreakdownRow } from '../../schemas/consolidacaoSchema'
 import { ROTULO_SINAL } from '../../../../../supabase/functions/_shared/sinal-revisao'
@@ -21,6 +22,7 @@ vi.mock('../../hooks/useConsolidacao', () => ({
 
 import { ConsolidacaoDashboard } from '../ConsolidacaoDashboard'
 import { useConsolidacao } from '../../hooks/useConsolidacao'
+import { COPY_RESPOSTA_CASO_ABERTO } from '../RespostaCasoAbertoSjt'
 
 function ctx(etapa: string, normalized: number | null): ConsolidacaoBreakdownRow {
   return { etapa, normalized, status: 'context', weight: null, effective_weight: null }
@@ -153,5 +155,63 @@ describe('ConsolidacaoDashboard — CR-02 sinal de revisão da etapa SJT', () =>
 
     expect(screen.queryByTestId('decisao-sjt-sinal-revisao')).toBeNull()
     expect(screen.queryByText(ROTULO)).toBeNull()
+  })
+})
+
+// ── 49-44 / WR-07: o botão de leitura do caso aberto mora DENTRO do aviso da SJT ─────────────
+//
+// O aviso manda «revise o texto»; o botão que busca o texto aparece só ali. Outra etapa com sinal
+// (redação, transcrição) já tem o texto ao lado do rótulo noutras telas e não ganha o botão.
+describe('ConsolidacaoDashboard — 49-44 botão da resposta do caso aberto', () => {
+  // Lido dentro de cada teste (antes da implementação a constante não existe: reprova na asserção).
+  const nomeBotao = () => COPY_RESPOSTA_CASO_ABERTO?.botaoAbrir ?? '<COPY ausente>'
+
+  function breakdown(sjt: ConsolidacaoBreakdownRow, redacao: ConsolidacaoBreakdownRow) {
+    return [ctx('triagem', 90), sjt, redacao, na('entrevista'), ctx('big_five', null), ctx('cognitivo', null)]
+  }
+
+  it('SJT com sinal → o botão está DENTRO de decisao-sjt-sinal-revisao', () => {
+    mockConsolidacao(
+      73.94,
+      breakdown(
+        { ...present('work_sample_sjt', 68.57, 30), sinais_revisao: ['instrucao_ao_modelo'] },
+        present('redacao_cultural', 80, 20),
+      ),
+      'Sugestão advisory — a decisão final é sempre humana (RNF-07a).',
+    )
+    render(<ConsolidacaoDashboard candidaturaId="cand-1" vagaId="v1" />)
+
+    const aviso = screen.getByTestId('decisao-sjt-sinal-revisao')
+    expect(within(aviso).getByRole('button', { name: nomeBotao() })).toBeInTheDocument()
+    expect(within(aviso).getByTestId('decisao-sjt-resposta-caso-aberto')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: nomeBotao() })).toHaveLength(1)
+  })
+
+  it('SJT sem sinal → sem botão', () => {
+    mockConsolidacao(
+      73.94,
+      breakdown(present('work_sample_sjt', 68.57, 30), present('redacao_cultural', 80, 20)),
+      'Sugestão advisory — a decisão final é sempre humana (RNF-07a).',
+    )
+    render(<ConsolidacaoDashboard candidaturaId="cand-1" vagaId="v1" />)
+
+    expect(screen.queryByRole('button', { name: nomeBotao() })).toBeNull()
+    expect(screen.queryByTestId('decisao-sjt-resposta-caso-aberto')).toBeNull()
+  })
+
+  it('outra etapa com sinais_revisao (redacao_cultural) → aviso sem botão', () => {
+    mockConsolidacao(
+      73.94,
+      breakdown(
+        present('work_sample_sjt', 68.57, 30),
+        { ...present('redacao_cultural', 80, 20), sinais_revisao: ['instrucao_ao_modelo'] },
+      ),
+      'Sugestão advisory — a decisão final é sempre humana (RNF-07a).',
+    )
+    render(<ConsolidacaoDashboard candidaturaId="cand-1" vagaId="v1" />)
+
+    expect(screen.getByTestId('decisao-etapa-sinal-revisao')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: nomeBotao() })).toBeNull()
+    expect(screen.queryByTestId('decisao-sjt-resposta-caso-aberto')).toBeNull()
   })
 })

@@ -167,11 +167,18 @@ export async function getScores(candidaturaId: string): Promise<ScoreRow[]> {
  * marcador `redigido` do motor de exclusão a prova); `indisponivel` não alega por que o
  * texto falta.
  */
-export type SituacaoRespostaCasoAberto =
-  | 'disponivel'
-  | 'sem_resposta_enviada'
-  | 'indisponivel'
-  | 'removida_pelo_titular'
+export const SITUACOES_RESPOSTA_CASO_ABERTO = [
+  'disponivel',
+  'sem_resposta_enviada',
+  'indisponivel',
+  'removida_pelo_titular',
+] as const
+
+export type SituacaoRespostaCasoAberto = (typeof SITUACOES_RESPOSTA_CASO_ABERTO)[number]
+
+function isSituacaoRespostaCasoAberto(v: unknown): v is SituacaoRespostaCasoAberto {
+  return typeof v === 'string' && (SITUACOES_RESPOSTA_CASO_ABERTO as readonly string[]).includes(v)
+}
 
 /** O texto gravado na resposta do caso aberto (só em `disponivel`), lido pelo RH. */
 export interface RespostaCasoAbertoRh {
@@ -213,5 +220,23 @@ export async function getRespostaCasoAbertoSjt(
     )
   }
 
-  return data as RespostaCasoAbertoRh
+  // Valida o contrato antes de entregar à tela: um texto não vira «indisponível» em silêncio,
+  // nem o contrário. A mensagem NUNCA ecoa o retorno (é texto pessoal do candidato).
+  const ret = data as { situacao?: unknown; texto?: unknown } | null
+  if (typeof ret !== 'object' || ret === null || Array.isArray(ret) || !isSituacaoRespostaCasoAberto(ret.situacao)) {
+    throw new ScoresRhServiceError(
+      'Resposta do caso aberto em formato inesperado.',
+      'DATABASE_ERROR',
+    )
+  }
+  if (ret.situacao === 'disponivel') {
+    if (typeof ret.texto !== 'string' || ret.texto.trim() === '') {
+      throw new ScoresRhServiceError(
+        'Resposta do caso aberto em formato inesperado.',
+        'DATABASE_ERROR',
+      )
+    }
+    return { situacao: 'disponivel', texto: ret.texto }
+  }
+  return { situacao: ret.situacao, texto: null }
 }
