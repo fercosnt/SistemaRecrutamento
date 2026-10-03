@@ -5,7 +5,33 @@
 | **Requirement coberto** | **INVENT-02** (parcial — ver status abaixo) |
 | **Data de coleta** | **2026-07-29** |
 | **Ambiente** | PROD (`isljnozzlvckrgjjbjwp`) |
-| **Status** | ⚠ **PARCIAL** — metade Storage entregue · **metade PITR NÃO VERIFICADA** |
+| **Status** | ✅ **COMPLETO como fato** (2026-10-03) — Storage sem backup · **PITR DESLIGADO**, medido pela Management API. ⚠ A *decisão* de ligá-lo ou não segue do operador |
+
+---
+
+## ✅ Medido em 2026-10-03 — Management API, `GET /v1/projects/isljnozzlvckrgjjbjwp/database/backups`
+
+Fonte: **a API** (caminho A), com o token do Keychain (serviço «Supabase CLI»). Não é o dashboard.
+
+| Campo | Valor medido |
+|-------|--------------|
+| `pitr_enabled` | **`false`** |
+| `walg_enabled` | `true` |
+| `physical_backup_data` | `{}` — **não há janela PITR** (`earliest_physical_backup_date_unix` ausente) |
+| `region` | `us-east-1` |
+| backups listados | **8 diários**, todos `COMPLETED`, `is_physical_backup: true`, de `2026-09-26T06:23Z` a `2026-10-03T06:31Z` (~1 por dia, por volta das 06:25 UTC) |
+
+**Leitura:** o banco tem backup **diário** com cerca de 7 dias de retenção, e **nenhuma**
+recuperação a um instante arbitrário. O pior caso de uma escrita errada na metade Postgres é perder
+até ~24 h de dado, voltando ao backup diário anterior, e não «perder tudo». O Storage segue sem
+backup algum (seção abaixo, inalterada).
+
+A Phase 45 foi executada **nesta** condição: os SUMMARYs dela já dizem «sem PITR e com o Storage
+fora de todo backup» (`45-16-SUMMARY.md`). Este registro transforma em fato datado o que lá era
+premissa. **Ligar o PITR continua sendo decisão de gasto do operador**: este documento mede, não
+decide.
+
+As seções «⛔ Status» e «❌ O que falta» abaixo são o registro de 2026-07-29 e ficam como histórico.
 
 ---
 
