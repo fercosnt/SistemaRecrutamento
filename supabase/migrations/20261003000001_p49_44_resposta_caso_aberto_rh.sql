@@ -103,13 +103,20 @@
 --     da EF antes e depois dela. Durante a chamada o campo segue editável (`submitting` só
 --     desabilita o botão), e o debounce de 30 s ou o `onBlur` gravam o texto editado antes de a
 --     linha nascer. Uma segunda aba ou um segundo aparelho do mesmo candidato fazem o mesmo, e
---     também um cliente que desistiu da resposta da EF enquanto a EF terminava.
+--     também um cliente que desistiu da resposta da EF enquanto a EF terminava — e este caso
+--     acontece NA MESMA ABA: `avaliarRedacao` falha do lado do cliente (rede, aba em segundo
+--     plano, fetch abortado) enquanto a EF segue até o `insert`; `handleSubmit` cai no `catch`
+--     («Tente novamente») e o `finally` põe `submitting=false` (`SjtCasoAbertoScreen.tsx:146-155`,
+--     medido em 2026-10-03); o `Textarea`, que nunca foi travado (`:233-241`, sem `disabled` nem
+--     `readOnly`), é editado, e o `onBlur` ou o debounce gravam o texto novo antes de a linha nascer.
 --   · R3, cliente modificado. A `avaliar-redacao` não grava o texto que recebe (`body.texto` vai
 --     só para `callAi`). O autosave e o corpo da EF são duas escritas independentes do cliente, e
 --     um cliente modificado pode mandar um texto à EF e gravar outro.
 --   Rotas conhecidas, nenhuma escolhida aqui: (i) na tela do candidato, não seguir para a EF sem
---   flush bem-sucedido e travar o campo durante o envio (fecha R1 e a parte de R2 que ocorre na
---   mesma aba); (ii) a `avaliar-redacao` gravar, pelo service_role, o `body.texto` analisado
+--   flush bem-sucedido e travar o campo durante o envio. Fecha R1, e a edição na mesma aba
+--   ENQUANTO o envio está pendente. NÃO fecha a edição na mesma aba depois que o cliente desiste
+--   da resposta da EF (o `finally` libera o campo com a EF ainda rodando), nem a de outra aba ou
+--   aparelho: essas partes de R2 só a (ii) fecha; (ii) a `avaliar-redacao` gravar, pelo service_role, o `body.texto` analisado
 --   imediatamente antes da linha de score (fecha R1, R2 e R3,
 --   menos o intervalo entre as duas escritas; custa mudar e publicar uma EF de IA); (iii)
 --   publicar com os três registrados.
