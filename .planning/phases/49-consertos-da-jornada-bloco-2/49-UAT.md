@@ -3,7 +3,7 @@ status: testing
 phase: 49-consertos-da-jornada-bloco-2
 source: [49-VERIFICATION.md]
 started: 2026-10-03T04:01:14Z
-updated: 2026-10-03T04:01:14Z
+updated: 2026-10-03T20:20:00Z
 ---
 
 ## Current Test
@@ -22,7 +22,7 @@ expected: (1) flag — análise gravada normalmente, nota inalterada, linha `pro
 result: [pending]
 
 ### 2. Conferência visual das telas que mostram o sinal
-expected: Rótulo pt-BR em âmbar (nunca destrutivo), sem quebrar layout, no hub do candidato, tabela da triagem, revisão da redação, card da SJT, painel da transcrição (sem travar o Avançar), comparativo (tela e PDF) e Decisão Final (aviso na etapa SJT); estado «Sinal» no log de IA do admin, com o filtro de Status concordando com a célula. Recarregar com Ctrl+Shift+R antes.
+expected: Rótulo pt-BR em âmbar (nunca destrutivo), sem quebrar layout, no hub do candidato, tabela da triagem, revisão da redação, card da SJT, painel da transcrição (sem travar o Avançar), comparativo (tela e PDF) e Decisão Final (aviso na etapa SJT); estado «Sinal» no log de IA do admin, com o filtro de Status concordando com a célula. Recarregar com Ctrl+Shift+R antes. **WR-07 (49-44/45, no ar em 2026-10-03):** dentro do aviso âmbar da etapa SJT na Decisão Final, «Ler a resposta do caso aberto» mostra o texto gravado com as quebras de linha, «Ocultar a resposta» o esconde, nada aparece desabilitado; um RH de outra vaga vê o erro com «Tentar de novo». Precisa de candidatura com o sinal (hoje 0 em PROD) — junta-se ao item 1.
 result: [pending]
 
 ### 3. Decisão sobre o custo residual do bloqueio (WR-03)
