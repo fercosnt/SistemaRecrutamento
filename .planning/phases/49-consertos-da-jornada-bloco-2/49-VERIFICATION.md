@@ -4,6 +4,92 @@ verified: 2026-10-03T03:58:00Z
 status: human_needed
 score: 13/13 must-haves verified
 covered_files:
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-01-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-01-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-02-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-02-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-03-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-03-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-04-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-04-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-05-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-05-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-06-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-06-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-07-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-07-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-08-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-08-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-09-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-09-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-10-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-10-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-11-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-11-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-12-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-12-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-13-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-13-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-14-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-14-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-15-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-15-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-16-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-16-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-17-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-17-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-18-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-18-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-19-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-19-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-20-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-20-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-21-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-21-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-22-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-22-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-23-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-23-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-24-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-24-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-25-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-25-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-26-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-26-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-27-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-27-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-28-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-28-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-29-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-29-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-30-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-30-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-31-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-31-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-32-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-32-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-33-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-33-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-34-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-34-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-35-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-35-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-36-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-36-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-37-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-37-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-38-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-38-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-39-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-39-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-40-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-40-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-41-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-41-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-42-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-42-SUMMARY.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-43-PLAN.md
+  - .planning/phases/49-consertos-da-jornada-bloco-2/49-43-SUMMARY.md
   - docs/compliance/cron-inventory.md
   - scripts/geradores/gen-sjt-marketing.py
   - scripts/p49_12_forma_retroativas.cjs
@@ -93,7 +179,7 @@ covered_files:
   - supabase/migrations/20260929000003_p49_salvar_avaliacao_por_analise.sql
   - supabase/migrations/20260930000001_p49_38_agregacao_sem_evento_de_sinal.sql
   - supabase/tests/p49_revisao_por_analise_smoke.sql
-covered_digest: "v2:sha256:820f24acddb9a73d8593bef072adce1d824d99d3ba15060e5bddfa8219333b7f"
+covered_digest: "v2:sha256:c47f0d22595dfbd1d6f3bc3ab88c918bbe2c41f17d8787ae265abd0dc6a41a83"
 behavior_unverified: 0
 overrides_applied: 1
 overrides:
