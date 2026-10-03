@@ -522,7 +522,7 @@ Plans:
 
 *Wave 10*
 
-- [ ] 49-45-PLAN.md — Re-revisão adversarial bloqueante (`49-REVIEW-GAPS-8`) + pausa da outra janela confirmada; migration `20261003000001` aplicada e exposição provada ao vivo antes do push; front pelo sha exato com o marcador `decisao-sjt-resposta-caso-aberto` servido num chunk lazy; entrega registrada no STATE (JORN-41)
+- [x] 49-45-PLAN.md — Re-revisão adversarial bloqueante (`49-REVIEW-GAPS-8`) + pausa da outra janela confirmada; migration `20261003000001` aplicada e exposição provada ao vivo antes do push; front pelo sha exato com o marcador `decisao-sjt-resposta-caso-aberto` servido num chunk lazy; entrega registrada no STATE (JORN-41)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
@@ -609,7 +609,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 44/45 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | In Progress|  |
 
 ---
 
