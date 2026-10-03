@@ -1,5 +1,6 @@
 # Inventário dos `cron.job` vivos × repositório
 
+> ⚠ **2026-10-03 — uma QUINTA camada:** a seção [Re-coleta da Phase 49](#re-coleta-da-phase-49--o-comando-do-ai-cost-aggregation-re-apontado-jorn-41) registra a migration `20260930000001` como **nova dona** do comando do `ai-cost-aggregation`, com o `md5(command)` medido depois do apply; os blocos abaixo que dizem `fdd283dc…` continuam verdadeiros na data deles. \
 > ⚠ **2026-09-21 — uma QUARTA camada:** a seção
 > [Re-coleta da Phase 48](#re-coleta-da-phase-48--o-5º-agendamento) declara e **mede** o 5º
 > agendamento (`prazo-reabertura-sweep`, JORN-19). Ao contrário da camada da Phase 46 quando foi
@@ -431,6 +432,61 @@ pelo nome (`sonda-intrusa-48-13`, não persistiu).
 
 ---
 
+## Re-coleta da Phase 49 — o comando do `ai-cost-aggregation` re-apontado (JORN-41)
+
+| Campo | Valor |
+|-------|-------|
+| **Requirement coberto** | **JORN-41** (sinal de revisão do detector de injeção) — INVENT-03 continua sendo o requisito deste documento |
+| **Planos** | `49-38` (autoria da migration e do portão comportamental) · `49-43` (apply em PROD e esta seção) |
+| **Migration** | [`20260930000001_p49_38_agregacao_sem_evento_de_sinal.sql`](../../supabase/migrations/20260930000001_p49_38_agregacao_sem_evento_de_sinal.sql) — **NOVA dona** do comando do job, no lugar de `20260609000003` |
+| **Estado em PROD** | ✅ **APLICADA em 2026-10-03 03:36:28–03:36:29 UTC** (`p46apply.cjs migrate`, arquivo lido do export de REV `57da895e`; md5 do ledger `64b501154fe180dc4da111458e18bb71` BATE, 17064 octetos) |
+| **Re-coleta viva** | ✅ medida em 2026-10-03, depois do apply (tabela abaixo) |
+
+### A linha acrescentada ao `WHERE`
+
+```sql
+      AND error_code IS DISTINCT FROM 'prompt_injection_flagged'
+```
+
+**Por quê:** a linha-evento do sinal de revisão (`provider='none'`, `success=false`,
+`error_code='prompt_injection_flagged'`) é evento de auditoria, não chamada de modelo nem erro — sem
+esta linha, cada sinal viraria uma chamada e um erro em `ai_cost_daily` (e um alerta `error_rate`
+falso). O resto do comando é o de `20260609000003`, token a token.
+
+| Propriedade do corpo | Valor |
+|---|---|
+| `md5` do texto entre os delimitadores `$cmd$` do `c_cmd_novo` da migration | `74983c221d1cfcee08de85a68d34f5e9` |
+| `md5(command)` vivo, LIDO de `cron.job` depois do apply | `74983c221d1cfcee08de85a68d34f5e9` ✅ idêntico |
+| `octet_length(command)` vivo | **999 octetos** |
+| Antes do apply (lido em 2026-10-03 03:35 UTC) | `fdd283dc3e266884761a3649c31acd6c`, 839 octetos — o corpo compactado de origem fora do repositório, o mesmo das coletas anteriores |
+| Horário e `active` | `30 1 * * *`, ativo — intocados (`cron.alter_job` pelo `jobid` 1, não reagendado por nome) |
+
+O portão comportamental da própria migration (prefixo `P49-38 PORTAO`, baseline na mesma execução)
+rodou na MESMA transação do apply: se tivesse levantado, nada teria persistido nem sido escriturado.
+⚠ **Escopo negativo, não mudado aqui:** os eventos de BLOQUEIO do JORN-39 (`prompt_injection_detected`,
+`cost_cap_exceeded`) continuam contados como chamada e erro por este job — pendência registrada no
+`STATE.md` (49-43).
+
+### Re-coleta viva (2026-10-03, depois do apply)
+
+| Job | schedule | md5 do corpo | octetos | ativo |
+|---|---|---|---:|:-:|
+| `ai-cost-aggregation` | `30 1 * * *` | `74983c221d1cfcee08de85a68d34f5e9` ⚠ NOVO (dona `20260930000001`) | 999 | ✅ |
+| `ai-logs-retention-cleanup` | `0 2 * * *` | `b64ca58d089f3ed580205e95a40c4e5f` ✅ igual à Phase 48 | 299 | ✅ |
+| `notif-retry-sweep` | `*/15 * * * *` | `04bf2150e09f1f7b15abcf074f74ad95` ✅ igual à Phase 48 | 44 | ✅ |
+| `purga-retencao-sweep` | `0 3 * * *` | `381a0edbc8a59b47b23b50dd1eba9a86` ✅ igual à Phase 48 | 40 | ✅ |
+| `prazo-reabertura-sweep` | `0 11 * * *` | `1ebd8e45d5a5d5af3eda0d2b4a48f2c2` ✅ igual à Phase 48 | 43 | ✅ |
+
+Os outros quatro continuam byte a byte como a re-coleta da Phase 48 os registrou.
+
+### O portão
+
+`supabase/tests/p42_invent05_cron_smoke.sql` **não muda**: a asserção (d) confere a assinatura do
+corpo do `ai-cost-aggregation` (`ai_cost_daily` + `ON CONFLICT`), que o comando novo mantém, e não um
+md5. Rodado contra PROD depois do apply (2026-10-03, do export de REV): `smoke42i.pass` = **4** de 4.
+
+---
+
 ## Como reproduzir
 
 Consultas (a), (b) e (c) de [`sql/02-cron-live.sql`](./sql/02-cron-live.sql), via `execute_sql` do
@@ -448,6 +504,7 @@ MCP do Supabase, pelo orquestrador.
    ⚠ **E, desde 2026-08-23, ela deixou de depender de alguém lembrar:** a asserção (a) do
    `p42_invent05_cron_smoke.sql` reprova nomeando qualquer `jobname` vivo que não esteja na lista
    deste documento. Um job criado sem passar por aqui fica vermelho no primeiro smoke.
+   ⚠ **E a seção "Re-coleta da Phase 49"** (escrita e medida em 2026-10-03, depois do apply) troca a dona do comando do `ai-cost-aggregation` para `20260930000001` (md5 vivo `74983c221d1cfcee08de85a68d34f5e9`); nas seções anteriores a ela, o `fdd283dc…` era o corpo vivo da data.
 2. **Rastreabilidade por nome e corpo**, não por hash assinado. Um job cujo corpo tenha sido
    alterado fora do repositório *e depois revertido* seria indistinguível.
 3. **Não cobre `pg_net`/webhooks** disparados por trigger — só `cron.job`. Os triggers vivos são
