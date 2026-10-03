@@ -1,7 +1,7 @@
 ---
 phase: 49-consertos-da-jornada-bloco-2
 verified: 2026-10-03T19:59:55Z
-status: human_needed
+status: passed
 score: 21/21 must-haves verified
 covered_files:
   - .planning/phases/49-consertos-da-jornada-bloco-2/49-01-PLAN.md
@@ -190,6 +190,7 @@ covered_files:
   - supabase/migrations/20261003000001_p49_44_resposta_caso_aberto_rh.sql
   - supabase/tests/p49_44_resposta_caso_aberto_smoke.sql
   - supabase/tests/p49_revisao_por_analise_smoke.sql
+
 covered_digest: "v2:sha256:6239ca323d316cebaa66fdd7014a424aaf151e172b93393f91a6aada58b535f6"
 behavior_unverified: 0
 overrides_applied: 1
@@ -307,7 +308,6 @@ Os planos 49-44 e 49-45 declaram só `JORN-41`, que consta em `REQUIREMENTS.md`.
 **Decisão sobre JORN-41: NÃO marcar `[x]`.** A evidência cobre o requisito inteiro, em PROD: o guard (verdade 13) e a revisão acionável pelo RH (verdades 14 a 21). O que impede o `[x]` é o que o próprio operador adiou e que nenhuma leitura prova: o caminho `flag` nunca rodou em PROD (0 linhas), nenhum RH viu o botão (0 candidaturas com sinal) e a conferência visual das telas está pendente. **Adiar o teste não é dispensá-lo.** A caixa fica `[ ]`; a célula de rastreabilidade foi atualizada para dizer exatamente isso. Marcar `[x]` quando o operador executar os itens humanos ou os dispensar por escrito.
 
 (As demais JORN da fase seguem com texto «Pending/Gaps Found» no `REQUIREMENTS.md`, embora a verificação as dê como satisfeitas; essa escrituração segue recomendada, fora do pedido desta rodada.)
-
 
 ## Histórico
 

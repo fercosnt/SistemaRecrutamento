@@ -2,11 +2,11 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: "Completed 49-45-PLAN.md (WR-07 publicado: migration + front)"
-last_updated: "2026-10-03T19:54:56.783Z"
+status: verifying
+stopped_at: "Phase 49 complete (UAT 3/3, verification passed); M8 fecha com a dívida de verificação das 42, 43, 44, 46 e 47"
+last_updated: "2026-10-03T20:50:00.000Z"
 last_activity: 2026-10-03
-state_head: 05fb6fd8094a8fa133c78641303bef67a6012815
+state_head: 3df8f63463a98b22de3809c7229f43f8004316ff
 progress:
   total_phases: 8
   completed_phases: 9
@@ -15,10 +15,26 @@ progress:
   percent: 98
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
-last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
+last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a ponta, conferência visual com WR-07, aceite do custo residual WR-03), verificação human_needed → passed, 45/45 planos. COVERAGE.md encurtado (reason >200 chars bloqueava o portão api-coverage). Próximo: fechar a verificação das 42, 43, 47 (human_needed) e 44, 46 (gaps_found), depois /gsd-audit-milestone."
 ---
 
 # Project State
+
+## ▶ ESTADO EM 2026-10-03 — Phase 49 CONCLUÍDA
+
+UAT `49-UAT.md` **3/3 pass**; `49-VERIFICATION.md` `human_needed` → **`passed`** (21/21);
+ROADMAP `[x]` com data. 16 dos 17 JORN da fase `[x]` no REQUIREMENTS, conforme a tabela de
+cobertura da verificação; **JORN-37 fica `[ ]`** (parcial aceito, AR-49-01). O portão
+`api-coverage.verify-pre` bloqueava por um `reason` de 427 caracteres (teto 200) no `COVERAGE.md`; foi
+encurtado sem mudar o sentido.
+
+⚠ O `phase.complete` **reescreveu blocos históricos** deste arquivo (o «Phase: 45 — WAVE 1»,
+o «Status» do bloco da 44) e deixou o frontmatter incoerente (`current_phase: 49` com o nome
+da 42, `percent: 63`). O arquivo foi restaurado e editado à mão. `completed_phases` segue
+intocado pelo mesmo motivo registrado abaixo.
+
+**O que falta para fechar o M8:** a verificação das 42, 43 e 47 (`human_needed`, sem
+`*-UAT.md`) e das 44 e 46 (`gaps_found`); depois `/gsd-audit-milestone`.
 
 ## ▶ ESTADO EM 2026-09-29 — Phase 49 com os planos fechados, faltando a cauda
 
@@ -1605,8 +1621,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-03T19:54:56.371Z
-Stopped at: Completed 49-45-PLAN.md (WR-07 publicado: migration + front)
+Last session: 2026-10-03T20:50:00.000Z
+Stopped at: Phase 49 complete (UAT 3/3, verification passed) — próximo: dívida de verificação das 42, 43, 44, 46, 47
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

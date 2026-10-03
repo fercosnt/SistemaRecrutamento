@@ -30,7 +30,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [ ] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada
 - [ ] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute
 - [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
-- [ ] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma
+- [x] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma (completed 2026-10-03)
 
 ### Ordem de execução, dependências e paralelização
 
@@ -402,7 +402,7 @@ Plans:
 **Guardrails**: os do Bloco 1. Migrations pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), Edge Functions por `efdeploy.cjs`; depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**. Teto de `tsc` **medido no kickoff: 90**.
 **Portão destrutivo**: há escrita retroativa, decidida no kickoff — limpar 9 justificativas grudadas (17), limpar as cópias de justificativa de decisão no histórico (37; medidas 5 linhas em 4 candidaturas pela pesquisa), marcar vigente/superadas em 6 análises (12); os snapshots sem mudança **ficam** (3b). Cada uma é checkpoint com contagem antes/depois. **E o 36 mexe no motor de exclusão** (mecanismo destrutivo): apply com portão e prova em conta de teste. Nenhuma escrita desta fase apaga linha, **com uma exceção decidida no portão (D-62)**: o passo novo do motor apaga as linhas do titular excluído em `respostas_raven`/`respostas_bigfive`/`respostas_disc`/`respostas_formulario`, cujos valores inteiros e de enum não aceitam sentinela. Portão fechado em 2026-09-22 (D-59..D-68 em `49-CONTEXT.md`).
 **Fora de escopo**: Blocos 3 e 4 da fila. A pendência **P1** (avaliar trocar o modelo das funções de IA) não faz parte do 28: o 28 torna o fallback visível, não escolhe modelo. As decisões D1–D8 (JORNADA) e D-01..D-23 (Phase 48) não são reabertas. JORN-42..49 (UAT de 27–29/09) roteados ao Bloco 3 — próxima fase, a criar; não são escopo desta (roteamento decidido pelo operador em 2026-09-29).
-**Plans**: 45 plans
+**Plans**: 45/45 plans complete
 
 Plans:
 
@@ -609,7 +609,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 
 ---
 
