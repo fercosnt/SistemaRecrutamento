@@ -1,6 +1,8 @@
 -- =============================================================================
 -- 20261003000001 — ler_resposta_caso_aberto_sjt : o RH dono da vaga lê, na Decisão Final,
---                  o texto que o candidato gravou na resposta do caso aberto da SJT
+--                  o texto que o candidato gravou na resposta do caso aberto da SJT ;
+--                  caso_aberto_sjt_enviado + cand_congela_caso_aberto_{ins,upd,del} : o
+--                  candidato não reescreve nem apaga o caso aberto depois que a nota nasce
 -- =============================================================================
 -- Phase 49 / Plano 49-44 · JORN-41 · WR-07 do 49-REVIEW-GAPS-4 · D-21, D-48, D-52..D-58
 --
@@ -21,7 +23,9 @@
 --   · `relforcerowsecurity` = false; dono da tabela = postgres;
 --   · `anonimizar_candidato(uuid,boolean)`: `prosecdef` = true, dono = postgres;
 --   · triggers da tabela: só os dois internos de FK (nenhum de `updated_at`);
---   · a RPC desta migration não existe; o ledger não tem esta versão.
+--   · a RPC e o helper desta migration não existem; o ledger não tem esta versão;
+--   · `pg_roles.rolconfig`: `authenticated` tem `statement_timeout=8s`; `authenticator` tem
+--     `statement_timeout=8s` e `lock_timeout=8s` (ver «POR QUE OS DOIS SET LOCAL» abaixo).
 --
 -- POR QUE RPC E NÃO COLUNA NEM POLICY (escolhas do PLANEJADOR, vetáveis pelo operador no 49-45).
 --   (1) Uma coluna em `scores_candidato` copiaria o texto para um segundo lugar que o motor de
@@ -40,6 +44,82 @@
 --   texto gravado — a função não alega por quê); `removida_pelo_titular` (o marcador `redigido`
 --   que o motor de exclusão grava prova a causa). Sempre as duas chaves, `situacao` e `texto`.
 --
+-- POR QUE CONGELAR (escolha 4 do planejador; medição do código em 2026-10-03).
+--   A tela do caso aberto reaberta depois do envio começa com o buffer vazio, e o `onBlur` do
+--   campo grava `{}` por cima do texto (`SjtCasoAbertoScreen.tsx` → `flushNow`;
+--   `useAutosaveAvaliacao.ts` → `flush` com `bufferRef` vazio numa tela recém-montada). Digitar
+--   grava um texto novo. A trava por etapa (`cand_escreve_respostas_aval`) não impede nenhuma
+--   das duas coisas enquanto a candidatura segue em `avaliacao_assincrona`. Sem o congelamento,
+--   o RH poderia ler um texto que não é o que existia quando a nota nasceu, sem aviso.
+--   A promessa já está na tela do candidato: «Após enviar, você não poderá editar suas
+--   respostas.» (`AlertDialogDescription` do envio).
+--
+--   COMO: helper `public.caso_aberto_sjt_enviado(uuid)` (plpgsql SECURITY DEFINER, como o
+--   `is_active_rh_admin` do 20260713000001 — lê como dono, sem recursão de RLS) e três políticas
+--   `AS RESTRICTIVE … TO authenticated` (INSERT, UPDATE, DELETE) com
+--     P = teste IS DISTINCT FROM 'sjt_caso_aberto' OR NOT public.caso_aberto_sjt_enviado(candidatura_id)
+--   O helper só é verdadeiro para o PRÓPRIO titular (`candidatos.user_id = auth.uid()`) E quando
+--   a linha `scores_candidato` `sjt`/`caso_aberto` existe; para qualquer outro devolve falso, e
+--   assim não serve de oráculo sobre candidatura alheia. Não há política restritiva de SELECT: o
+--   titular continua lendo a própria resposta.
+--
+--   POR QUE RESTRICTIVE ADITIVA, E NÃO REESCREVER A POLICY VIVA: as policies do titular têm
+--   escritor vivo (o autosave). Acrescentar uma restrição é aditivo e reversível; derrubar e
+--   recriar a policy viva é destrutivo e abriria uma janela sem trava. É o critério do operador
+--   para objetos com escritor vivo («aditivo autônomo, destrutivo com portão»).
+--
+--   POR QUE O MOTOR NÃO É ALCANÇADO: as três políticas são `TO authenticated`. O motor de
+--   exclusão (`anonimizar_candidato`, SECURITY DEFINER, dono = postgres = dono da tabela, sem
+--   FORCE RLS — medido acima) escreve como dono, fora do alcance delas; ele continua redigindo a
+--   linha congelada (cláusula (h) do smoke).
+--
+--   Resíduo aceito pelo planejador (T-49-44-12), não consertado aqui: o candidato que reabrir a
+--   tela depois do envio vê a cópia neutra de trava já existente («Sua etapa avançou…»), que não
+--   é exata nesse caso, mas é neutra e diz que «suas respostas já estão salvas».
+--
+-- O QUE O CONGELAMENTO NÃO FECHA (medição do PLANEJADOR no código em 2026-10-03; nomeado, não
+-- consertado aqui; a disposição é do OPERADOR, no item (c) do checkpoint do 49-45).
+--   O congelamento começa quando a linha de score nasce, e ela só nasce no FIM da chamada de IA
+--   da `avaliar-redacao`, não no clique em «Enviar». Antes disso, o texto gravado e o texto
+--   analisado podem divergir por três caminhos, e o RH leria o gravado sem aviso:
+--   · R1, flush falho segue para o envio. `handleSubmit` (`SjtCasoAbertoScreen.tsx`) faz
+--     `await flushNow()` e chama `avaliarRedacao` mesmo quando o flush falhou: `flush`
+--     (`useAutosaveAvaliacao.ts`) engole o erro com `setStatus('error')`, sem lançar e sem
+--     devolver nada. A EF analisa o `texto` do estado React, e a linha gravada é a do último
+--     flush que deu certo: um prefixo antigo, talvez sem o trecho que gerou o sinal. Sem flush
+--     nenhum, a RPC devolve `indisponivel`, e isso é honesto.
+--   · R2, edição durante a chamada de IA. A `avaliar-redacao` só insere a linha de score depois
+--     de `callAi`, e essa chamada pode durar ~140 s, não 110 s: `timeoutMs: 110_000` é o teto de
+--     CADA chamada ao provedor; com ele o primário faz uma tentativa só, e o fallback recebe o
+--     que sobra do orçamento total `AI_TOTAL_BUDGET_MS` = 140000 (`ai-client.ts`, com piso de
+--     5 s). Esses são os defaults do código: o orçamento é configurável por env, e o valor de
+--     PROD não foi lido. A janela vai do envio até a linha nascer: essa chamada mais o trabalho
+--     da EF antes e depois dela. Durante a chamada o campo segue editável (`submitting` só
+--     desabilita o botão), e o debounce de 30 s ou o `onBlur` gravam o texto editado antes de a
+--     linha nascer. Uma segunda aba ou um segundo aparelho do mesmo candidato fazem o mesmo, e
+--     também um cliente que desistiu da resposta da EF enquanto a EF terminava.
+--   · R3, cliente modificado. A `avaliar-redacao` não grava o texto que recebe (`body.texto` vai
+--     só para `callAi`). O autosave e o corpo da EF são duas escritas independentes do cliente, e
+--     um cliente modificado pode mandar um texto à EF e gravar outro.
+--   Rotas conhecidas, nenhuma escolhida aqui: (i) na tela do candidato, não seguir para a EF sem
+--   flush bem-sucedido e travar o campo durante o envio (fecha R1 e a parte de R2 que ocorre na
+--   mesma aba); (ii) a `avaliar-redacao` gravar, pelo service_role, o `body.texto` analisado
+--   imediatamente antes da linha de score (fecha R1, R2 e R3,
+--   menos o intervalo entre as duas escritas; custa mudar e publicar uma EF de IA); (iii)
+--   publicar com os três registrados.
+--   Esta migration NÃO afirma que o texto que o RH lê é o que a IA analisou: afirma só que, depois
+--   que a nota nasce, o candidato não o reescreve nem o apaga.
+--
+-- POR QUE OS DOIS SET LOCAL NO TOPO. Os três CREATE POLICY tomam `AccessExclusiveLock` em
+--   `respostas_avaliacao` até o fim da transação do apply. Um autosave que espere mais de ~8 s
+--   atrás do lock FALHA (`statement_timeout` de `authenticated`/`authenticator`, medido acima): o
+--   hook marca `error`, e o próximo flush tenta de novo. `lock_timeout = 3s` limita quanto tempo o
+--   pedido de lock do apply fica na fila, onde faria todo autosave novo enfileirar atrás dele;
+--   `statement_timeout = 5s` limita cada instrução enquanto o lock está seguro. O limite tem de
+--   estar NO ARQUIVO, porque o `p46apply.cjs migrate` manda o arquivo byte a byte e o md5 do
+--   ledger é o dele. Fora de transação, `SET LOCAL` só emite WARNING e não tem efeito — inócuo
+--   para outras ferramentas.
+--
 -- ERRO: `insufficient_privilege` (42501) na guarda de papel e na de posse — para `rh`,
 --   candidatura inexistente e candidatura alheia dão o MESMO 42501 (o RH de outra vaga não
 --   distingue inexistente de alheio); `no_data_found` (P0002) só para administrador com
@@ -50,9 +130,11 @@
 --   (a comparação direta sobre um papel nulo devolve NULL e o IF não dispara). ACL:
 --   `REVOKE ALL … FROM PUBLIC`, `REVOKE ALL … FROM anon` com `anon` NOMEADO (o `pg_default_acl`
 --   concede EXECUTE a `anon` como grant direto), `GRANT EXECUTE … TO authenticated, service_role`.
+--   O helper tem o MESMO ACL: a policy roda com o papel de quem consulta, que precisa de EXECUTE.
 --
--- IDEMPOTÊNCIA: `CREATE OR REPLACE`; o pré-portão exige que a função NÃO exista, então reaplicar
---   por cima de si mesma aborta em vez de sobrescrever em silêncio.
+-- IDEMPOTÊNCIA: `CREATE OR REPLACE` nas duas funções; o pré-portão exige que as duas funções e as
+--   três políticas NÃO existam, então reaplicar por cima de si mesma aborta em vez de sobrescrever
+--   em silêncio. Nenhum DML de dado; nenhuma policy viva é tocada.
 --
 -- Sem wrapper `BEGIN; ... COMMIT;` (D-22 — CLAUDE.md §Commands): corpo PL/pgSQL `$$` com
 -- REVOKE/COMMENT adjacentes é a forma exata do 42601, e o endpoint já roda a requisição inteira
@@ -62,8 +144,13 @@
 -- (a via da Phase 46 — SQL lido do ARQUIVO, migration + ledger na mesma transação).
 -- =============================================================================
 
+-- Limites de espera e de posse do lock (ver «POR QUE OS DOIS SET LOCAL NO TOPO»).
+SET LOCAL lock_timeout = '3s';
+SET LOCAL statement_timeout = '5s';
+
 -- ─────────────────────────────────────────────────────────────────────────────
--- PRÉ-PORTÃO — a RPC não existe; as policies vivas são as duas do titular; sem FORCE RLS.
+-- PRÉ-PORTÃO — RPC e helper não existem; nenhuma das três políticas existe; as policies vivas
+-- são as duas do titular; sem FORCE RLS.
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $pre_portao$
 DECLARE
@@ -72,6 +159,16 @@ DECLARE
 BEGIN
   IF to_regprocedure('public.ler_resposta_caso_aberto_sjt(uuid)') IS NOT NULL THEN
     RAISE EXCEPTION 'P49-44 PRE-PORTAO: public.ler_resposta_caso_aberto_sjt(uuid) JA existe — esta migration a cria; reaplicar por cima sobrescreveria um corpo que ninguem mediu.';
+  END IF;
+  IF to_regprocedure('public.caso_aberto_sjt_enviado(uuid)') IS NOT NULL THEN
+    RAISE EXCEPTION 'P49-44 PRE-PORTAO: public.caso_aberto_sjt_enviado(uuid) JA existe — esta migration o cria.';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_policies p
+     WHERE p.schemaname = 'public' AND p.tablename = 'respostas_avaliacao'
+       AND p.policyname IN ('cand_congela_caso_aberto_ins', 'cand_congela_caso_aberto_upd', 'cand_congela_caso_aberto_del')
+  ) THEN
+    RAISE EXCEPTION 'P49-44 PRE-PORTAO: alguma das politicas cand_congela_caso_aberto_* JA existe — esta migration as cria.';
   END IF;
 
   SELECT string_agg(p.policyname || ':' || p.permissive, ',' ORDER BY p.policyname) INTO v_pols
@@ -171,11 +268,86 @@ COMMENT ON FUNCTION public.ler_resposta_caso_aberto_sjt(uuid) IS
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- public.caso_aberto_sjt_enviado(uuid) — helper das políticas do congelamento.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.caso_aberto_sjt_enviado(p_candidatura_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $enviado$
+DECLARE
+  v_uid uuid;
+BEGIN
+  v_uid := (select auth.uid());
+  IF v_uid IS NULL THEN
+    RETURN false;
+  END IF;
+  -- Verdadeiro só para o PRÓPRIO titular E com a linha de score do caso aberto: para quem não
+  -- é o titular devolve falso, e não serve de oráculo sobre candidatura alheia.
+  RETURN EXISTS (
+    SELECT 1
+      FROM public.candidaturas c
+      JOIN public.candidatos ca ON ca.id = c.candidato_id
+      JOIN public.scores_candidato sc
+        ON sc.candidatura_id = c.id
+       AND sc.tipo = 'sjt'
+       AND sc.subtipo = 'caso_aberto'
+     WHERE c.id = p_candidatura_id
+       AND ca.user_id = v_uid
+  );
+END
+$enviado$;
+
+REVOKE ALL ON FUNCTION public.caso_aberto_sjt_enviado(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.caso_aberto_sjt_enviado(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.caso_aberto_sjt_enviado(uuid) TO authenticated, service_role;
+
+COMMENT ON FUNCTION public.caso_aberto_sjt_enviado(uuid) IS
+  'P49-44 / WR-07: helper das politicas cand_congela_caso_aberto_*. Verdadeiro so quando a candidatura e do PROPRIO titular (candidatos.user_id = auth.uid()) E ja existe a linha scores_candidato sjt/caso_aberto dela; falso para qualquer outro (nao e oraculo sobre candidatura alheia). plpgsql SECURITY DEFINER: le como dono, sem recursao de RLS.';
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- O congelamento: três políticas RESTRICTIVE, aditivas, só `TO authenticated`.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE POLICY cand_congela_caso_aberto_ins ON public.respostas_avaliacao
+  AS RESTRICTIVE
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (teste IS DISTINCT FROM 'sjt_caso_aberto' OR NOT public.caso_aberto_sjt_enviado(candidatura_id));
+
+CREATE POLICY cand_congela_caso_aberto_upd ON public.respostas_avaliacao
+  AS RESTRICTIVE
+  FOR UPDATE
+  TO authenticated
+  USING (teste IS DISTINCT FROM 'sjt_caso_aberto' OR NOT public.caso_aberto_sjt_enviado(candidatura_id))
+  WITH CHECK (teste IS DISTINCT FROM 'sjt_caso_aberto' OR NOT public.caso_aberto_sjt_enviado(candidatura_id));
+
+CREATE POLICY cand_congela_caso_aberto_del ON public.respostas_avaliacao
+  AS RESTRICTIVE
+  FOR DELETE
+  TO authenticated
+  USING (teste IS DISTINCT FROM 'sjt_caso_aberto' OR NOT public.caso_aberto_sjt_enviado(candidatura_id));
+
+COMMENT ON POLICY cand_congela_caso_aberto_ins ON public.respostas_avaliacao IS
+  'P49-44 / WR-07: depois que a linha scores_candidato sjt/caso_aberto nasce, o titular nao insere de novo a resposta do caso aberto. RESTRICTIVE e aditiva (soma-se a trava por etapa); so TO authenticated, fora do alcance do motor de exclusao.';
+COMMENT ON POLICY cand_congela_caso_aberto_upd ON public.respostas_avaliacao IS
+  'P49-44 / WR-07: depois que a linha scores_candidato sjt/caso_aberto nasce, o titular nao reescreve a resposta do caso aberto (nem pelo upsert do autosave). RESTRICTIVE e aditiva; so TO authenticated, fora do alcance do motor de exclusao.';
+COMMENT ON POLICY cand_congela_caso_aberto_del ON public.respostas_avaliacao IS
+  'P49-44 / WR-07: depois que a linha scores_candidato sjt/caso_aberto nasce, o titular nao apaga a resposta do caso aberto. RESTRICTIVE e aditiva; so TO authenticated, fora do alcance do motor de exclusao.';
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- PÓS-PORTÃO — o que ficou no catálogo é o que este arquivo diz.
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $pos_portao$
 DECLARE
-  c_sig constant text := 'public.ler_resposta_caso_aberto_sjt(uuid)';
+  c_sig    constant text := 'public.ler_resposta_caso_aberto_sjt(uuid)';
+  c_helper constant text := 'public.caso_aberto_sjt_enviado(uuid)';
+  v_md5_h  text;
+  v_restr  text;
+  v_perm   text;
   v_secdef boolean;
   v_conf   text[];
   v_md5    text;
@@ -198,6 +370,38 @@ BEGIN
   IF NOT v_auth THEN
     RAISE EXCEPTION 'P49-44 POS-PORTAO: authenticated sem EXECUTE em % — o RH nao conseguiria ler pela tela', c_sig;
   END IF;
-  RAISE NOTICE 'P49-44 POS-PORTAO OK — md5(prosrc) ler_resposta_caso_aberto_sjt = % ; anon=% authenticated=%', v_md5, v_anon, v_auth;
+
+  -- O helper: SECURITY DEFINER, search_path vazio, anon sem EXECUTE, authenticated com.
+  SELECT p.prosecdef, p.proconfig, md5(p.prosrc) INTO v_secdef, v_conf, v_md5_h
+    FROM pg_catalog.pg_proc p WHERE p.oid = c_helper::regprocedure;
+  IF v_secdef IS DISTINCT FROM true OR v_conf IS NULL OR NOT ('search_path=""' = ANY (v_conf)) THEN
+    RAISE EXCEPTION 'P49-44 POS-PORTAO: % sem SECURITY DEFINER ou sem search_path vazio (prosecdef=%, proconfig=%)', c_helper, v_secdef, v_conf;
+  END IF;
+  IF has_function_privilege('anon', c_helper::regprocedure, 'EXECUTE') THEN
+    RAISE EXCEPTION 'P49-44 POS-PORTAO: anon tem EXECUTE em %', c_helper;
+  END IF;
+  IF NOT has_function_privilege('authenticated', c_helper::regprocedure, 'EXECUTE') THEN
+    RAISE EXCEPTION 'P49-44 POS-PORTAO: authenticated sem EXECUTE em % — a politica rodaria com o papel de quem consulta e falharia em todo autosave', c_helper;
+  END IF;
+
+  -- As três políticas: RESTRICTIVE, roles = {authenticated}, um comando cada.
+  SELECT string_agg(p.policyname || ':' || p.permissive || ':' || p.cmd || ':' || array_to_string(p.roles, '|'), ',' ORDER BY p.policyname)
+    INTO v_restr
+    FROM pg_catalog.pg_policies p
+   WHERE p.schemaname = 'public' AND p.tablename = 'respostas_avaliacao' AND p.permissive = 'RESTRICTIVE';
+  IF v_restr IS DISTINCT FROM 'cand_congela_caso_aberto_del:RESTRICTIVE:DELETE:authenticated,cand_congela_caso_aberto_ins:RESTRICTIVE:INSERT:authenticated,cand_congela_caso_aberto_upd:RESTRICTIVE:UPDATE:authenticated' THEN
+    RAISE EXCEPTION 'P49-44 POS-PORTAO: as politicas RESTRICTIVE de respostas_avaliacao sao «%» (esperado as tres cand_congela_caso_aberto_*, TO authenticated)', v_restr;
+  END IF;
+
+  -- O conjunto PERMISSIVE é exatamente o de antes: nenhum caminho novo de leitura nem de escrita.
+  SELECT string_agg(p.policyname, ',' ORDER BY p.policyname) INTO v_perm
+    FROM pg_catalog.pg_policies p
+   WHERE p.schemaname = 'public' AND p.tablename = 'respostas_avaliacao' AND p.permissive = 'PERMISSIVE';
+  IF v_perm IS DISTINCT FROM 'cand_escreve_respostas_aval,cand_le_respostas_aval' THEN
+    RAISE EXCEPTION 'P49-44 POS-PORTAO: as policies PERMISSIVE de respostas_avaliacao sao «%» (esperado so as duas do titular) — um caminho novo de leitura apareceu', v_perm;
+  END IF;
+
+  RAISE NOTICE 'P49-44 POS-PORTAO OK — md5(prosrc) ler_resposta_caso_aberto_sjt = % ; caso_aberto_sjt_enviado = % ; anon=% authenticated=% ; restritivas = %',
+    v_md5, v_md5_h, v_anon, v_auth, v_restr;
 END
 $pos_portao$;
