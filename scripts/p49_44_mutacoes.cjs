@@ -10,7 +10,7 @@
  *
  *   CONTROLE : lock_timeout + statement_timeout + migration + smoke + sentinela
  *              ⇒ tem de chegar ao sentinela, sem `P49C FAIL` (senão CONTROLE VERMELHO, para ali).
- *   M1..M8   : lock_timeout + statement_timeout + migration INTACTA + MUTAÇÃO + smoke + sentinela
+ *   M1..M9   : lock_timeout + statement_timeout + migration INTACTA + MUTAÇÃO + smoke + sentinela
  *              ⇒ tem de reprovar na letra esperada (e, em (g), com o rótulo esperado na lista) e
  *              NÃO chegar ao sentinela. A mutação entra DEPOIS da migration, para que o pré e o
  *              pós-portão passem e quem morda seja o SMOKE (o portão recorrente).
@@ -104,6 +104,15 @@ const MUTACOES = [
   { id: 'M6', desc: 'cand_congela_caso_aberto_ins sem AS RESTRICTIVE', letra: 'g', rotulo: 'g_ins', sql: semRestrictive('cand_congela_caso_aberto_ins', 'M6') },
   { id: 'M7', desc: 'cand_congela_caso_aberto_upd sem AS RESTRICTIVE', letra: 'g', rotulo: 'upd', sql: semRestrictive('cand_congela_caso_aberto_upd', 'M7') },
   { id: 'M8', desc: 'cand_congela_caso_aberto_del sem AS RESTRICTIVE', letra: 'g', rotulo: 'del', sql: semRestrictive('cand_congela_caso_aberto_del', 'M8') },
+  {
+    // WR-02 do 49-REVIEW-GAPS-8: a metade «papel nulo» da guarda fail-closed. Sem o coalesce,
+    // um JWT com `sub` válido e sem `app_metadata.role` passa (`false OR NULL` = NULL no IF).
+    // M2 não vê isso: ela tira a guarda INTEIRA e morde pela sonda sem claims.
+    id: 'M9',
+    desc: 'guarda sem o coalesce (papel nulo com sub valido passa)',
+    letra: 'd',
+    sql: trocar(fnLer, "coalesce(v_role, '') NOT IN", 'v_role NOT IN', 'M9'),
+  },
 ];
 
 function rodar(rodada, mutacao) {

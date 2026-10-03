@@ -48,8 +48,13 @@
 --   (b) claims `rh` com `sub` = `created_by` da vaga ⇒ A `disponivel`, md5(texto) = md5 da fixture.
 --   (c) administrador ATIVO real ⇒ A `disponivel`, mesmo md5.
 --   (d) sobre a fixture POVOADA: `rh` com `sub` aleatório ⇒ 42501; sem claims ⇒ 42501; claims
---       `candidato` com `sub` = o titular de A ⇒ 42501; candidatura inexistente com claims `rh` do
---       dono ⇒ 42501 (inexistente e alheia indistinguíveis); inexistente com administrador ⇒ P0002.
+--       `candidato` com `sub` = o titular de A ⇒ 42501; `sub` VÁLIDO (o dono da vaga) SEM
+--       `app_metadata.role` ⇒ 42501 (a metade «papel nulo» da guarda fail-closed: com `sub`
+--       presente, só o `coalesce` recusa — WR-02 do 49-REVIEW-GAPS-8); candidatura inexistente com
+--       claims `rh` do dono ⇒ 42501 (inexistente e alheia indistinguíveis); inexistente com
+--       administrador ⇒ P0002. A sonda nova foi posta DENTRO de (d), e não numa cláusula própria:
+--       ela é mais uma negativa da guarda sobre a mesma fixture, e assim o esperado segue 9 e o
+--       contrato `esperado === 9` que o 49-45 consome não muda.
 --   (e) B ⇒ `sem_resposta_enviada`, `texto` nulo, e nem o rascunho nem o md5 dele aparecem no
 --       retorno; C ⇒ `indisponivel`; D ⇒ `removida`; E (encerrada) ⇒ `disponivel` para
 --       o dono, com o texto de E. `removida` é neutro: o marcador `redigido` sai do motor de
@@ -76,7 +81,8 @@
 --       (população: ≥ 1 sobrecarga).
 --   (z) nada das fixtures sobrevive; contagens globais = baseline capturada NA execução.
 --
--- O PORTÃO MORDE — mutações provadas no 49-44 (Task 2, 2026-10-03) por `scripts/p49_44_mutacoes.cjs`,
+-- O PORTÃO MORDE — mutações M1..M8 provadas no 49-44 (Task 2, 2026-10-03), M9 na rodada de conserto
+-- do 49-REVIEW-GAPS-8 (WR-02, 2026-10-03), todas por `scripts/p49_44_mutacoes.cjs`,
 -- cada uma numa requisição que aborta: `SET LOCAL lock_timeout/statement_timeout` + migration
 -- intacta + MUTAÇÃO + este smoke + `RAISE 'ENSAIO_P49_44_TERMINOU'`. Cada uma tem de reprovar na
 -- letra abaixo (e, em (g), com o rótulo abaixo na lista) e NÃO chegar ao sentinela. A próxima
@@ -92,6 +98,7 @@
 --   | M6      | `cand_congela_caso_aberto_ins` sem `AS RESTRICTIVE`              | (g)     | g_ins      |
 --   | M7      | `cand_congela_caso_aberto_upd` sem `AS RESTRICTIVE`              | (g)     | upd        |
 --   | M8      | `cand_congela_caso_aberto_del` sem `AS RESTRICTIVE`              | (g)     | del        |
+--   | M9      | guarda sem o `coalesce` (`v_role NOT IN`: papel nulo com `sub`)  | (d)     | —          |
 --   Listas completas medidas em 2026-10-03 (o runner exige só o rótulo esperado): M4
 --   [upsert,upd,del,md5,g_ins]; M6 [g_ins]; M7 [upd,md5]; M8 [del,md5]. Sob M7 o upsert SEGUE
 --   dando 42501: a WITH CHECK da `_ins` intacta vale para a linha proposta também no caminho
@@ -225,7 +232,7 @@ DECLARE
   c_state text := '<nao rodou>';  c_sit text;  c_md5 text;
   -- (d)
   d_alheio text := '<nao rodou>';  d_sem text := '<nao rodou>';  d_cand text := '<nao rodou>';
-  d_inex_rh text := '<nao rodou>';  d_inex_adm text := '<nao rodou>';
+  d_inex_rh text := '<nao rodou>';  d_inex_adm text := '<nao rodou>';  d_sem_papel text := '<nao rodou>';
   -- (e)
   e_b_state text := '<nao rodou>';  e_b_ret jsonb;
   e_c_state text := '<nao rodou>';  e_c_ret jsonb;
@@ -338,6 +345,17 @@ BEGIN
       v_ret := public.ler_resposta_caso_aberto_sjt(v_cids[c_a]);
       d_cand := 'ACEITO:' || coalesce(v_ret ->> 'situacao', '?');
     EXCEPTION WHEN OTHERS THEN d_cand := SQLSTATE || ':' || SQLERRM;
+    END;
+    -- papel AUSENTE com `sub` VÁLIDO (o próprio dono da vaga): só o `coalesce(v_role, '')` recusa.
+    -- Sem ele, `v_uid IS NULL OR v_role NOT IN (…)` dá `false OR NULL` = NULL e o IF não dispara;
+    -- `v_role = 'rh'` também é NULL, e a função devolveria o texto (M9). A sonda «sem claims» não
+    -- vê isso, porque nela `auth.uid()` também é nulo e a guarda recusa pelo `v_uid IS NULL`.
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dono::text, 'role', 'authenticated',
+              'app_metadata', json_build_object())::text, true);
+    BEGIN
+      v_ret := public.ler_resposta_caso_aberto_sjt(v_cids[c_a]);
+      d_sem_papel := 'ACEITO:' || coalesce(v_ret ->> 'situacao', '?');
+    EXCEPTION WHEN OTHERS THEN d_sem_papel := SQLSTATE || ':' || SQLERRM;
     END;
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dono::text, 'role', 'authenticated',
               'app_metadata', json_build_object('role', 'rh'))::text, true);
@@ -560,6 +578,10 @@ BEGIN
   IF d_inex_rh NOT LIKE '42501:%' OR d_inex_adm NOT LIKE 'P0002:%' THEN
     RAISE EXCEPTION 'P49C FAIL (d): candidatura inexistente — rh=«%» (esperado 42501: inexistente e alheia indistinguiveis para o rh), administrador=«%» (esperado P0002)',
       d_inex_rh, d_inex_adm;
+  END IF;
+  IF d_sem_papel NOT LIKE '42501:%' THEN
+    RAISE EXCEPTION 'P49C FAIL (d): sub VALIDO (o dono da vaga) SEM app_metadata.role devolveu «%» (esperado 42501) — a guarda deixou de ser fail-closed para papel nulo (o coalesce(v_role, '''') saiu?)',
+      d_sem_papel;
   END IF;
   PERFORM set_config('smoke4944.pass', (current_setting('smoke4944.pass')::int + 1)::text, false);
 
