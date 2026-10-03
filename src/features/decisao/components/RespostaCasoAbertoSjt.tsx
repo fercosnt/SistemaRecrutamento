@@ -13,7 +13,7 @@
  * marcador `redigido` prova que o motor de exclusão redigiu o texto, não quem pediu — o motor
  * grava o mesmo marcador no direito do titular e na purga de retenção, e dizer «a pedido do
  * titular» afirmaria ao RH um exercício de direito LGPD que pode não ter havido. Nenhuma frase
- * diz que o texto mostrado é o que foi avaliado — o mecanismo não garante isso (R1–R3 no
+ * diz que o texto mostrado é o que foi avaliado — o mecanismo não garante isso (R1–R4 no
  * cabeçalho da migration 20261003000001).
  *
  * @module features/decisao/components/RespostaCasoAbertoSjt

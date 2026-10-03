@@ -15,8 +15,9 @@
 --   · Nenhum caminho NOVO de leitura da tabela: o RH e o administrador contam 0 linhas direto.
 --
 --   ⚠ Este smoke NÃO prova (e nenhuma cláusula afirma) que o texto lido é o que a IA analisou: o
---   congelamento só fecha a janela POSTERIOR ao nascimento da linha de score. R1, R2 e R3 estão
---   nomeadas no cabeçalho da migration («O QUE O CONGELAMENTO NÃO FECHA»).
+--   congelamento só trava o TEXTO gravado depois que a linha de score nasce. R1, R2 e R3 (antes
+--   dela) e R4 (depois dela: uma segunda nota sobre outro texto, que o congelamento não impede)
+--   estão nomeadas no cabeçalho da migration («O QUE O CONGELAMENTO NÃO FECHA»).
 --
 -- FIXTURES — NÃO SÃO CANDIDATURAS REAIS (idioma do `p49_revisao_por_analise_smoke`): um titular
 -- sintético `@invalido.local` por candidatura (auth.users + candidatos), candidaturas que nascem

@@ -87,7 +87,8 @@
 -- consertado aqui; a disposição é do OPERADOR, no item (c) do checkpoint do 49-45).
 --   O congelamento começa quando a linha de score nasce, e ela só nasce no FIM da chamada de IA
 --   da `avaliar-redacao`, não no clique em «Enviar». Antes disso, o texto gravado e o texto
---   analisado podem divergir por três caminhos, e o RH leria o gravado sem aviso:
+--   analisado podem divergir por três caminhos (R1–R3), e o RH leria o gravado sem aviso; e há
+--   um quarto DEPOIS dela (R4):
 --   · R1, flush falho segue para o envio. `handleSubmit` (`SjtCasoAbertoScreen.tsx`) faz
 --     `await flushNow()` e chama `avaliarRedacao` mesmo quando o flush falhou: `flush`
 --     (`useAutosaveAvaliacao.ts`) engole o erro com `setStatus('error')`, sem lançar e sem
@@ -112,16 +113,34 @@
 --   · R3, cliente modificado. A `avaliar-redacao` não grava o texto que recebe (`body.texto` vai
 --     só para `callAi`). O autosave e o corpo da EF são duas escritas independentes do cliente, e
 --     um cliente modificado pode mandar um texto à EF e gravar outro.
---   Rotas conhecidas, nenhuma escolhida aqui: (i) na tela do candidato, não seguir para a EF sem
---   flush bem-sucedido e travar o campo durante o envio. Fecha R1, e a edição na mesma aba
---   ENQUANTO o envio está pendente. NÃO fecha a edição na mesma aba depois que o cliente desiste
---   da resposta da EF (o `finally` libera o campo com a EF ainda rodando), nem a de outra aba ou
---   aparelho: essas partes de R2 só a (ii) fecha; (ii) a `avaliar-redacao` gravar, pelo service_role, o `body.texto` analisado
---   imediatamente antes da linha de score (fecha R1, R2 e R3,
---   menos o intervalo entre as duas escritas; custa mudar e publicar uma EF de IA); (iii)
---   publicar com os três registrados.
---   Esta migration NÃO afirma que o texto que o RH lê é o que a IA analisou: afirma só que, depois
---   que a nota nasce, o candidato não o reescreve nem o apaga.
+--   · R4, DEPOIS da linha de score: uma segunda nota sobre outro texto. A `avaliar-redacao`
+--     aceita qualquer `pergunta_id` com `formato='caso_aberto'`, sem amarrá-la à vaga, e não
+--     recusa quando a candidatura já tem linha `sjt`/`caso_aberto`; a chave única de
+--     `scores_candidato` inclui a `pergunta_id` (4 perguntas de caso aberto em PROD, medido pelo
+--     revisor em 2026-10-03). Um cliente modificado (o ator de R3), ainda em
+--     `avaliacao_assincrona`, chama a EF de novo DEPOIS do congelamento, com outra pergunta de
+--     caso aberto e outro texto: nasce uma segunda linha, que conta no resultado da SJT
+--     (`normalizeSjtComposite`, `sinaisDasLinhas` da `consolidar-decisao-final`) e pode trazer o
+--     sinal, enquanto o RH lê o texto congelado, que é o da primeira. O congelamento trava o
+--     TEXTO gravado, não o número de notas. Hoje há 0 candidaturas com mais de uma linha
+--     `sjt`/`caso_aberto` (medido pelo revisor): é resíduo latente, não incidente.
+--   Rotas conhecidas, nenhuma escolhida aqui:
+--   (i) na tela do candidato, não seguir para a EF sem flush bem-sucedido e travar o campo
+--       durante o envio. Fecha R1, e a edição na mesma aba ENQUANTO o envio está pendente. NÃO
+--       fecha a edição na mesma aba depois que o cliente desiste da resposta da EF (o `finally`
+--       libera o campo com a EF ainda rodando), nem a de outra aba ou aparelho: essas partes de
+--       R2 só a (ii) fecha;
+--   (ii) a `avaliar-redacao` gravar, pelo service_role, o `body.texto` analisado imediatamente
+--       antes da linha de score (fecha R1, R2 e R3, menos o intervalo entre as duas escritas;
+--       custa mudar e publicar uma EF de IA);
+--   (iii) publicar com os quatro registrados.
+--   NENHUMA das rotas (i)–(iii) fecha R4: (i) é da tela; (ii) sobrescreveria o texto com o da
+--   segunda chamada, que passaria a divergir da PRIMEIRA nota; (iii) só registra. O conserto de
+--   R4 seria na `avaliar-redacao` (recusar quando a candidatura já tem linha `sjt`/`caso_aberto`
+--   e exigir que a pergunta seja da SJT da vaga), fora do 49-44, e a disposição é do operador.
+--   Esta migration NÃO afirma que o texto que o RH lê é o que a IA analisou, nem que a nota do
+--   caso aberto é uma só: afirma só que, depois que a nota nasce, o candidato não reescreve nem
+--   apaga o texto gravado.
 --
 -- POR QUE OS DOIS SET LOCAL NO TOPO. Os três CREATE POLICY tomam `AccessExclusiveLock` em
 --   `respostas_avaliacao` até o fim da transação do apply. Um autosave que espere mais de ~8 s
