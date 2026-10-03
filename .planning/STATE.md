@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 49-43-PLAN.md (publicação JORN-41; fase 49 aguarda verificação)
-last_updated: "2026-10-03T05:35:53.664Z"
+stopped_at: Completed 49-44-PLAN.md (WR-07 construído e ensaiado; publicação no 49-45)
+last_updated: "2026-10-03T14:13:43.646Z"
 last_activity: 2026-10-03
-state_head: 67669214a86ba78b60d4f45e390a5b822917f370
+state_head: 79a58e5bf77cd2fcef51b84de961b8472454d613
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 123
-  completed_plans: 119
-  percent: 97
+  completed_plans: 120
+  percent: 98
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
@@ -919,6 +919,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P41 | 7 min | 2 tasks | 9 files |
 | Phase 49 P42 | 14min | 3 tasks | 14 files |
 | Phase 49 P43 | 17min | 3 tasks | 3 files |
+| Phase 49 P44 | 18 min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -1271,6 +1272,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-42: o sinal de instrução à IA é marca de LEITURA na aba da transcrição (fora de pendentes/bloqueado, como o portão avancar_etapa); o PDF do comparativo imprime o rotuloDoSinal importado (precedente D-27b aplicado pelo planejador); no admin, estadoDaChamada mora no aiLogsService e o filtro de Status é a tradução dele (filtro ≡ célula provado sobre 7 formas × 4 estados, com a semântica SQL do nulo)
 - [Phase 49]: 49-43: publicação do JORN-41 a partir de REV 57da895e (export git archive + GUARDA em cada escrita); ordem migration → consolidar v10 → front → 6 EFs de IA → avaliar-redacao por último; fonte publicada byte-igual a REV nos 8 deploys (consolidar 3/3, as 7 em 92/92)
 - [Phase 49]: 49-43: os commits de metadados do executor (SUMMARY/STATE/ROADMAP) ficam locais — o plano diz que não os publica e o gsd-49-43-push.cjs os recusaria; publicar é decisão do orquestrador
+- [Phase 49]: 49-44: WR-07 construído e ensaiado, NÃO publicado — RPC ler_resposta_caso_aberto_sjt (predicado WR-04) + congelamento RESTRICTIVE do caso aberto enviado; smoke 9/9 e 8/8 mutações mordem em requisições que abortam; R1–R3 (texto gravado pode não ser o analisado) nomeados, disposição do operador no 49-45 (c)
 
 ### Roadmap Evolution
 
@@ -1600,8 +1602,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-03T03:50:36.547Z
-Stopped at: Completed 49-43-PLAN.md (publicação JORN-41; fase 49 aguarda verificação)
+Last session: 2026-10-03T14:13:38.336Z
+Stopped at: Completed 49-44-PLAN.md (WR-07 construído e ensaiado; publicação no 49-45)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

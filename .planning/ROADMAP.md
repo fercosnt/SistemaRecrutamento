@@ -518,7 +518,7 @@ Plans:
 
 *Wave 9* (lacuna WR-07 do `49-REVIEW-GAPS-4.md`; operador: «B», 2026-10-01)
 
-- [ ] 49-44-PLAN.md — O RH dono da vaga lê, na Decisão Final, dentro do aviso da SJT, o texto do caso aberto: RPC `ler_resposta_caso_aberto_sjt` (SECURITY DEFINER, predicado WR-04, sem cópia do texto), caso aberto enviado congelado para o candidato (políticas RESTRICTIVE), smoke de 9 cláusulas sobre fixture povoada com 8 mutações que mordem (uma por política restritiva), botão sob demanda; construído e ensaiado em PROD sem persistir (JORN-41)
+- [x] 49-44-PLAN.md — O RH dono da vaga lê, na Decisão Final, dentro do aviso da SJT, o texto do caso aberto: RPC `ler_resposta_caso_aberto_sjt` (SECURITY DEFINER, predicado WR-04, sem cópia do texto), caso aberto enviado congelado para o candidato (políticas RESTRICTIVE), smoke de 9 cláusulas sobre fixture povoada com 8 mutações que mordem (uma por política restritiva), botão sob demanda; construído e ensaiado em PROD sem persistir (JORN-41)
 
 *Wave 10*
 
@@ -609,7 +609,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 43/43 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 44/45 | In Progress|  |
 
 ---
 
