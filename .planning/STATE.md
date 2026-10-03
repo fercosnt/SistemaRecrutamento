@@ -2,16 +2,16 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: "Phase 49 — 49-42 CONCLUÍDO em 2026-09-30 (o sinal aparece nas superfícies que faltavam: aviso âmbar por análise na aba da transcrição, FORA de pendentes/bloqueado (o teste «sinal SEM trava» usa duas vigentes, e a mutação do plano morde); aviso acima do ranking no ComparativoScreen com a prop sinaisRevisao fiada nas DUAS páginas (ComparativoCandidatosPage e DecisaoFinalPage — os 2 consumidores da varredura); o PDF exportado imprime o rotuloDoSinal importado entre o título e a tabela; no admin, a linha-evento prompt_injection_flagged é «Sinal» e não «Falha», estadoDaChamada mudou para o aiLogsService e o filtro de Status é a tradução dele (Select com Fallback e Sinal; concordância filtro ≡ célula em 7 formas × 4 estados com a semântica SQL do nulo); vitest 218/2374 verde; tsc 89; NADA publicado). Próximo: 49-43 (apply da migration 20260930000001 ANTES do deploy das EFs, push do front, prova do marcador no chunk lazy certo, conferência visual e checkpoint do operador). Resta só o 49-43. NÃO marcar JORN-41 Complete. ACHADO para o checkpoint do 49-43 (do 49-38): eventos de BLOQUEIO do JORN-39 contados como erro pelo cron (28/09: none 1/1)."
-last_updated: "2026-09-30T07:32:42.884Z"
-last_activity: 2026-09-30
-state_head: 7f72c77595d75e32cc03609f2f5c63978f5c46e2
+status: verifying
+stopped_at: Completed 49-43-PLAN.md (publicação JORN-41; fase 49 aguarda verificação)
+last_updated: "2026-10-03T03:50:46.244Z"
+last_activity: 2026-10-03
+state_head: fb79d29ef77419389904f244787a7b4a4c1b2ec6
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 121
-  completed_plans: 118
+  completed_plans: 119
   percent: 98
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
@@ -666,7 +666,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 49 (49-42 concluído; próximo 49-43 — o último plano da fase)
+Status: Phase complete — ready for verification
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -701,7 +701,7 @@ Status: Executing Phase 49 (49-42 concluído; próximo 49-43 — o último plano
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-09-30
+Last activity: 2026-10-03
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
@@ -918,6 +918,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P40 | 7min | 3 tasks | 6 files |
 | Phase 49 P41 | 7 min | 2 tasks | 9 files |
 | Phase 49 P42 | 14min | 3 tasks | 14 files |
+| Phase 49 P43 | 17min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1268,6 +1269,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-41: as telas do RH (hub, triagem, revisão da redação, card SJT) leem o sinal só por _shared/sinal-revisao (rotuloDoSinal/sinaisDe), e os testes também; tom âmbar só no badge da triagem, neutro nas demais; o rótulo da SJT aparece sempre que o código está em motivos_revisao, não só enquanto pendente
 - [Phase 49]: 49-41: RedacaoReviewPanel passa a renderizar redacoes_candidato.flags (SinaisDaRedacao, some com lista vazia); CasoAbertoMetadata declara motivos_revisao (sem ele: TS2339, tsc 89→90, medido)
 - [Phase 49]: 49-42: o sinal de instrução à IA é marca de LEITURA na aba da transcrição (fora de pendentes/bloqueado, como o portão avancar_etapa); o PDF do comparativo imprime o rotuloDoSinal importado (precedente D-27b aplicado pelo planejador); no admin, estadoDaChamada mora no aiLogsService e o filtro de Status é a tradução dele (filtro ≡ célula provado sobre 7 formas × 4 estados, com a semântica SQL do nulo)
+- [Phase 49]: 49-43: publicação do JORN-41 a partir de REV 57da895e (export git archive + GUARDA em cada escrita); ordem migration → consolidar v10 → front → 6 EFs de IA → avaliar-redacao por último; fonte publicada byte-igual a REV nos 8 deploys (consolidar 3/3, as 7 em 92/92)
+- [Phase 49]: 49-43: os commits de metadados do executor (SUMMARY/STATE/ROADMAP) ficam locais — o plano diz que não os publica e o gsd-49-43-push.cjs os recusaria; publicar é decisão do orquestrador
 
 ### Roadmap Evolution
 
@@ -1596,8 +1599,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-30T07:32:42.533Z
-Stopped at: Completed 49-42-PLAN.md
+Last session: 2026-10-03T03:50:36.547Z
+Stopped at: Completed 49-43-PLAN.md (publicação JORN-41; fase 49 aguarda verificação)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

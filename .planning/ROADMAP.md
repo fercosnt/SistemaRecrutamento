@@ -514,7 +514,7 @@ Plans:
 
 *Wave 8*
 
-- [ ] 49-43-PLAN.md — Re-revisão adversarial ANTES de publicar (checkpoint; rodadas -2/-3/-4 feitas, falta o -5 com 0 críticos); migration do cron → `consolidar-decisao-final` → front (marcador `decisao-sjt-sinal-revisao` servido num chunk lazy, portão provado mordente) → 6 EFs de IA → `avaliar-redacao` por último, com fonte publicada byte-igual e o contrato verde sobre o código publicado; JORN-41 anotado à espera do verificador; STATE corrigido sobre a `consolidar` (JORN-41)
+- [x] 49-43-PLAN.md — Re-revisão adversarial ANTES de publicar (checkpoint; rodadas -2/-3/-4 feitas, falta o -5 com 0 críticos); migration do cron → `consolidar-decisao-final` → front (marcador `decisao-sjt-sinal-revisao` servido num chunk lazy, portão provado mordente) → 6 EFs de IA → `avaliar-redacao` por último, com fonte publicada byte-igual e o contrato verde sobre o código publicado; JORN-41 anotado à espera do verificador; STATE corrigido sobre a `consolidar` (JORN-41)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
@@ -601,7 +601,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 42/43 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 43/43 | In Progress|  |
 
 ---
 
