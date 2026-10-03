@@ -402,7 +402,7 @@ Plans:
 **Guardrails**: os do Bloco 1. Migrations pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), Edge Functions por `efdeploy.cjs`; depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**. Teto de `tsc` **medido no kickoff: 90**.
 **Portão destrutivo**: há escrita retroativa, decidida no kickoff — limpar 9 justificativas grudadas (17), limpar as cópias de justificativa de decisão no histórico (37; medidas 5 linhas em 4 candidaturas pela pesquisa), marcar vigente/superadas em 6 análises (12); os snapshots sem mudança **ficam** (3b). Cada uma é checkpoint com contagem antes/depois. **E o 36 mexe no motor de exclusão** (mecanismo destrutivo): apply com portão e prova em conta de teste. Nenhuma escrita desta fase apaga linha, **com uma exceção decidida no portão (D-62)**: o passo novo do motor apaga as linhas do titular excluído em `respostas_raven`/`respostas_bigfive`/`respostas_disc`/`respostas_formulario`, cujos valores inteiros e de enum não aceitam sentinela. Portão fechado em 2026-09-22 (D-59..D-68 em `49-CONTEXT.md`).
 **Fora de escopo**: Blocos 3 e 4 da fila. A pendência **P1** (avaliar trocar o modelo das funções de IA) não faz parte do 28: o 28 torna o fallback visível, não escolhe modelo. As decisões D1–D8 (JORNADA) e D-01..D-23 (Phase 48) não são reabertas. JORN-42..49 (UAT de 27–29/09) roteados ao Bloco 3 — próxima fase, a criar; não são escopo desta (roteamento decidido pelo operador em 2026-09-29).
-**Plans**: 43 plans
+**Plans**: 45 plans
 
 Plans:
 
@@ -515,6 +515,14 @@ Plans:
 *Wave 8*
 
 - [x] 49-43-PLAN.md — Re-revisão adversarial ANTES de publicar (checkpoint; rodadas -2/-3/-4 feitas, falta o -5 com 0 críticos); migration do cron → `consolidar-decisao-final` → front (marcador `decisao-sjt-sinal-revisao` servido num chunk lazy, portão provado mordente) → 6 EFs de IA → `avaliar-redacao` por último, com fonte publicada byte-igual e o contrato verde sobre o código publicado; JORN-41 anotado à espera do verificador; STATE corrigido sobre a `consolidar` (JORN-41)
+
+*Wave 9* (lacuna WR-07 do `49-REVIEW-GAPS-4.md`; operador: «B», 2026-10-01)
+
+- [ ] 49-44-PLAN.md — O RH dono da vaga lê, na Decisão Final, dentro do aviso da SJT, o texto do caso aberto: RPC `ler_resposta_caso_aberto_sjt` (SECURITY DEFINER, predicado WR-04, sem cópia do texto), caso aberto enviado congelado para o candidato (políticas RESTRICTIVE), smoke de 9 cláusulas sobre fixture povoada com 8 mutações que mordem (uma por política restritiva), botão sob demanda; construído e ensaiado em PROD sem persistir (JORN-41)
+
+*Wave 10*
+
+- [ ] 49-45-PLAN.md — Re-revisão adversarial bloqueante (`49-REVIEW-GAPS-8`) + pausa da outra janela confirmada; migration `20261003000001` aplicada e exposição provada ao vivo antes do push; front pelo sha exato com o marcador `decisao-sjt-resposta-caso-aberto` servido num chunk lazy; entrega registrada no STATE (JORN-41)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>

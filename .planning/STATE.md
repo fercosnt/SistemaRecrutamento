@@ -2,17 +2,17 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: verifying
+status: executing
 stopped_at: Completed 49-43-PLAN.md (publicação JORN-41; fase 49 aguarda verificação)
-last_updated: "2026-10-03T03:50:46.244Z"
+last_updated: "2026-10-03T05:35:53.664Z"
 last_activity: 2026-10-03
-state_head: fb79d29ef77419389904f244787a7b4a4c1b2ec6
+state_head: 67669214a86ba78b60d4f45e390a5b822917f370
 progress:
   total_phases: 8
   completed_phases: 9
-  total_plans: 121
+  total_plans: 123
   completed_plans: 119
-  percent: 98
+  percent: 97
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-29 — Phase 49 com os 29 planos fechados. A jornada real rodou em 27/09 (a de 26/09 era roteiro relatado como executado, medido e desmentido). O passo (c) REPROVOU e revelou o JORN-41: os 8 padrões do guard de injeção eram todos em inglês num domínio pt-BR, e o chamador é único (callAi) — a cegueira valia para as 7 EFs de IA, currículo incluso. Consertado com RED provado, 5 padrões pt-BR e 9 controles negativos em DUAS classes (a 1a versão reprovava «não dá para ignorar as regras de biossegurança»), deployado nas 7 EFs em 28/09 e reexecutado contra a versão no ar: passou. O motor de exclusão rodou de verdade uma vez, 8/8 p36_*. Dois consertos de instrumento na própria prova (57d72447, 5e408592). 8 defeitos restantes viraram JORN-42..49. Próximo: a cauda da fase."
