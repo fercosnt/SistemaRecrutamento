@@ -85,7 +85,7 @@ describe('D-04 .strict() forbidden-field allowlist (LGPD-01)', () => {
         ...INSCR_01_VALID_PAYLOAD,
         [forbiddenKey]: 'should-be-rejected',
       }
-      expect(payloadWithForbiddenKey[forbiddenKey]).toBe('should-be-rejected')
+      expect((payloadWithForbiddenKey as Record<string, unknown>)[forbiddenKey]).toBe('should-be-rejected')
 
       // The rejection mechanism for ALL forbidden keys is a single `.strict()`
       // on cadastroCandidatoSchema. RED while it is absent.
