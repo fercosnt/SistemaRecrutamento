@@ -13,7 +13,7 @@ requires:
 provides:
   - "migration 20261003000001 (NÃO aplicada): RPC `ler_resposta_caso_aberto_sjt(uuid)` SECURITY DEFINER com predicado WR-04 e guarda fail-closed; helper `caso_aberto_sjt_enviado(uuid)`; três políticas RESTRICTIVE `cand_congela_caso_aberto_{ins,upd,del}` TO authenticated; `SET LOCAL lock_timeout 3s / statement_timeout 5s` no topo; pré e pós-portão"
   - "smoke `p49_44_resposta_caso_aberto_smoke.sql` (envelope P49C1, cláusulas a..h + z, esperado 9, fixtures A..G povoadas), verde no ensaio em PROD que aborta"
-  - "runner `scripts/p49_44_mutacoes.cjs`: controle verde; 8/8 mutações mordem na letra e no rótulo esperados; nada persistiu"
+  - "runner `scripts/p49_44_mutacoes.cjs`: controle verde; 9/9 mutações mordem (M9 = papel nulo, rodada de conserto do REVIEW-GAPS-8) na letra e no rótulo esperados; nada persistiu"
   - "front: `getRespostaCasoAbertoSjt` + `SITUACOES_RESPOSTA_CASO_ABERTO` (contrato validado), componente `RespostaCasoAbertoSjt` (marcador `decisao-sjt-resposta-caso-aberto`, chunk lazy DecisaoFinalPage) montado só no aviso da SJT"
   - "ref `refs/gsd/49-44/base` = 46f2a52d (diff_base da re-revisão do 49-45)"
 affects: [49-45 (re-revisão bloqueante, checkpoint (a)/(c), apply + push), 49-VERIFICATION re-verificação do JORN-41, primeiro plano que rodar db:types depois do apply (retira o cast estreito)]
@@ -49,7 +49,7 @@ key-files:
 key-decisions:
   - "Nenhuma decisão nova do executor: as escolhas 1–7 do planejador (RPC e não coluna/policy; predicado WR-04 copiado; só depois do envio; congelar por RESTRICTIVE; estados sem causa inventada; sem cache; sem updated_at) foram implementadas como escritas e seguem vetáveis pelo operador no checkpoint do 49-45"
   - "Medido (não decidido): sob M7 o upsert continua dando 42501 — a WITH CHECK da `_ins` intacta vale para a linha proposta também no caminho ON CONFLICT DO UPDATE; a sonda que pega a `_upd` é o UPDATE puro. Registrado no cabeçalho do smoke"
-  - "R1, R2 e R3 (o texto gravado pode não ser o analisado) ficam nomeados e NÃO consertados; disposição do operador no 49-45 (c). Nenhum artefato afirma fidelidade"
+  - "R1–R4 (o texto gravado pode não ser o analisado; R4 = segunda nota sobre outro texto depois do congelamento) ficam nomeados e NÃO consertados; disposição do operador no 49-45 (c): publicar com eles registrados (2026-10-03). Nenhum artefato afirma fidelidade"
 
 patterns-established:
   - "RED de componente que importa constante ainda inexistente: ler a constante dentro do teste (não no escopo do describe/it.each), para reprovar na asserção e não na coleta (evita INVALID_RED fixture_or_load_failure)"
@@ -58,14 +58,14 @@ requirements-completed: []  # JORN-41 compartilhado com o 49-45; só o verificad
 
 coverage:
   - id: D1
-    description: "RPC ler_resposta_caso_aberto_sjt: dono e administrador leem o texto byte a byte; RH alheio, sem claims, candidato e candidatura inexistente (rh) recusados com 42501; anon sem EXECUTE (ACL distinguido da guarda pela mensagem); estados sem_resposta_enviada / indisponivel / removida_pelo_titular / encerrada"
+    description: "RPC ler_resposta_caso_aberto_sjt: dono e administrador leem o texto byte a byte; RH alheio, sem claims, candidato, papel nulo com sub válido e candidatura inexistente (rh) recusados com 42501; anon sem EXECUTE (ACL distinguido da guarda pela mensagem); estados sem_resposta_enviada / indisponivel / removida (neutro: a purga por retenção grava a mesma marca — WR-01 do REVIEW-GAPS-8) / encerrada"
     requirement: JORN-41
     verification:
       - kind: integration
         ref: "node scripts/p49_44_mutacoes.cjs (CONTROLE: migration + smoke p49_44 cláusulas a..e, numa requisição que aborta em PROD)"
         status: pass
       - kind: integration
-        ref: "mutações M1 (d), M2 (d), M3 (e), M5 (a) — scripts/p49_44_mutacoes.cjs"
+        ref: "mutações M1 (d), M2 (d), M3 (e), M5 (a), M9 (d) — scripts/p49_44_mutacoes.cjs"
         status: pass
     human_judgment: false
   - id: D2
@@ -223,7 +223,7 @@ Nenhuma superfície fora do `<threat_model>`. A RPC nova é a T-49-44-01/02/03, 
 ## Pendências para o 49-45
 
 - Re-revisão bloqueante com `diff_base` = `refs/gsd/49-44/base` (46f2a52d).
-- Checkpoint (a): as escolhas 1–7 e o resíduo T-49-44-12. Checkpoint (c): R1, R2 e R3, que vão ao operador sem disposição presumida.
+- Checkpoint (a): as escolhas 1–7 e o resíduo T-49-44-12. Checkpoint (c): R1–R4; disposição do operador em 2026-10-03: publicar com eles registrados.
 - Apply: `node p46apply.cjs migrate supabase/migrations/20261003000001_p49_44_resposta_caso_aberto_rh.sql` (md5 do arquivo hoje: `8cb2400f0d9df453301cc6ad5e0c0302`); depois `node p46apply.cjs run supabase/tests/p49_44_resposta_caso_aberto_smoke.sql`, esperando `resultado.pass === resultado.esperado === 9`; e então o push.
 - Registrar no `STATE.md` que o cast estreito de `getRespostaCasoAbertoSjt` sai no primeiro `npm run db:types < /dev/null` depois do apply.
 - O JORN-41 é declarado também pelo 49-45. A marcação de completo fica com quem fechar por último (shared-ID gate).
