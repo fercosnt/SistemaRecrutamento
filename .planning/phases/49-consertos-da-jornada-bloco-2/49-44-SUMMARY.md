@@ -54,7 +54,7 @@ key-decisions:
 patterns-established:
   - "RED de componente que importa constante ainda inexistente: ler a constante dentro do teste (não no escopo do describe/it.each), para reprovar na asserção e não na coleta (evita INVALID_RED fixture_or_load_failure)"
 
-requirements-completed: [JORN-41]
+requirements-completed: []  # JORN-41 compartilhado com o 49-45; só o verificador marca (WR-05 do REVIEW-GAPS-8)
 
 coverage:
   - id: D1
