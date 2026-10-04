@@ -237,7 +237,7 @@ human_verification:
 
 # Phase 49: Consertos da Jornada — Bloco 2 — Relatório de Verificação
 
-**Objetivo da fase (ROADMAP):** O RH vê e responde os pedidos de revisão que hoje caem no vazio — e nenhuma linha destrutiva do milestone é escrita antes de o mapa do que existe (PII coluna-a-coluna, backup, crons vivos, drift de FK) estar em cima da mesa como fato datado.
+**Objetivo da fase (ROADMAP.md:377):** O RH decide sobre o que é verdade: a IA que ranqueia é a que está configurada (e, quando não for, a troca aparece), a nota que a lista mostra é a que existe, a rubrica que o RH lê é a que a IA avaliou, quem já saiu do funil não aparece como candidato a avançar, e a trilha da candidatura (justificativa, análise vigente, histórico da decisão) registra o que aconteceu, sem carimbo herdado de outra transição nem versão criada por leitura.
 **Verificado em:** 2026-10-03T19:59:55Z (rodada 3; a rodada 2 foi em 2026-10-03T03:58:00Z)
 **Status:** human_needed
 **Re-verificação:** Sim — rodada 3, depois dos planos 49-44 e 49-45 (WR-07). A rodada 2 (planos 49-36..49-43) fica abaixo, preservada como estava; só as seções «Observable Truths», «Requirements Coverage» e «Anti-padrões» ganharam linhas.
