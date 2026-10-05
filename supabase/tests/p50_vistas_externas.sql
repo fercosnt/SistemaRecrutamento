@@ -12,7 +12,8 @@
 -- (views não têm ctid). O ensaio compara a fotografia de ANTES com a de DEPOIS na mesma
 -- transação: qualquer diferença é exposição nova (`P50V FAIL (vistas)`).
 --
--- CONJUNTO DE RELAÇÕES — por FORMA (iteração do catálogo; nenhuma lista literal de objetos):
+-- CONJUNTO DE RELAÇÕES — (1) e (2) por FORMA (iteração do catálogo); (3) é lista literal
+-- DELIBERADA — escopo, não fotografia (casa o padrão de varredura do CLAUDE.md §«Portões»):
 --   (1) toda tabela de `public` com policy cujo `qual` ou `with_check` casa `created_by` ou
 --       `is_active_rh_user` — o mesmo conjunto antes e depois de qualquer migration p50, por
 --       construção (a policy reescrita troca uma forma pela outra);
@@ -34,8 +35,24 @@
 -- População vazia mente nas duas direções: cada relação publica a contagem como postgres; uma
 -- igualdade «0 = 0» sobre relação vazia não prova nada sobre ela (a leitura disso é do revisor).
 --
--- RESULTADO: `json_build_object('atores', …, 'admin_ve_tudo', …, 'populacao', …, 'relacoes', n,
--- 'ids', …)` gravado na GUC de sessão `p50.vistas` e devolvido `AS resultado` no fim.
+-- PARA A COMPARAÇÃO ENTRE DUAS REQUISIÇÕES (50-02 Step 1 × verify, WR-07 do 50-REVIEW-TRACER-1):
+--   · `ledger_p50` — as versões `20261005*` no ledger NO MOMENTO da captura. Prova de QUANDO a
+--     fotografia foi tirada: a de «antes» não pode ter a versão aplicada, a de «depois» tem de
+--     ter. Uma «antes» refeita depois do apply é recusada por construção — refazer a captura
+--     de antes não é saída para um vermelho.
+--   · `pop_fp` — por relação, como postgres, `n:<contagem>:<md5 das LINHAS INTEIRAS>`. Uma
+--     diferença na vista de um ator externo SEM diferença em `pop_fp` daquela relação não tem
+--     explicação por tráfego: é mudança de acesso. COM diferença em `pop_fp` é AMBÍGUA (tráfego
+--     legítimo — p.ex. o RH ativou uma vaga — ou tráfego + exposição): quem decide é o ENSAIO
+--     REVERSO (`p50_ensaio.cjs --vistas --sem-migracoes --mutacao=supabase/tests/p50_desfazer_tracer.sql`),
+--     que compara o estado vivo com o desfeito na MESMA transação, sem janela de tráfego.
+--
+-- Um `55P03`/`57014` numa leitura NÃO vira fotografia (`e:55P03` seria lido como exposição):
+-- relança, e o ensaio classifica como LOCK/STATEMENT TIMEOUT (IN-09).
+--
+-- RESULTADO: `json_build_object('atores', …, 'admin_ve_tudo', …, 'populacao', …, 'pop_fp', …,
+-- 'relacoes', n, 'ledger_p50', […], 'ids', …)` gravado na GUC de sessão `p50.vistas` e
+-- devolvido `AS resultado` no fim.
 --
 -- COMO RODAR (avulso): `node p46apply.cjs run supabase/tests/p50_vistas_externas.sql`.
 -- No ensaio: `node scripts/p50_ensaio.cjs --vistas [--migracoes=…] <smoke>`.
@@ -55,6 +72,8 @@ DECLARE
   v_rels    text[] := '{}';
   v_chaves  text[] := '{}';
   v_pop     jsonb := '{}'::jsonb;
+  v_popfp   jsonb := '{}'::jsonb;
+  v_ledger  jsonb;
   v_admin_ok jsonb := '{}'::jsonb;
   v_atores  jsonb := '{}'::jsonb;
   v_obj     jsonb;
@@ -130,9 +149,14 @@ BEGIN
   -- ── população como postgres ───────────────────────────────────────────────
   RESET ROLE;
   FOR i IN 1 .. cardinality(v_rels) LOOP
-    EXECUTE format('SELECT count(*) FROM %s t', v_rels[i]) INTO v_n;
-    v_pop := v_pop || jsonb_build_object(v_rels[i], v_n);
+    EXECUTE format('SELECT count(*), md5(coalesce(string_agg(t::text, %L ORDER BY t::text), %L)) FROM %s t', ',', '', v_rels[i])
+       INTO v_n, v_md5;
+    v_pop   := v_pop   || jsonb_build_object(v_rels[i], v_n);
+    v_popfp := v_popfp || jsonb_build_object(v_rels[i], format('n:%s:%s', v_n, v_md5));
   END LOOP;
+  SELECT coalesce(jsonb_agg(m.version ORDER BY m.version), '[]'::jsonb) INTO v_ledger
+    FROM supabase_migrations.schema_migrations m
+   WHERE m.version LIKE '20261005%';
 
   -- ── atores externos ───────────────────────────────────────────────────────
   FOREACH v_ator IN ARRAY ARRAY['anon', 'sem_claims', 'candidato', 'rh_inativo'] LOOP
@@ -153,8 +177,9 @@ BEGIN
                        v_chaves[i], v_rels[i])
            INTO v_n, v_md5;
         v_val := format('n:%s:%s', v_n, v_md5);
-      EXCEPTION WHEN OTHERS THEN
-        v_val := 'e:' || SQLSTATE;
+      EXCEPTION
+        WHEN lock_not_available OR query_canceled THEN RAISE;
+        WHEN OTHERS THEN v_val := 'e:' || SQLSTATE;
       END;
       v_obj := v_obj || jsonb_build_object(v_rels[i], v_val);
     END LOOP;
@@ -171,8 +196,9 @@ BEGIN
     BEGIN
       EXECUTE format('SELECT count(*) FROM %s t', v_rels[i]) INTO v_n;
       v_admin_ok := v_admin_ok || jsonb_build_object(v_rels[i], v_n = (v_pop ->> v_rels[i])::bigint);
-    EXCEPTION WHEN OTHERS THEN
-      v_admin_ok := v_admin_ok || jsonb_build_object(v_rels[i], false);
+    EXCEPTION
+      WHEN lock_not_available OR query_canceled THEN RAISE;
+      WHEN OTHERS THEN v_admin_ok := v_admin_ok || jsonb_build_object(v_rels[i], false);
     END;
   END LOOP;
   RESET ROLE;
@@ -182,7 +208,9 @@ BEGIN
       'atores',        v_atores,
       'admin_ve_tudo', v_admin_ok,
       'populacao',     v_pop,
+      'pop_fp',        v_popfp,
       'relacoes',      cardinality(v_rels),
+      'ledger_p50',    v_ledger,
       'ids',           jsonb_build_object('rh_inativo', v_inativo, 'admin', v_admin, 'candidato', v_cand)
     )::text, false);
 END
