@@ -182,6 +182,25 @@ const MUTACOES = [
     sql: trocar(trocar(fnHelper, 'CREATE FUNCTION', 'CREATE OR REPLACE FUNCTION', 'M8'), 'AND u.ativo = true', "AND u.role = 'administrador'", 'M8'),
   },
   {
+    // WR-03: ramo `rh` sem o filtro de candidatura excluída (LGPD/M8). Tem de morder em (f) pela
+    // excluída SEMEADA (PROD não tem população real de borda).
+    id: 'M9',
+    desc: 'ramo rh sem deleted_at IS NULL (ve candidatura excluida)',
+    letra: 'f',
+    rotulos: ['rh_ve_excluida'],
+    requer: ['20261005000001'],
+    sql: trocar(polCand, ' AND (deleted_at IS NULL)', '', 'M9'),
+  },
+  {
+    // WR-03: ramo `rh` sem o filtro de rascunho.
+    id: 'M10',
+    desc: 'ramo rh sem is_rascunho = false (ve rascunho)',
+    letra: 'f',
+    rotulos: ['rh_ve_rascunho'],
+    requer: ['20261005000001'],
+    sql: trocar(polCand, ' AND (is_rascunho = false)', '', 'M10'),
+  },
+  {
     // IN-06: helper que ignora `deleted_at` — a linha excluída e ainda `ativo` passaria.
     id: 'M11',
     desc: 'helper sem deleted_at IS NULL (mesmo ACL)',

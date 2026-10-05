@@ -78,10 +78,13 @@
 --       Esse literal é ESCOPO deliberado (D-02: «o ramo do administrador fica byte-idêntico»),
 --       não fotografia: mudar o disjunto É o defeito que a cláusula existe para pegar.
 --   (f) forma da policy (escopo do tracer, nome literal deliberado): roles `{authenticated}`; o
---       qual chama `is_active_rh_user` e não casa `created_by`. BORDA: imprime a contagem, como
---       postgres, de candidaturas com `deleted_at IS NOT NULL OR is_rascunho`; se > 0, o rh ativo
---       vê 0 delas e o administrador vê todas. ⚠ População medida em 2026-10-05: 0 — a borda
---       fica VÁCUA enquanto não houver candidatura morta; o JSON publica `n_borda`.
+--       qual chama `is_active_rh_user` e não casa `created_by`. BORDA SEMEADA (WR-03): dentro do
+--       envelope P50C1, as duas primeiras candidaturas vivas (por id) viram uma rascunho e uma
+--       excluída; então o rh ativo vê 0 de cada [rh_ve_rascunho, rh_ve_excluida], 0 da borda
+--       inteira [rh_ve_borda] e total = vivas como postgres depois de semear [rh_total]; o
+--       administrador vê as 2 semeadas e a borda inteira [c_admin_semeadas, c_admin_borda]; a
+--       semente pegou [c_populacao]. A população publicada no JSON é `f_borda_semeada`;
+--       `n_borda` segue sendo a borda REAL (0 em 2026-10-05).
 --   (z) resíduo: contagens globais de `candidaturas`, `vagas` e `usuarios_rh` = baseline
 --       capturada no início DESTA execução.
 --
@@ -104,9 +107,26 @@
 --   casam a forma) foi idêntica à de antes: nada persistiu. Sob M5 a cláusula (d) segue verde —
 --   `anon` continua recusado (42501) também com a policy `{public}`; quem pega é (f).
 --
+--   Rodada de conserto do 50-REVIEW-TRACER-1 (2026-10-05) — cada mutação nova declara também os
+--   RÓTULOS que têm de aparecer (morde PELA sonda que existe para ela):
+--   | Mutação | Inversão                                                     | Reprova (rótulos exigidos)                          | Medido (2026-10-05)                                   |
+--   |---------|--------------------------------------------------------------|-----------------------------------------------------|-------------------------------------------------------|
+--   | M7      | ramo `rh` sem o conjunto do claim `rh` (WR-01)               | (d) ativo_visualizador, ativo_gerente, ativo_sem_role | (d) [ativo_visualizador,ativo_gerente,ativo_sem_role], 527 ms |
+--   | M8      | helper com `role = 'administrador'` no lugar de `ativo` (WR-02) | (b) inativo_mesmo_papel, rec_ativo               | (b) [rec_ativo,inativo_mesmo_papel], 542 ms           |
+--   | M9      | ramo `rh` sem `deleted_at IS NULL` (WR-03)                   | (f) rh_ve_excluida                                  | (f) [rh_ve_excluida,rh_ve_borda,rh_total], 756 ms     |
+--   | M10     | ramo `rh` sem `is_rascunho = false` (WR-03)                  | (f) rh_ve_rascunho                                  | (f) [rh_ve_rascunho,rh_ve_borda,rh_total], 830 ms     |
+--   | M11     | helper sem `deleted_at IS NULL` (IN-06)                      | (b) ativo_excluido                                  | (b) [ativo_excluido], 545 ms                          |
+--   CONTROLE 7/7 (985 ms); M1..M6 seguem mordendo nas mesmas letras; «controle verde; 11/11
+--   mutacoes mordem; nada persistiu» — a leitura de persistência agora cobre TODAS as 155
+--   policies de `public`, `role|ativo|deleted_at` das 7 linhas de `usuarios_rh` e a borda de
+--   `candidaturas` (0), iguais antes e depois.
+--
 -- Varredura (forma) — 2026-10-05, padrão do CLAUDE.md §«Portões» sobre `supabase/tests/*.sql`
 -- (`grep -rnE '(<>|!=|IS DISTINCT FROM) *[0-9]+|= ANY \(ARRAY\[.|\b(proname|jobname|relname|tgname|conname|typname) +IN +\(.'`).
---   População da forma: 336 linhas (re-medida na execução do 50-01; igual à do planejamento).
+--   População da forma: 336 linhas (re-medida na execução do 50-01; igual à do planejamento);
+--   345 depois da rodada de conserto do 50-REVIEW-TRACER-1 — as 4 que a revisão atribuiu aos
+--   próprios arquivos p50 (comentários deste cabeçalho e o `relname IN` da sonda) e 5 `v_rc <> 1`
+--   deste arquivo, ESCOPO: cada escrita do envelope tem de atingir exatamente UMA linha.
 --   Achados que tocam objetos da fase (as 18 funções / 14 policies), todos ESCOPO e não
 --   fotografia: `oper31_rejeitar_candidatura_smokes.sql:224` (`v_after - v_before <> 1`, delta
 --   da própria fixture); `p44_pedidos_dados_smoke.sql:357` (as duas RPCs que o p44 especifica);
@@ -119,8 +139,9 @@
 --   Fora dos objetos da fase: `p46_teardown_fixture.sql:293` (resíduo da fixture, escopo) e
 --   `p43_previa_smoke.sql:667` (RPCs da P43).
 --   Este arquivo tem constantes deliberadas: o esperado 7 (número de cláusulas DESTE arquivo), o
---   0 das negativas e o literal do disjunto do administrador em (e) — escopo; as contagens de
---   (c), (e) e (z) são baseline capturada na execução.
+--   0 das negativas, o 1 de cada escrita do envelope, o 2 das semeadas de (f) e o literal do
+--   disjunto do administrador em (e) — escopo; as contagens de (c), (e), (f) e (z) são baseline
+--   capturada na execução.
 --
 -- COMO RODAR:
 --   · antes do apply (50-01/50-02): só dentro do ensaio que aborta —
@@ -666,7 +687,7 @@ BEGIN
   END IF;
 
   IF n_total < 1 OR e_count IS DISTINCT FROM n_total::text THEN
-    RAISE EXCEPTION 'P50C FAIL (e): o administrador ativo (%) viu «%» candidaturas (esperado o total como postgres = %, > 0) — o administrador nao pode perder nada',
+    RAISE EXCEPTION 'P50C FAIL (e): o administrador ativo (%) viu «%» candidaturas (esperado o total como postgres = %, > 0) — o administrador nao pode perder nada. Se o numero difere por pouco e (z) tambem acusaria: trafego concorrente commitado entre a baseline e (e) — rodar de novo',
       v_admin, e_count, n_total;
   END IF;
 
@@ -697,19 +718,29 @@ $e$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (f) forma da policy + BORDA (mortas e rascunhos fora do alcance do rh).
+-- (f) forma da policy + BORDA SEMEADA (mortas e rascunhos fora do alcance do rh).
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $f$
 DECLARE
   v_ativo  uuid   := current_setting('smoke50.a_ativo')::uuid;
   v_admin  uuid   := current_setting('smoke50.a_admin')::uuid;
-  n_borda  bigint := current_setting('smoke50.n_borda')::bigint;
   v_err    text;
   v_ran    boolean := false;
   v_n      bigint;
+  v_rc     int;
+  v_sem    uuid[];
+  v_rasc   uuid;
+  v_excl   uuid;
+  p_borda  text := '<nao rodou>';
+  p_vivas  text := '<nao rodou>';
   f_rh     text := '<nao rodou>';
+  f_rh_r   text := '<nao rodou>';
+  f_rh_e   text := '<nao rodou>';
+  f_rh_tot text := '<nao rodou>';
   f_adm    text := '<nao rodou>';
+  f_adm_s  text := '<nao rodou>';
+  f_rot    text[] := '{}';
   v_roles  text;
   v_qual   text;
   v_wc     text;
@@ -718,16 +749,48 @@ BEGIN
     FROM pg_catalog.pg_policies p
    WHERE p.schemaname = 'public' AND p.tablename = 'candidaturas' AND p.policyname = 'rh_le_candidaturas';
 
+  -- WR-03: duas candidaturas VIVAS, lidas na execução, viram a população da BORDA (uma rascunho,
+  -- outra excluída) só dentro do envelope P50C1. PROD não tem candidatura morta/rascunho
+  -- (medido 2026-10-05: 40 de 40 vivas) — sem semear, a borda ficava vácua.
+  SELECT array_agg(x.id ORDER BY x.id) INTO v_sem
+    FROM (SELECT c.id FROM public.candidaturas c
+           WHERE c.deleted_at IS NULL AND c.is_rascunho = false
+           ORDER BY c.id LIMIT 2) x;
+  IF coalesce(cardinality(v_sem), 0) < 2 THEN
+    RAISE EXCEPTION 'P50C FAIL (f): menos de 2 candidaturas vivas para semear a BORDA — a clausula seria vacua';
+  END IF;
+  v_rasc := v_sem[1];
+  v_excl := v_sem[2];
+
   BEGIN
+    UPDATE public.candidaturas SET is_rascunho = true WHERE id = v_rasc;
+    GET DIAGNOSTICS v_rc = ROW_COUNT;
+    IF v_rc <> 1 THEN RAISE EXCEPTION 'semear rascunho atingiu % linha(s), esperado 1', v_rc; END IF;
+    UPDATE public.candidaturas SET deleted_at = now() WHERE id = v_excl;
+    GET DIAGNOSTICS v_rc = ROW_COUNT;
+    IF v_rc <> 1 THEN RAISE EXCEPTION 'semear exclusao atingiu % linha(s), esperado 1', v_rc; END IF;
+    -- a população, como postgres, DEPOIS de semear
+    SELECT count(*) INTO v_n FROM public.candidaturas c WHERE c.deleted_at IS NOT NULL OR c.is_rascunho; p_borda := v_n::text;
+    SELECT count(*) INTO v_n FROM public.candidaturas c WHERE c.deleted_at IS NULL AND c.is_rascunho = false; p_vivas := v_n::text;
+
     SET LOCAL ROLE authenticated;
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
               'app_metadata', json_build_object('role', 'rh'))::text, true);
     BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c WHERE c.deleted_at IS NOT NULL OR c.is_rascunho; f_rh := v_n::text;
     EXCEPTION WHEN OTHERS THEN f_rh := SQLSTATE || ':' || SQLERRM; END;
+    BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c WHERE c.id = v_rasc; f_rh_r := v_n::text;
+    EXCEPTION WHEN OTHERS THEN f_rh_r := SQLSTATE || ':' || SQLERRM; END;
+    BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c WHERE c.id = v_excl; f_rh_e := v_n::text;
+    EXCEPTION WHEN OTHERS THEN f_rh_e := SQLSTATE || ':' || SQLERRM; END;
+    BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c; f_rh_tot := v_n::text;
+    EXCEPTION WHEN OTHERS THEN f_rh_tot := SQLSTATE || ':' || SQLERRM; END;
+
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated',
               'app_metadata', json_build_object('role', 'administrador'))::text, true);
     BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c WHERE c.deleted_at IS NOT NULL OR c.is_rascunho; f_adm := v_n::text;
     EXCEPTION WHEN OTHERS THEN f_adm := SQLSTATE || ':' || SQLERRM; END;
+    BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c WHERE c.id = ANY (v_sem); f_adm_s := v_n::text;
+    EXCEPTION WHEN OTHERS THEN f_adm_s := SQLSTATE || ':' || SQLERRM; END;
     RESET ROLE;
     v_ran := true;
     RAISE EXCEPTION 'reverter' USING ERRCODE = 'P50C1';
@@ -751,12 +814,22 @@ BEGIN
   IF coalesce(v_qual, '') || coalesce(v_wc, '') ~* 'created_by' THEN
     RAISE EXCEPTION 'P50C FAIL (f): rh_le_candidaturas ainda casa created_by (posse como autorizacao): %', v_qual;
   END IF;
-  -- BORDA: com populacao, o rh ativo nao ve morta nem rascunho; o administrador ve todas.
-  IF n_borda > 0 AND (f_rh IS DISTINCT FROM '0' OR f_adm IS DISTINCT FROM n_borda::text) THEN
-    RAISE EXCEPTION 'P50C FAIL (f): BORDA — % candidatura(s) morta(s)/rascunho; rh ativo viu «%» (esperado 0), administrador «%» (esperado %)',
-      n_borda, f_rh, f_adm, n_borda;
+
+  -- BORDA semeada. Controles primeiro (c_*): a semente pegou e o administrador vê as semeadas;
+  -- sem eles, um «rh viu 0» seria vácuo.
+  IF p_borda !~ '^[0-9]+$' OR p_borda::bigint < 2 THEN f_rot := f_rot || 'c_populacao'::text; END IF;
+  IF f_adm_s IS DISTINCT FROM '2'    THEN f_rot := f_rot || 'c_admin_semeadas'::text; END IF;
+  IF f_adm   IS DISTINCT FROM p_borda THEN f_rot := f_rot || 'c_admin_borda'::text; END IF;
+  IF f_rh_r  IS DISTINCT FROM '0'    THEN f_rot := f_rot || 'rh_ve_rascunho'::text; END IF;
+  IF f_rh_e  IS DISTINCT FROM '0'    THEN f_rot := f_rot || 'rh_ve_excluida'::text; END IF;
+  IF f_rh    IS DISTINCT FROM '0'    THEN f_rot := f_rot || 'rh_ve_borda'::text; END IF;
+  IF f_rh_tot IS DISTINCT FROM p_vivas THEN f_rot := f_rot || 'rh_total'::text; END IF;
+  IF cardinality(f_rot) > 0 THEN
+    RAISE EXCEPTION 'P50C FAIL (f): [%]: BORDA semeada (rascunho %, excluida %) — populacao como postgres=«%» ; rh ativo viu rascunho=«%» excluida=«%» borda=«%» total=«%» (esperado 0, 0, 0, vivas=%) ; administrador semeadas=«%» borda=«%» (esperado 2, %). rotulo c_* = controle vacuo; um total que difere por pouco sem outro rotulo e trafego concorrente: rodar de novo',
+      array_to_string(f_rot, ','), v_rasc, v_excl, p_borda, f_rh_r, f_rh_e, f_rh, f_rh_tot, p_vivas, f_adm_s, f_adm, p_borda;
   END IF;
   PERFORM set_config('smoke50.f_borda_rh', f_rh, false);
+  PERFORM set_config('smoke50.f_borda_semeada', p_borda, false);
   PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
 END
 $f$;
@@ -824,5 +897,6 @@ SELECT json_build_object(
   'd_cand_proprias', current_setting('smoke50.d_proprias'),
   'd_anon',         current_setting('smoke50.d_anon'),
   'n_borda',        current_setting('smoke50.n_borda')::int,
-  'f_borda_rh',     current_setting('smoke50.f_borda_rh')
+  'f_borda_rh',     current_setting('smoke50.f_borda_rh'),
+  'f_borda_semeada', current_setting('smoke50.f_borda_semeada')::int
 ) AS resultado;
