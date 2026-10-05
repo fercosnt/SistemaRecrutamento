@@ -160,6 +160,16 @@ const MUTACOES = [
     requer: ['20261005000001'],
     sql: trocar(polCand, "= 'administrador')", "= ANY (ARRAY['administrador']))", 'M6'),
   },
+  {
+    // WR-01: tira o conjunto do claim `rh` do ramo — qualquer linha usuarios_rh ativa leria tudo,
+    // seja qual for o claim. Tem de morder pelas sondas da linha ATIVA com claim != rh.
+    id: 'M7',
+    desc: 'ramo rh sem o conjunto do claim (qualquer linha ativa, qualquer claim)',
+    letra: 'd',
+    rotulos: ['ativo_visualizador', 'ativo_gerente', 'ativo_sem_role'],
+    requer: ['20261005000001'],
+    sql: trocar(polCand, "((SELECT (auth.jwt() #>> '{app_metadata,role}')) = 'rh') AND ", '', 'M7'),
+  },
 ];
 
 function falha(out) {

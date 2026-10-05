@@ -44,7 +44,10 @@
 --   (c) SC1 por impersonação: claim `rh` + `sub` a_ativo ⇒ por vaga escolhida, `count(*)` de
 --       `candidaturas` = contagem viva como postgres, cada uma > 0; total visível = total vivo.
 --   (d) SC2, cada negativa PAREADA com o positivo de (c) na mesma execução: claim `rh` + `sub`
---       a_inativo ⇒ 0; claims `candidato` + `sub` a_cand ⇒ ≥ 1 linha própria [c_cand = controle]
+--       a_inativo ⇒ 0; `sub` a_ativo (a MESMA linha ativa do positivo) com claim `visualizador`,
+--       `gerente` e sem `role` ⇒ 0 cada [ativo_visualizador, ativo_gerente, ativo_sem_role] —
+--       o conjunto do claim `rh` é o único filtro de papel do ramo (o helper é role-agnóstico);
+--       claims `candidato` + `sub` a_cand ⇒ ≥ 1 linha própria [c_cand = controle]
 --       E 0 alheias; `authenticated` sem claims ⇒ 0; `anon` ⇒ 0 linhas ou 42501, nunca ≥ 1
 --       (o JSON registra qual dos dois).
 --   (e) administrador: claim `administrador` + `sub` a_admin ⇒ `count(*)` = total de TODAS as
@@ -420,6 +423,7 @@ $c$;
 RESET ROLE;
 DO $d$
 DECLARE
+  v_ativo   uuid   := current_setting('smoke50.a_ativo')::uuid;
   v_inativo uuid   := current_setting('smoke50.a_inativo')::uuid;
   v_cand    uuid   := current_setting('smoke50.a_cand')::uuid;
   v_ids     uuid[] := string_to_array(current_setting('smoke50.cand_ids'), ',')::uuid[];
@@ -431,6 +435,9 @@ DECLARE
   d_alheias text := '<nao rodou>';
   d_sem     text := '<nao rodou>';
   d_anon    text := '<nao rodou>';
+  d_visual  text := '<nao rodou>';
+  d_gerente text := '<nao rodou>';
+  d_semrole text := '<nao rodou>';
   d_rot     text[] := '{}';
 BEGIN
   BEGIN
@@ -440,6 +447,23 @@ BEGIN
               'app_metadata', json_build_object('role', 'rh'))::text, true);
     BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c; d_inativo := v_n::text;
     EXCEPTION WHEN OTHERS THEN d_inativo := SQLSTATE || ':' || SQLERRM; END;
+
+    -- WR-01: a MESMA linha ATIVA do positivo de (c), com claim DIFERENTE de `rh`. O helper é
+    -- role-agnóstico de propósito; o único filtro de papel do ramo é o conjunto do claim `rh`.
+    -- `visualizador`/`gerente` passam no `check_role` e o hook os emite; sem `role` = token sem
+    -- papel. a_ativo não tem linha em `candidatos`: o esperado é 0 exato.
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'visualizador'))::text, true);
+    BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c; d_visual := v_n::text;
+    EXCEPTION WHEN OTHERS THEN d_visual := SQLSTATE || ':' || SQLERRM; END;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'gerente'))::text, true);
+    BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c; d_gerente := v_n::text;
+    EXCEPTION WHEN OTHERS THEN d_gerente := SQLSTATE || ':' || SQLERRM; END;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
+              'app_metadata', json_build_object())::text, true);
+    BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c; d_semrole := v_n::text;
+    EXCEPTION WHEN OTHERS THEN d_semrole := SQLSTATE || ':' || SQLERRM; END;
 
     -- candidato: as próprias (controle) e nenhuma alheia
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_cand::text, 'role', 'authenticated',
@@ -476,12 +500,15 @@ BEGIN
 
   IF d_proprias !~ '^[0-9]+$' OR d_proprias::bigint < 1 THEN d_rot := d_rot || 'c_cand'::text; END IF;
   IF d_inativo  IS DISTINCT FROM '0' THEN d_rot := d_rot || 'inativo'::text; END IF;
+  IF d_visual   IS DISTINCT FROM '0' THEN d_rot := d_rot || 'ativo_visualizador'::text; END IF;
+  IF d_gerente  IS DISTINCT FROM '0' THEN d_rot := d_rot || 'ativo_gerente'::text; END IF;
+  IF d_semrole  IS DISTINCT FROM '0' THEN d_rot := d_rot || 'ativo_sem_role'::text; END IF;
   IF d_alheias  IS DISTINCT FROM '0' THEN d_rot := d_rot || 'cand_alheias'::text; END IF;
   IF d_sem      IS DISTINCT FROM '0' THEN d_rot := d_rot || 'sem_claims'::text; END IF;
   IF d_anon IS DISTINCT FROM 'contagem=0' AND d_anon NOT LIKE 'recusada=42501:%' THEN d_rot := d_rot || 'anon'::text; END IF;
   IF cardinality(d_rot) > 0 THEN
-    RAISE EXCEPTION 'P50C FAIL (d): [%]: rh inativo (token antigo)=«%» ; candidato proprias=«%» alheias=«%» ; sem claims=«%» ; anon=«%» (esperado 0, >=1, 0, 0, contagem=0 ou recusada 42501; rotulo c_* = controle vacuo)',
-      array_to_string(d_rot, ','), d_inativo, d_proprias, d_alheias, d_sem, d_anon;
+    RAISE EXCEPTION 'P50C FAIL (d): [%]: rh inativo (token antigo)=«%» ; ativo com claim visualizador=«%» gerente=«%» sem role=«%» ; candidato proprias=«%» alheias=«%» ; sem claims=«%» ; anon=«%» (esperado 0, 0, 0, 0, >=1, 0, 0, contagem=0 ou recusada 42501; rotulo c_* = controle vacuo)',
+      array_to_string(d_rot, ','), d_inativo, d_visual, d_gerente, d_semrole, d_proprias, d_alheias, d_sem, d_anon;
   END IF;
   PERFORM set_config('smoke50.d_anon', d_anon, false);
   PERFORM set_config('smoke50.d_proprias', d_proprias, false);
