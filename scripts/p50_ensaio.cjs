@@ -7,7 +7,8 @@
  * requisição numa única transação (CLAUDE.md §«Via de apply ATUAL», propriedade 1 — medido em
  * 2026-08-22: `CREATE TABLE; SELECT 1/0;` deixou a tabela inexistente). Este programa compõe
  *
- *     PREFIXO (SET LOCAL lock_timeout/statement_timeout + reset das GUCs de evidência)
+ *     PREFIXO (SET LOCAL lock_timeout/statement_timeout + marca p50.tx + reset das GUCs de evidência)
+ *   + [depois de CADA parte abaixo: guarda de transação `ponto()` — WR-02]
  *   + migrations p50 ainda fora do ledger (ou as pedidas por --migracoes=, ou nenhuma)
  *   + [mutação avulsa — só quando chamado por p50_mutacoes.cjs]
  *   + cada arquivo SQL dado (smokes)
@@ -21,6 +22,19 @@
  * (mortas/rascunho) — as duas últimas porque o smoke ESCREVE nelas dentro do envelope P50C1.
  * Qualquer diferença é `PERSISTIU: <chave>: antes -> depois`. (Ainda fora: o corpo das funções
  * que as migrations 0002–0004 vão tocar — WR-04 do 50-REVIEW-TRACER-1, aberto.)
+ *
+ * A PREMISSA «uma requisição = uma transação» vale só se nenhuma parte composta a encerrar: um
+ * `COMMIT;`/`END;`/`ROLLBACK;` no nível de topo grava tudo o que veio antes e roda o resto em
+ * autocommit, fora do teto de lock — e o sentinela aborta só a si mesmo (medido pelo revisor,
+ * WR-02 do 50-REVIEW-TRACER-2). Duas guardas, nenhuma dependente de disciplina de quem escreve:
+ *   1. PREVENTIVA — `compor` recusa (`P50E RECUSADO (transacao)`, nada enviado) toda parte com
+ *      BEGIN/START TRANSACTION/COMMIT/END/ROLLBACK/ABORT/SAVEPOINT/RELEASE/PREPARE TRANSACTION
+ *      no nível de topo, depois de tirar comentários, literais e corpos `$tag$…$tag$`;
+ *   2. ESTRUTURAL — o PREFIXO grava o txid da requisição numa GUC LOCAL (`p50.tx`); depois de CADA
+ *      parte e no FIM, antes do sentinela, um bloco exige GUC = `txid_current()`. Se a transação
+ *      acabou, a GUC local voltou a vazio e o txid é outro: `P50E FAIL (transacao)`, e NADA depois
+ *      daquele ponto roda. O que veio antes do terminador já foi gravado (isso nenhum guarda no
+ *      corpo desfaz) — por isso a 1 existe, e `capturar()` ainda mede o rastro.
  *
  * Como a Management API não devolve NOTICE, cada PÓS-PORTÃO p50 ANEXA o que mediu à GUC de
  * sessão `p50.evidencia`; o sentinela a carrega para fora na mensagem do erro, e a linha de
@@ -50,6 +64,7 @@
  *   ENSAIO VERDE: <arquivos> · prefixadas=[…] · aplicadas=[…] · ausentes=[…] · [vistas=… ·]
  *                 smoke50=p/e · evidencia=<…> · <ms> ms                                    (exit 0)
  *   ENSAIO VERMELHO: <primeira linha FAIL/ERROR>                                           (exit 1)
+ *   ENSAIO VERMELHO: P50E RECUSADO (transacao): … (nada enviado)                           (exit 1)
  *   LOCK TIMEOUT / STATEMENT TIMEOUT                                                       (exit 3)
  *   PERSISTIU: …                                                                           (exit 1)
  *
@@ -76,11 +91,39 @@ const MIGS = [
 const PREFIXO =
   "SET LOCAL lock_timeout = '3s';\n" +
   "SET LOCAL statement_timeout = '5s';\n" +
+  // WR-02 (50-REVIEW-TRACER-2): marca a transação da requisição com uma GUC LOCAL = o txid dela.
+  // Um `COMMIT`/`END`/`ROLLBACK`/`COMMIT AND CHAIN` no meio do corpo encerra essa transação: a GUC
+  // local volta a vazio e o txid muda. `ponto()` (depois de cada parte) e o FIM (antes do
+  // sentinela) exigem os dois iguais — senão `P50E FAIL (transacao)`, e a requisição para ali.
+  "SELECT set_config('p50.tx', txid_current()::text, true);\n" +
   // Uma conexão do pool pode trazer GUCs de sessão de uma execução anterior que COMMITOU (um
   // smoke rodado depois do apply): zera as que o veredito lê, para não herdar número alheio.
   "SELECT set_config('smoke50.pass', '', false), set_config('smoke50.esperado', '', false),\n" +
   "       set_config('p50.evidencia', '', false), set_config('p50.vistas', '', false),\n" +
   "       set_config('p50.vistas_antes', '', false);\n";
+
+/* Condição SQL «a transação da requisição ainda é a que o PREFIXO marcou» (WR-02). */
+const MESMA_TX = "coalesce(current_setting('p50.tx', true), '') = txid_current()::text";
+
+/*
+ * Guarda de transação depois de uma parte do corpo (WR-02). Se a parte terminou a transação da
+ * requisição, o que veio ANTES dela já está gravado — isso nenhum guarda desfaz; o que este bloco
+ * garante é que NADA DEPOIS dele roda (o resto rodaria em autocommit, sem o teto de lock), e que
+ * a falha diz em qual parte foi. A barreira preventiva é `recusarTerminadores()` em `compor`.
+ */
+function ponto(rotulo) {
+  const r = String(rotulo).replace(/[^A-Za-z0-9_. -]/g, '_');
+  return (
+    '\nRESET ROLE;\n' +
+    'DO $p50tx$\n' +
+    'BEGIN\n' +
+    `  IF NOT (${MESMA_TX}) THEN\n` +
+    `    RAISE EXCEPTION 'P50E FAIL (transacao): a transacao da requisicao terminou dentro de ${r} — o que veio antes PERSISTIU; o ensaio parou aqui';\n` +
+    '  END IF;\n' +
+    'END\n' +
+    '$p50tx$;\n'
+  );
+}
 
 const FIM =
   '\nRESET ROLE;\n' +
@@ -89,6 +132,9 @@ const FIM =
   "  p text := current_setting('smoke50.pass', true);\n" +
   "  e text := current_setting('smoke50.esperado', true);\n" +
   'BEGIN\n' +
+  `  IF NOT (${MESMA_TX}) THEN\n` +
+  "    RAISE EXCEPTION 'P50E FAIL (transacao): o corpo commitou no meio — algo PERSISTIU antes deste ponto';\n" +
+  '  END IF;\n' +
   "  RAISE EXCEPTION '% smoke50=% evidencia=%', '" + SENTINELA + "',\n" +
   "    CASE WHEN coalesce(p, '') = '' OR coalesce(e, '') = '' THEN 'n/a' ELSE p || '/' || e END,\n" +
   "    coalesce(nullif(current_setting('p50.evidencia', true), ''), '-');\n" +
@@ -223,15 +269,131 @@ function planejar(modo, lista, estado) {
   return { prefixadas, aplicadas, ausentes };
 }
 
-/* Compõe o corpo do ensaio. */
+/*
+ * Instruções de NÍVEL DE TOPO que encerram (ou abrem/aninham) a transação da requisição (WR-02).
+ * Tira comentários (`--`, `/* *\/` aninhado), literais ('…', E'…', "…") e corpos `$tag$…$tag$`;
+ * separa por `;` e olha a PRIMEIRA palavra de cada instrução. Corpo `BEGIN ATOMIC … END` de função
+ * SQL-padrão é atravessado inteiro. Um `$tag$` sem fechamento é erro (não dá para saber o que é
+ * topo). Devolve a lista de instruções ofensoras (texto curto); vazia = nada a recusar.
+ */
+const RE_TERMINADOR = /^(BEGIN|START\s+TRANSACTION|COMMIT|END|ROLLBACK|ABORT|SAVEPOINT|RELEASE|PREPARE\s+TRANSACTION)\b/i;
+function terminadores(sql) {
+  const stmts = [];
+  let cur = '';
+  let i = 0;
+  const n = sql.length;
+  const identAntes = (k) => k > 0 && /[A-Za-z0-9_$]/.test(sql[k - 1]);
+  while (i < n) {
+    const c = sql[i];
+    const c2 = sql.slice(i, i + 2);
+    if (c2 === '--') {
+      const j = sql.indexOf('\n', i);
+      i = j < 0 ? n : j;
+      cur += ' ';
+    } else if (c2 === '/*') {
+      let prof = 1;
+      i += 2;
+      while (i < n && prof > 0) {
+        if (sql.slice(i, i + 2) === '/*') { prof += 1; i += 2; }
+        else if (sql.slice(i, i + 2) === '*/') { prof -= 1; i += 2; }
+        else i += 1;
+      }
+      if (prof > 0) throw new Error('comentario /* sem fechamento');
+      cur += ' ';
+    } else if (c === "'") {
+      const escapa = i > 0 && /[eE]/.test(sql[i - 1]) && !identAntes(i - 1);
+      i += 1;
+      for (;;) {
+        if (i >= n) throw new Error('literal \'…\' sem fechamento');
+        if (escapa && sql[i] === '\\') { i += 2; continue; }
+        if (sql[i] === "'") {
+          if (sql[i + 1] === "'") { i += 2; continue; }
+          i += 1;
+          break;
+        }
+        i += 1;
+      }
+      cur += ' ';
+    } else if (c === '"') {
+      i += 1;
+      for (;;) {
+        if (i >= n) throw new Error('identificador "…" sem fechamento');
+        if (sql[i] === '"') {
+          if (sql[i + 1] === '"') { i += 2; continue; }
+          i += 1;
+          break;
+        }
+        i += 1;
+      }
+      cur += ' ';
+    } else if (c === '$' && !identAntes(i)) {
+      const m = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(sql.slice(i));
+      if (!m) { cur += c; i += 1; continue; }
+      const tag = m[0];
+      const fim = sql.indexOf(tag, i + tag.length);
+      if (fim < 0) throw new Error(`corpo ${tag} sem fechamento`);
+      i = fim + tag.length;
+      cur += ' ';
+    } else if (c === ';') {
+      stmts.push(cur.trim());
+      cur = '';
+      i += 1;
+    } else {
+      cur += c;
+      i += 1;
+    }
+  }
+  if (cur.trim()) stmts.push(cur.trim());
+  const ofensoras = [];
+  let atomico = false;
+  for (const s of stmts) {
+    if (atomico) {
+      if (/^END$/i.test(s)) atomico = false;
+      continue;
+    }
+    if (/\bBEGIN\s+ATOMIC\b/i.test(s) && !/^BEGIN\b/i.test(s)) {
+      atomico = true;
+      continue;
+    }
+    if (RE_TERMINADOR.test(s)) ofensoras.push(s.replace(/\s+/g, ' ').slice(0, 60));
+  }
+  return ofensoras;
+}
+
+/* Recusa ALTO uma parte com terminador de transação no nível de topo — antes de enviar nada. */
+function recusarTerminadores(texto, rotulo) {
+  let of;
+  try {
+    of = terminadores(texto);
+  } catch (e) {
+    throw new Error(`P50E RECUSADO (transacao): ${rotulo} nao pode ser lido para a guarda de transacao (${e.message})`);
+  }
+  if (of.length) {
+    throw new Error(
+      `P50E RECUSADO (transacao): ${rotulo} tem instrucao de controle de transacao no nivel de topo [${of.join(' | ')}] — num ensaio ela COMMITARIA o que veio antes e rodaria o resto fora da transacao que aborta`
+    );
+  }
+}
+
+/* Compõe o corpo do ensaio. Lança `P50E RECUSADO (transacao)` sem enviar nada (WR-02). */
 function compor({ prefixadas = [], arquivos = [], mutacao = null, rotuloMutacao = 'MUTACAO', vistas = false } = {}) {
   const partes = [PREFIXO];
-  const sonda = vistas ? fs.readFileSync(abs(SONDA), 'utf8') : null;
-  if (vistas) partes.push('\n-- ═══ SONDA DE VISTAS (ANTES) ═══\nRESET ROLE;\n' + sonda + GUARDA_ANTES);
-  for (const m of prefixadas) partes.push(`\n-- ═══ MIGRATION ${path.basename(m)} ═══\n` + fs.readFileSync(abs(m), 'utf8'));
-  if (mutacao) partes.push(`\n-- ═══ ${rotuloMutacao} ═══\nRESET ROLE;\n${mutacao}\n`);
-  if (vistas) partes.push('\n-- ═══ SONDA DE VISTAS (DEPOIS) ═══\nRESET ROLE;\n' + sonda + COMPARA);
-  for (const a of arquivos) partes.push(`\n-- ═══ ARQUIVO ${path.basename(a)} ═══\nRESET ROLE;\n` + fs.readFileSync(abs(a), 'utf8'));
+  const parte = (rotulo, texto) => {
+    recusarTerminadores(texto, rotulo);
+    return texto;
+  };
+  const sonda = vistas ? parte(`SONDA ${path.basename(SONDA)}`, fs.readFileSync(abs(SONDA), 'utf8')) : null;
+  if (vistas) partes.push('\n-- ═══ SONDA DE VISTAS (ANTES) ═══\nRESET ROLE;\n' + sonda + GUARDA_ANTES + ponto('SONDA ANTES'));
+  for (const m of prefixadas) {
+    const rot = `MIGRATION ${path.basename(m)}`;
+    partes.push(`\n-- ═══ ${rot} ═══\n` + parte(rot, fs.readFileSync(abs(m), 'utf8')) + ponto(rot));
+  }
+  if (mutacao) partes.push(`\n-- ═══ ${rotuloMutacao} ═══\nRESET ROLE;\n${parte(rotuloMutacao, mutacao)}\n` + ponto(rotuloMutacao));
+  if (vistas) partes.push('\n-- ═══ SONDA DE VISTAS (DEPOIS) ═══\nRESET ROLE;\n' + sonda + COMPARA + ponto('SONDA DEPOIS'));
+  for (const a of arquivos) {
+    const rot = `ARQUIVO ${path.basename(a)}`;
+    partes.push(`\n-- ═══ ${rot} ═══\nRESET ROLE;\n` + parte(rot, fs.readFileSync(abs(a), 'utf8')) + ponto(rot));
+  }
   partes.push(FIM);
   return partes.join('\n');
 }
@@ -313,14 +475,20 @@ function principal() {
   const prefV = plano.prefixadas.map(versao);
   console.log(`ensaio: prefixadas=${lista(prefV)} aplicadas=${lista(plano.aplicadas)} ausentes=${lista(plano.ausentes)} arquivos=${arquivos.join(',') || '-'}${mutacaoArq ? ` mutacao=${mutacaoArq}` : ''}`);
 
+  let corpo;
+  try {
+    corpo = compor({
+      prefixadas: plano.prefixadas,
+      arquivos,
+      vistas,
+      mutacao: mutacaoArq ? fs.readFileSync(abs(mutacaoArq), 'utf8') : null,
+      rotuloMutacao: mutacaoArq ? `MUTACAO ${path.basename(mutacaoArq)}` : 'MUTACAO',
+    });
+  } catch (e) {
+    console.error(`ENSAIO VERMELHO: ${e.message} (nada enviado)`);
+    process.exit(1);
+  }
   const antes = capturar();
-  const corpo = compor({
-    prefixadas: plano.prefixadas,
-    arquivos,
-    vistas,
-    mutacao: mutacaoArq ? fs.readFileSync(abs(mutacaoArq), 'utf8') : null,
-    rotuloMutacao: mutacaoArq ? `MUTACAO ${path.basename(mutacaoArq)}` : 'MUTACAO',
-  });
   const r = rodar(corpo, 'cli');
 
   const depois = capturar();
@@ -349,6 +517,6 @@ function principal() {
   );
 }
 
-module.exports = { compor, rodar, planejar, lerEstado, capturar, diferencas, sqlLeitura, primeiraFalha, versao, MIGS, SENTINELA, PREFIXO, FIM, SONDA, ROOT, APPLY };
+module.exports = { compor, rodar, planejar, lerEstado, capturar, diferencas, sqlLeitura, primeiraFalha, versao, terminadores, recusarTerminadores, ponto, MIGS, SENTINELA, PREFIXO, FIM, SONDA, ROOT, APPLY };
 
 if (require.main === module) principal();
