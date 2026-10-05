@@ -7,7 +7,7 @@
  * requisição numa única transação (CLAUDE.md §«Via de apply ATUAL», propriedade 1 — medido em
  * 2026-08-22: `CREATE TABLE; SELECT 1/0;` deixou a tabela inexistente). Este programa compõe
  *
- *     PREFIXO (SET LOCAL lock_timeout/statement_timeout + marca p50.tx + reset das GUCs de evidência)
+ *     PREFIXO (REPEATABLE READ + SET LOCAL lock_timeout/statement_timeout + marca p50.tx + reset das GUCs de evidência)
  *   + [depois de CADA parte abaixo: guarda de transação `ponto()` — WR-02]
  *   + migrations p50 ainda fora do ledger (ou as pedidas por --migracoes=, ou nenhuma)
  *   + [mutação avulsa — só quando chamado por p50_mutacoes.cjs]
@@ -58,7 +58,10 @@
  *                       --mutacao=supabase/tests/p50_desfazer_tracer.sql`, sem arquivos, é o
  *                       ENSAIO REVERSO do 50-02: sonda do estado VIVO → o desfazer → sonda →
  *                       compara, tudo na mesma transação que aborta (antes × depois do apply sem
- *                       janela de tráfego entre as duas fotografias)
+ *                       janela de tráfego entre as duas fotografias — verdade porque o PREFIXO
+ *                       abre a transação em REPEATABLE READ: as duas sondas leem o MESMO
+ *                       snapshot; em READ COMMITTED cada instrução via os commits do meio, WR-03
+ *                       do 50-REVIEW-TRACER-2)
  *
  * Saída (uma linha):
  *   ENSAIO VERDE: <arquivos> · prefixadas=[…] · aplicadas=[…] · ausentes=[…] · [vistas=… ·]
@@ -89,6 +92,13 @@ const MIGS = [
 ];
 
 const PREFIXO =
+  // WR-03 (50-REVIEW-TRACER-2): UM snapshot para a requisição inteira. A via roda em READ
+  // COMMITTED por padrão — cada instrução (cada EXECUTE da sonda) via os commits concorrentes que
+  // caíam entre a sonda «antes», o desfazer e a sonda «depois», e um RH ativando uma vaga no meio
+  // virava `P50V FAIL (vistas)`: diagnóstico falso de exposição. Tem de ser a PRIMEIRA instrução
+  // (antes de qualquer consulta). Em RR, um UPDATE do envelope P50C1 numa linha que mudou depois
+  // do snapshot dá 40001 — ENSAIO VERMELHO, inconclusivo: repetir.
+  "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;\n" +
   "SET LOCAL lock_timeout = '3s';\n" +
   "SET LOCAL statement_timeout = '5s';\n" +
   // WR-02 (50-REVIEW-TRACER-2): marca a transação da requisição com uma GUC LOCAL = o txid dela.
@@ -100,7 +110,15 @@ const PREFIXO =
   // smoke rodado depois do apply): zera as que o veredito lê, para não herdar número alheio.
   "SELECT set_config('smoke50.pass', '', false), set_config('smoke50.esperado', '', false),\n" +
   "       set_config('p50.evidencia', '', false), set_config('p50.vistas', '', false),\n" +
-  "       set_config('p50.vistas_antes', '', false);\n";
+  "       set_config('p50.vistas_antes', '', false);\n" +
+  // WR-03: um SET TRANSACTION ignorado (aviso, não erro) deixaria o ensaio em READ COMMITTED calado.
+  'DO $p50iso$\n' +
+  'BEGIN\n' +
+  "  IF current_setting('transaction_isolation') <> 'repeatable read' THEN\n" +
+  "    RAISE EXCEPTION 'P50E FAIL (isolamento): a requisicao roda em % — sem snapshot unico o antes x depois tem janela de trafego', current_setting('transaction_isolation');\n" +
+  '  END IF;\n' +
+  'END\n' +
+  '$p50iso$;\n';
 
 /* Condição SQL «a transação da requisição ainda é a que o PREFIXO marcou» (WR-02). */
 const MESMA_TX = "coalesce(current_setting('p50.tx', true), '') = txid_current()::text";

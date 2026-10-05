@@ -45,7 +45,10 @@
 --     explicação por tráfego: é mudança de acesso. COM diferença em `pop_fp` é AMBÍGUA (tráfego
 --     legítimo — p.ex. o RH ativou uma vaga — ou tráfego + exposição): quem decide é o ENSAIO
 --     REVERSO (`p50_ensaio.cjs --vistas --sem-migracoes --mutacao=supabase/tests/p50_desfazer_tracer.sql`),
---     que compara o estado vivo com o desfeito na MESMA transação, sem janela de tráfego.
+--     que compara o estado vivo com o desfeito na MESMA transação, sem janela de tráfego (o
+--     prefixo do ensaio abre a transação em REPEATABLE READ: as duas sondas leem o MESMO
+--     snapshot — WR-03 do 50-REVIEW-TRACER-2). AVULSA (`p46apply.cjs run`) ela roda em READ
+--     COMMITTED: dentro de UMA captura, cada EXECUTE vê o banco num instante diferente.
 --
 -- Um `55P03`/`57014` numa leitura NÃO vira fotografia (`e:55P03` seria lido como exposição):
 -- relança, e o ensaio classifica como LOCK/STATEMENT TIMEOUT (IN-09).

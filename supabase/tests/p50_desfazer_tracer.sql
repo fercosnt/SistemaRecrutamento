@@ -7,7 +7,10 @@
 --        node scripts/p50_ensaio.cjs --vistas --sem-migracoes --mutacao=supabase/tests/p50_desfazer_tracer.sql
 --      = sonda do estado VIVO (tracer aplicado) → ESTE arquivo → sonda do estado desfeito →
 --      compara, na MESMA transação. É o «antes × depois do apply» sem janela de tráfego entre as
---      duas fotografias: nada do que o RH ou o candidato fizer no intervalo entra na comparação.
+--      duas fotografias: nada do que o RH ou o candidato fizer no intervalo entra na comparação —
+--      porque o prefixo do ensaio abre a transação em REPEATABLE READ (um snapshot só para a
+--      requisição inteira; em READ COMMITTED, o padrão da via, cada instrução veria os commits do
+--      meio — WR-03 do 50-REVIEW-TRACER-2).
 --   2. Base de uma migration CORRETIVA, se algo tiver de ser desfeito de verdade — só com
 --      checkpoint do operador (memória «aditivo autônomo, destrutivo com portão»), pela mesma via
 --      (`p46apply.cjs migrate`), com nome/versão próprios.
