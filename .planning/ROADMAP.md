@@ -31,6 +31,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [x] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute (completed 2026-10-04)
 - [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
 - [x] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma (completed 2026-10-03)
+- [ ] **Phase 50: Acesso do Recrutador** - O recrutador cadastrado vê todas as vagas e as filas que dependem delas, em vez da tela vazia do predicado `created_by`
 
 ### Ordem de execução, dependências e paralelização
 
@@ -590,6 +591,26 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 
 </details>
 
+### Phase 50: Acesso do Recrutador
+
+**Goal**: O recrutador que o operador cadastra trabalha de verdade: vê **todas** as vagas (ativas, inativas e arquivadas), as candidaturas delas e as filas que dependem disso (pedidos de revisão, pedidos de dados), em vez da tela vazia que o predicado `vagas.created_by = auth.uid()` produz hoje para quem não criou a vaga
+**Depends on**: Phase 49
+**Requirements**: EXPORT-05 (metade «visível ao RH», rebaixada a parcial pela `44-VERIFICATION.md` — gap G4-b)
+**Origem**: decisão do operador em 2026-10-04/05 (`44-PENDENCIAS-2026-10-03.md` §G4-b): «deixar o recrutador ver todas as vagas … mas não ele só ver as que ele criou»; e «todas» = inclusive inativas e arquivadas. Associação por vaga (`vagas_associadas_recrutadores`, hoje 0 linhas) foi citada como alternativa aceitável, não escolhida
+**Escopo medido em PROD (2026-10-04)**: 14 policies com `created_by` (candidaturas SELECT/UPDATE, decisao_final, decisao_final_historico, historico_candidatura, entrevista_guias, entrevista_analises, scores_candidato, analise_candidato_vaga, comparativo_solicitado, redacoes_candidato SELECT/UPDATE, agendamentos_entrevista ALL, notificacoes_enviadas); ~14 funções que leem `vagas.created_by` (`registrar_decisao`, `rejeitar_candidatura`, `funil_kpis`, `listar_historico_candidatura`, `salvar_avaliacao_entrevista`, …); as RPCs da fila de pedidos (`listar_pedidos_dados`, `contar_pedidos_dados_pendentes`); o check de posse do 49-08 na EF do comparativo
+**Success Criteria** (what must be TRUE):
+  1. Um recrutador **ativo** que não criou vaga nenhuma vê, em PROD, as candidaturas de uma vaga ativa, de uma inativa e de uma arquivada — provado com sessão real de recrutador, não só por impersonação
+  2. Um recrutador **inativo** e um candidato continuam sem ver nada disso (asserção negativa por papel); o administrador não perde nada
+  3. A varredura por FORMA não acha mais `created_by = auth.uid()` em policy ou função de leitura/escrita de RH (exceto onde `created_by` é autoria, não autorização) — e o portão morde: reintroduzir o predicado num objeto reprova
+  4. As filas de pedidos de revisão e de pedidos de dados mostram ao recrutador os mesmos itens que mostram ao administrador
+  5. Os gates de dono que existem por regra de negócio (ex.: o decisor não responde à própria revisão — REVISAO-05) continuam valendo
+**Guardrails**: os do Bloco 1/2 — migrations pelo `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), EFs pelo `efdeploy.cjs`, `git log --oneline origin/main..HEAD` vazio depois de todo apply visível. É mudança de **controle de acesso** (alarga leitura): review bloqueante antes do apply, e prova de que nada abriu para `anon`/candidato (lembrar: views sem `security_invoker` ignoram RLS)
+**Fora de escopo**: associação vaga↔recrutador e qualquer granularidade por vaga; JORN-42..49 (Bloco 3, fase a criar)
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 50 to break down)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -610,6 +631,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
+| 50. Acesso do Recrutador | v8.0 | 0/0 | Not started |  |
 
 ---
 

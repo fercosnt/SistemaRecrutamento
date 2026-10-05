@@ -25,7 +25,7 @@ last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a 
 - **43 ✓** (guarda do currículo vista pelo operador) · **46 ✓** (re-verificação 5/5, `passed`).
 - **44** segue aberta: G4-b decidido (sai `vagas.created_by`; recrutador vê todas as vagas) — é uma
   **fase nova** (14 policies + ~14 funções + RPCs da fila + check do 49-08). Pergunta em aberto ao
-  operador: «todas as vagas abertas» = só `ativa` ou todas (recomendado: todas). U2 sem resposta.
+  operador: respondido «todas» (2026-10-05) → **Phase 50 criada**. U2 sem resposta.
 - **45**: verificação `passed`, ROADMAP ainda `[ ]` — 45-06/45-11 sem SUMMARY canônico (evidência existe
   com outro nome).
 
@@ -1323,6 +1323,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-45: WR-07 publicado — migration 20261003000001 aplicada antes do push (md5 do ledger 7750c407… BATE), smoke 9/9, anon recusado pelo ACL, motor verde antes e depois; front 8581e98d servido em DecisaoFinalPage-Zw-MAwxN.js; R1–R4 publicados registrados («Aceito» do operador, 2026-10-03); IN-04 do REVIEW-GAPS-9 pendente sem dono; JORN-41 segue [ ]
 
 ### Roadmap Evolution
+
+- Phase 50 added (2026-10-05): Acesso do Recrutador — fecha o G4-b/EXPORT-05 da 44; recrutador vê todas as vagas (decisão do operador)
 
 - Phase 49 added: Consertos da Jornada — Bloco 2 (2026-09-22) — o BLOCO 2 da fila da `JORNADA-GUIADA.md` («leva o RH a decidir errado»): defeitos 28, 13, 7, 25, 12, 17, 3b; o 14 fica sem código por D8. Requirements JORN-* a criar no kickoff; aberto para o operador: transcrição guardada como texto ou como hash (12)
 - Phase 49 kickoff (2026-09-22): escopo passou de 8 para 17 itens por decisão do operador (achados 32–40 da varredura pela forma); o 12 ficou **hash + vínculo com o log** (D-38). Requirements JORN-28/13/07/25/12/17/3b + JORN-32..40 em REQUIREMENTS.md
