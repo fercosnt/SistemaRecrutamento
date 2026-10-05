@@ -15,9 +15,12 @@
  *
  * e manda por `node p46apply.cjs run` (o corpo vem do DISCO, byte a byte, como no apply). O
  * sentinela no fim aborta a transação: a migration, a linha de ledger (que o `run` nem escreve)
- * e qualquer escrita de smoke voltam. Depois de TODA execução, uma leitura só-leitura repete o
- * ledger das quatro versões p50 e `to_regprocedure('public.is_active_rh_user()')` e compara com a
- * leitura de antes: qualquer diferença é `PERSISTIU`.
+ * e qualquer escrita de smoke voltam. Antes e depois de TODA execução, `capturar()` lê (só
+ * leitura) o ledger das quatro versões p50 com md5, o corpo/ACL do helper, TODAS as policies de
+ * `public`, `role|ativo|deleted_at` de cada linha de `usuarios_rh` e a borda de `candidaturas`
+ * (mortas/rascunho) — as duas últimas porque o smoke ESCREVE nelas dentro do envelope P50C1.
+ * Qualquer diferença é `PERSISTIU: <chave>: antes -> depois`. (Ainda fora: o corpo das funções
+ * que as migrations 0002–0004 vão tocar — WR-04 do 50-REVIEW-TRACER-1, aberto.)
  *
  * Como a Management API não devolve NOTICE, cada PÓS-PORTÃO p50 ANEXA o que mediu à GUC de
  * sessão `p50.evidencia`; o sentinela a carrega para fora na mensagem do erro, e a linha de
@@ -31,11 +34,17 @@
  * decisão do executor.
  *
  * Uso:
- *   node scripts/p50_ensaio.cjs [--migracoes=a.sql,b.sql | --sem-migracoes] [--vistas] <arquivo.sql…>
+ *   node scripts/p50_ensaio.cjs [--migracoes=a.sql,b.sql | --sem-migracoes] [--vistas] [--mutacao=x.sql] <arquivo.sql…>
  *     (padrão)          prefixa toda migration de MIGS que exista no disco e NÃO esteja no ledger
  *     --migracoes=a,b   prefixa exatamente essas (cada uma tem de existir e estar fora do ledger)
  *     --sem-migracoes   não prefixa nenhuma (smoke contra os objetos VIVOS)
  *     --vistas          sonda de vistas externas antes e depois das migrations, na mesma transação
+ *     --mutacao=x.sql   insere o arquivo DEPOIS das migrations e ANTES da sonda «depois» (o mesmo
+ *                       encaixe das mutações do runner). Com `--vistas --sem-migracoes
+ *                       --mutacao=supabase/tests/p50_desfazer_tracer.sql`, sem arquivos, é o
+ *                       ENSAIO REVERSO do 50-02: sonda do estado VIVO → o desfazer → sonda →
+ *                       compara, tudo na mesma transação que aborta (antes × depois do apply sem
+ *                       janela de tráfego entre as duas fotografias)
  *
  * Saída (uma linha):
  *   ENSAIO VERDE: <arquivos> · prefixadas=[…] · aplicadas=[…] · ausentes=[…] · [vistas=… ·]
@@ -140,7 +149,8 @@ function sqlLeitura(q) {
   return JSON.parse(s.slice(s.indexOf('[')));
 }
 
-/* Estado que um ensaio NÃO pode mudar: o ledger das versões p50 e a existência do helper. */
+/* Estado que decide o PLANO (o que prefixar): o ledger das versões p50 e a existência do helper.
+ * NÃO é a checagem de persistência — essa é `capturar()`, abaixo. */
 function lerEstado() {
   const vs = MIGS.map(versao).map((v) => `'${v}'`).join(',');
   const q =
@@ -149,6 +159,47 @@ function lerEstado() {
     "to_regprocedure('public.is_active_rh_user()')::text as helper";
   const row = sqlLeitura(q)[0];
   return { ledger: row.ledger, helper: row.helper };
+}
+
+/*
+ * Impressão digital do que NENHUM ensaio pode mudar — baseline capturada NA execução, sem
+ * constante; leitura só-leitura. Usada pelo CLI deste arquivo E por `p50_mutacoes.cjs` (o mesmo
+ * critério nos dois runners). Cobre:
+ *   ledger      as linhas das quatro versões p50, com md5 do corpo;
+ *   helper      `public.is_active_rh_user()`: assinatura, md5(prosrc), ACL, prosecdef, proconfig;
+ *   politicas   TODA policy de `public`: md5(qual|with_check) || roles || cmd || permissive
+ *               (não só as que casam a forma — uma policy alheia alterada também é PERSISTIU);
+ *   usuarios_rh por linha, `role|ativo|deleted_at` — as colunas que o smoke ESCREVE dentro do
+ *               envelope P50C1 (troca de papel e exclusão de a_ativo, cláusulas (b)/(c));
+ *   borda       as candidaturas mortas/rascunho (`deleted_at IS NOT NULL OR is_rascunho`) com o
+ *               estado de cada uma — a população que a cláusula (f) SEMEIA dentro do envelope.
+ * Colunas de relógio (`updated_at`, último acesso) ficam de fora de propósito: tráfego legítimo
+ * as move, e o que o smoke escreve está nas colunas acima.
+ */
+function capturar() {
+  const vs = MIGS.map(versao).map((v) => `'${v}'`).join(',');
+  const q =
+    'set transaction read only; select ' +
+    `(select coalesce(json_agg(json_build_object('v', version, 'md5', md5(coalesce(statements[1], ''))) order by version), '[]'::json) from supabase_migrations.schema_migrations where version in (${vs})) as ledger, ` +
+    "(select json_build_object('sig', p.oid::regprocedure::text, 'src', md5(p.prosrc), 'acl', p.proacl::text, 'secdef', p.prosecdef, 'conf', p.proconfig::text) from pg_catalog.pg_proc p where p.oid = to_regprocedure('public.is_active_rh_user()')) as helper, " +
+    "(select coalesce(json_object_agg(tablename || '.' || policyname, md5(coalesce(qual, '') || '|' || coalesce(with_check, '')) || roles::text || cmd || permissive order by tablename, policyname), '{}'::json) from pg_catalog.pg_policies where schemaname = 'public') as politicas, " +
+    "(select coalesce(json_object_agg(u.id::text, concat_ws('|', u.role, u.ativo, u.deleted_at) order by u.id), '{}'::json) from public.usuarios_rh u) as usuarios_rh, " +
+    "(select coalesce(json_object_agg(c.id::text, concat_ws('|', c.deleted_at, c.is_rascunho) order by c.id), '{}'::json) from public.candidaturas c where c.deleted_at is not null or c.is_rascunho) as borda";
+  return sqlLeitura(q)[0];
+}
+
+/* As chaves (achatadas) em que duas capturas diferem — para o PERSISTIU dizer O QUE mudou. */
+function diferencas(a, d) {
+  const plano = (o, pre, acc) => {
+    if (o && typeof o === 'object') {
+      for (const k of Object.keys(o)) plano(o[k], pre ? `${pre}.${k}` : k, acc);
+    } else acc[pre] = o;
+    return acc;
+  };
+  const A = plano(a, '', {});
+  const D = plano(d, '', {});
+  const ks = [...new Set([...Object.keys(A), ...Object.keys(D)])].sort();
+  return ks.filter((k) => JSON.stringify(A[k]) !== JSON.stringify(D[k])).map((k) => `${k}: ${JSON.stringify(A[k])} -> ${JSON.stringify(D[k])}`);
 }
 
 /* Decide o que prefixar. modo: 'padrao' | 'lista' | 'nenhuma'. */
@@ -227,9 +278,11 @@ function principal() {
   let modo = 'padrao';
   let listaMig = [];
   let vistas = false;
+  let mutacaoArq = null;
   const arquivos = [];
   for (const a of argv) {
     if (a === '--sem-migracoes') modo = 'nenhuma';
+    else if (a.startsWith('--mutacao=')) mutacaoArq = a.slice('--mutacao='.length) || null;
     else if (a.startsWith('--migracoes=')) {
       modo = 'lista';
       listaMig = a.slice('--migracoes='.length).split(',').filter(Boolean);
@@ -245,23 +298,35 @@ function principal() {
       process.exit(1);
     }
   }
-  const antes = lerEstado();
+  if (mutacaoArq && !fs.existsSync(abs(mutacaoArq))) {
+    console.error(`arquivo de mutacao nao encontrado: ${mutacaoArq}`);
+    process.exit(1);
+  }
+  const estado = lerEstado();
   let plano;
   try {
-    plano = planejar(modo, listaMig, antes);
+    plano = planejar(modo, listaMig, estado);
   } catch (e) {
     console.error(`ENSAIO VERMELHO: ${e.message}`);
     process.exit(1);
   }
   const prefV = plano.prefixadas.map(versao);
-  console.log(`ensaio: prefixadas=${lista(prefV)} aplicadas=${lista(plano.aplicadas)} ausentes=${lista(plano.ausentes)} arquivos=${arquivos.join(',') || '-'}`);
+  console.log(`ensaio: prefixadas=${lista(prefV)} aplicadas=${lista(plano.aplicadas)} ausentes=${lista(plano.ausentes)} arquivos=${arquivos.join(',') || '-'}${mutacaoArq ? ` mutacao=${mutacaoArq}` : ''}`);
 
-  const corpo = compor({ prefixadas: plano.prefixadas, arquivos, vistas });
+  const antes = capturar();
+  const corpo = compor({
+    prefixadas: plano.prefixadas,
+    arquivos,
+    vistas,
+    mutacao: mutacaoArq ? fs.readFileSync(abs(mutacaoArq), 'utf8') : null,
+    rotuloMutacao: mutacaoArq ? `MUTACAO ${path.basename(mutacaoArq)}` : 'MUTACAO',
+  });
   const r = rodar(corpo, 'cli');
 
-  const depois = lerEstado();
-  if (JSON.stringify(antes) !== JSON.stringify(depois)) {
-    console.error(`PERSISTIU: antes=${JSON.stringify(antes)} depois=${JSON.stringify(depois)} (${r.ms} ms)`);
+  const depois = capturar();
+  const dif = diferencas(antes, depois);
+  if (dif.length) {
+    console.error(`PERSISTIU (${r.ms} ms): ${dif.join(' ; ')}`);
     process.exit(1);
   }
 
@@ -280,10 +345,10 @@ function principal() {
     process.exit(1);
   }
   console.log(
-    `ENSAIO VERDE: ${arquivos.join(',') || '-'} · prefixadas=${lista(prefV)} · aplicadas=${lista(plano.aplicadas)} · ausentes=${lista(plano.ausentes)} · ${vistas ? `vistas=${plano.prefixadas.length ? 'igual' : 'vacua'} · ` : ''}smoke50=${r.smoke50} · evidencia=${r.evidencia} · ${r.ms} ms`
+    `ENSAIO VERDE: ${arquivos.join(',') || '-'} · prefixadas=${lista(prefV)} · aplicadas=${lista(plano.aplicadas)} · ausentes=${lista(plano.ausentes)} · ${vistas ? `vistas=${plano.prefixadas.length || mutacaoArq ? 'igual' : 'vacua'} · ` : ''}smoke50=${r.smoke50} · evidencia=${r.evidencia} · ${r.ms} ms`
   );
 }
 
-module.exports = { compor, rodar, planejar, lerEstado, sqlLeitura, primeiraFalha, versao, MIGS, SENTINELA, PREFIXO, FIM, SONDA, ROOT, APPLY };
+module.exports = { compor, rodar, planejar, lerEstado, capturar, diferencas, sqlLeitura, primeiraFalha, versao, MIGS, SENTINELA, PREFIXO, FIM, SONDA, ROOT, APPLY };
 
 if (require.main === module) principal();

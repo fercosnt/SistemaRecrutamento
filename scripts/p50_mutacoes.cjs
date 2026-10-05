@@ -22,12 +22,15 @@
  * As mutações que reescrevem objetos da migration são EXTRAÍDAS dela por âncora literal única
  * (`trocar`), para não divergirem do texto que vai ao apply.
  *
- * PERSISTÊNCIA por baseline capturada NA execução (sem constante): ANTES do CONTROLE e DEPOIS do
- * laço, leitura só-leitura de (i) as linhas do ledger das quatro versões p50 (com md5 do corpo),
- * (ii) o helper (existência, md5(prosrc), ACL) e (iii) `md5(qual|with_check) || roles` de toda
- * policy cujo qual/with_check casa `created_by` ou `is_active_rh_user` (varredura por forma).
- * As duas leituras têm de ser idênticas, senão `PERSISTIU`. Funciona igual antes do apply (helper
- * ausente) e depois (helper presente).
+ * PERSISTÊNCIA por baseline capturada NA execução (sem constante): `E.capturar()` do
+ * `p50_ensaio.cjs` (ledger p50 com md5, corpo/ACL do helper, TODAS as policies de `public`,
+ * `role|ativo|deleted_at` de `usuarios_rh` e a borda de `candidaturas` — as duas últimas porque o
+ * smoke escreve nelas dentro do envelope P50C1). A baseline é lida ANTES do CONTROLE; a leitura
+ * de depois roda em TODA saída depois dela — fim normal, `CONTROLE VERMELHO`, `LOCK/STATEMENT
+ * TIMEOUT`, `SUSPEITA DE INSTRUMENTO`, `NAO MORDE` e erro do próprio harness —, porque é
+ * justamente na saída anormal que o operador mais precisa saber se algo ficou (WR-05 do
+ * 50-REVIEW-TRACER-1). Só as saídas da CARGA (âncoras ausentes, opção desconhecida) acontecem
+ * antes da baseline e saem sem a leitura: nada foi enviado ainda.
  *
  * LOCK. Cada requisição com a migration prefixada segura `AccessExclusiveLock` em `candidaturas`
  * até abortar (o ALTER POLICY da migration e o de M2/M4/M5/M6). `lock_timeout = 3s` /
@@ -36,7 +39,14 @@
  *
  * Saída final esperada: `controle verde; <n>/<n> mutacoes mordem; nada persistiu`.
  *
- * Uso: node scripts/p50_mutacoes.cjs        (sem dependências)
+ * Cada mutação declara a LETRA em que tem de reprovar e, quando a cláusula tem várias sondas, os
+ * RÓTULOS que têm de aparecer em `P50C FAIL (<letra>): [<rótulos>]` — assim «morde» quer dizer
+ * «morde PELA sonda que existe para ela», não por uma vizinha.
+ *
+ * Uso: node scripts/p50_mutacoes.cjs [--smoke=<arquivo.sql>]     (sem dependências)
+ *   --smoke=   troca o smoke do CONTROLE e das mutações (padrão: o smoke p50). Serve para provar o
+ *              próprio runner — p.ex. um smoke que reprova de propósito exercita a saída
+ *              `CONTROLE VERMELHO` com a leitura de persistência.
  */
 
 const fs = require('fs');
@@ -44,11 +54,38 @@ const path = require('path');
 const E = require('./p50_ensaio.cjs');
 
 const MIG1 = E.MIGS[0];
-const SMOKE = 'supabase/tests/p50_acesso_recrutador_smoke.sql';
+const SMOKE_PADRAO = 'supabase/tests/p50_acesso_recrutador_smoke.sql';
 
+/* Baseline de persistência; null até ser lida. */
+let antes = null;
+
+/* Lê de novo e compara com a baseline. Devolve true sse nada persistiu. */
+function conferirPersistencia() {
+  const depois = E.capturar();
+  const dif = E.diferencas(antes, depois);
+  if (dif.length) {
+    console.error(`PERSISTIU: ${dif.join(' ; ')}`);
+    return false;
+  }
+  console.log(
+    `leitura so-leitura igual a baseline: helper=${depois.helper ? 'presente' : 'ausente'} ledger=${JSON.stringify(depois.ledger)} politicas(public)=${Object.keys(depois.politicas).length} usuarios_rh=${Object.keys(depois.usuarios_rh).length} borda=${Object.keys(depois.borda).length}`
+  );
+  return true;
+}
+
+/* TODA saída passa por aqui. Depois da baseline, mede a persistência antes de sair. */
 function sair(msg, codigo = 1) {
+  let c = codigo;
+  if (antes) {
+    try {
+      if (!conferirPersistencia()) c = 1;
+    } catch (e) {
+      console.error(`PERSISTENCIA NAO MEDIDA: ${e.message}`);
+      c = 1;
+    }
+  }
   console.error(msg);
-  process.exit(codigo);
+  process.exit(c);
 }
 
 const mig1 = fs.readFileSync(path.join(E.ROOT, MIG1), 'utf8');
@@ -125,17 +162,6 @@ const MUTACOES = [
   },
 ];
 
-/* Impressão digital do que nenhum ensaio pode mudar (baseline capturada NA execução). */
-function capturar() {
-  const vs = E.MIGS.map(E.versao).map((v) => `'${v}'`).join(',');
-  const q =
-    'set transaction read only; select ' +
-    `(select coalesce(json_agg(json_build_object('v', version, 'md5', md5(coalesce(statements[1], ''))) order by version), '[]'::json) from supabase_migrations.schema_migrations where version in (${vs})) as ledger, ` +
-    "(select json_build_object('sig', p.oid::regprocedure::text, 'src', md5(p.prosrc), 'acl', p.proacl::text, 'secdef', p.prosecdef, 'conf', p.proconfig::text) from pg_catalog.pg_proc p where p.oid = to_regprocedure('public.is_active_rh_user()')) as helper, " +
-    "(select coalesce(json_agg(json_build_object('p', schemaname || '.' || tablename || '.' || policyname, 'f', md5(coalesce(qual, '') || '|' || coalesce(with_check, '')) || roles::text) order by schemaname, tablename, policyname), '[]'::json) from pg_catalog.pg_policies where (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~* '(created_by|is_active_rh_user)') as politicas";
-  return E.sqlLeitura(q)[0];
-}
-
 function falha(out) {
   const m = out.match(/P50C FAIL \(([^)]+)\)(?::\s*\[([^\]]*)\])?/);
   if (!m) return null;
@@ -148,65 +174,85 @@ function rodarOuSair(corpo, rodada) {
   return r;
 }
 
-// ── baseline de persistência + plano ───────────────────────────────────────
-const antes = capturar();
-const plano = E.planejar('padrao', [], E.lerEstado());
-const disponiveis = new Set([...plano.aplicadas, ...plano.prefixadas.map(E.versao)]);
-console.log(
-  `modo: prefixadas=[${plano.prefixadas.map(E.versao).join(',')}] aplicadas=[${plano.aplicadas.join(',')}] ausentes=[${plano.ausentes.join(',')}]`
-);
-console.log(`baseline: helper=${antes.helper ? 'presente' : 'ausente'} ledger=${antes.ledger.length} politicas(forma)=${antes.politicas.length}`);
-
-// ── CONTROLE ────────────────────────────────────────────────────────────────
-const ctl = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [SMOKE] }), 'CONTROLE');
-const ctlFalha = falha(ctl.out);
-const ctlSmoke = ctl.smoke50 && ctl.smoke50 !== 'n/a' ? ctl.smoke50.split('/') : null;
-if (ctlFalha || !ctl.sentinela || !ctlSmoke || ctlSmoke[0] !== ctlSmoke[1]) {
-  console.error(E.primeiraFalha(ctl.out));
-  sair(`CONTROLE VERMELHO (${ctl.ms} ms): ${ctlFalha ? `P50C FAIL (${ctlFalha.letra})` : !ctl.sentinela ? 'sentinela ausente' : `smoke50=${ctl.smoke50}`}`);
-}
-console.log(`CONTROLE verde — sentinela alcancado, smoke50=${ctl.smoke50}, nenhum P50C FAIL (${ctl.ms} ms)`);
-
-// ── MUTAÇÕES ────────────────────────────────────────────────────────────────
-let mordem = 0;
-let contadas = 0;
-let seguidasSemMorder = 0;
-const naoMordem = [];
-for (const m of MUTACOES) {
-  const falta = m.requer.filter((v) => !disponiveis.has(v));
-  if (falta.length) {
-    console.log(`PULADA (migration ausente): ${m.id} (${m.desc}) — requer ${falta.join(',')}`);
-    continue;
+function principal() {
+  let smoke = SMOKE_PADRAO;
+  for (const a of process.argv.slice(2)) {
+    if (a.startsWith('--smoke=')) smoke = a.slice('--smoke='.length);
+    else sair(`opcao desconhecida: ${a}`);
   }
-  contadas += 1;
-  const r = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [SMOKE], mutacao: m.sql, rotuloMutacao: `MUTACAO ${m.id}` }), m.id);
-  const f = falha(r.out);
-  let motivo = null;
-  if (r.sentinela) motivo = `chegou ao sentinela (smoke50=${r.smoke50})`;
-  else if (!f) motivo = `sem P50C FAIL (${E.primeiraFalha(r.out).slice(0, 300)})`;
-  else if (f.letra !== m.letra) motivo = `reprovou em (${f.letra}), esperado (${m.letra})`;
-  else if (f.rotulos.some((x) => x.startsWith('c_'))) motivo = `controle vacuo [${f.rotulos.join(',')}]`;
 
-  const lista = f && f.rotulos.length ? ` [${f.rotulos.join(',')}]` : '';
-  if (motivo) {
-    console.log(`NAO MORDE: ${m.id} (${m.desc}) — ${motivo} (${r.ms} ms)`);
-    naoMordem.push(m.id);
-    seguidasSemMorder += 1;
-    if (seguidasSemMorder >= 2) sair('SUSPEITA DE INSTRUMENTO: duas mutacoes seguidas nao mordem — medir o harness antes de concluir qualquer coisa sobre o portao (PATTERNS §L)');
-  } else {
-    mordem += 1;
-    seguidasSemMorder = 0;
-    console.log(`${m.id} morde: ${m.desc} -> P50C FAIL (${f.letra})${lista} (${r.ms} ms)`);
+  // ── baseline de persistência + plano ─────────────────────────────────────
+  antes = E.capturar();
+  const plano = E.planejar('padrao', [], E.lerEstado());
+  const disponiveis = new Set([...plano.aplicadas, ...plano.prefixadas.map(E.versao)]);
+  console.log(
+    `modo: prefixadas=[${plano.prefixadas.map(E.versao).join(',')}] aplicadas=[${plano.aplicadas.join(',')}] ausentes=[${plano.ausentes.join(',')}]${smoke === SMOKE_PADRAO ? '' : ` smoke=${smoke}`}`
+  );
+  console.log(
+    `baseline: helper=${antes.helper ? 'presente' : 'ausente'} ledger=${antes.ledger.length} politicas(public)=${Object.keys(antes.politicas).length} usuarios_rh=${Object.keys(antes.usuarios_rh).length} borda=${Object.keys(antes.borda).length}`
+  );
+
+  // ── CONTROLE ──────────────────────────────────────────────────────────────
+  const ctl = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [smoke] }), 'CONTROLE');
+  const ctlFalha = falha(ctl.out);
+  const ctlSmoke = ctl.smoke50 && ctl.smoke50 !== 'n/a' ? ctl.smoke50.split('/') : null;
+  if (ctlFalha || !ctl.sentinela || !ctlSmoke || ctlSmoke[0] !== ctlSmoke[1]) {
+    console.error(E.primeiraFalha(ctl.out));
+    sair(`CONTROLE VERMELHO (${ctl.ms} ms): ${ctlFalha ? `P50C FAIL (${ctlFalha.letra})` : !ctl.sentinela ? 'sentinela ausente' : `smoke50=${ctl.smoke50}`}`);
+  }
+  console.log(`CONTROLE verde — sentinela alcancado, smoke50=${ctl.smoke50}, nenhum P50C FAIL (${ctl.ms} ms)`);
+
+  // ── MUTAÇÕES ──────────────────────────────────────────────────────────────
+  let mordem = 0;
+  let contadas = 0;
+  let seguidasSemMorder = 0;
+  const naoMordem = [];
+  for (const m of MUTACOES) {
+    const falta = m.requer.filter((v) => !disponiveis.has(v));
+    if (falta.length) {
+      console.log(`PULADA (migration ausente): ${m.id} (${m.desc}) — requer ${falta.join(',')}`);
+      continue;
+    }
+    contadas += 1;
+    const r = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [smoke], mutacao: m.sql, rotuloMutacao: `MUTACAO ${m.id}` }), m.id);
+    const f = falha(r.out);
+    const exigidos = m.rotulos || [];
+    let motivo = null;
+    if (r.sentinela) motivo = `chegou ao sentinela (smoke50=${r.smoke50})`;
+    else if (!f) motivo = `sem P50C FAIL (${E.primeiraFalha(r.out).slice(0, 300)})`;
+    else if (f.letra !== m.letra) motivo = `reprovou em (${f.letra}), esperado (${m.letra})`;
+    else if (f.rotulos.some((x) => x.startsWith('c_'))) motivo = `controle vacuo [${f.rotulos.join(',')}]`;
+    else if (exigidos.some((x) => !f.rotulos.includes(x))) motivo = `reprovou em (${f.letra}) [${f.rotulos.join(',')}] sem o(s) rotulo(s) exigido(s) [${exigidos.join(',')}]`;
+
+    const lista = f && f.rotulos.length ? ` [${f.rotulos.join(',')}]` : '';
+    if (motivo) {
+      console.log(`NAO MORDE: ${m.id} (${m.desc}) — ${motivo} (${r.ms} ms)`);
+      naoMordem.push(m.id);
+      seguidasSemMorder += 1;
+      if (seguidasSemMorder >= 2) sair('SUSPEITA DE INSTRUMENTO: duas mutacoes seguidas nao mordem — medir o harness antes de concluir qualquer coisa sobre o portao (PATTERNS §L)');
+    } else {
+      mordem += 1;
+      seguidasSemMorder = 0;
+      console.log(`${m.id} morde: ${m.desc} -> P50C FAIL (${f.letra})${lista} (${r.ms} ms)`);
+    }
+  }
+
+  // ── NADA PERSISTIU ────────────────────────────────────────────────────────
+  if (naoMordem.length) sair(`NAO MORDE: ${naoMordem.join(', ')}`);
+  if (contadas === 0) sair('NENHUMA MUTACAO RODOU: todas puladas — nada provado');
+  if (!conferirPersistencia()) {
+    antes = null; // já medido e reportado
+    sair('PERSISTIU — ver a linha acima');
+  }
+  console.log(`controle verde; ${mordem}/${contadas} mutacoes mordem; nada persistiu`);
+}
+
+if (require.main === module) {
+  try {
+    principal();
+  } catch (e) {
+    sair(`ERRO DO HARNESS: ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`);
   }
 }
 
-// ── NADA PERSISTIU ──────────────────────────────────────────────────────────
-const depois = capturar();
-if (JSON.stringify(antes) !== JSON.stringify(depois)) {
-  sair(`PERSISTIU: antes=${JSON.stringify(antes)} depois=${JSON.stringify(depois)}`);
-}
-console.log(`leitura so-leitura igual a baseline: helper=${depois.helper ? 'presente' : 'ausente'} ledger=${JSON.stringify(depois.ledger)} politicas(forma)=${depois.politicas.length}`);
-
-if (naoMordem.length) sair(`NAO MORDE: ${naoMordem.join(', ')}`);
-if (contadas === 0) sair('NENHUMA MUTACAO RODOU: todas puladas — nada provado');
-console.log(`controle verde; ${mordem}/${contadas} mutacoes mordem; nada persistiu`);
+module.exports = { MUTACOES };
