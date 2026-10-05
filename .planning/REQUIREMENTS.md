@@ -84,7 +84,7 @@
 - [x] **RETEN-02**: Seed inicial de 2 anos (BD-1), documentado como teto consentido e não como recomendação técnica
 - [x] **RETEN-03**: `autorizacao_retencao_curriculo` é consumido como base legal da retenção do currículo — primeiro consumidor real de um consentimento até hoje órfão
 - [x] **RETEN-04**: View read-only de prévia ("estes N candidatos seriam purgados") como artefato de revisão próprio, sem qualquer ação destrutiva
-- [ ] **RETEN-05**: Regra de retenção de `notificacoes_enviadas` definida e aplicada — dívida explicitamente diferida pela P37 a este milestone
+- [x] **RETEN-05**: Regra de retenção de `notificacoes_enviadas` definida e aplicada — dívida explicitamente diferida pela P37 a este milestone
 - [x] **RETEN-06**: Avaliado o reuso do padrão `retain_until` já vivo em `ai_call_logs` antes de projetar estrutura nova
 
 ### Exportação & Acesso (EXPORT)
@@ -233,12 +233,12 @@
 
 ### Purga Automática (PURGA)
 
-- [ ] **PURGA-01**: Cron de purga espelhando o padrão já provado do `notif-retry-sweep`
-- [ ] **PURGA-02**: Modo dry-run executa a **mesma** query do delete real, envolvida em rollback — um dry-run que diverge do predicado real é decoração
-- [ ] **PURGA-03**: Primeira ativação em PROD é dry-run, por período documentado, antes de qualquer execução real
-- [ ] **PURGA-04**: O flip dry-run→live é checkpoint separado e evidenciado, espelhando a disciplina `NOTIFICACOES_MODO=teste→producao` do M7
-- [ ] **PURGA-05**: Cap de blast-radius por execução + kill switch
-- [ ] **PURGA-06**: Ledger de execuções de purga — o que foi apagado, quando, sob qual política
+- [x] **PURGA-01**: Cron de purga espelhando o padrão já provado do `notif-retry-sweep`
+- [x] **PURGA-02**: Modo dry-run executa a **mesma** query do delete real, envolvida em rollback — um dry-run que diverge do predicado real é decoração
+- [x] **PURGA-03**: Primeira ativação em PROD é dry-run, por período documentado, antes de qualquer execução real
+- [x] **PURGA-04**: O flip dry-run→live é checkpoint separado e evidenciado, espelhando a disciplina `NOTIFICACOES_MODO=teste→producao` do M7
+- [x] **PURGA-05**: Cap de blast-radius por execução + kill switch
+- [x] **PURGA-06**: Ledger de execuções de purga — o que foi apagado, quando, sob qual política
 - [x] **PURGA-07**: Predicado de retenção não engole linhas por NULL — `COALESCE` explícito e allowlist de estados terminais, nunca denylist de estados ativos
 
 ### Transparência (TRANSP)
@@ -363,7 +363,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | RETEN-02 | Phase 43 | Complete (seed 8/8 no teto consentido em 43-04; alteração PELA TELA, auditada, em 43-09) |
 | RETEN-03 | Phase 43 | Complete |
 | RETEN-04 | Phase 43 | Complete |
-| RETEN-05 | Phase 46 | Pending |
+| RETEN-05 | Phase 46 | Complete |
 | RETEN-06 | Phase 43 | Complete |
 | EXPORT-01 | Phase 44 | Complete (exercitado em PROD: 3 pedidos `acesso`+`atendido` em 11/08, 06/09 e 20/09, atendidos em ~4,7 s; os **dois** arquivos baixados em `GUIA-VALIDACAO-FINAL` F1. ⚠ titular = **conta de teste do operador**, nunca terceiro — a marca significa "a capacidade funciona em produção", não "já atendemos um titular real". Medido em 2026-09-26, `44-AUDITORIA-GAPS-2026-09-26.md`) |
 | EXPORT-02 | Phase 44 | Complete (payload real projetado por allowlist: 30 coleções, 18 KB / 82.715 B; conserto CR-01 vivo nos DOIS canais — corpo da EF v5 e bundle publicado. ⚠ exercitado na allowlist **1.1.0**; PROD roda **1.3.0** desde 24/09. ⚠ mesma ressalva de titular do EXPORT-01) |
@@ -381,12 +381,12 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | ERASE-08 | Phase 45 | Pending |
 | ERASE-09 | Phase 45 | Complete |
 | ERASE-10 | Phase 45 | Complete |
-| PURGA-01 | Phase 46 | Pending |
-| PURGA-02 | Phase 46 | Pending |
-| PURGA-03 | Phase 46 | Pending |
-| PURGA-04 | Phase 46 | Pending |
-| PURGA-05 | Phase 46 | Pending |
-| PURGA-06 | Phase 46 | Pending |
+| PURGA-01 | Phase 46 | Complete |
+| PURGA-02 | Phase 46 | Complete |
+| PURGA-03 | Phase 46 | Complete |
+| PURGA-04 | Phase 46 | Complete |
+| PURGA-05 | Phase 46 | Complete |
+| PURGA-06 | Phase 46 | Complete |
 | PURGA-07 | Phase 46 | Complete |
 | TRANSP-01 | Phase 47 | Complete |
 | TRANSP-02 | Phase 47 | Complete |

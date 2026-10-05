@@ -27,7 +27,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [x] **Phase 43: Consentimentos Honestos & Política de Retenção** - Cada checkbox que o candidato marca ganha consequência real, e o prazo de validade do dado passa a existir como configuração alterável sem deploy — zero ação destrutiva (completed 2026-10-04)
 - [ ] **Phase 44: Exportação & Acesso** - O candidato recebe uma cópia honesta dos próprios dados, e o inventário de PII que a fase irreversível vai consumir nasce exercitado em produção
 - [ ] **Phase 45: Motor de Exclusão & Anonimização** ⚠️ **FASE DE MAIOR RISCO** - O pedido de exclusão executa de verdade — Storage → Postgres → Auth, irreversível, sem levar junto a trilha de decisão humana
-- [ ] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada
+- [x] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada (completed 2026-10-05)
 - [x] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute (completed 2026-10-04)
 - [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
 - [x] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma (completed 2026-10-03)
@@ -261,7 +261,7 @@ Plans:
   4. Uma candidatura **sem decisão registrada** (`data_decisao` NULL) é classificada corretamente pelo predicado: não é engolida em silêncio nem purgada por engano. O predicado usa `COALESCE` explícito e **allowlist de estados terminais**, nunca denylist de estados ativos — o modo de falha em que o sistema acredita ter uma política funcionando e apaga zero.
   5. Cada execução deixa linha no ledger dizendo **o que foi apagado, quando e sob qual política** — inclusive a retenção de `notificacoes_enviadas`, cujo comentário em produção diz literalmente "Retention INDEFINITE, deferred to LGPD-OPS (M8+)".
 
-**Plans**: 7 plans (7 waves — cadeia estritamente sequencial: cada plano termina num apply em PROD de que o plano seguinte depende, e todos co-editam `supabase/tests/p46_purga_smoke.sql`)
+**Plans**: 7/7 plans complete (7 waves — cadeia estritamente sequencial: cada plano termina num apply em PROD de que o plano seguinte depende, e todos co-editam `supabase/tests/p46_purga_smoke.sql`)
 
 Plans:
 
@@ -270,8 +270,8 @@ Plans:
 - [x] 46-03-PLAN.md — `retencao_hold` e as quatro exceções de política dentro do predicado único (PURGA-07) — ✅ **APLICADO em PROD 2026-08-23**: `candidaturas_alem_da_janela()` **6 → 4** (saem `neg-hold#05` pela `retencao_hold` e `neg-vaga#06` pela vaga ativa), 2º re-pin `b4fdb3a1…` fechado dos dois lados, 5 smokes verdes com contadores lidos (11/9/24/11/4), 5 contagens de domínio inalteradas, `modo` final `off`. **PURGA-07 fechado**
 - [x] 46-04-PLAN.md — ⛔ o 4º ramo autorizado em `anonimizar_candidato` (D-46-18 / Blocker B-01), com review bloqueante antes do apply
 - [x] 46-05-PLAN.md — Edge Function `purgar-retencao` e o contrato do item: o payload seleciona, o banco autoriza
-- [ ] 46-06-PLAN.md — dispatch + cron idempotente + RETEN-05, e a emenda do smoke herdado da P42 no mesmo commit (D-46-23)
-- [ ] 46-07-PLAN.md — `salvar_config_purga`: o flip `dry_run → live` recusável no servidor, e o dry-run ligado em PROD (PURGA-04)
+- [x] 46-06-PLAN.md — dispatch + cron idempotente + RETEN-05, e a emenda do smoke herdado da P42 no mesmo commit (D-46-23)
+- [x] 46-07-PLAN.md — `salvar_config_purga`: o flip `dry_run → live` recusável no servidor, e o dry-run ligado em PROD (PURGA-04)
 
 **UI hint**: não — trabalho de cron/ops/DB. Se surgir uma leitura RH do ledger de purga, é derivada, não a entrega
 **Security**: **candidata a `/gsd-secure-phase`** — automação destrutiva não-supervisionada com cap e kill switch como controles de segurança, não de conveniência
@@ -606,7 +606,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
-| 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
+| 46. Purga Automática (dry-run → live) | v8.0 | 7/7 | Complete    | 2026-10-05 |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |

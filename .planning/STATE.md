@@ -3,9 +3,9 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: "Phases 42 e 47 concluídas (2026-10-04); faltam 43 (1 tela + consertos), 44 (G4-b, U2) e 46 (re-verificação)"
-last_updated: "2026-10-04T12:30:00.000Z"
-last_activity: 2026-10-04
+stopped_at: "Phases 42, 43, 46, 47 concluídas; resta a 44 (G4-b = fase nova) e a escrituração da 45"
+last_updated: "2026-10-05T09:00:00.000Z"
+last_activity: 2026-10-05
 state_head: 3df8f63463a98b22de3809c7229f43f8004316ff
 progress:
   total_phases: 8
@@ -19,6 +19,23 @@ last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a 
 ---
 
 # Project State
+
+## ▶ ESTADO EM 2026-10-05 — Phases 43 e 46 concluídas; resta a 44 (e a escrituração da 45)
+
+- **43 ✓** (guarda do currículo vista pelo operador) · **46 ✓** (re-verificação 5/5, `passed`).
+- **44** segue aberta: G4-b decidido (sai `vagas.created_by`; recrutador vê todas as vagas) — é uma
+  **fase nova** (14 policies + ~14 funções + RPCs da fila + check do 49-08). Pergunta em aberto ao
+  operador: «todas as vagas abertas» = só `ativa` ou todas (recomendado: todas). U2 sem resposta.
+- **45**: verificação `passed`, ROADMAP ainda `[ ]` — 45-06/45-11 sem SUMMARY canônico (evidência existe
+  com outro nome).
+
+### ☑ Checklist de fecho do M8 (não esquecer)
+
+- [ ] **Teardown das 8 fixtures da purga** (`p46_teardown_fixture.sql`), decisão do operador de
+  2026-10-04 — rodar ao fim do trabalho; se o M8 fechar **sem flip**, rodar mesmo assim (a decisão
+  é «remover depois que acabar tudo»).
+- [ ] Conferir que painéis, KPIs e exports não contaram as 8 fixtures como dado real.
+- [ ] PITR: o operador decidiu ligar; confirmar `pitr_enabled=true` pela Management API.
 
 ## ▶ ESTADO EM 2026-10-04 — Phases 42 e 47 concluídas; respostas do operador registradas
 
