@@ -44,7 +44,8 @@
 --           encerrada_a_pedido_em`; `UPDATE OF status`/`etapa_atual` não disparam; sobra
 --           `update_candidaturas_updated_at`.
 --   Os runners (`p50_ensaio.cjs`, `p50_mutacoes.cjs`) conferem depois, por leitura só-leitura,
---   que `role|ativo|deleted_at` de `usuarios_rh` e a borda de `candidaturas` ficaram iguais.
+--   que `role|ativo|deleted_at` de `usuarios_rh` e a borda de `candidaturas` ficaram iguais —
+--   por isso este arquivo SÓ roda por eles, antes E depois do apply (ver «COMO RODAR»).
 --
 -- ⚠ CADA sonda vai no SEU PRÓPRIO bloco `BEGIN … EXCEPTION WHEN OTHERS` que guarda
 -- `SQLSTATE:SQLERRM` (ou a contagem). O julgamento roda FORA da subtransação. Uma cláusula por
@@ -147,9 +148,15 @@
 --   · antes do apply (50-01/50-02): só dentro do ensaio que aborta —
 --     `node scripts/p50_ensaio.cjs supabase/tests/p50_acesso_recrutador_smoke.sql`
 --     (prefixa a migration que falta no ledger, roda este arquivo e aborta no sentinela).
---   · depois do apply: `node p46apply.cjs run supabase/tests/p50_acesso_recrutador_smoke.sql` —
---     UMA requisição, UMA sessão. O `SELECT` final devolve `{smoke, pass, esperado, ...}`; qualquer
---     FAIL é `RAISE EXCEPTION` e o `p46apply` sai com código ≠ 0.
+--   · depois do apply: TAMBÉM só dentro do ensaio que aborta, contra os objetos VIVOS —
+--     `node scripts/p50_ensaio.cjs --sem-migracoes supabase/tests/p50_acesso_recrutador_smoke.sql`
+--     (aborta no sentinela, `lock_timeout`/`statement_timeout` do prefixo, leitura de
+--     persistência antes e depois). Veredito: `ENSAIO VERDE: … smoke50=7/7 …`.
+--   · ⚠ PROIBIDO: `node p46apply.cjs run` DESTE arquivo (WR-01 do 50-REVIEW-TRACER-2). O `run`
+--     COMMITA: o que segura as escritas acima é só o envelope P50C1, escrito à mão em cada
+--     cláusula; uma escrita fora dele (ou um bloco que termine normalmente) gravaria em PROD —
+--     candidatura real excluída, administrador rebaixado — sem teto de lock e sem nenhuma
+--     leitura de persistência, com o smoke verde (ele julga ANTES do commit).
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
 -- deliberado), não uma fotografia do banco. Vive num ÚNICO literal (`smoke50.esperado`, abaixo);
