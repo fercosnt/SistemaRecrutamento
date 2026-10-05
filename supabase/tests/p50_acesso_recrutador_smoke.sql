@@ -163,11 +163,39 @@
 --     cláusula; uma escrita fora dele (ou um bloco que termine normalmente) gravaria em PROD —
 --     candidatura real excluída, administrador rebaixado — sem teto de lock e sem nenhuma
 --     leitura de persistência, com o smoke verde (ele julga ANTES do commit).
+--     Desde o WR-03 do 50-REVIEW-TRACER-3 a proibição é ESTRUTURAL: a primeira instrução deste
+--     arquivo (bloco `$p50_so_ensaio$`, logo abaixo do cabeçalho) exige a marca `p50.tx` que só o
+--     PREFIXO do ensaio grava, e recusa com `P50C RECUSADO (fora do ensaio)` antes de qualquer
+--     escrita. Uma cópia temporária do arquivo (p.ex. a parcial do 50-07) roda igual — pelo ensaio.
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
 -- deliberado), não uma fotografia do banco. Vive num ÚNICO literal (`smoke50.esperado`, abaixo);
 -- o bloco do gate e o JSON final LEEM a GUC. Hoje: 7 — a, b, c, d, e, f, z.
 -- =============================================================================
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- GUARDA ESTRUTURAL — PRIMEIRA instrução do arquivo (WR-03 do 50-REVIEW-TRACER-3). Este smoke
+-- ESCREVE (envelopes P50C1) e só pode rodar dentro de `scripts/p50_ensaio.cjs` (ou de
+-- `p50_mutacoes.cjs`, que compõe pelo mesmo `compor`): o PREFIXO do ensaio grava o txid da
+-- requisição na GUC LOCAL `p50.tx`, e aborta tudo no sentinela. Fora dele — `node p46apply.cjs run`
+-- deste arquivo, o SQL Editor, o `execute_sql` do MCP, qualquer via que COMMITA — a marca não existe
+-- e o arquivo para AQUI, antes de qualquer escrita, para todo plano e executor (a proibição deixou
+-- de depender de cada documento repeti-la). A marca é LOCAL: um valor velho de outra transação no
+-- pool é outro txid e também é recusado. Não chama `txid_current()` quando a marca falta (nada a
+-- comparar; e assim a recusa vale também numa transação READ ONLY).
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $p50_so_ensaio$
+DECLARE
+  v_tx text := coalesce(current_setting('p50.tx', true), '');
+BEGIN
+  IF v_tx = '' THEN
+    RAISE EXCEPTION 'P50C RECUSADO (fora do ensaio): este smoke ESCREVE (envelopes P50C1 em linhas reais de usuarios_rh e candidaturas) e so roda dentro de scripts/p50_ensaio.cjs, que marca a requisicao (p50.tx) e a aborta no sentinela; p46apply.cjs run COMMITA e e proibido. Nada rodou. Use: node scripts/p50_ensaio.cjs [--sem-migracoes] supabase/tests/p50_acesso_recrutador_smoke.sql';
+  END IF;
+  IF v_tx <> txid_current()::text THEN
+    RAISE EXCEPTION 'P50C RECUSADO (fora do ensaio): a marca p50.tx (%) nao e desta transacao (%): a requisicao nao e a que o ensaio abriu. Nada rodou', v_tx, txid_current();
+  END IF;
+END
+$p50_so_ensaio$;
 
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);
