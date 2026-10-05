@@ -607,11 +607,11 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 
 **Guardrails**: os do Bloco 1/2 — migrations pelo `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), EFs pelo `efdeploy.cjs`, `git log --oneline origin/main..HEAD` vazio depois de todo apply visível. É mudança de **controle de acesso** (alarga leitura): review bloqueante antes do apply, e prova de que nada abriu para `anon`/candidato (lembrar: views sem `security_invoker` ignoram RLS)
 **Fora de escopo**: associação vaga↔recrutador e qualquer granularidade por vaga; JORN-42..49 (Bloco 3, fase a criar)
-**Plans**: 11 plans
+**Plans**: 1/11 plans executed
 
 Plans:
 **Wave 1**
-- [ ] 50-01-PLAN.md — Tracer: helper `is_active_rh_user()` + `rh_le_candidaturas` + smoke v1 + sonda de vistas externas + runners (ensaio em PROD que aborta)
+- [x] 50-01-PLAN.md — Tracer: helper `is_active_rh_user()` + `rh_le_candidaturas` + smoke v1 + sonda de vistas externas + runners (ensaio em PROD que aborta)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 50-02-PLAN.md — Portão 1: review bloqueante do tracer, apply `20261005000001`, prova ao vivo, push
@@ -655,7 +655,7 @@ Plans:
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
-| 50. Acesso do Recrutador | v8.0 | 0/11 | Planned |  |
+| 50. Acesso do Recrutador | v8.0 | 1/11 | In Progress|  |
 
 ---
 
