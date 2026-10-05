@@ -1,7 +1,7 @@
 ---
 phase: 47-transpar-ncia-consolida-o
 verified: 2026-08-23T15:12:00Z
-status: human_needed
+status: passed
 veredito: "O código da fase está inteiro, ligado e agora PROVADO POR EXECUÇÃO CONTRA PROD — a RPC do CONSOL-02 foi chamada ao vivo por esta verificação e devolveu rótulo de texto, zero uuid, zero vazio, e recusou com 42501 tanto o papel candidato quanto o chamador sem claim. O que sobra não é código: é um parecer jurídico que ninguém escreveu e uma tela que ninguém abriu."
 score: 8/8 must-haves verified
 behavior_unverified: 0
@@ -27,6 +27,7 @@ higiene_de_registro:
   - "`WINDOWS.md` item 24 (`unrun-verify`, p47_historico_smoke) segue `open` — o smoke rodou 6/6 hoje. É a MESMA classe do achado crítico anterior, com o sinal trocado: um run sem artefato de escrituração é indistinguível de um run que não aconteceu."
   - "`WINDOWS.md` item 28 (montagem do `RodapePublico`) segue `open` — contradito pelo código nas cinco superfícies."
   - "`WINDOWS.md` itens 29, 31 e 32 (os dois destinos `pendente-de-decisao`) seguem `open` — resolvidos em 2026-08-13, com migration `20260813000001` APLICADA e trigger `trg_preencher_ip_logs_acesso` vivo em PROD."
+
 ---
 
 # Phase 47: Transparência & Consolidação — Reverificação
@@ -315,3 +316,10 @@ Fora do veredito, dois registros para quem vier depois: **(a)** hoje as 13 linha
 
 *Verified: 2026-08-23T15:12:00Z*
 *Verifier: Claude (gsd-verifier) — medições próprias contra PROD, somente leitura, estado do banco idêntico antes e depois*
+
+---
+
+## Adendo de 2026-10-04 — itens humanos fechados (status `human_needed` → `passed`)
+
+1. **Tela do Histórico:** aberta pelo operador em PROD em 2026-10-04 (`/rh/candidatos/af39f1ea-…`), com captura: 5 transições com o nome completo do recrutador e 1 «Sistema»; nenhum uuid, vazio ou erro (`47-UAT.md` 1/1). Cobre a ressalva (a) acima: o nome do recrutador agora foi exercitado com dado real.
+2. **Encarregado (DPO):** já fechado antes desta verificação por `.planning/DECISAO-ENCARREGADO.md` (2026-08-13: a empresa não designa Encarregado; a decisão do operador é final); WINDOWS 26 e 30 `waived` desde 2026-09-06 (`47-PENDENCIAS-2026-10-03.md`).

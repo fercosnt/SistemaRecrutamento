@@ -23,12 +23,12 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 
 ### v8.0 — M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 
-- [ ] **Phase 42: Inventário, Gates & Fila Art. 20** - O RH passa a ver e responder os pedidos de revisão que hoje caem no vazio; o mapa do que existe (PII, backup, crons, drift) fica em cima da mesa antes de qualquer linha destrutiva
+- [x] **Phase 42: Inventário, Gates & Fila Art. 20** - O RH passa a ver e responder os pedidos de revisão que hoje caem no vazio; o mapa do que existe (PII, backup, crons, drift) fica em cima da mesa antes de qualquer linha destrutiva (completed 2026-10-04)
 - [ ] **Phase 43: Consentimentos Honestos & Política de Retenção** - Cada checkbox que o candidato marca ganha consequência real, e o prazo de validade do dado passa a existir como configuração alterável sem deploy — zero ação destrutiva
 - [ ] **Phase 44: Exportação & Acesso** - O candidato recebe uma cópia honesta dos próprios dados, e o inventário de PII que a fase irreversível vai consumir nasce exercitado em produção
 - [ ] **Phase 45: Motor de Exclusão & Anonimização** ⚠️ **FASE DE MAIOR RISCO** - O pedido de exclusão executa de verdade — Storage → Postgres → Auth, irreversível, sem levar junto a trilha de decisão humana
 - [ ] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada
-- [ ] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute
+- [x] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute (completed 2026-10-04)
 - [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
 - [x] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma (completed 2026-10-03)
 
@@ -91,7 +91,7 @@ Toda fase que escreva um `DELETE`/`UPDATE` destrutivo, altere um predicado de pu
   4. Existe um artefato datado, no repositório, que responde: quantos pedidos de revisão já estão pendentes em PROD hoje (**entregue antes de qualquer tela**); qual coluna guarda qual PII e se ela deve ser apagada / anonimizada / preservada (semeado de `FK-AUDIT-LIVE.md`, nunca de arquivos de migration); se o PITR está ligado e com que janela — **com o registro explícito de que Storage não é coberto por nenhum caminho de backup**; e o diff dos `cron.job` vivos contra o repositório, cada job vivo rastreável a uma migration.
   5. O `ai-logs-retention-cleanup` que roda todo dia às 02:00 apaga as linhas que deve apagar — hoje o `NOT IN` com subquery NULL-able pode fazê-lo apagar **zero em silêncio** — e a varredura do idioma `ADD COLUMN IF NOT EXISTS` listou toda migration onde uma cláusula FK foi silenciada (causa identificada do drift `candidatos.user_id`).
 
-**Plans**: 12 plans (5 waves · 11/11 requirements cobertos · 21/21 decisões do CONTEXT com plano implementador)
+**Plans**: 12/12 plans complete (5 waves · 11/11 requirements cobertos · 21/21 decisões do CONTEXT com plano implementador)
 
 Plans:
 
@@ -289,7 +289,7 @@ Plans:
   3. Toda promessa de retenção/exclusão em comentário de migration ou documento tem **código vivo que a executa**, provado por um checklist versionado — e o zumbi `data_deletion_log` (existe desde 2026-06-09 prometendo uma `delete_candidate_data()` que a Phase 15 nunca criou, ausente de `pg_proc`, 0 linhas, repropositado pelo rollback da prompt-library) foi resolvido: removido ou adotado com escritas reais.
   4. As 6 fases do M7 sem veredito Nyquist (36/38/39/41 em `draft`, 37/40 sem arquivo) têm arquivo `VALIDATION.md` com veredito real.
 
-**Plans**: 9 plans (4 waves)
+**Plans**: 9/9 plans complete (4 waves)
 
 Plans:
 
@@ -602,12 +602,12 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
-| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
+| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | Complete    | 2026-10-04 |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
-| 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
+| 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 

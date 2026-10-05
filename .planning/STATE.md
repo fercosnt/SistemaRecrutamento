@@ -3,9 +3,9 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: "Phase 49 complete (UAT 3/3, verification passed); M8 fecha com a dívida de verificação das 42, 43, 44, 46 e 47"
-last_updated: "2026-10-03T20:50:00.000Z"
-last_activity: 2026-10-03
+stopped_at: "Phases 42 e 47 concluídas (2026-10-04); faltam 43 (1 tela + consertos), 44 (G4-b, U2) e 46 (re-verificação)"
+last_updated: "2026-10-04T12:30:00.000Z"
+last_activity: 2026-10-04
 state_head: 3df8f63463a98b22de3809c7229f43f8004316ff
 progress:
   total_phases: 8
@@ -19,6 +19,19 @@ last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a 
 ---
 
 # Project State
+
+## ▶ ESTADO EM 2026-10-04 — Phases 42 e 47 concluídas; respostas do operador registradas
+
+- **42 ✓** — UAT 3/3. Prova da purga de `ai_call_logs` em PROD com abort: o comando real do
+  jobid 4 apagou 1 linha sintética, sem resíduo. PITR: operador decidiu **ligar** — ⚠ ação no
+  painel ainda pendente com ele (`pitr_enabled=false` até lá).
+- **47 ✓** — Histórico aberto pelo operador em PROD (nome do recrutador em 5 transições).
+- **46** — B1 decidido e datado no `46-07-RUNBOOK-FLIP.md` (as 8 fixtures saem por teardown ao
+  fim do trabalho); B2 aceito como parcial (override). Falta **re-verificar** para sair de `gaps_found`.
+- **44** — EXPORT-06 reescrito e `[x]`; U1 aceito **sem teste**. Abertos: **G4-b** (o operador vai
+  cadastrar recrutadores, o que afasta a opção (d); falta saber quem cria as vagas) e **U2**.
+- **43** — o operador leu o item da lista, não o bloco da seção 2 «O que guardamos e por quê»;
+  a conferência do ramo AUTORIZADO segue pendente. Mais 4 consertos (C) e 1 decisão.
 
 ## ▶ ESTADO EM 2026-10-03 — Phase 49 CONCLUÍDA
 

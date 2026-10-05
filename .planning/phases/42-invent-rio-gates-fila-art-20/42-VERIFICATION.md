@@ -1,7 +1,7 @@
 ---
 phase: 42-invent-rio-gates-fila-art-20
 verified: 2026-08-01T05:41:50Z
-status: human_needed
+status: passed
 score: 4/5 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
@@ -361,3 +361,14 @@ como tal.
 `.planning/REQUIREMENTS.md` marcava 8 dos 11 requirements da fase como `Pending`. Os 11
 estão `Complete`. Correção de escrituração, não de implementação — a entrega já estava
 verificada por este relatório e pelas medições em produção.
+
+---
+
+## Adendo de 2026-10-04 — itens humanos fechados (status `human_needed` → `passed`)
+
+Fechado pela UAT `42-UAT.md` (3/3) e pela triagem `42-PENDENCIAS-2026-10-03.md`:
+
+1. **Guard REVISAO-05 com JWT de navegador:** provado por leitura de PROD (2 revisões respondidas por RH ≠ decisor, logados no navegador; a tela desabilita o botão para o decisor).
+2. **Roster do nudge:** nº de e-mails por pedido = nº de RH ativos nos 4 pedidos; `recrutador.rh@teste.com` inativo desde 23/08. O operador decidiu cadastrar cada recrutador real (UAT 2).
+3. **Purga observada apagando:** prova em PROD com abort em 2026-10-04: o `command` real do jobid 4 apagou `1` linha (a cópia sintética vencida), sem resíduo (UAT 3).
+4. **PITR:** medido `pitr_enabled=false` (backup-posture.md, 2026-10-03). Decisão do operador: **ligar**. ⚠ **A ação no painel está pendente com o operador** — até lá, o fato medido continua valendo.

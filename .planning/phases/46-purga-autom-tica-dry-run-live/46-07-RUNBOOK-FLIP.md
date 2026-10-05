@@ -355,6 +355,13 @@ fixture — momento em que o teardown remove apenas o resíduo (`vagas`, e o que
 Ou, se a decisão for `estender-dry-run` indefinidamente, **nunca** — a fixture é PII sintética em
 domínio não-roteável, e o custo de mantê-la viva é menor que o de perder o critério nº 3.
 
+> ✅ **DECISÃO DO OPERADOR — 2026-10-04 — Fernando.** Destino das **8** fixtures (as 5 elegíveis
+> e as 3 negativas `neg-etapa`, `neg-hold`, `neg-art20`): *«vamos remover depois que acabar tudo,
+> as contas de teste»*. Leitura registrada: as 8 ficam vivas até o fim do trabalho do M8 (flip e
+> prova do `live` inclusos, o que preserva o critério nº 3) e saem **todas** por
+> `p46_teardown_fixture.sql` ao final, com a verificação de resíduo do próprio script. A execução
+> pode ser delegada; a decisão está tomada.
+
 ⚠ **Antes de decidir deixá-la viva por mais tempo, reconferir contaminação:** nenhuma linha da
 fixture pode ter entrado em relatório, painel, KPI ou export que alguém leia como dado real.
 

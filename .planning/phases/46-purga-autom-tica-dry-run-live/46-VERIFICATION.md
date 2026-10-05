@@ -104,6 +104,24 @@ overrides:
       continua sendo checkpoint do operador. Nao cobre nenhum apply futuro desta fase. E
       nao converte a fase em `passed`: o gap do agendador (0 de 14 noites) segue aberto e
       e independente deste item.
+  - item: "Alavanca de emergencia do cron (cron.alter_job active false/true no jobid 6) provada por execucao"
+    aplica_a: "o desarme do jobid 6 (purga-retencao-sweep); prova parcial existente: cron.alter_job rodou em PROD na migration 20260930000001 (jobid 1), provando assinatura e privilegio"
+    decisao: aceito
+    decidido_por: "Fernando (operador), por escrito em 2026-10-04: 'da purga aceito a parcial'"
+    data: 2026-10-04
+    razao: >
+      A execucao de 20260930000001 prova que o papel do apply chama cron.alter_job com
+      sucesso em PROD; o que falta (active := false no jobid 6) e o mesmo verbo com outro
+      argumento. O operador aceitou a prova parcial em vez de mexer no controle de um
+      mecanismo destrutivo so para demonstra-lo.
+  - item: "Destino datado das 8 fixtures de PII sintetica"
+    aplica_a: "as 8 fixtures fixture-p46+%@invalido.local (5 elegiveis + neg-etapa, neg-hold, neg-art20)"
+    decisao: decidido
+    decidido_por: "Fernando (operador), por escrito em 2026-10-04: 'vamos remover depois que acabar tudo, as contas de teste'"
+    data: 2026-10-04
+    razao: >
+      Registrado e datado em 46-07-RUNBOOK-FLIP.md §Teardown: as 8 ficam ate o fim do trabalho
+      do M8 e saem todas por p46_teardown_fixture.sql. Cobre 8, nao 5.
 mudou_desde_a_verificacao_anterior: >
   Uma coisa so: o smoke rodou em PROD as 11:26:40-03 e ficou 27/27 — confirmado por mim
   no catalogo (pg_stat_statements nao registra statement que levanta excecao, e o bloco

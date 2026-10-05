@@ -32,20 +32,20 @@
 
 ### Inventário & Gates (INVENT) — nada destrutivo
 
-- [ ] **INVENT-01**: Inventário de PII coluna-a-coluna classifica cada coluna em apagar / anonimizar / preservar, semeado do grafo de FK vivo (`FK-AUDIT-LIVE.md`), nunca de arquivos de migration
-- [ ] **INVENT-02**: Status de PITR/backup verificado e registrado como fato datado — janela, ativo/inativo, e o registro explícito de que **Storage não é coberto por nenhum caminho de backup**
-- [ ] **INVENT-03**: Diff entre os `cron.job` vivos e o repositório, com cada job vivo tendo origem rastreável a uma migration
-- [ ] **INVENT-04**: Varredura do idioma `ADD COLUMN IF NOT EXISTS` em todas as migrations, identificando cláusulas FK silenciadas (causa identificada do drift `candidatos.user_id`)
-- [ ] **INVENT-05**: Bug latente do `ai-logs-retention-cleanup` corrigido — `NOT IN` com subquery que pode conter NULL apaga zero linhas em silêncio
+- [x] **INVENT-01**: Inventário de PII coluna-a-coluna classifica cada coluna em apagar / anonimizar / preservar, semeado do grafo de FK vivo (`FK-AUDIT-LIVE.md`), nunca de arquivos de migration
+- [x] **INVENT-02**: Status de PITR/backup verificado e registrado como fato datado — janela, ativo/inativo, e o registro explícito de que **Storage não é coberto por nenhum caminho de backup**
+- [x] **INVENT-03**: Diff entre os `cron.job` vivos e o repositório, com cada job vivo tendo origem rastreável a uma migration
+- [x] **INVENT-04**: Varredura do idioma `ADD COLUMN IF NOT EXISTS` em todas as migrations, identificando cláusulas FK silenciadas (causa identificada do drift `candidatos.user_id`)
+- [x] **INVENT-05**: Bug latente do `ai-logs-retention-cleanup` corrigido — `NOT IN` com subquery que pode conter NULL apaga zero linhas em silêncio
 
 ### Fila Art. 20 (REVISAO)
 
-- [ ] **REVISAO-01**: RH é notificado quando um candidato solicita revisão da decisão (trigger na transição `revisao_solicitada_em` NULL→NOT NULL → EF `notificar-rh`)
-- [ ] **REVISAO-02**: RH vê a fila de pedidos de revisão pendentes, ordenada por antiguidade, com badge de SLA **interno** (nunca exibido ao candidato)
+- [x] **REVISAO-01**: RH é notificado quando um candidato solicita revisão da decisão (trigger na transição `revisao_solicitada_em` NULL→NOT NULL → EF `notificar-rh`)
+- [x] **REVISAO-02**: RH vê a fila de pedidos de revisão pendentes, ordenada por antiguidade, com badge de SLA **interno** (nunca exibido ao candidato)
 - [x] **REVISAO-03**: RH registra o resultado da revisão em `revisao_resultado` por write-path auditável único
 - [x] **REVISAO-04**: Candidato é notificado por e-mail quando sua revisão é respondida (5º evento do pipeline COMM)
 - [x] **REVISAO-05**: Quem registrou a decisão **não pode** responder à revisão dela — bloqueio server-enforced, não aviso de UI
-- [ ] **REVISAO-06**: Consulta que responde quantos pedidos de revisão já estão pendentes em PROD hoje, entregue **antes** de qualquer tela
+- [x] **REVISAO-06**: Consulta que responde quantos pedidos de revisão já estão pendentes em PROD hoje, entregue **antes** de qualquer tela
 
 ### Consentimentos (CONSENT)
 
@@ -94,7 +94,7 @@
 - [x] **EXPORT-03**: Currículo entregue por signed URL de TTL curto a partir de bucket privado, nunca inline nem base64 — ⚠ mesma ressalva de titular do EXPORT-01 (ver nota)
 - [x] **EXPORT-04**: Chaves do export cobertas por snapshot test — uma coluna nova no banco não pode vazar silenciosamente para o export
 - [x] **EXPORT-05**: Pedido de acesso atendido dentro do prazo do **Art. 19, II** (15 dias corridos) — ⚠ marca da fase, **rebaixada a parcial** pela `44-VERIFICATION.md`: a metade «visível ao RH» não vale para recrutador nenhum (ver nota)
-- [ ] **EXPORT-06**: O inventário construído aqui é o artefato consumido pelo motor de exclusão (EXPORT antes de ERASE) — ⚠ **não pode fechar como está redigido**; é reescrita/override, nunca trabalho (ver nota)
+- [x] **EXPORT-06**: *(reescrito com aprovação do operador em 2026-10-04)* O inventário do export é a projeção do direito de acesso (Art. 18, II), consumido só por `exportar-meus-dados` e `exportacaoService`; o plano de exclusão do motor vem do `pii-inventory.yaml`, por decisão medida da Phase 45 (`gen-recibo-exclusao.cjs:12-25`). Redação original: «O inventário construído aqui é o artefato consumido pelo motor de exclusão (EXPORT antes de ERASE)»
 
 > ### ⚠ EXPORT-01/02/03 — as razões antigas do `[ ]` eram FALSAS, e é por isso que estes três viraram `[x]`
 >
@@ -370,7 +370,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | EXPORT-03 | Phase 44 | Complete (`GUIA-VALIDACAO-FINAL` B14 ✅ TTL 60 s, recarregada → **400**; B15 ✅ zero chamadas a `get-curriculo-url`, URL ausente do console e do DOM — a expiração e as três asserções negativas **observadas**. Banco: 18/18 objetos de `curriculos` com prefixo = `owner`. ⚠ mesma ressalva de titular do EXPORT-01) |
 | EXPORT-04 | Phase 44 | Complete |
 | EXPORT-05 | Phase 44 | Complete **(marca da fase — rebaixada a PARCIAL pela `44-VERIFICATION.md`, e o rebaixamento CONFIRMADO por medição em 2026-09-26)**: a metade «visível ao RH» não vale para o papel `rh` — predicado `vagas.created_by = auth.uid()` inalterado, **0** vagas de recrutador, **1** recrutador e **0 ativos**, **9** vagas órfãs, `vagas_associadas_recrutadores` vazia e sem leitor. ⚠ transversal: o mesmo predicado é a espinha de `rh_le_candidaturas` e a Phase 49 o **reforçou** no 49-08 — decisão do operador, e varrer pela FORMA todos os consumidores |
-| EXPORT-06 | Phase 44 | Pending — **e não por falta de trabalho: a redação está errada.** A Phase 45 mediu e **recusou** o `exportAllowlist.ts` como plano de exclusão (30 de 69 tabelas; exclui `ai_call_logs` e `logs_acesso`, 2 das 5 do ERASE-09) e usa `pii-inventory.yaml` — razão em `gen-recibo-exclusao.cjs:12-25`. Fecha por **reescrita/override**, nunca por plano. ⚠ `export-allowlist.json` → `meta.consumidores` ainda declara a Phase 45 como consumidora: afirmação **falsa**, artefato gerado, conserto no gerador |
+| EXPORT-06 | Phase 44 | Complete — requisito reescrito com aprovação do operador (2026-10-04); antes: Pending por redação errada (a Phase 45 recusou a fonte com medição) |
 | ERASE-01 | Phase 45 | Pending |
 | ERASE-02 | Phase 45 | Complete |
 | ERASE-03 | Phase 45 | Complete |
