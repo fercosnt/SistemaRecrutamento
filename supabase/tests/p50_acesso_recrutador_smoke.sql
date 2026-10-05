@@ -67,14 +67,18 @@
 -- `RAISE 'ENSAIO_P50_TERMINOU'`. Cada uma tem de reprovar na letra abaixo e NÃO chegar ao
 -- sentinela. A próxima redefinição destes objetos tem de re-provar esta tabela — uma cláusula
 -- nova sem mutação que a reprove é cláusula não vigiada:
---   | Mutação | Inversão                                                          | Reprova | Medido (ms) |
---   |---------|-------------------------------------------------------------------|---------|-------------|
---   | M1      | helper sempre verdadeiro (mesmo ACL)                              | (b)     | (a medir)   |
---   | M2      | ramo `rh` só pelo JWT (sem o helper)                              | (d)     | (a medir)   |
---   | M3      | `GRANT EXECUTE` do helper a `anon`                                | (a)     | (a medir)   |
---   | M4      | ramo `rh` de volta à posse (`vagas.created_by = auth.uid()`)      | (c)     | (a medir)   |
---   | M5      | policy de volta a `TO public`                                     | (f)     | (a medir)   |
---   | M6      | disjunto do administrador alterado (`= ANY (ARRAY[…])`)           | (e)     | (a medir)   |
+--   | Mutação | Inversão                                                          | Reprova | Medido (2026-10-05)            |
+--   |---------|-------------------------------------------------------------------|---------|--------------------------------|
+--   | M1      | helper sempre verdadeiro (mesmo ACL)                              | (b)     | (b) [inativo,aleatorio,sem_claims,candidato], 517 ms |
+--   | M2      | ramo `rh` só pelo JWT (sem o helper)                              | (d)     | (d) [inativo], 684 ms          |
+--   | M3      | `GRANT EXECUTE` do helper a `anon`                                | (a)     | (a), 503 ms                    |
+--   | M4      | ramo `rh` de volta à posse (`vagas.created_by = auth.uid()`)      | (c)     | (c), 522 ms                    |
+--   | M5      | policy de volta a `TO public`                                     | (f)     | (f), 577 ms                    |
+--   | M6      | disjunto do administrador alterado (`= ANY (ARRAY[…])`)           | (e)     | (e), 623 ms                    |
+--   CONTROLE (migration intacta + smoke) chegou ao sentinela com smoke50=7/7 em 641 ms; depois do
+--   laço, a leitura só-leitura (ledger das 4 versões p50, helper, md5|roles das 14 policies que
+--   casam a forma) foi idêntica à de antes: nada persistiu. Sob M5 a cláusula (d) segue verde —
+--   `anon` continua recusado (42501) também com a policy `{public}`; quem pega é (f).
 --
 -- Varredura (forma) — 2026-10-05, padrão do CLAUDE.md §«Portões» sobre `supabase/tests/*.sql`
 -- (`grep -rnE '(<>|!=|IS DISTINCT FROM) *[0-9]+|= ANY \(ARRAY\[.|\b(proname|jobname|relname|tgname|conname|typname) +IN +\(.'`).
