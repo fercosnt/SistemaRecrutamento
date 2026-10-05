@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 50-01-PLAN.md
-last_updated: "2026-10-05T18:12:05.767Z"
+stopped_at: Completed 50-02-PLAN.md
+last_updated: "2026-10-05T19:57:52.095Z"
 last_activity: 2026-10-05
-state_head: 8781ec138041cc0db231a391616a586c9a825a0b
+state_head: 9271ba4325dd5f9095c10980b2e1ce349a0067ba
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 134
-  completed_plans: 122
-  percent: 91
+  completed_plans: 123
+  percent: 92
 current_phase: 50
 current_phase_name: Acesso do Recrutador
 last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a ponta, conferência visual com WR-07, aceite do custo residual WR-03), verificação human_needed → passed, 45/45 planos. COVERAGE.md encurtado (reason >200 chars bloqueava o portão api-coverage). Próximo: fechar a verificação das 42, 43, 47 (human_needed) e 44, 46 (gaps_found), depois /gsd-audit-milestone."
@@ -968,6 +968,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P44 | 18 min | 3 tasks | 9 files |
 | Phase 49 P45 | 6min | 3 tasks | 1 files |
 | Phase 50 P01 | 13 min | 3 tasks | 6 files |
+| Phase 50 P02 | 3min | 3 tasks | 0 files |
 
 ## Accumulated Context
 
@@ -1323,6 +1324,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-44: WR-07 construído e ensaiado, NÃO publicado — RPC ler_resposta_caso_aberto_sjt (predicado WR-04) + congelamento RESTRICTIVE do caso aberto enviado; smoke 9/9 e 8/8 mutações mordem em requisições que abortam; R1–R3 (texto gravado pode não ser o analisado) nomeados, disposição do operador no 49-45 (c)
 - [Phase 49]: 49-45: WR-07 publicado — migration 20261003000001 aplicada antes do push (md5 do ledger 7750c407… BATE), smoke 9/9, anon recusado pelo ACL, motor verde antes e depois; front 8581e98d servido em DecisaoFinalPage-Zw-MAwxN.js; R1–R4 publicados registrados («Aceito» do operador, 2026-10-03); IN-04 do REVIEW-GAPS-9 pendente sem dono; JORN-41 segue [ ]
 - [Phase 50]: 50-01: helper is_active_rh_user plpgsql role-agnostico + rh_le_candidaturas TO authenticated, provado em ensaio que aborta (7/7, vistas=igual, 6/6 mutacoes); atores do smoke sem linha de candidato; BORDA vacua (0 mortas) para a review do 50-02
+- [Phase 50]: 50-02: migration 20261005000001 aplicada em PROD (2026-10-05T19:54:38Z) por p46apply migrate do pin 9271ba43, apos 50-REVIEW-TRACER-3 (0 critico); rh ativo sem vaga propria 0 -> 40 candidaturas; vistas externas iguais (antes x depois e ensaio reverso); 11/11 mutacoes mordem; push 587683fc..9271ba43 enumerado; refs/gsd/50-expansao/base = 9271ba43. Pendente antes da onda 3 (disposicao do orquestrador): WR-01/02 runner/smoke; WR-03/05/06 texto do 50-07/50-10/50-VALIDATION. Nunca rodar o smoke por p46apply run.
 
 ### Roadmap Evolution
 
@@ -1655,8 +1657,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-05T18:12:05.321Z
-Stopped at: Completed 50-01-PLAN.md
+Last session: 2026-10-05T19:57:51.644Z
+Stopped at: Completed 50-02-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
