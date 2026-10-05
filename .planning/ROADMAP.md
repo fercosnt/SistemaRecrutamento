@@ -24,7 +24,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 ### v8.0 — M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 
 - [x] **Phase 42: Inventário, Gates & Fila Art. 20** - O RH passa a ver e responder os pedidos de revisão que hoje caem no vazio; o mapa do que existe (PII, backup, crons, drift) fica em cima da mesa antes de qualquer linha destrutiva (completed 2026-10-04)
-- [ ] **Phase 43: Consentimentos Honestos & Política de Retenção** - Cada checkbox que o candidato marca ganha consequência real, e o prazo de validade do dado passa a existir como configuração alterável sem deploy — zero ação destrutiva
+- [x] **Phase 43: Consentimentos Honestos & Política de Retenção** - Cada checkbox que o candidato marca ganha consequência real, e o prazo de validade do dado passa a existir como configuração alterável sem deploy — zero ação destrutiva (completed 2026-10-04)
 - [ ] **Phase 44: Exportação & Acesso** - O candidato recebe uma cópia honesta dos próprios dados, e o inventário de PII que a fase irreversível vai consumir nasce exercitado em produção
 - [ ] **Phase 45: Motor de Exclusão & Anonimização** ⚠️ **FASE DE MAIOR RISCO** - O pedido de exclusão executa de verdade — Storage → Postgres → Auth, irreversível, sem levar junto a trilha de decisão humana
 - [ ] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada
@@ -127,7 +127,7 @@ Plans:
   4. Um administrador altera a janela de retenção de um estado da candidatura **sem deploy**, com o seed de 2 anos documentado como *teto já consentido pela copy do cadastro* e não como recomendação técnica; e a decisão de reusar (ou não) o padrão `retain_until` já vivo em `ai_call_logs` está registrada **com veredito antes** de a estrutura nova existir.
   5. Uma prévia **read-only** responde "estes N candidatos seriam purgados" sem executar nada, e `autorizacao_retencao_curriculo` aparece por candidato como a base legal citada da retenção do currículo — o primeiro consumidor real de um consentimento até hoje órfão.
 
-**Plans**: 9 plans (6 waves — a wave 4 é o checkpoint de PROD do orquestrador, e as duas telas novas dependem dele porque não compilam contra tipos antigos)
+**Plans**: 9/9 plans complete (6 waves — a wave 4 é o checkpoint de PROD do orquestrador, e as duas telas novas dependem dele porque não compilam contra tipos antigos)
 
 Plans:
 
@@ -603,7 +603,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | Complete    | 2026-10-04 |
-| 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
+| 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |

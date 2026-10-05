@@ -1,7 +1,7 @@
 ---
 phase: 43-consentimentos-honestos-pol-tica-de-reten-o
 verified: 2026-08-03T05:02:00Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified
 behavior_unverified: 0
 overrides_applied: 2
@@ -89,6 +89,7 @@ untracked_debt:
   - "`src/features/admin/retencao/services/` e `hooks/` seguem com ZERO arquivo de teste — nenhum todo cobre isso (W-3)"
   - "A lição «contador de asserções mede caminhos exercitados, não existentes» não existe em `.planning/` (W-4)"
   - "A ordenação que torna (d)…(k) inalcançáveis não está em todo nenhum (W-1)"
+
 overrides:
   - item: "Prévia de retenção no estado POPULADO — as linhas por estado contam CANDIDATURAS e o total conta CANDIDATOS, com o carimbo `calculada_em` do servidor"
     was: human_verification
@@ -603,3 +604,18 @@ Preservado porque o registro de uma fase que embarcou quebrada, foi pega, conser
 
 _Verified: 2026-08-03T05:02:00Z_
 _Verifier: Claude (gsd-verifier) — 3ª passagem, re-verificação após o fechamento do SC#4_
+
+---
+
+## Adendo de 2026-10-04 — item humano fechado (status `human_needed` → `passed`)
+
+**Ramo AUTORIZADO do bloco de guarda do currículo:** conferido pelo operador em PROD em 2026-10-04
+(conta `fernandinho.costa.neto+claude6@gmail.com`, `/candidato/privacidade`, seção «O que guardamos e
+por quê»): «Currículo guardado.» + «Base da guarda: sua autorização de 22/09/2026. Prazo previsto:
+até 22/09/2028.», só leitura (`43-UAT.md` 1/1). As partes não visuais já estavam provadas
+(`43-PENDENCIAS-2026-10-03.md` H1).
+
+**Fica fora do veredito, rastreado em `43-PENDENCIAS-2026-10-03.md`:** W-3 (testes de
+`admin/retencao` services/hooks), W-9/D-4 (trigger, função e 3 policies de `autorizacoes` só em PROD,
+sem migration), D-2 (guard de marketing só `BEFORE INSERT`), D-3 (smoke de consentimento com baseline
+congelada reprovaria trabalho correto) e a decisão W-8. Nenhum deles é truth do objetivo da fase.
