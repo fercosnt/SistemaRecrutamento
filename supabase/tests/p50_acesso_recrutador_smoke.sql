@@ -87,7 +87,13 @@
 --       semente pegou [c_populacao]. A população publicada no JSON é `f_borda_semeada`;
 --       `n_borda` segue sendo a borda REAL (0 em 2026-10-05).
 --   (z) resíduo: contagens globais de `candidaturas`, `vagas` e `usuarios_rh` = baseline
---       capturada no início DESTA execução.
+--       capturada no início DESTA execução. Como o smoke só roda dentro do ensaio, que abre a
+--       requisição em REPEATABLE READ (um snapshot para tudo), commits de fora NÃO aparecem
+--       aqui: um delta em (z) é RESÍDUO DA PRÓPRIA requisição — uma escrita que escapou de um
+--       envelope P50C1 —, nunca tráfego (WR-02 do 50-REVIEW-TRACER-3). O mesmo vale para as
+--       comparações postgres × ator de (c), (e) e (f): diferença é da policy, não de tráfego.
+--       O único erro movido por tráfego sob RR é o `40001` de uma escrita do envelope numa linha
+--       commitada por outro depois do snapshot; os runners o classificam como INCONCLUSIVO.
 --
 -- O PORTÃO MORDE — mutações provadas por `scripts/p50_mutacoes.cjs` (Plano 50-01, Task 3,
 -- 2026-10-05), cada uma numa requisição que aborta: `SET LOCAL lock_timeout/statement_timeout` +
@@ -534,7 +540,7 @@ BEGIN
   END IF;
   IF c_va IS DISTINCT FROM n_va::text OR c_vi IS DISTINCT FROM n_vi::text OR c_vq IS DISTINCT FROM n_vq::text
      OR c_tot IS DISTINCT FROM n_vivas::text OR c_rec IS DISTINCT FROM n_vivas::text THEN
-    RAISE EXCEPTION 'P50C FAIL (c): rh ativo sem vaga propria (%) viu ativa=«%» inativa=«%» arquivada=«%» total=«%» ; a mesma linha como recrutador total=«%» (esperado %, %, %, %, % — as vivas como postgres; D-01: todas as vagas, qualquer status). Se so o numero difere por pouco e (z) tambem acusaria: trafego concorrente commitado entre a baseline e (c) — rodar de novo',
+    RAISE EXCEPTION 'P50C FAIL (c): rh ativo sem vaga propria (%) viu ativa=«%» inativa=«%» arquivada=«%» total=«%» ; a mesma linha como recrutador total=«%» (esperado %, %, %, %, % — as vivas como postgres; D-01: todas as vagas, qualquer status). Sob o snapshot unico do ensaio (REPEATABLE READ) baseline e (c) leem o MESMO banco: uma diferenca, mesmo pequena, e da POLICY, nao de trafego — repetir da o mesmo vermelho',
       v_ativo, c_va, c_vi, c_vq, c_tot, c_rec, n_va, n_vi, n_vq, n_vivas, n_vivas;
   END IF;
   PERFORM set_config('smoke50.c_visto', c_tot, false);
@@ -694,7 +700,7 @@ BEGIN
   END IF;
 
   IF n_total < 1 OR e_count IS DISTINCT FROM n_total::text THEN
-    RAISE EXCEPTION 'P50C FAIL (e): o administrador ativo (%) viu «%» candidaturas (esperado o total como postgres = %, > 0) — o administrador nao pode perder nada. Se o numero difere por pouco e (z) tambem acusaria: trafego concorrente commitado entre a baseline e (e) — rodar de novo',
+    RAISE EXCEPTION 'P50C FAIL (e): o administrador ativo (%) viu «%» candidaturas (esperado o total como postgres = %, > 0) — o administrador nao pode perder nada. Sob o snapshot unico do ensaio (REPEATABLE READ) baseline e (e) leem o MESMO banco: uma diferenca, mesmo pequena, e da POLICY, nao de trafego — repetir da o mesmo vermelho',
       v_admin, e_count, n_total;
   END IF;
 
@@ -832,7 +838,7 @@ BEGIN
   IF f_rh    IS DISTINCT FROM '0'    THEN f_rot := f_rot || 'rh_ve_borda'::text; END IF;
   IF f_rh_tot IS DISTINCT FROM p_vivas THEN f_rot := f_rot || 'rh_total'::text; END IF;
   IF cardinality(f_rot) > 0 THEN
-    RAISE EXCEPTION 'P50C FAIL (f): [%]: BORDA semeada (rascunho %, excluida %) — populacao como postgres=«%» ; rh ativo viu rascunho=«%» excluida=«%» borda=«%» total=«%» (esperado 0, 0, 0, vivas=%) ; administrador semeadas=«%» borda=«%» (esperado 2, %). rotulo c_* = controle vacuo; um total que difere por pouco sem outro rotulo e trafego concorrente: rodar de novo',
+    RAISE EXCEPTION 'P50C FAIL (f): [%]: BORDA semeada (rascunho %, excluida %) — populacao como postgres=«%» ; rh ativo viu rascunho=«%» excluida=«%» borda=«%» total=«%» (esperado 0, 0, 0, vivas=%) ; administrador semeadas=«%» borda=«%» (esperado 2, %). rotulo c_* = controle vacuo; sob o snapshot unico do ensaio (REPEATABLE READ) a populacao como postgres e as vistas do rh/administrador leem o MESMO banco: um total que difere, mesmo por pouco, e da POLICY, nao de trafego',
       array_to_string(f_rot, ','), v_rasc, v_excl, p_borda, f_rh_r, f_rh_e, f_rh, f_rh_tot, p_vivas, f_adm_s, f_adm, p_borda;
   END IF;
   PERFORM set_config('smoke50.f_borda_rh', f_rh, false);
@@ -858,7 +864,7 @@ BEGIN
   IF g_cand     IS DISTINCT FROM current_setting('smoke50.z_cand')::bigint
      OR g_vagas IS DISTINCT FROM current_setting('smoke50.z_vagas')::bigint
      OR g_urh   IS DISTINCT FROM current_setting('smoke50.z_urh')::bigint THEN
-    RAISE EXCEPTION 'P50C FAIL (z): contagem global mudou (candidaturas % -> %, vagas % -> %, usuarios_rh % -> %) — este smoke nao escreve; o delta e de trafego concorrente commitado durante a requisicao: rodar de novo',
+    RAISE EXCEPTION 'P50C FAIL (z): contagem global mudou (candidaturas % -> %, vagas % -> %, usuarios_rh % -> %) — sob o snapshot unico do ensaio (REPEATABLE READ) o trafego de fora nao aparece aqui: o delta e RESIDUO DESTA requisicao, uma escrita que escapou de um envelope P50C1 (este smoke ESCREVE dentro deles) — NAO repetir: achar a escrita',
       current_setting('smoke50.z_cand'), g_cand, current_setting('smoke50.z_vagas'), g_vagas,
       current_setting('smoke50.z_urh'), g_urh;
   END IF;
