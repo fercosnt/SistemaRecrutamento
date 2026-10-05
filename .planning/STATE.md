@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: verifying
-stopped_at: "Phases 42, 43, 46, 47 concluídas; resta a 44 (G4-b = fase nova) e a escrituração da 45"
-last_updated: "2026-10-05T09:00:00.000Z"
+status: executing
+stopped_at: Phases 42, 43, 46, 47 concluídas; resta a 44 (G4-b = fase nova) e a escrituração da 45
+last_updated: "2026-10-05T14:20:17.499Z"
 last_activity: 2026-10-05
-state_head: 3df8f63463a98b22de3809c7229f43f8004316ff
+state_head: 20197818c891e88952dc2e932bede2c1f2dd7b74
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 9
-  total_plans: 123
+  total_plans: 134
   completed_plans: 121
-  percent: 98
+  percent: 90
+current_phase_name: Acesso do Recrutador
 current_phase: 49
-current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a ponta, conferência visual com WR-07, aceite do custo residual WR-03), verificação human_needed → passed, 45/45 planos. COVERAGE.md encurtado (reason >200 chars bloqueava o portão api-coverage). Próximo: fechar a verificação das 42, 43, 47 (human_needed) e 44, 46 (gaps_found), depois /gsd-audit-milestone."
 ---
 
@@ -712,7 +712,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Phase complete — ready for verification
+Status: Ready to execute
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -747,7 +747,7 @@ Status: Phase complete — ready for verification
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-10-03
+Last activity: 2026-10-05
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07

@@ -451,6 +451,7 @@ SELECT p.oid::regprocedure::text
   - `CREATE FUNCTION pg_temp.p50_bite_fn() … SELECT v.created_by … FROM public.vagas v …; IF v_role = 'rh' AND v_vaga_owner IS DISTINCT FROM …`
   - Run the detection. Assert it returns **exactly** the two planted names (and the indirect-form detector flags the function). Then `RAISE EXCEPTION USING ERRCODE = 'P5099'` to roll back the subtransaction.
 - **EF half of the gate** (EFs are "functions" too): a Node or Vitest source probe over `supabase/functions/*/index.ts` with `/created_by\s*!==?\s*user\.id|created_by\s*===?\s*user\.id|vagaRow\.created_by/`. Bite: run the same regex against an inline fixture string that contains the old line.
+- **Superseded for the POLICY scan (plan revision, 2026-10-05):** the policy detector in `50-07` (j) reads every row of `pg_policies` with NO schema filter, because user-defined RLS policies also live in `storage` (26 on `storage.objects`; `cron` holds 2 managed ones), and proves coverage by `count = count(pg_policy)`. The exclusion list above stays only for the FUNCTION scan.
 - **Deparse caveat:** `pg_policies.qual` shows the helper **unqualified** when `public` is on the reader's search_path (`( SELECT is_active_rh_user() AS is_active_rh_user)`). Match `is_active_rh_user`, not `public.is_active_rh_user`.
 
 ### Pattern 6: Migration skeleton (per file)
@@ -585,16 +586,24 @@ Last statement: `SELECT json_build_object('smoke','p50_acesso_recrutador','pass'
 | A6 | Fixing the two fail-open guards (`reprocessar_analise`, `salvar_revisao_redacao`) and revoking anon on the 6 rewritten functions belongs in this phase | Pattern 4.6 | Medium. The scope was assigned to a "fase própria" in the 42 todo. Needs operator OK |
 | — | ~~A7: authorship functions need a gate allowlist~~ **Resolved by measurement:** none of the 4 match `\mvagas\M`, so no allowlist is needed (Pattern 5) | — | — |
 
-## Open Questions (operator decisions → plan checkpoints)
+## Open Questions (RESOLVED)
+
+All six were answered by the operator on 2026-10-05 and recorded as locked decisions in `50-CONTEXT.md`; each item below points to its decision. The questions are kept for traceability.
 
 1. **Who is the real recrutador, and with what email?** (blocks SC1 real session)
    - Known: no active recrutador exists. The only one, `recrutador.rh@teste.com`, is inactive with an address that hard-bounces (`42-recrutador-email-indeliveravel`, UAT doc: «Não reative»). `GUIA-VALIDACAO-FINAL.md:117` A1 (create RH2 in `/rh/configuracoes`) is still `⏸ pendente`.
    - Recommendation: a `checkpoint:human-action`. The operator creates RH2 (role `recrutador`, a mailbox he can open) via `/rh/configuracoes` (EF `gerenciar-usuario-rh` `criar`, which sends a set-password link), sets the password, and logs in.
+   - **RESOLVED → D-10:** the operator creates RH2 (role `recrutador`, real mailbox) in `/rh/configuracoes` at a `checkpoint:human-action`; `recrutador.rh@teste.com` is not reactivated.
 2. **Fix the two fail-open guards and revoke anon on the 6 rewritten functions now?** (A6) Recommendation: yes, because the rewrite touches those lines and the blocking review will flag them. Otherwise record an explicit exclusion in the plan.
+   - **RESOLVED → D-04:** yes — both guards fixed and anon `EXECUTE` revoked on the rewritten functions that have it, in this phase; the rest of the 42 todo stays deferred.
 3. **Synthetic and test data visible to the real recrutador.** 3 `fixture-p46` vagas (9 synthetic candidaturas, likely tied to the Phase 46 purge evidence) and the `[TESTE]` vagas become visible to RH2. Accept, or clean up in a separate, gated plan (destructive, so a portão is required).
+   - **RESOLVED → D-07:** accepted — the test data stays visible to the real recrutador; cleanup is a Deferred Idea in `50-CONTEXT.md`, not this phase.
 4. **`v_analises_presas` → `security_invoker = true`** in this phase? Recommendation: yes (§D).
+   - **RESOLVED → D-05:** yes, `v_analises_presas` becomes `security_invoker = true`.
 5. **`upsert_pergunta_opcoes_metadata` (vaga configuration) widens too?** Its table policy `rh_gerencia_opcao_metadata` is already role-only `ALL` for `rh`, so the RPC check protects nothing. Widening makes them consistent. Recommendation: widen (SC3 forbids the predicate anyway).
+   - **RESOLVED → D-06:** widened too, for consistency with `rh_gerencia_opcao_metadata`.
 6. **Is the stale-token proof required in a real session, or is impersonation enough for SC2?** SC2 doesn't demand a real session. Recommendation: smoke for SC2, plus an optional real check: deactivate RH2, confirm a fresh login yields role `candidato` and sees nothing, then reactivate.
+   - **RESOLVED → D-11:** impersonation in the smoke is enough for SC2; a real deactivation check is optional.
 
 ## Environment Availability
 
