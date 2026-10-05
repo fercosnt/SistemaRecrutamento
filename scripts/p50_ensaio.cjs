@@ -47,6 +47,14 @@
  * `LOCK TIMEOUT` / `STATEMENT TIMEOUT` saem com código 3 SEM concluir nada; subir o teto não é
  * decisão do executor.
  *
+ * SERIALIZAÇÃO (40001) — WR-01 do 50-REVIEW-TRACER-3. O PREFIXO abre a requisição em REPEATABLE
+ * READ; um UPDATE do envelope P50C1 numa linha que outra transação commitou DEPOIS do snapshot dá
+ * `40001: could not serialize access …`. É erro movido por TRÁFEGO, não pelo que o ensaio prova:
+ * o smoke o captura e reprova com `P50C FAIL (<letra>): … INESPERADO (40001: …)`, que tem a cara
+ * de um vermelho de cláusula. `classificarSaida()` o separa ANTES de qualquer leitura de FAIL:
+ * a requisição é repetida UMA vez; um segundo 40001 sai `INCONCLUSIVO — SERIALIZACAO (40001)`,
+ * código 3, sem concluir nada (nunca verde, nunca vermelho de portão, nunca «mordida»; sem laço).
+ *
  * Uso:
  *   node scripts/p50_ensaio.cjs [--migracoes=a.sql,b.sql | --sem-migracoes] [--vistas] [--mutacao=x.sql] <arquivo.sql…>
  *     (padrão)          prefixa toda migration de MIGS que exista no disco e NÃO esteja no ledger
@@ -69,6 +77,7 @@
  *   ENSAIO VERMELHO: <primeira linha FAIL/ERROR>                                           (exit 1)
  *   ENSAIO VERMELHO: P50E RECUSADO (transacao): … (nada enviado)                           (exit 1)
  *   LOCK TIMEOUT / STATEMENT TIMEOUT                                                       (exit 3)
+ *   INCONCLUSIVO — SERIALIZACAO (40001) duas vezes seguidas: …                             (exit 3)
  *   PERSISTIU: …                                                                           (exit 1)
  *
  * Sem dependências (git/p46apply por execFileSync). Como módulo: { compor, rodar, MIGS, … }.
@@ -97,7 +106,8 @@ const PREFIXO =
   // caíam entre a sonda «antes», o desfazer e a sonda «depois», e um RH ativando uma vaga no meio
   // virava `P50V FAIL (vistas)`: diagnóstico falso de exposição. Tem de ser a PRIMEIRA instrução
   // (antes de qualquer consulta). Em RR, um UPDATE do envelope P50C1 numa linha que mudou depois
-  // do snapshot dá 40001 — ENSAIO VERMELHO, inconclusivo: repetir.
+  // do snapshot dá 40001 — INCONCLUSIVO, nunca vermelho de portão: `classificarSaida()` o separa,
+  // a requisição é repetida uma vez e um segundo 40001 sai com código 3 (WR-01 do TRACER-3).
   "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;\n" +
   "SET LOCAL lock_timeout = '3s';\n" +
   "SET LOCAL statement_timeout = '5s';\n" +
@@ -416,6 +426,24 @@ function compor({ prefixadas = [], arquivos = [], mutacao = null, rotuloMutacao 
   return partes.join('\n');
 }
 
+/*
+ * Classes de saída que NÃO concluem nada sobre o que o ensaio prova (exit 3 nos dois runners):
+ *   timeout       `55P03` (fila da tabela) / `57014` (teto por instrução);
+ *   serializacao  `40001` (WR-01 do 50-REVIEW-TRACER-3): sob REPEATABLE READ, uma escrita do envelope
+ *                 P50C1 numa linha commitada por outra transação depois do snapshot. O smoke a
+ *                 captura e a relança como `P50C FAIL (<letra>): … INESPERADO (40001: could not
+ *                 serialize access …)` — por isso a classificação lê o TEXTO inteiro da saída, e
+ *                 vem ANTES de qualquer leitura de `FAIL (`: um 40001 nunca é vermelho de cláusula,
+ *                 nem «mordida» de mutação, nem controle vermelho.
+ */
+const RE_SERIALIZACAO = /could not serialize access|\b40001:/i;
+function classificarSaida(out) {
+  let timeout = null;
+  if (/\b55P03\b|lock timeout/i.test(out)) timeout = 'LOCK TIMEOUT';
+  else if (/\b57014\b|statement timeout/i.test(out)) timeout = 'STATEMENT TIMEOUT';
+  return { timeout, serializacao: !timeout && RE_SERIALIZACAO.test(out) };
+}
+
 /* Roda um corpo pela via do projeto. Não sai do processo: devolve o texto e a classificação. */
 function rodar(corpo, rotulo) {
   const arq = path.join(os.tmpdir(), `p50_ensaio_${String(rotulo).replace(/[^A-Za-z0-9_-]/g, '_')}_${process.pid}.sql`);
@@ -428,14 +456,13 @@ function rodar(corpo, rotulo) {
     out = `${e.stdout || ''}${e.stderr || ''}`;
   }
   const ms = Date.now() - t0;
-  let timeout = null;
-  if (/\b55P03\b|lock timeout/i.test(out)) timeout = 'LOCK TIMEOUT';
-  else if (/\b57014\b|statement timeout/i.test(out)) timeout = 'STATEMENT TIMEOUT';
+  const { timeout, serializacao } = classificarSaida(out);
   const m = out.match(RE_SENTINELA);
   return {
     out,
     ms,
     timeout,
+    serializacao,
     sentinela: !!m,
     smoke50: m ? m[1] : null,
     evidencia: m ? m[2].trim() : null,
@@ -507,7 +534,13 @@ function principal() {
     process.exit(1);
   }
   const antes = capturar();
-  const r = rodar(corpo, 'cli');
+  let r = rodar(corpo, 'cli');
+  if (r.serializacao) {
+    // WR-01 (TRACER-3): inconclusivo, não vermelho. Repete UMA vez; a persistência é lida depois
+    // da última tentativa, contra a baseline de ANTES da primeira (cobre as duas).
+    console.error(`SERIALIZACAO (40001): ensaio (${r.ms} ms) — escrita concorrente numa linha que o envelope P50C1 escreve, depois do snapshot da requisicao; INCONCLUSIVO (nada julgado), repetindo UMA vez`);
+    r = rodar(corpo, 'cli_repeticao');
+  }
 
   const depois = capturar();
   const dif = diferencas(antes, depois);
@@ -518,6 +551,10 @@ function principal() {
 
   if (r.timeout) {
     console.error(`${r.timeout}: ensaio (${r.ms} ms) — nada concluido; repetir mais tarde (subir o teto NAO e decisao do executor)`);
+    process.exit(3);
+  }
+  if (r.serializacao) {
+    console.error(`INCONCLUSIVO — SERIALIZACAO (40001) duas vezes seguidas (${r.ms} ms): ${primeiraFalha(r.out)} — nada concluido (nem verde, nem vermelho de clausula); repetir mais tarde, sem laco`);
     process.exit(3);
   }
   const temFail = /FAIL \(/.test(r.out);
@@ -535,6 +572,6 @@ function principal() {
   );
 }
 
-module.exports = { compor, rodar, planejar, lerEstado, capturar, diferencas, sqlLeitura, primeiraFalha, versao, terminadores, recusarTerminadores, ponto, MIGS, SENTINELA, PREFIXO, FIM, SONDA, ROOT, APPLY };
+module.exports = { compor, rodar, classificarSaida, RE_SERIALIZACAO, planejar, lerEstado, capturar, diferencas, sqlLeitura, primeiraFalha, versao, terminadores, recusarTerminadores, ponto, MIGS, SENTINELA, PREFIXO, FIM, SONDA, ROOT, APPLY };
 
 if (require.main === module) principal();

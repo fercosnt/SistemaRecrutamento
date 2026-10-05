@@ -37,6 +37,18 @@
  * `statement_timeout = 5s` vêm do prefixo do ensaio. A duração de cada requisição é impressa.
  * `LOCK TIMEOUT` / `STATEMENT TIMEOUT` saem 3 SEM concluir nada sobre o portão.
  *
+ * SERIALIZAÇÃO (40001) — WR-01 do 50-REVIEW-TRACER-3. O ensaio roda em REPEATABLE READ; um UPDATE
+ * do envelope P50C1 ((b)/(c) em `usuarios_rh`, (f) em `candidaturas`) numa linha que outra
+ * transação commitou depois do snapshot dá `40001`. O smoke o relança como `P50C FAIL (<letra>):
+ * … INESPERADO (40001: …)` — sem colchetes, na letra da cláusula que escreve: antes deste conserto,
+ * M1 (b), M4 (c) e M5 (f) contavam isso como MORDIDA e o CONTROLE como vermelho. Agora:
+ *   · `E.classificarSaida()` separa o 40001 ANTES de ler qualquer `FAIL (`: a rodada (CONTROLE ou
+ *     mutação) é repetida UMA vez; um segundo 40001 sai `INCONCLUSIVO — SERIALIZACAO (40001)`,
+ *     código 3, com a leitura de persistência — nada concluído sobre o portão;
+ *   · `falha()` marca toda reprovação «a subtransacao abortou por erro INESPERADO» como
+ *     `inesperado`, e `julgarMutacao()` nunca a conta como mordida (nada foi julgado ali): defesa
+ *     em profundidade para um erro de instrumento que não seja 40001.
+ *
  * Saída final esperada: `controle verde; <n>/<n> mutacoes mordem; nada persistiu`.
  *
  * Cada mutação declara a LETRA em que tem de reprovar e, quando a cláusula tem várias sondas, os
@@ -211,15 +223,56 @@ const MUTACOES = [
   },
 ];
 
+/* A PRIMEIRA reprovação do smoke. `inesperado` = o envelope abortou por erro que não é o RAISE
+ * P50C1 («nada foi julgado») — nunca é a sonda reprovando, logo nunca é mordida (WR-01, TRACER-3). */
 function falha(out) {
-  const m = out.match(/P50C FAIL \(([^)]+)\)(?::\s*\[([^\]]*)\])?/);
+  const m = out.match(/P50C FAIL \(([^)]+)\)(:\s*\[([^\]]*)\])?(:\s*a subtransacao abortou por erro INESPERADO)?/);
   if (!m) return null;
-  return { letra: m[1], rotulos: m[2] ? m[2].split(',').filter(Boolean) : [] };
+  return { letra: m[1], rotulos: m[3] ? m[3].split(',').filter(Boolean) : [], inesperado: !!m[4] };
 }
 
+/*
+ * Veredito de UMA rodada de mutação, puro (sem rede) — exportado para a prova offline do WR-01.
+ * Devolve { tipo: 'morde' | 'nao_morde' | 'inconclusivo', motivo, f }.
+ */
+function julgarMutacao(m, r) {
+  if (r.timeout) return { tipo: 'inconclusivo', motivo: r.timeout, f: null };
+  if (r.serializacao) return { tipo: 'inconclusivo', motivo: 'SERIALIZACAO (40001)', f: null };
+  const f = falha(r.out);
+  const exigidos = m.rotulos || [];
+  let motivo = null;
+  if (r.sentinela) motivo = `chegou ao sentinela (smoke50=${r.smoke50})`;
+  else if (!f) motivo = `sem P50C FAIL (${E.primeiraFalha(r.out).slice(0, 300)})`;
+  else if (f.inesperado) motivo = `reprovou em (${f.letra}) por erro INESPERADO do envelope — nada foi julgado, nao e mordida (${E.primeiraFalha(r.out).slice(0, 200)})`;
+  else if (f.letra !== m.letra) motivo = `reprovou em (${f.letra}), esperado (${m.letra})`;
+  else if (f.rotulos.some((x) => x.startsWith('c_'))) motivo = `controle vacuo [${f.rotulos.join(',')}]`;
+  else if (exigidos.some((x) => !f.rotulos.includes(x))) motivo = `reprovou em (${f.letra}) [${f.rotulos.join(',')}] sem o(s) rotulo(s) exigido(s) [${exigidos.join(',')}]`;
+  return { tipo: motivo ? 'nao_morde' : 'morde', motivo, f };
+}
+
+/* Veredito do CONTROLE, puro: null = verde; senão o motivo do vermelho. Um 40001/timeout é
+ * inconclusivo e NÃO chega aqui (rodarOuSair sai antes), mas é recusado também aqui. */
+function julgarControle(ctl) {
+  if (ctl.timeout || ctl.serializacao) return { tipo: 'inconclusivo', motivo: ctl.timeout || 'SERIALIZACAO (40001)' };
+  const f = falha(ctl.out);
+  const s = ctl.smoke50 && ctl.smoke50 !== 'n/a' ? ctl.smoke50.split('/') : null;
+  if (f || !ctl.sentinela || !s || s[0] !== s[1]) {
+    return { tipo: 'vermelho', motivo: f ? `P50C FAIL (${f.letra})${f.inesperado ? ' por erro INESPERADO do smoke' : ''}` : !ctl.sentinela ? 'sentinela ausente' : `smoke50=${ctl.smoke50}` };
+  }
+  return null;
+}
+
+/* Roda; um 40001 é repetido UMA vez; timeout ou 40001 de novo saem 3 (com a leitura de persistência). */
 function rodarOuSair(corpo, rodada) {
-  const r = E.rodar(corpo, `mut_${rodada}`);
+  let r = E.rodar(corpo, `mut_${rodada}`);
+  if (r.serializacao) {
+    console.log(`SERIALIZACAO (40001): ${rodada} (${r.ms} ms) — INCONCLUSIVO (nao e mordida nem controle vermelho); repetindo UMA vez`);
+    r = E.rodar(corpo, `mut_${rodada}_repeticao`);
+  }
   if (r.timeout) sair(`${r.timeout}: ${rodada} (${r.ms} ms) — nada concluido sobre o portao; repetir mais tarde (subir o teto NAO e decisao do executor)`, 3);
+  if (r.serializacao) {
+    sair(`INCONCLUSIVO — SERIALIZACAO (40001) duas vezes seguidas: ${rodada} (${r.ms} ms) — escrita concorrente numa linha do envelope P50C1 depois do snapshot; nada concluido sobre o portao (nao conta como mordida nem como controle vermelho); repetir mais tarde, sem laco`, 3);
+  }
   return r;
 }
 
@@ -243,11 +296,11 @@ function principal() {
 
   // ── CONTROLE ──────────────────────────────────────────────────────────────
   const ctl = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [smoke] }), 'CONTROLE');
-  const ctlFalha = falha(ctl.out);
-  const ctlSmoke = ctl.smoke50 && ctl.smoke50 !== 'n/a' ? ctl.smoke50.split('/') : null;
-  if (ctlFalha || !ctl.sentinela || !ctlSmoke || ctlSmoke[0] !== ctlSmoke[1]) {
+  const vc = julgarControle(ctl);
+  if (vc && vc.tipo === 'inconclusivo') sair(`INCONCLUSIVO: CONTROLE (${ctl.ms} ms) — ${vc.motivo}; nada concluido sobre o portao`, 3);
+  if (vc) {
     console.error(E.primeiraFalha(ctl.out));
-    sair(`CONTROLE VERMELHO (${ctl.ms} ms): ${ctlFalha ? `P50C FAIL (${ctlFalha.letra})` : !ctl.sentinela ? 'sentinela ausente' : `smoke50=${ctl.smoke50}`}`);
+    sair(`CONTROLE VERMELHO (${ctl.ms} ms): ${vc.motivo}`);
   }
   console.log(`CONTROLE verde — sentinela alcancado, smoke50=${ctl.smoke50}, nenhum P50C FAIL (${ctl.ms} ms)`);
 
@@ -264,14 +317,9 @@ function principal() {
     }
     contadas += 1;
     const r = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [smoke], mutacao: m.sql, rotuloMutacao: `MUTACAO ${m.id}` }), m.id);
-    const f = falha(r.out);
-    const exigidos = m.rotulos || [];
-    let motivo = null;
-    if (r.sentinela) motivo = `chegou ao sentinela (smoke50=${r.smoke50})`;
-    else if (!f) motivo = `sem P50C FAIL (${E.primeiraFalha(r.out).slice(0, 300)})`;
-    else if (f.letra !== m.letra) motivo = `reprovou em (${f.letra}), esperado (${m.letra})`;
-    else if (f.rotulos.some((x) => x.startsWith('c_'))) motivo = `controle vacuo [${f.rotulos.join(',')}]`;
-    else if (exigidos.some((x) => !f.rotulos.includes(x))) motivo = `reprovou em (${f.letra}) [${f.rotulos.join(',')}] sem o(s) rotulo(s) exigido(s) [${exigidos.join(',')}]`;
+    const v = julgarMutacao(m, r);
+    if (v.tipo === 'inconclusivo') sair(`INCONCLUSIVO: ${m.id} (${r.ms} ms) — ${v.motivo}; nada concluido sobre o portao`, 3);
+    const { motivo, f } = v;
 
     const lista = f && f.rotulos.length ? ` [${f.rotulos.join(',')}]` : '';
     if (motivo) {
@@ -304,4 +352,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { MUTACOES };
+module.exports = { MUTACOES, falha, julgarMutacao, julgarControle };
