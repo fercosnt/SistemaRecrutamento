@@ -19,9 +19,9 @@ created: "2026-10-05"
 
 | Property | Value |
 |----------|-------|
-| **Framework** | SQL smokes em PROD via `p46apply.cjs run` (uma requisição atômica) · Deno test 2.9.4 (EFs) · Vitest |
+| **Framework** | SQL smokes em PROD numa requisição atômica: o smoke p50 (que ESCREVE dentro do envelope P50C1) SÓ pelo ensaio que aborta, `scripts/p50_ensaio.cjs`; sondas só-leitura (`p50_vistas_externas.sql`) por `p46apply.cjs run` · Deno test 2.9.4 (EFs) · Vitest |
 | **Config file** | `vite.config.ts` (vitest; exclui `supabase/functions/**/*.test.ts`) · nenhum para Deno |
-| **Quick run command** | `node p46apply.cjs run supabase/tests/p50_acesso_recrutador_smoke.sql` · `deno test --allow-all supabase/functions/<slug>/` |
+| **Quick run command** | `node scripts/p50_ensaio.cjs supabase/tests/p50_acesso_recrutador_smoke.sql` (modo padrão: prefixa as migrations p50 que estão no disco e fora do ledger; depois do apply de todas, nenhuma — equivale a `--sem-migracoes`, contra os objetos vivos) · `deno test --allow-all supabase/functions/<slug>/`. **NUNCA** `node p46apply.cjs run` do smoke p50: essa via COMMITA, e o smoke escreve em linhas reais de PROD; desde o WR-03 do 50-REVIEW-TRACER-3 a primeira instrução do smoke recusa (`P50C RECUSADO (fora do ensaio)`) qualquer execução sem a marca `p50.tx` que só o ensaio grava |
 | **Full suite command** | smoke p50 + smokes legados reescritos + `deno test --allow-all supabase/functions` + `node scripts/p50_vitest_delta.cjs` (Vitest julgado contra a base da fase `refs/gsd/50-01/base`, medida na MESMA execução — não por «zero falhas») + `npm run lint` (erros TS ≤ 90) |
 | **Estimated runtime** | ~120 seconds |
 
@@ -30,7 +30,7 @@ created: "2026-10-05"
 ## Sampling Rate
 
 - **After every task commit:** `deno test` da EF tocada, ou o check estático node da migration (idioma 49-44) + o ensaio
-- **After every plan wave:** smoke p50 (ensaio antes do apply, real depois) + os smokes legados tocados na onda
+- **After every plan wave:** smoke p50 SEMPRE pelo ensaio que aborta — antes do apply, no modo padrão (prefixa as migrations p50 fora do ledger); depois do apply, `node scripts/p50_ensaio.cjs --sem-migracoes supabase/tests/p50_acesso_recrutador_smoke.sql` (contra os objetos vivos, aborta no sentinela, com `lock_timeout`/`statement_timeout` e leitura de persistência) — + os smokes legados tocados na onda. Não existe «real depois» por `p46apply.cjs run`: o smoke escreve dentro do envelope P50C1 e aquela via commita (WR-03 do 50-REVIEW-TRACER-3). `40001`, `LOCK TIMEOUT` e `STATEMENT TIMEOUT` saem com código 3 = inconclusivo (o ensaio e o runner já repetem um `40001` uma vez); nunca são verde nem vermelho de cláusula
 - **Before `/gsd-verify-work`:** suíte completa **sem falha nova em relação à base da fase** — Deno `0 failed`; Vitest sem nenhuma falha fora do conjunto que já falhava em `refs/gsd/50-01/base`, medido na mesma execução por `scripts/p50_vitest_delta.cjs` (com mordida plantada); tsc ≤ 90 —, checkpoint de sessão real (SC1), `git log --oneline origin/main..HEAD` vazio
 - **Base medida em 2026-10-05 (HEAD 20197818, antes de qualquer código da fase):** Vitest `2 failed | 2408 passed (2410)` — as 2 falhas são do portão 47-09 em `src/__tests__/promessasComExecutor.test.ts` (executor da purga do ledger de notificações, que a Phase 46 fechou sem; «Deferimento com prazo» espera a Phase 46 aberta). Elas **não são isentadas, puladas nem editadas** (a própria mensagem do teste proíbe isentar a entrada; as saídas honestas — construir o executor ou retirar a promessa — são da fila de fecho do M8, não desta fase): seguem vermelhas e entram como pré-existentes no SUMMARY do 50-09. Deno completo `1016 passed | 0 failed`. `npm run lint` sai com código 2 e 89 `error TS`. Por isso «suíte verde» literal seria um portão impossível antes de qualquer trabalho
 - **Max feedback latency:** 120 seconds
@@ -43,7 +43,7 @@ created: "2026-10-05"
 
 | Req | Behavior | Test Type | Automated Command | File Exists | Status |
 |-----|----------|-----------|-------------------|-------------|--------|
-| SC1 (impersonação) | rh ativo sem vaga própria vê, em vaga ativa/inativa/arquivada, a mesma contagem de candidaturas que o admin (ambos > 0) | smoke PROD | `node p46apply.cjs run supabase/tests/p50_acesso_recrutador_smoke.sql` | ❌ W0 | ⬜ pending |
+| SC1 (impersonação) | rh ativo sem vaga própria vê, em vaga ativa/inativa/arquivada, a mesma contagem de candidaturas que o admin (ambos > 0) | smoke PROD (só pelo ensaio que aborta) | `node scripts/p50_ensaio.cjs [--sem-migracoes] supabase/tests/p50_acesso_recrutador_smoke.sql` → `ENSAIO VERDE: … smoke50=<e>/<e> …` | ❌ W0 | ⬜ pending |
 | SC1 (sessão real) | RH2 loga e lista candidaturas das 3 vagas | checkpoint:human-verify (+ script opcional) | `node scripts/p50_sessao_real.cjs` | ❌ W0 | ⬜ pending |
 | SC2 | rh inativo → 0 linhas / 42501; candidato → 0 linhas alheias e, em toda RPC guardada e em toda fila, 42501 (vazio aceito só nas de leitura), com controle positivo na mesma rodada; anon = baseline; admin = totais | smoke | idem | ❌ W0 | ⬜ pending |
 | SC3 | varredura por forma acha 0 (policies: catálogo inteiro, `storage` incluído, cobertura = `count(pg_policy)`; funções: schemas não-gerenciados); portão morde (mutação + `pg_temp`) | smoke + `scripts/p50_mutacoes.cjs` + probe de fonte das EFs | idem | ❌ W0 | ⬜ pending |
