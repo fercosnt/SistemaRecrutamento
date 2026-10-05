@@ -16,6 +16,10 @@
 --              `role = 'recrutador'` (hoje não há recrutador ativo em PROD: cai num administrador
 --              ativo sem vaga — o helper é role-agnóstico e a impersonação usa o claim `rh`).
 --   a_inativo  `role = 'recrutador' AND NOT ativo` — o token antigo de um recrutador desativado.
+--   a_inativo_mp  linha INATIVA, não excluída, sem vaga e sem candidato, com o MESMO `role` de
+--              a_ativo: difere do positivo SÓ em `ativo` (WR-02 do 50-REVIEW-TRACER-1 — com o
+--              par a_ativo administrador × a_inativo recrutador, um helper que filtrasse papel em
+--              vez de `ativo` passava 7/7).
 --   a_admin    administrador ativo.
 --   a_cand     `candidatos.user_id` com ≥ 1 candidatura viva e sem linha em `usuarios_rh`.
 --   a_ativo e a_inativo são escolhidos SEM linha em `candidatos`: assim nenhuma policy de
@@ -25,9 +29,22 @@
 --   qualquer outro (D-07).
 --
 -- ⚠ ESTE SMOKE ESCREVE — só dentro da subtransação PL/pgSQL encerrada por `RAISE EXCEPTION` com
--- SQLSTATE próprio (`P50C1`), capturado logo acima: ROLLBACK de tudo. Nesta v1 NENHUMA cláusula
--- escreve (só SELECT, `SET LOCAL ROLE` e `set_config`); o envelope existe para as cláusulas que
--- os planos seguintes acrescentam.
+-- SQLSTATE próprio (`P50C1`), capturado logo acima: ROLLBACK de tudo (um erro no meio também
+-- desfaz a subtransação — não há caminho em que o bloco interno termine normalmente). Escritas,
+-- todas como postgres e todas revertidas:
+--   (b)/(c) `UPDATE usuarios_rh SET role = 'recrutador'` na linha de a_ativo (o caminho REAL
+--           recrutador + claim `rh`, que o PROD não tem: 0 recrutadores ativos, e o D-10 proíbe
+--           reativar a conta que existe); (b) depois `SET deleted_at = now()` na mesma linha.
+--           Triggers de `usuarios_rh` conferidos em 2026-10-05: `update_usuarios_rh_updated_at`
+--           e `trg_usuarios_rh_anti_lockout` (recusa rebaixar o ÚLTIMO administrador ativo — a
+--           baseline falha alto antes, com o motivo); nenhum chama rede.
+--   (f)     `UPDATE candidaturas` em duas linhas vivas: uma vira rascunho, outra excluída (a
+--           população da BORDA, que o PROD não tem). Triggers de UPDATE de `candidaturas`
+--           conferidos: os que chamam `net.*` são AFTER INSERT ou `UPDATE OF
+--           encerrada_a_pedido_em`; `UPDATE OF status`/`etapa_atual` não disparam; sobra
+--           `update_candidaturas_updated_at`.
+--   Os runners (`p50_ensaio.cjs`, `p50_mutacoes.cjs`) conferem depois, por leitura só-leitura,
+--   que `role|ativo|deleted_at` de `usuarios_rh` e a borda de `candidaturas` ficaram iguais.
 --
 -- ⚠ CADA sonda vai no SEU PRÓPRIO bloco `BEGIN … EXCEPTION WHEN OTHERS` que guarda
 -- `SQLSTATE:SQLERRM` (ou a contagem). O julgamento roda FORA da subtransação. Uma cláusula por
@@ -39,12 +56,16 @@
 --       E a chamada sob `SET LOCAL ROLE anon` falha com `permission denied for function
 --       is_active_rh_user` (ACL e guarda dividem o SQLSTATE 42501; só a mensagem os distingue);
 --       `authenticated` com EXECUTE.
---   (b) semântica do helper: verdadeiro para a_ativo e a_admin; falso para a_inativo, `sub`
---       aleatório, sem claims e a_cand. Rótulos na reprovação: `P50C FAIL (b): [<rótulo>,…]`.
+--   (b) semântica do helper: verdadeiro para a_ativo e a_admin [c_ativo, c_admin] e para a
+--       linha de a_ativo trocada para `recrutador` [rec_ativo]; falso para a_inativo,
+--       a_inativo_mp [inativo_mesmo_papel], a linha `recrutador` ativa porém excluída
+--       [ativo_excluido], `sub` aleatório, sem claims e a_cand. Cada par positivo/negativo
+--       difere num atributo só (`ativo`; `deleted_at`). Rótulos: `P50C FAIL (b): [<rótulo>,…]`.
 --   (c) SC1 por impersonação: claim `rh` + `sub` a_ativo ⇒ por vaga escolhida, `count(*)` de
---       `candidaturas` = contagem viva como postgres, cada uma > 0; total visível = total vivo.
+--       `candidaturas` = contagem viva como postgres, cada uma > 0; total visível = total vivo;
+--       e o mesmo total com a linha de a_ativo trocada para `recrutador` (o caminho real).
 --   (d) SC2, cada negativa PAREADA com o positivo de (c) na mesma execução: claim `rh` + `sub`
---       a_inativo ⇒ 0; `sub` a_ativo (a MESMA linha ativa do positivo) com claim `visualizador`,
+--       a_inativo ⇒ 0, e a_inativo_mp ⇒ 0 [inativo_mesmo_papel]; `sub` a_ativo (a MESMA linha ativa do positivo) com claim `visualizador`,
 --       `gerente` e sem `role` ⇒ 0 cada [ativo_visualizador, ativo_gerente, ativo_sem_role] —
 --       o conjunto do claim `rh` é o único filtro de papel do ramo (o helper é role-agnóstico);
 --       claims `candidato` + `sub` a_cand ⇒ ≥ 1 linha própria [c_cand = controle]
@@ -128,6 +149,7 @@ DO $baseline$
 DECLARE
   v_ativo    uuid;
   v_inativo  uuid;
+  v_inat_mp  uuid;
   v_admin    uuid;
   v_cand     uuid;
   v_cand_ids text;
@@ -154,6 +176,30 @@ BEGIN
    LIMIT 1;
   IF v_inativo IS NULL THEN
     RAISE EXCEPTION 'P50C FAIL (baseline): nenhum recrutador INATIVO (sem linha de candidato) — a negativa do token antigo (d) nao teria ator';
+  END IF;
+
+  -- WR-02: a negativa do token antigo com o MESMO papel do positivo a_ativo, não excluída, sem
+  -- vaga e sem linha de candidato — difere de a_ativo SÓ em `ativo`. Sem ela, um helper que
+  -- filtrasse papel em vez de `ativo` passaria (a_inativo é recrutador, a_ativo administrador).
+  SELECT u.user_id INTO v_inat_mp
+    FROM public.usuarios_rh u
+   WHERE u.role = (SELECT a.role FROM public.usuarios_rh a WHERE a.user_id = v_ativo)
+     AND NOT u.ativo AND u.deleted_at IS NULL AND u.user_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.vagas v WHERE v.created_by = u.user_id)
+     AND NOT EXISTS (SELECT 1 FROM public.candidatos ca WHERE ca.user_id = u.user_id)
+   ORDER BY u.created_at, u.user_id
+   LIMIT 1;
+  IF v_inat_mp IS NULL THEN
+    RAISE EXCEPTION 'P50C FAIL (baseline): nenhuma linha INATIVA, nao excluida, sem vaga e sem candidato com o MESMO papel de a_ativo — a negativa (b)/(d) inativo_mesmo_papel nao teria ator';
+  END IF;
+
+  -- (b)/(c) trocam o papel de a_ativo para `recrutador` dentro do envelope P50C1. Se a_ativo é
+  -- o ÚNICO administrador ativo, o trigger `trg_usuarios_rh_anti_lockout` recusa a troca: falhar
+  -- aqui, com o motivo, em vez de lá como «erro inesperado».
+  IF EXISTS (SELECT 1 FROM public.usuarios_rh a WHERE a.user_id = v_ativo AND a.role = 'administrador')
+     AND NOT EXISTS (SELECT 1 FROM public.usuarios_rh o
+                      WHERE o.role = 'administrador' AND o.ativo AND o.deleted_at IS NULL AND o.user_id IS DISTINCT FROM v_ativo) THEN
+    RAISE EXCEPTION 'P50C FAIL (baseline): a_ativo (%) e o unico administrador ativo — o anti_lockout recusaria a troca de papel de (b)/(c)', v_ativo;
   END IF;
 
   SELECT u.user_id INTO v_admin
@@ -197,6 +243,7 @@ BEGIN
 
   PERFORM set_config('smoke50.a_ativo',   v_ativo::text,   false);
   PERFORM set_config('smoke50.a_inativo', v_inativo::text, false);
+  PERFORM set_config('smoke50.a_inativo_mp', v_inat_mp::text, false);
   PERFORM set_config('smoke50.a_admin',   v_admin::text,   false);
   PERFORM set_config('smoke50.a_cand',    v_cand::text,    false);
   PERFORM set_config('smoke50.cand_ids',  v_cand_ids,      false);
@@ -289,13 +336,16 @@ DO $b$
 DECLARE
   v_ativo   uuid := current_setting('smoke50.a_ativo')::uuid;
   v_inativo uuid := current_setting('smoke50.a_inativo')::uuid;
+  v_inat_mp uuid := current_setting('smoke50.a_inativo_mp')::uuid;
   v_admin   uuid := current_setting('smoke50.a_admin')::uuid;
   v_cand    uuid := current_setting('smoke50.a_cand')::uuid;
   v_err     text;
   v_ran     boolean := false;
   v_b       boolean;
+  v_rc      int;
   b_ativo   text := '<nao rodou>';  b_admin text := '<nao rodou>';  b_inativo text := '<nao rodou>';
   b_rand    text := '<nao rodou>';  b_sem   text := '<nao rodou>';  b_cand    text := '<nao rodou>';
+  b_inat_mp text := '<nao rodou>';  b_rec   text := '<nao rodou>';  b_excl    text := '<nao rodou>';
   b_rot     text[] := '{}';
 BEGIN
   BEGIN
@@ -330,6 +380,37 @@ BEGIN
     BEGIN v_b := public.is_active_rh_user(); b_cand := coalesce(v_b::text, 'null');
     EXCEPTION WHEN OTHERS THEN b_cand := SQLSTATE || ':' || SQLERRM; END;
 
+    -- WR-02: inativa com o MESMO papel de a_ativo (difere dele só em `ativo`).
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_inat_mp::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    BEGIN v_b := public.is_active_rh_user(); b_inat_mp := coalesce(v_b::text, 'null');
+    EXCEPTION WHEN OTHERS THEN b_inat_mp := SQLSTATE || ':' || SQLERRM; END;
+
+    -- WR-02: o caminho REAL — linha `recrutador` ativa + claim `rh` (o par que o hook emite).
+    -- Não há recrutador ativo em PROD e o D-10 proíbe reativar a conta que existe: a MESMA linha
+    -- de a_ativo vira `recrutador` aqui, como postgres, e o RAISE P50C1 abaixo a reverte.
+    RESET ROLE;
+    UPDATE public.usuarios_rh SET role = 'recrutador' WHERE user_id = v_ativo;
+    GET DIAGNOSTICS v_rc = ROW_COUNT;
+    IF v_rc <> 1 THEN RAISE EXCEPTION 'troca de papel de a_ativo atingiu % linha(s), esperado 1', v_rc; END IF;
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    BEGIN v_b := public.is_active_rh_user(); b_rec := coalesce(v_b::text, 'null');
+    EXCEPTION WHEN OTHERS THEN b_rec := SQLSTATE || ':' || SQLERRM; END;
+
+    -- IN-06: a MESMA linha recrutador ativa, agora EXCLUÍDA (`deleted_at`) e ainda `ativo`:
+    -- difere do positivo acima só em `deleted_at`. Revertida pelo mesmo RAISE P50C1.
+    RESET ROLE;
+    UPDATE public.usuarios_rh SET deleted_at = now() WHERE user_id = v_ativo;
+    GET DIAGNOSTICS v_rc = ROW_COUNT;
+    IF v_rc <> 1 THEN RAISE EXCEPTION 'exclusao de a_ativo atingiu % linha(s), esperado 1', v_rc; END IF;
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    BEGIN v_b := public.is_active_rh_user(); b_excl := coalesce(v_b::text, 'null');
+    EXCEPTION WHEN OTHERS THEN b_excl := SQLSTATE || ':' || SQLERRM; END;
+
     RESET ROLE;
     v_ran := true;
     RAISE EXCEPTION 'reverter' USING ERRCODE = 'P50C1';
@@ -346,13 +427,17 @@ BEGIN
   -- positivos (controles) primeiro: um falso aqui torna os falsos abaixo VACUOS.
   IF b_ativo  IS DISTINCT FROM 'true'  THEN b_rot := b_rot || 'c_ativo'::text; END IF;
   IF b_admin  IS DISTINCT FROM 'true'  THEN b_rot := b_rot || 'c_admin'::text; END IF;
+  -- `rec_ativo` NÃO é c_*: um recrutador ativo recusado é o D-01 quebrado, não instrumento vácuo.
+  IF b_rec    IS DISTINCT FROM 'true'  THEN b_rot := b_rot || 'rec_ativo'::text; END IF;
   IF b_inativo IS DISTINCT FROM 'false' THEN b_rot := b_rot || 'inativo'::text; END IF;
+  IF b_inat_mp IS DISTINCT FROM 'false' THEN b_rot := b_rot || 'inativo_mesmo_papel'::text; END IF;
+  IF b_excl   IS DISTINCT FROM 'false' THEN b_rot := b_rot || 'ativo_excluido'::text; END IF;
   IF b_rand   IS DISTINCT FROM 'false' THEN b_rot := b_rot || 'aleatorio'::text; END IF;
   IF b_sem    IS DISTINCT FROM 'false' THEN b_rot := b_rot || 'sem_claims'::text; END IF;
   IF b_cand   IS DISTINCT FROM 'false' THEN b_rot := b_rot || 'candidato'::text; END IF;
   IF cardinality(b_rot) > 0 THEN
-    RAISE EXCEPTION 'P50C FAIL (b): [%]: ativo=% admin=% inativo=% aleatorio=% sem_claims=% candidato=% (esperado true,true,false,false,false,false; rotulo c_* = controle, nao portao aberto)',
-      array_to_string(b_rot, ','), b_ativo, b_admin, b_inativo, b_rand, b_sem, b_cand;
+    RAISE EXCEPTION 'P50C FAIL (b): [%]: ativo=% admin=% recrutador_ativo=% inativo=% inativo_mesmo_papel=% ativo_excluido=% aleatorio=% sem_claims=% candidato=% (esperado true,true,true,false,false,false,false,false,false; rotulo c_* = controle, nao portao aberto)',
+      array_to_string(b_rot, ','), b_ativo, b_admin, b_rec, b_inativo, b_inat_mp, b_excl, b_rand, b_sem, b_cand;
   END IF;
   PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
 END
@@ -376,7 +461,9 @@ DECLARE
   v_err   text;
   v_ran   boolean := false;
   v_n     bigint;
+  v_rc    int;
   c_va    text := '<nao rodou>';  c_vi text := '<nao rodou>';  c_vq text := '<nao rodou>';  c_tot text := '<nao rodou>';
+  c_rec   text := '<nao rodou>';
 BEGIN
   BEGIN
     SET LOCAL ROLE authenticated;
@@ -390,6 +477,17 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN c_vq := SQLSTATE || ':' || SQLERRM; END;
     BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c; c_tot := v_n::text;
     EXCEPTION WHEN OTHERS THEN c_tot := SQLSTATE || ':' || SQLERRM; END;
+
+    -- WR-02: o caminho REAL pela policy — a mesma linha como `recrutador` (revertida pelo P50C1).
+    RESET ROLE;
+    UPDATE public.usuarios_rh SET role = 'recrutador' WHERE user_id = v_ativo;
+    GET DIAGNOSTICS v_rc = ROW_COUNT;
+    IF v_rc <> 1 THEN RAISE EXCEPTION 'troca de papel de a_ativo atingiu % linha(s), esperado 1', v_rc; END IF;
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c; c_rec := v_n::text;
+    EXCEPTION WHEN OTHERS THEN c_rec := SQLSTATE || ':' || SQLERRM; END;
     RESET ROLE;
     v_ran := true;
     RAISE EXCEPTION 'reverter' USING ERRCODE = 'P50C1';
@@ -407,11 +505,12 @@ BEGIN
     RAISE EXCEPTION 'P50C FAIL (c): populacao vazia — vivas por vaga ativa=% inativa=% arquivada=% (cada uma >= 1; senao a igualdade e vacua)', n_va, n_vi, n_vq;
   END IF;
   IF c_va IS DISTINCT FROM n_va::text OR c_vi IS DISTINCT FROM n_vi::text OR c_vq IS DISTINCT FROM n_vq::text
-     OR c_tot IS DISTINCT FROM n_vivas::text THEN
-    RAISE EXCEPTION 'P50C FAIL (c): rh ativo sem vaga propria (%) viu ativa=«%» inativa=«%» arquivada=«%» total=«%» (esperado %, %, %, % — as vivas como postgres; D-01: todas as vagas, qualquer status)',
-      v_ativo, c_va, c_vi, c_vq, c_tot, n_va, n_vi, n_vq, n_vivas;
+     OR c_tot IS DISTINCT FROM n_vivas::text OR c_rec IS DISTINCT FROM n_vivas::text THEN
+    RAISE EXCEPTION 'P50C FAIL (c): rh ativo sem vaga propria (%) viu ativa=«%» inativa=«%» arquivada=«%» total=«%» ; a mesma linha como recrutador total=«%» (esperado %, %, %, %, % — as vivas como postgres; D-01: todas as vagas, qualquer status). Se so o numero difere por pouco e (z) tambem acusaria: trafego concorrente commitado entre a baseline e (c) — rodar de novo',
+      v_ativo, c_va, c_vi, c_vq, c_tot, c_rec, n_va, n_vi, n_vq, n_vivas, n_vivas;
   END IF;
   PERFORM set_config('smoke50.c_visto', c_tot, false);
+  PERFORM set_config('smoke50.c_visto_rec', c_rec, false);
   PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
 END
 $c$;
@@ -425,12 +524,14 @@ DO $d$
 DECLARE
   v_ativo   uuid   := current_setting('smoke50.a_ativo')::uuid;
   v_inativo uuid   := current_setting('smoke50.a_inativo')::uuid;
+  v_inat_mp uuid   := current_setting('smoke50.a_inativo_mp')::uuid;
   v_cand    uuid   := current_setting('smoke50.a_cand')::uuid;
   v_ids     uuid[] := string_to_array(current_setting('smoke50.cand_ids'), ',')::uuid[];
   v_err     text;
   v_ran     boolean := false;
   v_n       bigint;
   d_inativo text := '<nao rodou>';
+  d_inat_mp text := '<nao rodou>';
   d_proprias text := '<nao rodou>';
   d_alheias text := '<nao rodou>';
   d_sem     text := '<nao rodou>';
@@ -447,6 +548,11 @@ BEGIN
               'app_metadata', json_build_object('role', 'rh'))::text, true);
     BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c; d_inativo := v_n::text;
     EXCEPTION WHEN OTHERS THEN d_inativo := SQLSTATE || ':' || SQLERRM; END;
+    -- WR-02: token antigo com o MESMO papel do positivo de (c)
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_inat_mp::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    BEGIN SELECT count(*) INTO v_n FROM public.candidaturas c; d_inat_mp := v_n::text;
+    EXCEPTION WHEN OTHERS THEN d_inat_mp := SQLSTATE || ':' || SQLERRM; END;
 
     -- WR-01: a MESMA linha ATIVA do positivo de (c), com claim DIFERENTE de `rh`. O helper é
     -- role-agnóstico de propósito; o único filtro de papel do ramo é o conjunto do claim `rh`.
@@ -500,6 +606,7 @@ BEGIN
 
   IF d_proprias !~ '^[0-9]+$' OR d_proprias::bigint < 1 THEN d_rot := d_rot || 'c_cand'::text; END IF;
   IF d_inativo  IS DISTINCT FROM '0' THEN d_rot := d_rot || 'inativo'::text; END IF;
+  IF d_inat_mp  IS DISTINCT FROM '0' THEN d_rot := d_rot || 'inativo_mesmo_papel'::text; END IF;
   IF d_visual   IS DISTINCT FROM '0' THEN d_rot := d_rot || 'ativo_visualizador'::text; END IF;
   IF d_gerente  IS DISTINCT FROM '0' THEN d_rot := d_rot || 'ativo_gerente'::text; END IF;
   IF d_semrole  IS DISTINCT FROM '0' THEN d_rot := d_rot || 'ativo_sem_role'::text; END IF;
@@ -507,8 +614,8 @@ BEGIN
   IF d_sem      IS DISTINCT FROM '0' THEN d_rot := d_rot || 'sem_claims'::text; END IF;
   IF d_anon IS DISTINCT FROM 'contagem=0' AND d_anon NOT LIKE 'recusada=42501:%' THEN d_rot := d_rot || 'anon'::text; END IF;
   IF cardinality(d_rot) > 0 THEN
-    RAISE EXCEPTION 'P50C FAIL (d): [%]: rh inativo (token antigo)=«%» ; ativo com claim visualizador=«%» gerente=«%» sem role=«%» ; candidato proprias=«%» alheias=«%» ; sem claims=«%» ; anon=«%» (esperado 0, 0, 0, 0, >=1, 0, 0, contagem=0 ou recusada 42501; rotulo c_* = controle vacuo)',
-      array_to_string(d_rot, ','), d_inativo, d_visual, d_gerente, d_semrole, d_proprias, d_alheias, d_sem, d_anon;
+    RAISE EXCEPTION 'P50C FAIL (d): [%]: rh inativo (token antigo)=«%» mesmo papel=«%» ; ativo com claim visualizador=«%» gerente=«%» sem role=«%» ; candidato proprias=«%» alheias=«%» ; sem claims=«%» ; anon=«%» (esperado 0, 0, 0, 0, 0, >=1, 0, 0, contagem=0 ou recusada 42501; rotulo c_* = controle vacuo)',
+      array_to_string(d_rot, ','), d_inativo, d_inat_mp, d_visual, d_gerente, d_semrole, d_proprias, d_alheias, d_sem, d_anon;
   END IF;
   PERFORM set_config('smoke50.d_anon', d_anon, false);
   PERFORM set_config('smoke50.d_proprias', d_proprias, false);
@@ -700,6 +807,7 @@ SELECT json_build_object(
   'esperado',       current_setting('smoke50.esperado')::int,
   'a_ativo',        current_setting('smoke50.a_ativo'),
   'a_inativo',      current_setting('smoke50.a_inativo'),
+  'a_inativo_mp',   current_setting('smoke50.a_inativo_mp'),
   'a_admin',        current_setting('smoke50.a_admin'),
   'a_cand',         current_setting('smoke50.a_cand'),
   'vaga_ativa',     current_setting('smoke50.vaga_ativa'),
@@ -711,6 +819,7 @@ SELECT json_build_object(
   'n_total',        current_setting('smoke50.n_total')::int,
   'n_vivas',        current_setting('smoke50.n_vivas')::int,
   'c_visto_rh',     current_setting('smoke50.c_visto')::int,
+  'c_visto_rh_recrutador', current_setting('smoke50.c_visto_rec')::int,
   'n_cand_proprias', current_setting('smoke50.n_cand_proprias')::int,
   'd_cand_proprias', current_setting('smoke50.d_proprias'),
   'd_anon',         current_setting('smoke50.d_anon'),

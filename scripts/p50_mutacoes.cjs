@@ -170,6 +170,26 @@ const MUTACOES = [
     requer: ['20261005000001'],
     sql: trocar(polCand, "((SELECT (auth.jwt() #>> '{app_metadata,role}')) = 'rh') AND ", '', 'M7'),
   },
+  {
+    // WR-02: helper que filtra PAPEL em vez de `ativo` — reabre a janela de 1 h do administrador
+    // desativado e exclui todo recrutador. Tem de morder em (b) pela inativa de mesmo papel e
+    // pelo recrutador ativo real.
+    id: 'M8',
+    desc: "helper com role = 'administrador' no lugar de ativo = true (mesmo ACL)",
+    letra: 'b',
+    rotulos: ['inativo_mesmo_papel', 'rec_ativo'],
+    requer: ['20261005000001'],
+    sql: trocar(trocar(fnHelper, 'CREATE FUNCTION', 'CREATE OR REPLACE FUNCTION', 'M8'), 'AND u.ativo = true', "AND u.role = 'administrador'", 'M8'),
+  },
+  {
+    // IN-06: helper que ignora `deleted_at` — a linha excluída e ainda `ativo` passaria.
+    id: 'M11',
+    desc: 'helper sem deleted_at IS NULL (mesmo ACL)',
+    letra: 'b',
+    rotulos: ['ativo_excluido'],
+    requer: ['20261005000001'],
+    sql: trocar(trocar(fnHelper, 'CREATE FUNCTION', 'CREATE OR REPLACE FUNCTION', 'M11'), 'AND u.deleted_at IS NULL', 'AND true', 'M11'),
+  },
 ];
 
 function falha(out) {
