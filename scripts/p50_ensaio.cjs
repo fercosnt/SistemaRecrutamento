@@ -86,6 +86,44 @@ const FIM =
   'END\n' +
   '$ens$;\n';
 
+/* Sonda de vistas externas (D-12) e a comparação antes × depois na MESMA transação. */
+const SONDA = 'supabase/tests/p50_vistas_externas.sql';
+const GUARDA_ANTES = "\nRESET ROLE;\nSELECT set_config('p50.vistas_antes', current_setting('p50.vistas'), false);\n";
+const COMPARA =
+  '\nRESET ROLE;\n' +
+  'DO $vistas_compara$\n' +
+  'DECLARE\n' +
+  "  a jsonb := nullif(current_setting('p50.vistas_antes', true), '')::jsonb;\n" +
+  "  d jsonb := nullif(current_setting('p50.vistas', true), '')::jsonb;\n" +
+  '  v_dif text;\n' +
+  '  v_adm text;\n' +
+  'BEGIN\n' +
+  '  IF a IS NULL OR d IS NULL THEN\n' +
+  "    RAISE EXCEPTION 'P50V FAIL (vistas): fotografia ausente (antes=%, depois=%) — a sonda nao rodou', a IS NOT NULL, d IS NOT NULL;\n" +
+  '  END IF;\n' +
+  "  SELECT string_agg(u.ator || '.' || u.rel, ',' ORDER BY u.ator, u.rel) INTO v_dif\n" +
+  '    FROM (\n' +
+  "      SELECT e.key AS ator, r.key AS rel FROM jsonb_each(a -> 'atores') e, jsonb_each(e.value) r\n" +
+  '      UNION\n' +
+  "      SELECT e.key, r.key FROM jsonb_each(d -> 'atores') e, jsonb_each(e.value) r\n" +
+  '    ) u\n' +
+  "   WHERE (a -> 'atores' -> u.ator -> u.rel) IS DISTINCT FROM (d -> 'atores' -> u.ator -> u.rel);\n" +
+  "  IF v_dif IS NOT NULL OR (a -> 'atores') IS DISTINCT FROM (d -> 'atores') THEN\n" +
+  "    RAISE EXCEPTION 'P50V FAIL (vistas): %', coalesce(v_dif, 'conjunto de atores mudou');\n" +
+  '  END IF;\n' +
+  "  SELECT string_agg(x.k, ',' ORDER BY x.k) INTO v_adm\n" +
+  "    FROM (SELECT 'antes.' || key AS k FROM jsonb_each(a -> 'admin_ve_tudo') WHERE value IS DISTINCT FROM 'true'::jsonb\n" +
+  "          UNION ALL\n" +
+  "          SELECT 'depois.' || key FROM jsonb_each(d -> 'admin_ve_tudo') WHERE value IS DISTINCT FROM 'true'::jsonb) x;\n" +
+  '  IF v_adm IS NOT NULL THEN\n' +
+  "    RAISE EXCEPTION 'P50V FAIL (vistas): administrador nao ve tudo em %', v_adm;\n" +
+  '  END IF;\n' +
+  "  IF (a -> 'relacoes') IS DISTINCT FROM (d -> 'relacoes') THEN\n" +
+  "    RAISE EXCEPTION 'P50V FAIL (vistas): conjunto de relacoes mudou (% -> %)', a -> 'relacoes', d -> 'relacoes';\n" +
+  '  END IF;\n' +
+  'END\n' +
+  '$vistas_compara$;\n';
+
 const RE_SENTINELA = new RegExp(SENTINELA + ' smoke50=(\\S+) evidencia=([^"\\\\]*)');
 
 function versao(arq) {
@@ -135,10 +173,13 @@ function planejar(modo, lista, estado) {
 }
 
 /* Compõe o corpo do ensaio. */
-function compor({ prefixadas = [], arquivos = [], mutacao = null, rotuloMutacao = 'MUTACAO' } = {}) {
+function compor({ prefixadas = [], arquivos = [], mutacao = null, rotuloMutacao = 'MUTACAO', vistas = false } = {}) {
   const partes = [PREFIXO];
+  const sonda = vistas ? fs.readFileSync(abs(SONDA), 'utf8') : null;
+  if (vistas) partes.push('\n-- ═══ SONDA DE VISTAS (ANTES) ═══\nRESET ROLE;\n' + sonda + GUARDA_ANTES);
   for (const m of prefixadas) partes.push(`\n-- ═══ MIGRATION ${path.basename(m)} ═══\n` + fs.readFileSync(abs(m), 'utf8'));
   if (mutacao) partes.push(`\n-- ═══ ${rotuloMutacao} ═══\nRESET ROLE;\n${mutacao}\n`);
+  if (vistas) partes.push('\n-- ═══ SONDA DE VISTAS (DEPOIS) ═══\nRESET ROLE;\n' + sonda + COMPARA);
   for (const a of arquivos) partes.push(`\n-- ═══ ARQUIVO ${path.basename(a)} ═══\nRESET ROLE;\n` + fs.readFileSync(abs(a), 'utf8'));
   partes.push(FIM);
   return partes.join('\n');
@@ -204,11 +245,6 @@ function principal() {
       process.exit(1);
     }
   }
-  if (vistas) {
-    console.error('ENSAIO VERMELHO: --vistas ainda nao implementado nesta versao do runner');
-    process.exit(1);
-  }
-
   const antes = lerEstado();
   let plano;
   try {
@@ -220,7 +256,7 @@ function principal() {
   const prefV = plano.prefixadas.map(versao);
   console.log(`ensaio: prefixadas=${lista(prefV)} aplicadas=${lista(plano.aplicadas)} ausentes=${lista(plano.ausentes)} arquivos=${arquivos.join(',') || '-'}`);
 
-  const corpo = compor({ prefixadas: plano.prefixadas, arquivos });
+  const corpo = compor({ prefixadas: plano.prefixadas, arquivos, vistas });
   const r = rodar(corpo, 'cli');
 
   const depois = lerEstado();
@@ -244,10 +280,10 @@ function principal() {
     process.exit(1);
   }
   console.log(
-    `ENSAIO VERDE: ${arquivos.join(',') || '-'} · prefixadas=${lista(prefV)} · aplicadas=${lista(plano.aplicadas)} · ausentes=${lista(plano.ausentes)} · smoke50=${r.smoke50} · evidencia=${r.evidencia} · ${r.ms} ms`
+    `ENSAIO VERDE: ${arquivos.join(',') || '-'} · prefixadas=${lista(prefV)} · aplicadas=${lista(plano.aplicadas)} · ausentes=${lista(plano.ausentes)} · ${vistas ? `vistas=${plano.prefixadas.length ? 'igual' : 'vacua'} · ` : ''}smoke50=${r.smoke50} · evidencia=${r.evidencia} · ${r.ms} ms`
   );
 }
 
-module.exports = { compor, rodar, planejar, lerEstado, sqlLeitura, primeiraFalha, versao, MIGS, SENTINELA, PREFIXO, FIM, ROOT, APPLY };
+module.exports = { compor, rodar, planejar, lerEstado, sqlLeitura, primeiraFalha, versao, MIGS, SENTINELA, PREFIXO, FIM, SONDA, ROOT, APPLY };
 
 if (require.main === module) principal();
