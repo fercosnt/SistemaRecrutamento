@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: gaps_found
-stopped_at: "Phase 44 CR-01 planejado (44-14..44-16, gap_closure; checker aprovou na iteracao 2) → /gsd-execute-phase 44 --gaps-only; 44-16 para no checkpoint de publicacao"
-last_updated: "2026-10-06T23:07:28.898Z"
+status: executing
+stopped_at: "Phase 44 --gaps-only (CR-01) — 44-14 concluido (frase oQueNaoEsta nomeia toda categoria retida + canal; portao (cr1) derivado do artefato, (cr3) visto mordendo; 44-UI-SPEC = codigo); proximo 44-15 (portoes), depois 44-16 (publicacao com checkpoint)"
+last_updated: "2026-10-06T23:46:08.000Z"
 last_activity: 2026-10-06
-state_head: e8c008d01d3aaf8f14bbd5c12380536e0ae4820c
+state_head: 18e35dd92136bc60ab70da6183a160d594719285
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 141
-  completed_plans: 136
-  percent: 96
+  completed_plans: 137
+  percent: 97
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "Phase 44 --gaps planejado: 44-14 (frase CR-01), 44-15 (portoes WR-01/02/03/07), 44-16 (publicacao com checkpoint); BD-15..17 no CONTEXT"
+last_activity_desc: "44-14 concluido — CR-01 no codigo: oQueNaoEsta reescrita (BD-17) igual na tela, .html e .json; (cr1) familias de razao do artefato 1.4.0 = chaves do mapa (9 familias, 99 itens, 0 sem familia), (cr3) 5 controles negativos, mutacao unica da frase real mordeu nomeando BD-13 (ii) e md5 restaurado; nada publicado (proximo 44-15)"
 ---
 
 # Project State
@@ -983,6 +983,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P11 | 8min | 2 tasks | 7 files |
 | Phase 44 P12 | ~4min | 3 tasks | 3 files |
 | Phase 44 P13 | ~9min | 3 tasks | 3 files |
+| Phase 44 P14 | ~6min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1367,6 +1368,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-12: SC#3 medido contra PROD — smoke p44_export_drift aprova (n_drift 0; 75 tabelas vivas = 75 com disposicao; 451 colunas vivas em escopo = 451 pares), relatorio 05 = []; item da 48 do drift de 9 colunas resolved; publicacao e do 44-13
 - [Phase 44]: 44-13: arquivo legivel nomeia retencao_hold/cognitivo_liberacao e as 6 colunas tecnicas do G5 em portugues de produto (sem nome de infraestrutura); recibo_enviado_em sem rotulo (fora da copia)
 - [Phase 44]: 44-13: G5 no ar nos dois canais, front antes da EF — push 797c6110..4aa9f2ca (24 commits, todos autorizados), EF exportar-meus-dados v6 ACTIVE verify_jwt true com 1.4.0; re-revisao independente (gsd-code-review) nao rodou por falta de ferramenta de agente no executor — pendencia do re-verificador
+- [Phase 44]: 44-14: COPY_PEDIR_COPIA.oQueNaoEsta nomeia toda categoria retida pela 1.4.0 (telemetria, controle de envio, configuracao do sistema, dados de outras pessoas, anotacoes de conservacao BD-10, ficha tecnica do motor BD-13 (ii)/BD-16, justificativa da decisao final BD-9) + canal; texto final sujeito ao checkpoint do operador no 44-16
+- [Phase 44]: 44-14: portao (cr1) deriva as familias de razao do ARTEFATO (regra de 7 passos, vocabulario = valores de excluidas) e exige igualdade de conjuntos com CLAUSULA_POR_FAMILIA (escopo deliberado); (cr3) com 5 controles negativos permanentes; allowlist intocada (BD-15)
 
 ### Roadmap Evolution
 
@@ -1699,8 +1702,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T21:17:32.000Z
-Stopped at: Completed 44-13-PLAN.md
+Last session: 2026-10-06T23:46:08.000Z
+Stopped at: Completed 44-14-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

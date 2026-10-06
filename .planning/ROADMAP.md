@@ -177,7 +177,7 @@ Plans:
 - [x] 44-11-PLAN.md — **G5 · vereditos**: as 6 tabelas e as 9 colunas medidas e decididas (os 4 carimbos pela resposta do operador, option-a); allowlist **1.4.0**; VALUES e snapshots acompanham, portões locais verdes
 - [x] 44-12-PLAN.md — **G5 · portões nomeados + prova contra PROD**: (l) e Deno (19) vistos mordendo por mutação; smoke aprova e relatório `[]` contra PROD; item da 48 fechado
 - [x] 44-13-PLAN.md — **G5 · publicação**: rótulos legíveis primeiro; portões sobre a árvore exata (re-revisão contra `origin/main`, suíte, mordida sem resíduo possível); push só de commits autorizados, front antes da EF, marcador conferido no publicado
-- [ ] 44-14-PLAN.md — **CR-01 · a frase**: `oQueNaoEsta` nomeia toda categoria retida pela 1.4.0 + canal de contato; portão (cr1) que deriva as famílias de razão do ARTEFATO e as prende a cláusulas da frase, visto mordendo; mesma frase na tela, no `.html` e no `.json`; 44-UI-SPEC junto
+- [x] 44-14-PLAN.md — **CR-01 · a frase**: `oQueNaoEsta` nomeia toda categoria retida pela 1.4.0 + canal de contato; portão (cr1) que deriva as famílias de razão do ARTEFATO e as prende a cláusulas da frase, visto mordendo; mesma frase na tela, no `.html` e no `.json`; 44-UI-SPEC junto
 - [ ] 44-15-PLAN.md — **CR-01 · portões**: smoke fail-closed (WR-03, provado contra PROD só leitura), (k3) estrutura + predicado (WR-02), (k) vê toda tupla (WR-01), (i)/(i2) ordenam como o gerador (WR-07) — cada um visto mordendo
 - [ ] 44-16-PLAN.md — **CR-01 · publicação**: portões sobre a árvore exata + build local com o marcador; **checkpoint do operador** (frase e push); só o front sobe, marcador conferido no publicado, disposição escriturada, `origin/main..HEAD` vazio
 
@@ -656,7 +656,7 @@ Plans:
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | Complete    | 2026-10-04 |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | Complete    | 2026-10-04 |
-| 44. Exportação & Acesso | v8.0 | 10/13 | In Progress|  |
+| 44. Exportação & Acesso | v8.0 | 11/16 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 7/7 | Complete    | 2026-10-05 |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
