@@ -607,7 +607,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 
 **Guardrails**: os do Bloco 1/2 — migrations pelo `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), EFs pelo `efdeploy.cjs`, `git log --oneline origin/main..HEAD` vazio depois de todo apply visível. É mudança de **controle de acesso** (alarga leitura): review bloqueante antes do apply, e prova de que nada abriu para `anon`/candidato (lembrar: views sem `security_invoker` ignoram RLS)
 **Fora de escopo**: associação vaga↔recrutador e qualquer granularidade por vaga; JORN-42..49 (Bloco 3, fase a criar)
-**Plans**: 4/11 plans executed
+**Plans**: 5/11 plans executed
 
 Plans:
 **Wave 1**
@@ -619,7 +619,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 - [x] 50-03-PLAN.md — 13 policies restantes para rh ativo + `v_analises_presas` security_invoker (migration `…0002`, ensaio)
 - [x] 50-04-PLAN.md — RPCs de leitura e filas (SC4 por construção, órfãos inclusive) + `funil_kpis` sem anon (migration `…0003`, ensaio)
-- [ ] 50-05-PLAN.md — 11 RPCs de escrita, guardas fail-closed e anon revogado (D-04, D-06), D-23 intacto (migration `…0004`, ensaio)
+- [x] 50-05-PLAN.md — 11 RPCs de escrita, guardas fail-closed e anon revogado (D-04, D-06), D-23 intacto (migration `…0004`, ensaio)
 - [ ] 50-06-PLAN.md — 5 EFs sem posse de vaga (integridade mantida) + sonda de forma das EFs + comentários do front
 
 **Wave 4** *(blocked on Wave 3 completion)*
@@ -655,7 +655,7 @@ Plans:
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
-| 50. Acesso do Recrutador | v8.0 | 4/11 | In Progress|  |
+| 50. Acesso do Recrutador | v8.0 | 5/11 | In Progress|  |
 
 ---
 
