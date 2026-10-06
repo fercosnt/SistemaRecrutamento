@@ -160,7 +160,7 @@ Plans:
   4. O prazo do **Art. 19, II (15 dias corridos)** é medido a partir do registro do pedido e está visível ao RH — um pedido que se aproxima do prazo é distinguível de um recém-chegado.
   5. O inventário que o export projeta é um artefato **nomeado e versionado** (`docs/compliance/export-allowlist.json`), a projeção do direito de acesso (Art. 18, II), consumido só por `exportar-meus-dados` e `exportacaoService`; o plano de exclusão do motor da Phase 45 vem do `pii-inventory.yaml`, por decisão medida da própria Phase 45 (`gen-recibo-exclusao.cjs:12-25`). *Reescrito em 2026-10-06 para casar com o EXPORT-06 aprovado pelo operador em 2026-10-04. Redação original: «O inventário que o export projeta é um artefato **nomeado e versionado** que a Phase 45 consome como plano de exclusão — a fase irreversível não refaz o levantamento.»*
 
-**Plans**: 13 plans (5 waves — o tracer é a wave 3, e as duas expansões do candidato ficam em série porque ambas tocam `exportacaoService.ts` e `PrivacidadeCandidatoPage.tsx`. Os dois planos do lado RH correm em paralelo com os do candidato: arquivos disjuntos, zero conflito de wave) · **+4 de fechamento do G5** (2026-10-06, `--gaps`): 44-10 → 44-11 → 44-12 → 44-13 em série, waves 1-4 da rodada de gap — compartilham os arquivos do portão e da allowlist
+**Plans**: 13 plans (5 waves — o tracer é a wave 3, e as duas expansões do candidato ficam em série porque ambas tocam `exportacaoService.ts` e `PrivacidadeCandidatoPage.tsx`. Os dois planos do lado RH correm em paralelo com os do candidato: arquivos disjuntos, zero conflito de wave) · **+4 de fechamento do G5** (2026-10-06, `--gaps`): 44-10 → 44-11 → 44-12 → 44-13 em série, waves 1-4 da rodada de gap — compartilham os arquivos do portão e da allowlist · **+3 de fechamento do CR-01** (2026-10-06 noite, `--gaps`, BD-15..BD-17): 44-14 ∥ 44-15 na wave 1 (arquivos disjuntos), 44-16 na wave 2 com checkpoint do operador antes do push
 
 Plans:
 
@@ -177,6 +177,9 @@ Plans:
 - [x] 44-11-PLAN.md — **G5 · vereditos**: as 6 tabelas e as 9 colunas medidas e decididas (os 4 carimbos pela resposta do operador, option-a); allowlist **1.4.0**; VALUES e snapshots acompanham, portões locais verdes
 - [x] 44-12-PLAN.md — **G5 · portões nomeados + prova contra PROD**: (l) e Deno (19) vistos mordendo por mutação; smoke aprova e relatório `[]` contra PROD; item da 48 fechado
 - [x] 44-13-PLAN.md — **G5 · publicação**: rótulos legíveis primeiro; portões sobre a árvore exata (re-revisão contra `origin/main`, suíte, mordida sem resíduo possível); push só de commits autorizados, front antes da EF, marcador conferido no publicado
+- [ ] 44-14-PLAN.md — **CR-01 · a frase**: `oQueNaoEsta` nomeia toda categoria retida pela 1.4.0 + canal de contato; portão (cr1) que deriva as famílias de razão do ARTEFATO e as prende a cláusulas da frase, visto mordendo; mesma frase na tela, no `.html` e no `.json`; 44-UI-SPEC junto
+- [ ] 44-15-PLAN.md — **CR-01 · portões**: smoke fail-closed (WR-03, provado contra PROD só leitura), (k3) estrutura + predicado (WR-02), (k) vê toda tupla (WR-01), (i)/(i2) ordenam como o gerador (WR-07) — cada um visto mordendo
+- [ ] 44-16-PLAN.md — **CR-01 · publicação**: portões sobre a árvore exata + build local com o marcador; **checkpoint do operador** (frase e push); só o front sobe, marcador conferido no publicado, disposição escriturada, `origin/main..HEAD` vazio
 
 **UI hint**: yes — pedido de cópia no painel do candidato (mobile-first) + visibilidade do prazo no lado RH
 **Security**: **candidata a `/gsd-secure-phase`** — é uma superfície de exfiltração de PII por desenho: allowlist, TTL do signed URL, autorização own-row, e o risco de a EF vazar coluna alheia

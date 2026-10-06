@@ -383,3 +383,51 @@ overrides:
 
 O mesmo bloco está, verbatim, em `44-10-SUMMARY.md` §«Override para o re-verificador (BD-14)»; o
 44-13 o lista de novo entre as pendências do verificador.
+
+## Adendo 2026-10-06 (noite) — fechamento do CR-01: decisões
+
+A reverificação pós-G5 (`44-VERIFICATION.md`, 21:33Z, gaps_found 6/7) reprovou a fase por um
+único gap: a frase `COPY_PEDIR_COPIA.oQueNaoEsta` (`exportacaoService.ts`), entregue no `.html`
+e no `.json` (`o_que_nao_esta_nesta_copia`), diz que só fica de fora telemetria técnica — falso
+sob a allowlist 1.4.0. Autoria marcada como no adendo anterior.
+
+### BD-15 · escopo da rodada de fechamento: CR-01 + portões
+
+- **Autoria:** OPERADOR (AskUserQuestion do orquestrador do `/gsd-plan-phase 44 --gaps`,
+  2026-10-06). Resposta: **«CR-01 + portões (Recommended)»**.
+- **Entra:** CR-01 (frase reescrita com as categorias reais retidas + canal de contato; teste que
+  prende cada família de razão de `colunas_excluidas`/`excluidas` do artefato a uma cláusula da
+  frase; atualização do contrato de copy na `44-UI-SPEC.md`; publicação SÓ do front com o
+  marcador novo conferido no chunk publicado e `git log origin/main..HEAD` vazio) e o
+  endurecimento dos portões: **WR-01** (a (k) conta tuplas com regex permissiva e exige
+  igualdade com a rígida), **WR-02** (asserção estrutural sobre o smoke: o `RAISE EXCEPTION
+  'P44-DRIFT FAIL` e o predicado não podem sumir calados), **WR-03** (o `DO $gate$` falha FECHADO
+  em chave ausente/NULL — `coalesce`/`IS DISTINCT FROM`), **WR-07** (a (i2) compara com a mesma
+  ordenação que o gerador emite; fixture ganha nomes com prefixo comum, ex. `decisao_final` /
+  `decisao_final_historico`). Cada portão endurecido tem de ser **visto mordendo** depois do
+  conserto (CLAUDE.md §Portões).
+- **Fica fora (segue `open` em `44-REVIEW-DISPOSITION.md`):** WR-04, WR-05 (GRANT SELECT por
+  coluna em PROD — fase própria), IN-01..IN-07.
+- **Nenhuma escrita em PROD de banco nem redeploy de EF nesta rodada:** a frase nasce em
+  `exportacaoService` (front); a allowlist 1.4.0 NÃO muda.
+
+### BD-16 · `solicitacoes_dados.plano` FICA FORA — agora por decisão do operador (fecha WR-06)
+
+- **Autoria:** OPERADOR (mesma pergunta, 2026-10-06). Resposta: **«Fica fora, frase nomeia
+  (Recommended)»**. Substitui a autoria ORQUESTRADOR do BD-13 (ii); o efeito no artefato é o mesmo.
+- **Efeito:** allowlist 1.4.0 inalterada; a nova `oQueNaoEsta` NOMEIA a categoria («a ficha
+  técnica do motor de exclusão sobre o seu pedido»). O artefato pode registrar a nova autoria no
+  texto da razão SÓ se isso não exigir mudar versão/EF — caso contrário, a autoria fica só aqui.
+
+### BD-17 · a frase nomeia, não esconde, o que segue em aberto
+
+- **Autoria:** PLANEJADOR do orquestrador (derivado do veredito do verificador, §Gaps item 3).
+- **Decisão:** a frase declara TODA categoria retida, inclusive as que dependem de política ainda
+  em aberto (texto da justificativa da decisão final — BD-9 antigo «EM ABERTO»). Categorias
+  mínimas, da redação sugerida em `44-REVIEW.md` §CR-01: identificação de quem da equipe agiu;
+  anotações internas da equipe sobre conservação além do prazo (o motivo e as datas entram);
+  a ficha técnica do motor de exclusão; o texto da justificativa da decisão final; telemetria
+  técnica das ferramentas; com canal de contato para pedir o que não veio.
+- **Prova:** o teste do CR-01 deriva as famílias do ARTEFATO (não de lista literal), para que o
+  próximo veto não suba sem atualizar a frase (CLAUDE.md §Portões — iteração sobre lista literal
+  não reprova nada).
