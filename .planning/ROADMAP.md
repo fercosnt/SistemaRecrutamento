@@ -176,7 +176,7 @@ Plans:
 - [x] 44-10-PLAN.md — **G5 · TRACER do portão**: o drift do export passa a ver o BANCO (universo de tabelas = `public` vivo), vira smoke `supabase/tests/p44_export_drift_smoke.sql` que falha alto e é visto mordendo no drift real de PROD; (e) testa a negação do EXPORT-06; SC#5 reescrito; BD-9..BD-14 no CONTEXT com autoria (cadência manual como override) e lembrete no `p46apply.cjs`
 - [x] 44-11-PLAN.md — **G5 · vereditos**: as 6 tabelas e as 9 colunas medidas e decididas (os 4 carimbos pela resposta do operador, option-a); allowlist **1.4.0**; VALUES e snapshots acompanham, portões locais verdes
 - [x] 44-12-PLAN.md — **G5 · portões nomeados + prova contra PROD**: (l) e Deno (19) vistos mordendo por mutação; smoke aprova e relatório `[]` contra PROD; item da 48 fechado
-- [ ] 44-13-PLAN.md — **G5 · publicação**: rótulos legíveis primeiro; portões sobre a árvore exata (re-revisão contra `origin/main`, suíte, mordida sem resíduo possível); push só de commits autorizados, front antes da EF, marcador conferido no publicado
+- [x] 44-13-PLAN.md — **G5 · publicação**: rótulos legíveis primeiro; portões sobre a árvore exata (re-revisão contra `origin/main`, suíte, mordida sem resíduo possível); push só de commits autorizados, front antes da EF, marcador conferido no publicado
 
 **UI hint**: yes — pedido de cópia no painel do candidato (mobile-first) + visibilidade do prazo no lado RH
 **Security**: **candidata a `/gsd-secure-phase`** — é uma superfície de exfiltração de PII por desenho: allowlist, TTL do signed URL, autorização own-row, e o risco de a EF vazar coluna alheia
@@ -653,7 +653,7 @@ Plans:
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | Complete    | 2026-10-04 |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | Complete    | 2026-10-04 |
-| 44. Exportação & Acesso | v8.0 | 9/13 | In Progress|  |
+| 44. Exportação & Acesso | v8.0 | 10/13 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 7/7 | Complete    | 2026-10-05 |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |

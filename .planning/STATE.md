@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 44 --gaps-only em execucao — 44-12 concluido (portoes nomeados do G5 vistos mordendo; smoke aprova contra PROD); proximo 44-13 (publicacao), sequencial"
-last_updated: "2026-10-06T21:07:52.908Z"
+stopped_at: "Phase 44 --gaps-only — 44-13 concluido (G5 publicado: front 4aa9f2ca na Vercel antes da EF exportar-meus-dados v6, allowlist 1.4.0 no ar); proximo: re-verificacao da Phase 44 (orquestrador)"
+last_updated: "2026-10-06T21:17:32.000Z"
 last_activity: 2026-10-06
-state_head: 2b12ef075ea45722153bbad172ea260793ba0ce4
+state_head: 142f8971664f15f1eaf8916c75e4e8961cc96c12
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 138
-  completed_plans: 135
-  percent: 98
+  completed_plans: 136
+  percent: 99
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: 44-12 concluido — (l) e Deno (19) prendem o G5 por nome e foram vistos mordendo (M-a, M-b, md5 restaurado); smoke p44_export_drift APROVA contra PROD (n_drift 0, 75/75, 451/451), relatorio 05 = [] (proximo 44-13)
+last_activity_desc: 44-13 concluido — rotulos legiveis do G5 (p5); portoes sobre GATES_SHA 38455e5f (re-revisao 0/0/2/4/17, suite so com as 2 pre-existentes, mordida nas tres direcoes sem residuo); front publicado (dpl_4WevCfL9 Ready, marcador em index-BgK7K5Is.js) e EF exportar-meus-dados v5 -> v6 com 1.4.0 (proximo: re-verificacao da Phase 44)
 ---
 
 # Project State
@@ -982,6 +982,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P10 | 10min | 3 tasks | 8 files |
 | Phase 44 P11 | 8min | 2 tasks | 7 files |
 | Phase 44 P12 | ~4min | 3 tasks | 3 files |
+| Phase 44 P13 | ~9min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1364,6 +1365,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-11: criado_por/liberado_por em ponteiros.de_terceiro (veto estrutural); retencao_hold.detalhe, solicitacoes_dados.plano e recibo_enviado_em fora por veredito; prova contra PROD e do 44-12
 - [Phase 44]: 44-12: proibicoes do G5 presas por NOME fora de snapshot — (l) no Vitest (7 vetadas com prefixo da razao, 4 tabelas fora, 13 vereditos explicitos com proveniencia decisoes_por_coluna) e (19) no Deno (ponte + vetos por token sobre o select real do handler); M-a e M-b vistas mordendo
 - [Phase 44]: 44-12: SC#3 medido contra PROD — smoke p44_export_drift aprova (n_drift 0; 75 tabelas vivas = 75 com disposicao; 451 colunas vivas em escopo = 451 pares), relatorio 05 = []; item da 48 do drift de 9 colunas resolved; publicacao e do 44-13
+- [Phase 44]: 44-13: arquivo legivel nomeia retencao_hold/cognitivo_liberacao e as 6 colunas tecnicas do G5 em portugues de produto (sem nome de infraestrutura); recibo_enviado_em sem rotulo (fora da copia)
+- [Phase 44]: 44-13: G5 no ar nos dois canais, front antes da EF — push 797c6110..4aa9f2ca (24 commits, todos autorizados), EF exportar-meus-dados v6 ACTIVE verify_jwt true com 1.4.0; re-revisao independente (gsd-code-review) nao rodou por falta de ferramenta de agente no executor — pendencia do re-verificador
 
 ### Roadmap Evolution
 
@@ -1696,8 +1699,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T21:07:52.908Z
-Stopped at: Completed 44-12-PLAN.md
+Last session: 2026-10-06T21:17:32.000Z
+Stopped at: Completed 44-13-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
