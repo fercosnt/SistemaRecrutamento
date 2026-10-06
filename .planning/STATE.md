@@ -2,8 +2,8 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: "Phase 44 --gaps-only — 44-13 concluido (G5 publicado: front 4aa9f2ca na Vercel antes da EF exportar-meus-dados v6, allowlist 1.4.0 no ar); proximo: re-verificacao da Phase 44 (orquestrador)"
+status: gaps_found
+stopped_at: "Phase 44 G5 fechado e publicado (44-10..44-13); reverificacao gaps_found 6/7 — CR-01 (frase «o que nao esta» falsa sob 1.4.0, no ar) → /gsd-plan-phase 44 --gaps"
 last_updated: "2026-10-06T21:17:32.000Z"
 last_activity: 2026-10-06
 state_head: 142f8971664f15f1eaf8916c75e4e8961cc96c12
@@ -15,7 +15,7 @@ progress:
   percent: 99
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: 44-13 concluido — rotulos legiveis do G5 (p5); portoes sobre GATES_SHA 38455e5f (re-revisao 0/0/2/4/17, suite so com as 2 pre-existentes, mordida nas tres direcoes sem residuo); front publicado (dpl_4WevCfL9 Ready, marcador em index-BgK7K5Is.js) e EF exportar-meus-dados v5 -> v6 com 1.4.0 (proximo: re-verificacao da Phase 44)
+last_activity_desc: "Phase 44 G5 executado e publicado (front + EF v6); re-review 1 critical; verificacao gaps_found 6/7 (CR-01)"
 ---
 
 # Project State
