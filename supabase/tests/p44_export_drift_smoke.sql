@@ -62,8 +62,8 @@
 --     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-tabelas
 -- (saída colada como está — a indentação de 4 espaços é contrato do extrator da (k)).
 --
--- AS TRÊS FORMAS DE PROVAR QUE ESTE PORTÃO MORDE
--- ----------------------------------------------
+-- AS QUATRO FORMAS DE PROVAR QUE ESTE PORTÃO MORDE
+-- ------------------------------------------------
 -- Um portão que nunca foi visto falhando não é portão.
 --   1. DRIFT REAL. Em 2026-10-06, antes dos vereditos do 44-11, este smoke reprovou contra
 --      PROD nomeando as 15 linhas do G5 (6 tabelas novas + 9 colunas novas) — ver
@@ -78,6 +78,12 @@
 --      e rode a cópia; esperado `n_drift` = 1 nomeando o par removido (para
 --      `disposicao_tabelas`, use uma tabela EXCLUÍDA — removendo uma em escopo, as colunas
 --      dela também aparecem). Só é prova com a baseline em zero drift.
+--   4. CHAVE RENOMEADA num scratch (WR-03, 44-15): numa cópia, renomeie uma chave do
+--      `json_build_object` do `set_config` — p.ex. a da contagem de drift, ou a das tabelas
+--      vivas — e rode a cópia. Esperado: `P44-DRIFT FAIL` (chave de drift ausente conta
+--      como drift; chave de população ausente, como `P44-DRIFT FAIL (população vazia)`).
+--      Até o 44-15 essa cópia APROVAVA: a leitura da chave ausente é NULL, `NULL > 0` é
+--      NULL e o ramo era pulado. Vale com qualquer baseline.
 -- ⚠ Cópia mutada NUNCA é commitada; o versionado volta byte a byte (md5 conferido).
 -- =============================================================================
 
@@ -691,16 +697,25 @@ BEGIN
   -- População zero reprova: um catálogo que não foi lido (ou um VALUES que não foi
   -- colado) não pode aprovar nada. Sem `EXCEPTION WHEN OTHERS` em lugar nenhum deste
   -- arquivo: engolir a falha vira SKIP verde (achado do 48-01).
-  IF (r->>'n_tabelas_vivas')::int = 0
-     OR (r->>'n_tabelas_com_disposicao')::int = 0
-     OR (r->>'n_colunas_vivas_em_escopo')::int = 0
-     OR (r->>'n_pares_com_veredito')::int = 0 THEN
+  --
+  -- FALHA FECHADO (WR-03, 44-15). Uma chave renomeada ou ausente no `json_build_object`
+  -- acima faz a leitura dela devolver NULL; `NULL = 0` e `NULL > 0` são NULL, o IF pula o
+  -- ramo e o arquivo chega ao `'pass', true` — aprovação falsa COM drift presente (medido
+  -- contra PROD em 2026-10-06). Por isso as duas guardas tratam NULL como reprovação:
+  -- `coalesce(…, 0) = 0` aqui (chave ausente = população vazia) e `IS DISTINCT FROM` zero
+  -- na de drift (chave ausente = drift). É a mesma forma que a EF `exportar-meus-dados`
+  -- já consertou no cooldown: o ramo de leitura ilegível de um controle não pode ser
+  -- «permitir». A (k3) de `exportAllowlist.test.ts` prende esta forma; a (k4) a vê morder.
+  IF coalesce((r->>'n_tabelas_vivas')::int, 0) = 0
+     OR coalesce((r->>'n_tabelas_com_disposicao')::int, 0) = 0
+     OR coalesce((r->>'n_colunas_vivas_em_escopo')::int, 0) = 0
+     OR coalesce((r->>'n_pares_com_veredito')::int, 0) = 0 THEN
     RAISE EXCEPTION 'P44-DRIFT FAIL (população vazia): n_tabelas_vivas=% n_tabelas_com_disposicao=% n_colunas_vivas_em_escopo=% n_pares_com_veredito=% — um banco que não foi lido não aprova nada',
       r->>'n_tabelas_vivas', r->>'n_tabelas_com_disposicao',
       r->>'n_colunas_vivas_em_escopo', r->>'n_pares_com_veredito';
   END IF;
 
-  IF (r->>'n_drift')::int > 0 THEN
+  IF (r->>'n_drift')::int IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION 'P44-DRIFT FAIL: n_drift=% · populações: n_tabelas_vivas=% n_tabelas_com_disposicao=% n_tabelas_em_escopo=% n_colunas_vivas_em_escopo=% n_pares_com_veredito=% · linhas: %',
       r->>'n_drift',
       r->>'n_tabelas_vivas', r->>'n_tabelas_com_disposicao', r->>'n_tabelas_em_escopo',

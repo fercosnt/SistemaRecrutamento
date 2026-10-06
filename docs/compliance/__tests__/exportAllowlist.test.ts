@@ -161,6 +161,318 @@ function paresDoArquivo(caminho: string): { allowlist: string[]; excluidas: stri
   }
 }
 
+/*
+ * ─── 44-15 (WR-02/WR-03) — helpers PUROS sobre TEXTO ────────────────────────────────
+ * Recebem o conteúdo, não o caminho, para que a (k4) os rode sobre o texto REAL mutado
+ * em memória. Os que checam devolvem LISTA de problemas (vazia = ok), e cada problema
+ * NOMEIA o que falhou — a CTE, o braço, a chave ou o `RAISE` —, porque a (k4) assere
+ * pelo nome: «lista não vazia» passaria com o checador reprovando pelo motivo errado.
+ */
+
+/**
+ * O SQL sem comentário de linha inteira e sem comentário FINAL `--` fora de literal
+ * entre aspas simples. O `semComentario` acima só tira linha inteira (é o que a busca
+ * de palavra de escrita usa, e continua); este é o que a (k3) e a contagem permissiva
+ * da (k) precisam — um `-- …` no fim de uma linha de código não pode mudar o corpo
+ * de uma CTE nem esconder/inventar uma tupla.
+ */
+function semComentarioSql(texto: string): string {
+  let emAspas = false
+  const saida: string[] = []
+  for (const linha of texto.split('\n')) {
+    if (!emAspas && linha.trimStart().startsWith('--')) continue
+    let corte = linha.length
+    for (let i = 0; i < linha.length; i++) {
+      const c = linha[i]
+      if (c === "'") emAspas = !emAspas
+      else if (!emAspas && c === '-' && linha[i + 1] === '-') {
+        corte = i
+        break
+      }
+    }
+    saida.push(linha.slice(0, corte).replace(/\s+$/, ''))
+  }
+  return saida.join('\n')
+}
+
+const colapsar = (t: string) => t.replace(/\s+/g, ' ').trim()
+
+/** Índice do `)` que fecha o `(` em `abre`, ignorando parênteses dentro de aspas simples; -1 se não fecha. */
+function fechamento(texto: string, abre: number): number {
+  let prof = 0
+  let emAspas = false
+  for (let i = abre; i < texto.length; i++) {
+    const c = texto[i]
+    if (c === "'") {
+      emAspas = !emAspas
+      continue
+    }
+    if (emAspas) continue
+    if (c === '(') prof++
+    else if (c === ')') {
+      prof--
+      if (prof === 0) return i
+    }
+  }
+  return -1
+}
+
+/** Posições de `trecho` que não são sufixo de um identificador maior (`xvivo AS (` não conta como `vivo AS (`). */
+function ocorrencias(texto: string, trecho: string): number[] {
+  const achados: number[] = []
+  for (let i = texto.indexOf(trecho); i !== -1; i = texto.indexOf(trecho, i + 1)) {
+    if (!/[a-z0-9_]/i.test(texto[i - 1] ?? '')) achados.push(i)
+  }
+  return achados
+}
+
+/**
+ * O corpo da CTE aberta por `cabecalho` (que termina em `(`), com espaço colapsado.
+ * Exige o cabeçalho EXATAMENTE uma vez — um cabeçalho duplicado faria a comparação ler
+ * a cópia errada, um ausente leria vazio; os dois viram erro com `nome` (o arquivo) e o
+ * cabeçalho. `texto` deve vir sem comentário (`semComentarioSql`).
+ */
+function corpoDaCte(texto: string, cabecalho: string, nome: string): string {
+  if (!cabecalho.endsWith('(')) throw new Error(`corpoDaCte: cabeçalho \`${cabecalho}\` não termina em «(»`)
+  const achados = ocorrencias(texto, cabecalho)
+  if (achados.length !== 1) {
+    throw new Error(`${nome}: cabeçalho de CTE \`${cabecalho}\` ocorre ${achados.length}x (esperado 1)`)
+  }
+  const abre = achados[0] + cabecalho.length - 1
+  const fecha = fechamento(texto, abre)
+  if (fecha === -1) throw new Error(`${nome}: cabeçalho de CTE \`${cabecalho}\` sem «)» que o feche`)
+  return colapsar(texto.slice(abre + 1, fecha))
+}
+
+/** Parte um corpo (já colapsado) em cada `UNION ALL` de profundidade 0, fora de aspas. */
+function bracosDoUnion(corpo: string): string[] {
+  const partes: string[] = []
+  let prof = 0
+  let emAspas = false
+  let ini = 0
+  for (let i = 0; i < corpo.length; i++) {
+    const c = corpo[i]
+    if (c === "'") {
+      emAspas = !emAspas
+      continue
+    }
+    if (emAspas) continue
+    if (c === '(') prof++
+    else if (c === ')') prof--
+    else if (
+      prof === 0 &&
+      corpo.slice(i, i + 9).toUpperCase() === 'UNION ALL' &&
+      !/[a-z0-9_]/i.test(corpo[i - 1] ?? ' ') &&
+      !/[a-z0-9_]/i.test(corpo[i + 9] ?? ' ')
+    ) {
+      partes.push(corpo.slice(ini, i).trim())
+      ini = i + 9
+      i = ini - 1
+    }
+  }
+  partes.push(corpo.slice(ini).trim())
+  return partes
+}
+
+/*
+ * As três CTEs do predicado que o relatório `05` e o smoke escrevem IGUAIS. Lista
+ * literal por ESCOPO deliberado, não fotografia: são as CTEs que o WR-02 nomeou como
+ * editáveis só no smoke. O `drift` entra à parte porque tem forma diferente nos dois
+ * arquivos (uma CTE com `UNION ALL` no smoke; `drift_coluna` + `drift_tabela` no `05`).
+ */
+const CTES_DO_PREDICADO = [
+  'com_veredito(tabela, coluna, destino) AS (',
+  'tabelas_vivas AS (',
+  'vivo AS (',
+] as const
+
+/**
+ * WR-02 · o smoke roda o MESMO predicado do relatório `05`. Compara, sem comentário e com
+ * espaço colapsado, `com_veredito`, `tabelas_vivas`, `vivo` e os dois braços do `drift`
+ * do smoke (partido no `UNION ALL` de profundidade 0) com `drift_coluna` e `drift_tabela`
+ * do relatório. Problema de CTE começa pelo nome dela; braço divergente pelo nome da CTE
+ * do relatório a que corresponde; partição que não dá dois braços diz quantos achou.
+ */
+function problemasDoPredicado(relatorio: string, smoke: string): string[] {
+  const rel = semComentarioSql(relatorio)
+  const smk = semComentarioSql(smoke)
+  const problemas: string[] = []
+  const corpo = (texto: string, cabecalho: string, nome: string): string | null => {
+    try {
+      return corpoDaCte(texto, cabecalho, nome)
+    } catch (e) {
+      problemas.push((e as Error).message)
+      return null
+    }
+  }
+  for (const cabecalho of CTES_DO_PREDICADO) {
+    const cte = cabecalho.slice(0, cabecalho.search(/[ (]/))
+    const r = corpo(rel, cabecalho, 'relatório 05')
+    const s = corpo(smk, cabecalho, 'smoke')
+    if (r !== null && s !== null && r !== s) {
+      problemas.push(`${cte}: o corpo da CTE no smoke diverge do relatório 05 (WR-02 — predicado editado só num dos dois)`)
+    }
+  }
+  const drift = corpo(smk, 'drift AS (', 'smoke')
+  const driftColuna = corpo(rel, 'drift_coluna AS (', 'relatório 05')
+  const driftTabela = corpo(rel, 'drift_tabela AS (', 'relatório 05')
+  if (drift !== null) {
+    const bracos = bracosDoUnion(drift)
+    if (bracos.length !== 2) {
+      problemas.push(`drift: ${bracos.length} braço(s), esperado 2 (o \`drift\` do smoke partido no UNION ALL de profundidade 0)`)
+    } else {
+      if (driftColuna !== null && bracos[0] !== driftColuna) {
+        problemas.push('drift_coluna: o 1º braço do `drift` do smoke diverge da CTE `drift_coluna` do relatório 05 (WR-02)')
+      }
+      if (driftTabela !== null && bracos[1] !== driftTabela) {
+        problemas.push('drift_tabela: o 2º braço do `drift` do smoke diverge da CTE `drift_tabela` do relatório 05 (WR-02)')
+      }
+    }
+  }
+  return problemas
+}
+
+/**
+ * Profundidade de parênteses (fora de aspas) em cada posição de `texto` — para só ler
+ * chaves de NÍVEL 0 do corpo de um `json_build_object`.
+ */
+function profundidades(texto: string): number[] {
+  const p: number[] = []
+  let prof = 0
+  let emAspas = false
+  for (let i = 0; i < texto.length; i++) {
+    p.push(prof)
+    const c = texto[i]
+    if (c === "'") emAspas = !emAspas
+    else if (!emAspas && c === '(') prof++
+    else if (!emAspas && c === ')') prof--
+  }
+  return p
+}
+
+/**
+ * WR-02/WR-03 · a estrutura que faz o smoke FALHAR ALTO e FALHAR FECHADO. Sobre o smoke
+ * sem comentário e com espaço colapsado:
+ *  · um `DO $gate$` e um `$gate$;`; nenhum `EXCEPTION WHEN` no arquivo;
+ *  · toda chave lida por `->>` é construída no PRIMEIRO `json_build_object` (o do
+ *    `set_config`); nenhuma comparação nua `(r->>'<k>')::int <op>` no bloco;
+ *  · guarda de população = o PRIMEIRO `IF` do bloco: só termos
+ *    `coalesce((r->>'<k>')::int, 0) = 0` unidos por `OR`, `THEN` seguido de
+ *    `RAISE EXCEPTION 'P44-DRIFT FAIL (população vazia)`;
+ *  · guarda de drift: contíguo, `IF (r->>'<k>')::int IS DISTINCT FROM 0 THEN RAISE
+ *    EXCEPTION 'P44-DRIFT FAIL:`;
+ *  · agregador: toda chave lida numa condição de `IF` é construída como contagem NUA
+ *    `(SELECT count(*) FROM <cte do arquivo>)`, e a da guarda de drift conta `drift`;
+ *  · o `'pass'` do `SELECT` final vem depois de `$gate$;`.
+ * Os conjuntos de chaves são DERIVADOS do texto. O único nome fixo é `drift`, e é escopo
+ * deliberado: é a CTE cujos braços `problemasDoPredicado` prende ao relatório, e a contagem
+ * dela é o «APROVADO = 0 linhas» do `05` (o relatório não tem agregador para comparar).
+ */
+function problemasDaEstrutura(smoke: string): string[] {
+  const s = colapsar(semComentarioSql(smoke))
+  const problemas: string[] = []
+  const conta = (trecho: string) => s.split(trecho).length - 1
+
+  const nDo = conta('DO $gate$')
+  const nFim = conta('$gate$;')
+  if (nDo !== 1) problemas.push(`DO $gate$: ${nDo} ocorrência(s), esperado 1 — sem o bloco o smoke não falha alto (WR-02)`)
+  if (nFim !== 1) problemas.push(`DO $gate$: o fecho \`$gate$;\` ocorre ${nFim}x, esperado 1 (WR-02)`)
+  if (/EXCEPTION\s+WHEN/i.test(s)) {
+    problemas.push('EXCEPTION WHEN presente no smoke — engolir a falha vira aprovação verde (WR-02)')
+  }
+
+  // Chaves CONSTRUÍDAS: as de nível 0 do primeiro `json_build_object`, seguidas de `(`.
+  const construidas = new Map<string, string>()
+  const ijbo = s.indexOf('json_build_object(')
+  if (ijbo === -1) {
+    problemas.push('json_build_object: o smoke não constrói o resultado que o DO $gate$ lê')
+  } else {
+    const abre = ijbo + 'json_build_object('.length - 1
+    const fecha = fechamento(s, abre)
+    const corpo = fecha === -1 ? '' : s.slice(abre + 1, fecha)
+    const prof = profundidades(corpo)
+    for (const m of corpo.matchAll(/'([a-z0-9_]+)'\s*,\s*(?=\()/gi)) {
+      if (prof[m.index!] !== 0) continue
+      const ini = m.index! + m[0].length
+      const fim = fechamento(corpo, ini)
+      const valor = fim === -1 ? '' : colapsar(corpo.slice(ini + 1, fim))
+      if (/^SELECT\b/i.test(valor)) construidas.set(m[1], valor)
+    }
+  }
+  for (const k of new Set([...s.matchAll(/->>\s*'([a-z0-9_]+)'/gi)].map((m) => m[1]))) {
+    if (!construidas.has(k)) {
+      problemas.push(`chave ${k}: lida por ->> mas não construída no json_build_object do set_config — vira NULL e o ramo é pulado (WR-03)`)
+    }
+  }
+
+  const iDo = s.indexOf('DO $gate$')
+  const iFim = s.indexOf('$gate$;', iDo === -1 ? 0 : iDo + 'DO $gate$'.length)
+  if (iDo !== -1 && iFim !== -1) {
+    const bloco = s.slice(iDo + 'DO $gate$'.length, iFim)
+
+    for (const m of bloco.matchAll(/\(r->>'([a-z0-9_]+)'\)::int\s*(<>|!=|>=|<=|=|>|<)/g)) {
+      problemas.push(`chave ${m[1]}: comparação nua (r->>'${m[1]}')::int ${m[2]} — chave ausente vira NULL e o ramo é pulado (WR-03)`)
+    }
+
+    // As condições de TODO `IF` do bloco (o `IF` de `END IF` não abre condição).
+    const condicoes: { cond: string; depois: string }[] = []
+    for (const m of bloco.matchAll(/(?<!END )\bIF\b/g)) {
+      const ini = m.index! + 2
+      const iThen = bloco.slice(ini).search(/\bTHEN\b/)
+      if (iThen === -1) continue
+      condicoes.push({
+        cond: bloco.slice(ini, ini + iThen).trim(),
+        depois: bloco.slice(ini + iThen + 'THEN'.length).trim(),
+      })
+    }
+
+    const RAISE_POP = "RAISE EXCEPTION 'P44-DRIFT FAIL (população vazia)"
+    const pop = condicoes[0]
+    if (!pop) {
+      problemas.push(`guarda de população: o DO $gate$ não tem IF — falta o ${RAISE_POP} (WR-02)`)
+    } else {
+      const termos = pop.cond.split(/\s+OR\s+/i)
+      for (const t of termos) {
+        if (!/^coalesce\(\(r->>'[a-z0-9_]+'\)::int, 0\) = 0$/i.test(t)) {
+          problemas.push(`guarda de população (1º IF do DO $gate$): termo «${t}» fora da forma coalesce((r->>'<k>')::int, 0) = 0 (WR-03)`)
+        }
+      }
+      if (!pop.depois.startsWith(RAISE_POP)) {
+        problemas.push(`guarda de população: o THEN do 1º IF não é seguido de ${RAISE_POP} (WR-02)`)
+      }
+    }
+
+    const RAISE_DRIFT = "RAISE EXCEPTION 'P44-DRIFT FAIL:"
+    const guarda = bloco.match(/\bIF \(r->>'([a-z0-9_]+)'\)::int IS DISTINCT FROM 0 THEN RAISE EXCEPTION 'P44-DRIFT FAIL:/)
+    if (!guarda) {
+      problemas.push(`guarda de drift: o DO $gate$ não contém, contíguo, IF (r->>'<k>')::int IS DISTINCT FROM 0 THEN ${RAISE_DRIFT} (WR-02/WR-03)`)
+    } else {
+      const v = construidas.get(guarda[1])
+      if (v !== undefined && v !== 'SELECT count(*) FROM drift') {
+        problemas.push(`agregador da chave ${guarda[1]} (guarda de drift): «(${v})» não é a contagem nua (SELECT count(*) FROM drift)`)
+      }
+    }
+
+    // Agregador: cada chave lida numa CONDIÇÃO é contagem nua de uma CTE do arquivo.
+    for (const k of new Set(condicoes.flatMap((c) => [...c.cond.matchAll(/->>\s*'([a-z0-9_]+)'/g)].map((m) => m[1])))) {
+      const v = construidas.get(k)
+      if (v === undefined) continue // já acusada acima: lida e não construída
+      const cte = v.match(/^SELECT count\(\*\) FROM ([a-z_][a-z0-9_]*)$/i)
+      if (!cte) {
+        problemas.push(`agregador da chave ${k}: «(${v})» não é contagem nua (SELECT count(*) FROM <cte>) — o IF pode ler uma constante`)
+      } else if (!new RegExp(`(^|[^a-z0-9_])${cte[1]}(\\([^)]*\\))? AS \\(`, 'i').test(s)) {
+        problemas.push(`agregador da chave ${k}: conta «${cte[1]}», que não é CTE deste arquivo`)
+      }
+    }
+  }
+
+  const iPass = s.lastIndexOf("'pass'")
+  if (iPass === -1 || iFim === -1 || iPass < iFim) {
+    problemas.push("'pass': o SELECT final do resultado não vem depois de $gate$; — aprovaria sem passar pelo bloco")
+  }
+  return problemas
+}
+
 // Tokens de segredo e de telemetria montados em runtime — ver docblock.
 const TOKENS_PROIBIDOS: ReadonlyArray<readonly [string, string]> = [
   ['telemetria de LLM (prompt, custo, raw_response)', ['ai', 'call', 'logs'].join('_')],
@@ -903,6 +1215,26 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     const doSmoke = literais(CAMINHO_DRIFT_SMOKE)
     expect(doRelatorio, 'o relatório deveria ter 3 vereditos de coluna + 2 de tabela').toHaveLength(5)
     expect(doSmoke, 'os textos de veredito do smoke divergem dos do relatório').toEqual(doRelatorio)
+  })
+
+  it('(k3) o smoke falha alto, falha FECHADO e roda o MESMO predicado do relatório', () => {
+    // 44-15 (WR-02/WR-03). A (k2) só prende os cinco textos de veredito: o predicado do
+    // smoke podia ser editado só nele, o `DO $gate$` apagado ou embrulhado em
+    // `EXCEPTION WHEN`, e uma chave do `json_build_object` renomeada fazia o bloco ler
+    // NULL e aprovar com drift presente (medido contra PROD em 2026-10-06) — tudo com
+    // (k), (k2) e (l) verdes. O smoke é o ÚNICO portão que vê o banco vivo (cadência
+    // manual, BD-14); a forma que o faz falhar alto não pode depender de convenção.
+    // A (k4) prova que estes dois checadores mordem, rota a rota.
+    const relatorio = readFileSync(CAMINHO_SMOKE, 'utf8')
+    const smoke = readFileSync(CAMINHO_DRIFT_SMOKE, 'utf8')
+    expect(
+      problemasDoPredicado(relatorio, smoke),
+      'WR-02: o predicado do smoke divergiu do relatório 05 — os dois têm de medir a mesma coisa',
+    ).toEqual([])
+    expect(
+      problemasDaEstrutura(smoke),
+      'WR-02/WR-03: a estrutura que faz o smoke falhar alto e fechado (DO $gate$, guardas, agregador) está quebrada',
+    ).toEqual([])
   })
 
   /**
