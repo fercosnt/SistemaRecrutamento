@@ -2,11 +2,12 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: Completed 50-11-PLAN.md
-last_updated: "2026-10-06T12:33:40.659Z"
+status: planning
+stopped_at: Phase 50 complete, ready to plan Phase 44
+last_updated: "2026-10-06T12:47:41.793Z"
 last_activity: 2026-10-06
-state_head: 98e65a35e0d39312022d03c82a2db2276f21f5a1
+last_activity_desc: Phase 50 complete, transitioned to Phase 44
+state_head: 50433eeefa008cfd037c4183c0515f367482eaf4
 progress:
   total_phases: 9
   completed_phases: 9
@@ -15,7 +16,6 @@ progress:
   percent: 99
 current_phase: 50
 current_phase_name: Acesso do Recrutador
-last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a ponta, conferência visual com WR-07, aceite do custo residual WR-03), verificação human_needed → passed, 45/45 planos. COVERAGE.md encurtado (reason >200 chars bloqueava o portão api-coverage). Próximo: fechar a verificação das 42, 43, 47 (human_needed) e 44, 46 (gaps_found), depois /gsd-audit-milestone."
 ---
 
 # Project State
@@ -854,6 +854,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | 45 | TBD | - | - |
 | 46 | TBD | - | - |
 | 47 | TBD | - | - |
+| 50 | 11 | - | - |
 
 *Updated after each plan completion.*
 
@@ -1687,7 +1688,7 @@ blocker; todos estão rastreados em arquivo.
 ## Session Continuity
 
 Last session: 2026-10-06T12:33:40.659Z
-Stopped at: Completed 50-11-PLAN.md
+Stopped at: Phase 50 complete, ready to plan Phase 44
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

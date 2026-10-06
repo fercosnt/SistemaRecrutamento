@@ -31,7 +31,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [x] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute (completed 2026-10-04)
 - [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
 - [x] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma (completed 2026-10-03)
-- [ ] **Phase 50: Acesso do Recrutador** - O recrutador cadastrado vê todas as vagas e as filas que dependem delas, em vez da tela vazia do predicado `created_by`
+- [x] **Phase 50: Acesso do Recrutador** - O recrutador cadastrado vê todas as vagas e as filas que dependem delas, em vez da tela vazia do predicado `created_by` (completed 2026-10-06)
 
 ### Ordem de execução, dependências e paralelização
 
@@ -607,7 +607,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 
 **Guardrails**: os do Bloco 1/2 — migrations pelo `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), EFs pelo `efdeploy.cjs`, `git log --oneline origin/main..HEAD` vazio depois de todo apply visível. É mudança de **controle de acesso** (alarga leitura): review bloqueante antes do apply, e prova de que nada abriu para `anon`/candidato (lembrar: views sem `security_invoker` ignoram RLS)
 **Fora de escopo**: associação vaga↔recrutador e qualquer granularidade por vaga; JORN-42..49 (Bloco 3, fase a criar)
-**Plans**: 11/11 plans executed
+**Plans**: 11/11 plans complete
 
 Plans:
 **Wave 1**
@@ -655,7 +655,7 @@ Plans:
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
-| 50. Acesso do Recrutador | v8.0 | 11/11 | In Progress|  |
+| 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
 
 ---
 
