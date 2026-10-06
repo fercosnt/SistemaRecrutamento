@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 50-09-PLAN.md
-last_updated: "2026-10-06T02:35:39.378Z"
-last_activity: 2026-10-05
-state_head: a4d3ab240a8ce14a01e1715f9ba61122b46aa917
+stopped_at: Completed 50-10-PLAN.md
+last_updated: "2026-10-06T04:22:19.134Z"
+last_activity: 2026-10-06
+state_head: 3435743e169847354b3816ac26b36c6c2b8ffeb5
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 134
-  completed_plans: 130
-  percent: 97
+  completed_plans: 131
+  percent: 98
 current_phase: 50
 current_phase_name: Acesso do Recrutador
 last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a ponta, conferência visual com WR-07, aceite do custo residual WR-03), verificação human_needed → passed, 45/45 planos. COVERAGE.md encurtado (reason >200 chars bloqueava o portão api-coverage). Próximo: fechar a verificação das 42, 43, 47 (human_needed) e 44, 46 (gaps_found), depois /gsd-audit-milestone."
@@ -976,6 +976,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 50 P07 | ~45min | 3 tasks | 2 files |
 | Phase 50 P08 | 15 min | 2 tasks | 6 files |
 | Phase 50 P09 | ~25 min | 3 tasks | 7 files |
+| Phase 50 P10 | ~7min (continuação); ~1h32 desde o ACESSO-1 | 3 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -1346,6 +1347,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 50]: 50-09: smokes legados das RPCs (oper31, funil34, p47_historico, p44, p49_44) em pares — rh ATIVO lido de usuarios_rh age/le em qualquer vaga, token velho e sub sem linha recusados; p44 prova D-03 (rh ativo = fila do admin, orfao visivel)
 - [Phase 50]: 50-09: scripts/p50_varredura.cjs — rede de regressao por forma (nomes lidos das 4 migrations; 27 smokes) sem x com a expansao: regressoes=0 investigar=0; sondas so-de-resultado (p48/p49_prontidao) embrulhadas porque saiam verdes vazias no envelope; p49_prova_prod pre-existente (exige prefixo p49.t0)
 - [Phase 50]: 50-09: scripts/p50_vitest_delta.cjs — Vitest por delta contra refs/gsd/50-01/base na mesma execucao (novas=0, mordida=ok); os 2 vermelhos de promessasComExecutor seguem pre-existentes com dono na fila de fecho do M8
+- [Phase 50]: 50-10: 20261005000002..4 aplicadas em PROD pela via do projeto (pin 703613e8 = codigo do reviewed_head 0e671953 do 50-REVIEW-ACESSO-2), ledger md5 = arquivo; D-08 intocado
+- [Phase 50]: 50-10: 5 EFs sem posse publicadas (comparativo v33, get-curriculo-url v6, consolidar v11, gerar-guia v25, avaliar v22), ACTIVE verify_jwt=true; push 9271ba43..743c4fca enumerado
+- [Phase 50]: 50-10: disposicoes do ACESSO-2 pelo orquestrador — WR-01 sem saida (i), WR-02 inconclusivo em reescrito = STOP (medido 0), WR-03 residuo aceito, IN-08 deno test 146/0 antes do deploy
 
 ### Roadmap Evolution
 
@@ -1678,8 +1682,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T02:35:38.887Z
-Stopped at: Completed 50-09-PLAN.md
+Last session: 2026-10-06T04:22:18.639Z
+Stopped at: Completed 50-10-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
