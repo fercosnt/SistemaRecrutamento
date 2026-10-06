@@ -923,6 +923,49 @@ describe('a fronteira dita ao titular (CR-01)', () => {
     expect(frase).not.toContain(afirmacaoAntiga)
     expect(`x ${afirmacaoAntiga} y`).toContain(afirmacaoAntiga)
   })
+
+  // Os controles negativos PERMANENTES do portão (CLAUDE.md §Portões: «um portão que
+  // você tornou incapaz de falhar é pior que o quebrado»). Cada mutação parte do
+  // artefato REAL ou da frase REAL, e antes da mordida prova que mudou algo — uma
+  // mutação que não muda nada faria o controle testar o vazio.
+  it('(cr3) CR-01 · o portão morde: família nova, cláusula retirada, razão sem família, família que saiu do artefato e canal ausente reprovam', () => {
+    const frase = COPY_PEDIR_COPIA.oQueNaoEsta
+    const clonar = (): ArtefatoFronteira => structuredClone(EXPORT_ALLOWLIST) as ArtefatoFronteira
+    const mudouOArtefato = (a: ArtefatoFronteira) => JSON.stringify(a) !== JSON.stringify(EXPORT_ALLOWLIST)
+    const reterNovaColuna = (a: ArtefatoFronteira, coluna: string, razao: string) => {
+      a.tabelas.candidatos.colunas_excluidas = { ...a.tabelas.candidatos.colunas_excluidas, [coluna]: razao }
+    }
+
+    // 1. família nova sintética (um veto futuro com id de decisão que a frase não conhece)
+    const vetoNovo = clonar()
+    reterNovaColuna(vetoNovo, 'sonda_bd99', 'decisoes_por_coluna: BD-99 — sonda do portão')
+    expect(mudouOArtefato(vetoNovo), 'controle BD-99: a mutação não mudou o artefato').toBe(true)
+    expect(lacunasDaFronteira(frase, vetoNovo).familiaSemClausula).toEqual(['BD-99'])
+
+    // 2. a frase real sem a cláusula do motor de exclusão
+    const semMotor = frase.replace(CLAUSULA_POR_FAMILIA['BD-13 (ii)'], '')
+    expect(semMotor, 'controle do motor: a mutação não mudou a frase').not.toBe(frase)
+    expect(lacunasDaFronteira(semMotor, EXPORT_ALLOWLIST).marcadorAusente).toEqual(['BD-13 (ii)'])
+
+    // 3. uma razão que não pertence a família nenhuma
+    const razaoSolta = clonar()
+    reterNovaColuna(razaoSolta, 'sonda_sem_familia', 'decisoes_por_coluna: texto sem família nenhuma')
+    expect(mudouOArtefato(razaoSolta), 'controle sem família: a mutação não mudou o artefato').toBe(true)
+    expect(lacunasDaFronteira(frase, razaoSolta).semFamilia).toEqual(['candidatos.sonda_sem_familia'])
+
+    // 4. uma família que SAIU do artefato (como se o BD-9 fosse decidido a favor da
+    // cópia): a frase passaria a negar a entrega de algo que agora vem.
+    const semJustificativa = clonar()
+    delete semJustificativa.tabelas.decisao_final.colunas_excluidas?.justificativa
+    delete semJustificativa.tabelas.decisao_final_historico.colunas_excluidas?.justificativa
+    expect(mudouOArtefato(semJustificativa), 'controle BD-9: a mutação não mudou o artefato').toBe(true)
+    expect(lacunasDaFronteira(frase, semJustificativa).clausulaOrfa).toEqual(['BD-9'])
+
+    // 5. a frase real sem o canal de privacidade
+    const semCanal = frase.replace(CANAL_PRIVACIDADE_EMAIL, '')
+    expect(semCanal, 'controle do canal: a mutação não mudou a frase').not.toBe(frase)
+    expect(lacunasDaFronteira(semCanal, EXPORT_ALLOWLIST).semCanal).toBe(true)
+  })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
