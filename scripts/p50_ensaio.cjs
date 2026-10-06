@@ -72,7 +72,7 @@
  *                       do 50-REVIEW-TRACER-2)
  *
  * Saída (uma linha):
- *   ENSAIO VERDE: <arquivos> · prefixadas=[…] · aplicadas=[…] · ausentes=[…] · [vistas=… ·]
+ *   ENSAIO VERDE: <arquivos> · prefixadas=[…] · aplicadas=[…] · ausentes=[…] · [vistas=igual[+fechou[<ator>.<rel>,…]]|vacua ·]
  *                 smoke50=p/e · evidencia=<…> · <ms> ms                                    (exit 0)
  *   ENSAIO VERMELHO: <primeira linha FAIL/ERROR>                                           (exit 1)
  *   ENSAIO VERMELHO: P50E RECUSADO (transacao): … (nada enviado)                           (exit 1)
@@ -120,7 +120,7 @@ const PREFIXO =
   // smoke rodado depois do apply): zera as que o veredito lê, para não herdar número alheio.
   "SELECT set_config('smoke50.pass', '', false), set_config('smoke50.esperado', '', false),\n" +
   "       set_config('p50.evidencia', '', false), set_config('p50.vistas', '', false),\n" +
-  "       set_config('p50.vistas_antes', '', false);\n" +
+  "       set_config('p50.vistas_antes', '', false), set_config('p50.vistas_fechou', '', false);\n" +
   // WR-03: um SET TRANSACTION ignorado (aviso, não erro) deixaria o ensaio em READ COMMITTED calado.
   'DO $p50iso$\n' +
   'BEGIN\n' +
@@ -163,15 +163,41 @@ const FIM =
   `  IF NOT (${MESMA_TX}) THEN\n` +
   "    RAISE EXCEPTION 'P50E FAIL (transacao): o corpo commitou no meio — algo PERSISTIU antes deste ponto';\n" +
   '  END IF;\n' +
-  "  RAISE EXCEPTION '% smoke50=% evidencia=%', '" + SENTINELA + "',\n" +
+  "  RAISE EXCEPTION '% smoke50=% fechou=% evidencia=%', '" + SENTINELA + "',\n" +
   "    CASE WHEN coalesce(p, '') = '' OR coalesce(e, '') = '' THEN 'n/a' ELSE p || '/' || e END,\n" +
+  "    coalesce(nullif(current_setting('p50.vistas_fechou', true), ''), '-'),\n" +
   "    coalesce(nullif(current_setting('p50.evidencia', true), ''), '-');\n" +
   'END\n' +
   '$ens$;\n';
 
-/* Sonda de vistas externas (D-12) e a comparação antes × depois na MESMA transação. */
+/*
+ * Sonda de vistas externas (D-12) e a comparação antes × depois na MESMA transação.
+ *
+ * FECHAMENTO (decisão do operador «A», 2026-10-05, no 50-03): a ÚNICA diferença aceita entre as
+ * duas fotografias é um ator externo passar de LEITURA RECUSADA a LEITURA EXATAMENTE VAZIA numa
+ * relação POPULADA — `e:<SQLSTATE>` → `n:0:<md5 de ''>`, com a população como postgres > 0 nas
+ * duas fotografias. Foi o que o 0002 produziu: `anon` avaliava a policy `{public}` (o
+ * `(SELECT …)` dela recusava com 42501); com `TO authenticated` nenhuma policy se aplica a anon e
+ * o default-deny devolve vazio — o mesmo que anon já recebia nas tabelas cujas policies já eram
+ * `{authenticated}`. Nenhuma linha passa a ser vista; o ator só deixou de ver um ERRO.
+ *   · a população > 0 é exigência deste conserto, mais estreita que a decisão: numa relação vazia
+ *     `n:0` não distingue «fechado» de «aberto e sem linhas» (memória «População vazia mente nas
+ *     duas direções») — ali a transição continua REPROVANDO;
+ *   · TODA outra diferença reprova, como antes: terminar com ≥ 1 linha (erro → linhas, vazio →
+ *     linhas), mudar entre dois valores sem erro (n:k:x → n:k:y), vazio → erro, erro → outro
+ *     erro, chave presente de um lado só, ator presente de um lado só — para qualquer ator,
+ *     autenticado ou não (o autenticado também só fecha por erro → vazio);
+ *   · o fechamento é DIRECIONAL: num ensaio reverso (`--mutacao=<desfazer>`) o mesmo fechamento
+ *     aparece como vazio → erro e REPROVA (conservador; nenhum desfazer do 0002 existe hoje);
+ *   · os fechamentos saem na linha de veredito: `vistas=igual+fechou[<ator>.<rel>,…]`, pela GUC
+ *     `p50.vistas_fechou` que o sentinela carrega (`fechou=` na mensagem). Quem conferir a linha
+ *     aceita `vistas=igual` seguido OPCIONALMENTE de `+fechou[…]`, e nada mais.
+ * Este conserto mudou um portão já revisado: está no escopo da revisão bloqueante do 50-10
+ * (50-REVIEW-ACESSO).
+ */
 const SONDA = 'supabase/tests/p50_vistas_externas.sql';
 const GUARDA_ANTES = "\nRESET ROLE;\nSELECT set_config('p50.vistas_antes', current_setting('p50.vistas'), false);\n";
+const VAZIO_MD5 = 'd41d8cd98f00b204e9800998ecf8427e'; /* md5('') — o `n:0:` da sonda */
 const COMPARA =
   '\nRESET ROLE;\n' +
   'DO $vistas_compara$\n' +
@@ -179,21 +205,42 @@ const COMPARA =
   "  a jsonb := nullif(current_setting('p50.vistas_antes', true), '')::jsonb;\n" +
   "  d jsonb := nullif(current_setting('p50.vistas', true), '')::jsonb;\n" +
   '  v_dif text;\n' +
+  '  v_det text;\n' +
+  '  v_fec text;\n' +
   '  v_adm text;\n' +
   'BEGIN\n' +
   '  IF a IS NULL OR d IS NULL THEN\n' +
   "    RAISE EXCEPTION 'P50V FAIL (vistas): fotografia ausente (antes=%, depois=%) — a sonda nao rodou', a IS NOT NULL, d IS NOT NULL;\n" +
   '  END IF;\n' +
-  "  SELECT string_agg(u.ator || '.' || u.rel, ',' ORDER BY u.ator, u.rel) INTO v_dif\n" +
-  '    FROM (\n' +
+  "  IF jsonb_typeof(a -> 'atores') IS DISTINCT FROM 'object' OR jsonb_typeof(d -> 'atores') IS DISTINCT FROM 'object'\n" +
+  "     OR (SELECT coalesce(jsonb_agg(k ORDER BY k), '[]'::jsonb) FROM jsonb_object_keys(a -> 'atores') k)\n" +
+  "        IS DISTINCT FROM (SELECT coalesce(jsonb_agg(k ORDER BY k), '[]'::jsonb) FROM jsonb_object_keys(d -> 'atores') k) THEN\n" +
+  "    RAISE EXCEPTION 'P50V FAIL (vistas): conjunto de atores mudou';\n" +
+  '  END IF;\n' +
+  '  WITH u AS (\n' +
   "      SELECT e.key AS ator, r.key AS rel FROM jsonb_each(a -> 'atores') e, jsonb_each(e.value) r\n" +
   '      UNION\n' +
   "      SELECT e.key, r.key FROM jsonb_each(d -> 'atores') e, jsonb_each(e.value) r\n" +
-  '    ) u\n' +
-  "   WHERE (a -> 'atores' -> u.ator -> u.rel) IS DISTINCT FROM (d -> 'atores' -> u.ator -> u.rel);\n" +
-  "  IF v_dif IS NOT NULL OR (a -> 'atores') IS DISTINCT FROM (d -> 'atores') THEN\n" +
-  "    RAISE EXCEPTION 'P50V FAIL (vistas): %', coalesce(v_dif, 'conjunto de atores mudou');\n" +
+  '    ), x AS (\n' +
+  "      SELECT u.ator, u.rel, a -> 'atores' -> u.ator ->> u.rel AS va, d -> 'atores' -> u.ator ->> u.rel AS vd,\n" +
+  '             coalesce(\n' +
+  "               (a -> 'atores' -> u.ator ->> u.rel) ~ '^e:[0-9A-Z]{5}$'\n" +
+  "               AND (d -> 'atores' -> u.ator ->> u.rel) = 'n:0:" + VAZIO_MD5 + "'\n" +
+  "               AND (a -> 'populacao' ->> u.rel) ~ '^[0-9]+$' AND (a -> 'populacao' ->> u.rel)::bigint > 0\n" +
+  "               AND (d -> 'populacao' ->> u.rel) ~ '^[0-9]+$' AND (d -> 'populacao' ->> u.rel)::bigint > 0,\n" +
+  '               false) AS fechou\n' +
+  '        FROM u\n' +
+  "       WHERE (a -> 'atores' -> u.ator -> u.rel) IS DISTINCT FROM (d -> 'atores' -> u.ator -> u.rel)\n" +
+  '    )\n' +
+  "  SELECT string_agg(x.ator || '.' || x.rel, ',' ORDER BY x.ator, x.rel) FILTER (WHERE NOT x.fechou),\n" +
+  "         string_agg(x.ator || '.' || x.rel || '=' || coalesce(x.va, '(ausente)') || '->' || coalesce(x.vd, '(ausente)'), ' ; ' ORDER BY x.ator, x.rel) FILTER (WHERE NOT x.fechou),\n" +
+  "         string_agg(x.ator || '.' || x.rel, ',' ORDER BY x.ator, x.rel) FILTER (WHERE x.fechou)\n" +
+  '    INTO v_dif, v_det, v_fec\n' +
+  '    FROM x;\n' +
+  '  IF v_dif IS NOT NULL THEN\n' +
+  "    RAISE EXCEPTION 'P50V FAIL (vistas): % (antes->depois: %)', v_dif, v_det;\n" +
   '  END IF;\n' +
+  "  PERFORM set_config('p50.vistas_fechou', coalesce(v_fec, ''), false);\n" +
   "  SELECT string_agg(x.k, ',' ORDER BY x.k) INTO v_adm\n" +
   "    FROM (SELECT 'antes.' || key AS k FROM jsonb_each(a -> 'admin_ve_tudo') WHERE value IS DISTINCT FROM 'true'::jsonb\n" +
   "          UNION ALL\n" +
@@ -207,7 +254,8 @@ const COMPARA =
   'END\n' +
   '$vistas_compara$;\n';
 
-const RE_SENTINELA = new RegExp(SENTINELA + ' smoke50=(\\S+) evidencia=([^"\\\\]*)');
+/* `fechou=` é opcional na leitura só por robustez; o FIM sempre o escreve (`-` = nenhum). */
+const RE_SENTINELA = new RegExp(SENTINELA + ' smoke50=(\\S+)(?: fechou=(\\S+))? evidencia=([^"\\\\]*)');
 
 function versao(arq) {
   return path.basename(arq).slice(0, 14);
@@ -465,7 +513,8 @@ function rodar(corpo, rotulo) {
     serializacao,
     sentinela: !!m,
     smoke50: m ? m[1] : null,
-    evidencia: m ? m[2].trim() : null,
+    fechou: m && m[2] && m[2] !== '-' ? m[2] : null,
+    evidencia: m ? m[3].trim() : null,
   };
 }
 
@@ -568,10 +617,10 @@ function principal() {
     process.exit(1);
   }
   console.log(
-    `ENSAIO VERDE: ${arquivos.join(',') || '-'} · prefixadas=${lista(prefV)} · aplicadas=${lista(plano.aplicadas)} · ausentes=${lista(plano.ausentes)} · ${vistas ? `vistas=${plano.prefixadas.length || mutacaoArq ? 'igual' : 'vacua'} · ` : ''}smoke50=${r.smoke50} · evidencia=${r.evidencia} · ${r.ms} ms`
+    `ENSAIO VERDE: ${arquivos.join(',') || '-'} · prefixadas=${lista(prefV)} · aplicadas=${lista(plano.aplicadas)} · ausentes=${lista(plano.ausentes)} · ${vistas ? `vistas=${plano.prefixadas.length || mutacaoArq ? `igual${r.fechou ? `+fechou[${r.fechou}]` : ''}` : 'vacua'} · ` : ''}smoke50=${r.smoke50} · evidencia=${r.evidencia} · ${r.ms} ms`
   );
 }
 
-module.exports = { compor, rodar, classificarSaida, RE_SERIALIZACAO, planejar, lerEstado, capturar, diferencas, sqlLeitura, primeiraFalha, versao, terminadores, recusarTerminadores, ponto, MIGS, SENTINELA, PREFIXO, FIM, SONDA, ROOT, APPLY };
+module.exports = { compor, rodar, classificarSaida, RE_SERIALIZACAO, RE_SENTINELA, COMPARA, GUARDA_ANTES, VAZIO_MD5, planejar, lerEstado, capturar, diferencas, sqlLeitura, primeiraFalha, versao, terminadores, recusarTerminadores, ponto, MIGS, SENTINELA, PREFIXO, FIM, SONDA, ROOT, APPLY };
 
 if (require.main === module) principal();

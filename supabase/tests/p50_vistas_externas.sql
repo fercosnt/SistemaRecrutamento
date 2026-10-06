@@ -10,7 +10,10 @@
 -- ator vê: `n:<contagem>:<md5 das chaves ordenadas>` ou `e:<SQLSTATE>` (leitura recusada). A
 -- chave é a coluna `id` quando existe, senão `candidatura_id`, senão a linha inteira em texto
 -- (views não têm ctid). O ensaio compara a fotografia de ANTES com a de DEPOIS na mesma
--- transação: qualquer diferença é exposição nova (`P50V FAIL (vistas)`).
+-- transação: qualquer diferença é exposição nova (`P50V FAIL (vistas)`), com UMA exceção decidida
+-- pelo operador («A», 2026-10-05, 50-03): `e:<SQLSTATE>` → `n:0:<md5 de ''>` numa relação com
+-- população > 0 nas duas fotografias é FECHAMENTO (o ator deixou de ver um erro, não passou a
+-- ver linha) e sai como `vistas=igual+fechou[…]` — a regra mora em `COMPARA`, no ensaio.
 --
 -- CONJUNTO DE RELAÇÕES — (1) e (2) por FORMA (iteração do catálogo); (3) é lista literal
 -- DELIBERADA — escopo, não fotografia (casa o padrão de varredura do CLAUDE.md §«Portões»):
