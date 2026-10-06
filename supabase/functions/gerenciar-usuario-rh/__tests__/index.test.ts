@@ -243,6 +243,24 @@ Deno.test("USR-02 — criar: when criar_usuario_rh_com_audit RPC errors, handler
   assertEquals(json.ok, false);
 });
 
+// ── USR-02 temp password vs. the Auth password policy (2026-10-06) ──────────────
+// PROD's GoTrue policy requires lowercase + uppercase + digit. The old temp password
+// (two UUIDs: lowercase hex only) was rejected → every `criar` returned 400. The mock
+// createUser accepts anything, so the policy is asserted on the password it received.
+Deno.test("USR-02 — criar: temp password satisfies the Auth policy (lower + upper + digit, ≥32 chars)", async () => {
+  const { handler } = await loadHandler();
+  for (let i = 0; i < 20; i++) {
+    const supabaseAdmin = makeMockSupabaseAdmin({ rhRow: { role: "administrador" } });
+    const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(ADMIN_USER) };
+    await handler(makeRequest(CRIAR_BODY), deps);
+    const pw = String(supabaseAdmin.createUserCalls[0]?.password ?? "");
+    assert(pw.length >= 32, `temp password too short: ${pw.length}`);
+    assert(/[a-z]/.test(pw), "temp password lacks a lowercase letter");
+    assert(/[A-Z]/.test(pw), "temp password lacks an uppercase letter");
+    assert(/[0-9]/.test(pw), "temp password lacks a digit");
+  }
+});
+
 // ── USR-05 email path: resetPasswordForEmail redirectTo + non-fatal send failure ──
 Deno.test("USR-05 — criar success dispatches resetPasswordForEmail with redirectTo /auth/redefinir-senha?tipo=rh", async () => {
   const { handler } = await loadHandler();

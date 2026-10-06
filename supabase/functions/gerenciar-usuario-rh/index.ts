@@ -314,6 +314,19 @@ export async function handler(req: Request, deps: GerenciarUsuarioRhDeps): Promi
 // ---------------------------------------------------------------------------
 
 /**
+ * Throwaway password for `createUser`. It must pass the project's GoTrue password policy
+ * (lowercase + uppercase + digit). Two concatenated UUIDs did not (lowercase hex only),
+ * and every `criar` failed with 400 in PROD (2026-10-06). 32 random bytes → base64
+ * alphanumerics, plus one random character of each required class.
+ */
+function gerarSenhaTemporaria(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const base = btoa(String.fromCharCode(...bytes)).replace(/[^A-Za-z0-9]/g, "");
+  const pick = (chars: string) => chars[crypto.getRandomValues(new Uint32Array(1))[0] % chars.length];
+  return base + pick("abcdefghijklmnopqrstuvwxyz") + pick("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + pick("0123456789");
+}
+
+/**
  * `criar` (USR-02/USR-05): createUser(temp random pw, email_confirm:true) → the atomic
  * `criar_usuario_rh_com_audit` RPC (compensating deleteUser on RPC failure — no orphan)
  * → a best-effort set-password email (non-fatal on failure).
@@ -326,7 +339,7 @@ async function handleCriar(
   body: { email: string; nome_completo: string; cargo: string; papel: string },
 ): Promise<Response> {
   // (a) createUser — throwaway random password (user sets their own via recovery); NEVER logged.
-  const tempPassword = crypto.randomUUID() + crypto.randomUUID();
+  const tempPassword = gerarSenhaTemporaria();
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email: body.email,
     password: tempPassword,
