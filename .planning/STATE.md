@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 50-03-PLAN.md
-last_updated: "2026-10-06T00:41:00.744Z"
+stopped_at: Completed 50-04-PLAN.md
+last_updated: "2026-10-06T00:55:12.420Z"
 last_activity: 2026-10-05
-state_head: 6980af3d4d768c59006d57541ded23f5241e337d
+state_head: 46a854ad49b8c5ae5fd33a3cd5b46db9ddde39f3
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 134
-  completed_plans: 124
+  completed_plans: 125
   percent: 93
 current_phase: 50
 current_phase_name: Acesso do Recrutador
@@ -970,6 +970,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 50 P01 | 13 min | 3 tasks | 6 files |
 | Phase 50 P02 | 3min | 3 tasks | 0 files |
 | Phase 50 P03 | 35min | 2 tasks | 8 files |
+| Phase 50 P04 | 60min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -1327,6 +1328,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 50]: 50-01: helper is_active_rh_user plpgsql role-agnostico + rh_le_candidaturas TO authenticated, provado em ensaio que aborta (7/7, vistas=igual, 6/6 mutacoes); atores do smoke sem linha de candidato; BORDA vacua (0 mortas) para a review do 50-02
 - [Phase 50]: 50-02: migration 20261005000001 aplicada em PROD (2026-10-05T19:54:38Z) por p46apply migrate do pin 9271ba43, apos 50-REVIEW-TRACER-3 (0 critico); rh ativo sem vaga propria 0 -> 40 candidaturas; vistas externas iguais (antes x depois e ensaio reverso); 11/11 mutacoes mordem; push 587683fc..9271ba43 enumerado; refs/gsd/50-expansao/base = 9271ba43. Pendente antes da onda 3 (disposicao do orquestrador): WR-01/02 runner/smoke; WR-03/05/06 texto do 50-07/50-10/50-VALIDATION. Nunca rodar o smoke por p46apply run.
 - [Phase 50]: 50-03: decisao A do operador (2026-10-05) — COMPARA do --vistas aceita so fechamento e:<sqlstate> -> n:0:<md5 vazio> em relacao populada (pop>0 nas duas fotos), impresso vistas=igual+fechou[...]; 4 fechamentos de anon no 0002; portao revisado mudou -> escopo obrigatorio do 50-REVIEW-ACESSO
+- [Phase 50]: 50-04: funil_kpis v_ve_tudo com coalesce(...,false) — escopo booleano estrito; anon sem EXECUTE (D-04)
+- [Phase 50]: 50-04: as 4 filas tem ramo rh = (v_role='rh' AND is_active_rh_user()), o conjunto do administrador (D-03, orfaos inclusive)
+- [Phase 50]: 50-04: listar_historico_candidatura 42501 do rh inativo com mensagem nova (FORBIDDEN: apenas rh ativo ou administrador ...)
 
 ### Roadmap Evolution
 
@@ -1659,8 +1663,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T00:40:59.639Z
-Stopped at: Completed 50-03-PLAN.md
+Last session: 2026-10-06T00:55:11.919Z
+Stopped at: Completed 50-04-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
