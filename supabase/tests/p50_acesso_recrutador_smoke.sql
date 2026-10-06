@@ -201,7 +201,7 @@ RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);
 SELECT set_config('request.jwt.claim.sub', '', false);
 SELECT set_config('smoke50.pass', '0', false);
-SELECT set_config('smoke50.esperado', '7', false);
+SELECT set_config('smoke50.esperado', '13', false);
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -322,8 +322,67 @@ BEGIN
   PERFORM set_config('smoke50.z_cand',  (SELECT count(*) FROM public.candidaturas)::text, false);
   PERFORM set_config('smoke50.z_vagas', (SELECT count(*) FROM public.vagas)::text, false);
   PERFORM set_config('smoke50.z_urh',   (SELECT count(*) FROM public.usuarios_rh)::text, false);
+  PERFORM set_config('smoke50.z_solic', (SELECT count(*) FROM public.solicitacoes_dados)::text, false);
+  PERFORM set_config('smoke50.z_df',    (SELECT count(*) FROM public.decisao_final)::text, false);
+
+  -- (h) claim `visualizador` com a MESMA linha ativa de a_ativo (difere do positivo só no claim).
+  PERFORM set_config('smoke50.a_visualizador', v_ativo::text, false);
+  -- as candidaturas de a_cand (para «0 linhas cuja candidatura não é dele» em (h)).
+  PERFORM set_config('smoke50.cand_cids', coalesce((SELECT string_agg(c.id::text, ',' ORDER BY c.id)
+                                            FROM public.candidaturas c
+                                           WHERE c.candidato_id = ANY (string_to_array(v_cand_ids, ',')::uuid[])), ''), false);
+
+  -- (g)/(h) CONJUNTO DE RELAÇÕES POR FORMA — sem lista literal. Toda tabela (qualquer schema) com
+  -- policy cujo qual/with_check chama `is_active_rh_user` OU traz a forma de igualdade
+  -- `= 'rh'::text` (a forma antiga, de posse, também a tem: uma policy revertida à posse continua
+  -- no conjunto e é medida), mais `public.v_analises_presas` (escopo deliberado: a view que o
+  -- D-05 pôs em security_invoker). Forma por relação, lida do qual das policies SELECT/ALL do
+  -- conjunto: B = o ramo cita `candidatura_id` (filhas de candidatura VIVA); A_viva = cita
+  -- `deleted_at`/`is_rascunho` da própria linha (candidaturas); A = nenhum dos dois (todas as
+  -- linhas). População como postgres: B = linhas cuja candidatura é viva; A_viva = linhas vivas;
+  -- A = todas. A view entra como B (ela expõe `candidatura_id`).
+  PERFORM set_config('smoke50.rels', coalesce((
+    WITH pol AS (
+      SELECT p.schemaname AS sch, p.tablename AS tab, p.cmd AS cmd, coalesce(p.qual, '') AS q
+        FROM pg_catalog.pg_policies p
+       WHERE (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) ~ 'is_active_rh_user|= ''rh''::text'
+    ), rel AS (
+      SELECT sch, tab,
+             CASE WHEN coalesce(bool_or(q ~ 'candidatura_id') FILTER (WHERE cmd IN ('SELECT', 'ALL')), false) THEN 'B'
+                  WHEN coalesce(bool_or(q ~ 'deleted_at|is_rascunho') FILTER (WHERE cmd IN ('SELECT', 'ALL')), false) THEN 'A_viva'
+                  ELSE 'A' END AS forma
+        FROM pol GROUP BY sch, tab
+      UNION
+      SELECT 'public', 'v_analises_presas', 'B'
+    )
+    SELECT jsonb_agg(jsonb_build_object('s', sch, 't', tab, 'forma', forma) ORDER BY sch, tab)::text FROM rel), '[]'), false);
 END
 $baseline$;
+
+-- População REAL (antes de qualquer semente) de cada relação do conjunto — impressa no JSON e
+-- na evidência; a de (g)/(h) é re-medida depois de semear.
+RESET ROLE;
+DO $baseline_pop$
+DECLARE
+  r     jsonb;
+  v_n   bigint;
+  v_out jsonb := '[]';
+BEGIN
+  FOR r IN SELECT * FROM jsonb_array_elements(current_setting('smoke50.rels')::jsonb) LOOP
+    EXECUTE format(
+      CASE r ->> 'forma'
+        WHEN 'B'      THEN 'SELECT count(*) FROM %I.%I t WHERE t.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.deleted_at IS NULL AND c.is_rascunho = false)'
+        WHEN 'A_viva' THEN 'SELECT count(*) FROM %I.%I t WHERE t.deleted_at IS NULL AND t.is_rascunho = false'
+        ELSE               'SELECT count(*) FROM %I.%I t'
+      END, r ->> 's', r ->> 't') INTO v_n;
+    v_out := v_out || jsonb_build_array(r || jsonb_build_object('pop', v_n));
+  END LOOP;
+  IF jsonb_array_length(v_out) < 2 THEN
+    RAISE EXCEPTION 'P50C FAIL (baseline): o conjunto de relacoes por forma tem % relacao(oes) — sem as policies do rh no catalogo (g)/(h) seriam vacuas', jsonb_array_length(v_out);
+  END IF;
+  PERFORM set_config('smoke50.rels', v_out::text, false);
+END
+$baseline_pop$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -877,6 +936,472 @@ $f$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- (g) SC1 nas relações-filhas — rh ativo vê, em CADA relação do conjunto por forma, exatamente
+--     a população como postgres. População 0 é SEMEADA dentro do envelope (ou listada em
+--     `vacuos`, com o motivo) — nunca contada calada como prova.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $g$
+DECLARE
+  v_ativo  uuid   := current_setting('smoke50.a_ativo')::uuid;
+  v_candid uuid[] := string_to_array(current_setting('smoke50.cand_ids'), ',')::uuid[];
+  v_rels   jsonb  := current_setting('smoke50.rels')::jsonb;
+  r        jsonb;
+  v_nome   text;
+  v_err    text;
+  v_ran    boolean := false;
+  v_n      bigint;
+  v_rc     int;
+  v_seed   uuid;
+  v_pop    jsonb  := '{}';
+  v_vis    jsonb  := '{}';
+  v_sem    text[] := '{}';
+  v_vac    text[] := '{}';
+  v_ev     text;
+  g_rot    text[] := '{}';
+BEGIN
+  BEGIN
+    -- Semente, como postgres, para cada relação de população 0. Receita só para a view
+    -- `v_analises_presas` (a definição dela, lida de `pg_get_viewdef`: candidatura viva de vaga
+    -- ativa/rascunho, fora de finalizado/rejeitado, com análise `pendente` parada há > 10 min):
+    -- uma análise `sucesso` antiga de um candidato que NÃO é a_cand vira `pendente` (sem trigger
+    -- em analise_candidato_vaga — medido em 2026-10-05). As outras relações sem receita entram em
+    -- `vacuos` com o motivo.
+    FOR r IN SELECT * FROM jsonb_array_elements(v_rels) LOOP
+      v_nome := CASE WHEN r ->> 's' = 'public' THEN r ->> 't' ELSE (r ->> 's') || '.' || (r ->> 't') END;
+      CONTINUE WHEN (r ->> 'pop')::bigint > 0;
+      IF v_nome = 'v_analises_presas' THEN
+        v_seed := NULL;
+        SELECT a.id INTO v_seed
+          FROM public.analise_candidato_vaga a
+          JOIN public.candidaturas c ON c.id = a.candidatura_id
+          JOIN public.vagas v ON v.id = c.vaga_id
+         WHERE c.deleted_at IS NULL AND c.is_rascunho = false AND v.deleted_at IS NULL
+           AND v.status IN ('ativa', 'rascunho') AND c.status NOT IN ('finalizado', 'rejeitado')
+           AND a.updated_at < now() - interval '1 hour'
+           AND NOT (c.candidato_id = ANY (v_candid))
+         ORDER BY a.id LIMIT 1;
+        IF v_seed IS NULL THEN
+          v_vac := v_vac || (v_nome || ':nenhuma analise elegivel para semear');
+        ELSE
+          UPDATE public.analise_candidato_vaga SET status = 'pendente' WHERE id = v_seed;
+          GET DIAGNOSTICS v_rc = ROW_COUNT;
+          IF v_rc <> 1 THEN RAISE EXCEPTION 'semear v_analises_presas atingiu % linha(s), esperado 1', v_rc; END IF;
+          v_sem := v_sem || v_nome;
+        END IF;
+      ELSE
+        v_vac := v_vac || (v_nome || ':sem receita de semeadura');
+      END IF;
+    END LOOP;
+
+    -- População DEPOIS de semear, como postgres.
+    FOR r IN SELECT * FROM jsonb_array_elements(v_rels) LOOP
+      v_nome := CASE WHEN r ->> 's' = 'public' THEN r ->> 't' ELSE (r ->> 's') || '.' || (r ->> 't') END;
+      EXECUTE format(
+        CASE r ->> 'forma'
+          WHEN 'B'      THEN 'SELECT count(*) FROM %I.%I t WHERE t.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.deleted_at IS NULL AND c.is_rascunho = false)'
+          WHEN 'A_viva' THEN 'SELECT count(*) FROM %I.%I t WHERE t.deleted_at IS NULL AND t.is_rascunho = false'
+          ELSE               'SELECT count(*) FROM %I.%I t'
+        END, r ->> 's', r ->> 't') INTO v_n;
+      v_pop := v_pop || jsonb_build_object(v_nome, v_n::text);
+      IF v_n = 0 AND NOT (v_nome = ANY (v_sem)) AND NOT EXISTS (SELECT 1 FROM unnest(v_vac) x WHERE x LIKE v_nome || ':%') THEN
+        v_vac := v_vac || (v_nome || ':semente nao pegou');
+      END IF;
+    END LOOP;
+
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    FOR r IN SELECT * FROM jsonb_array_elements(v_rels) LOOP
+      v_nome := CASE WHEN r ->> 's' = 'public' THEN r ->> 't' ELSE (r ->> 's') || '.' || (r ->> 't') END;
+      BEGIN
+        EXECUTE format('SELECT count(*) FROM %I.%I', r ->> 's', r ->> 't') INTO v_n;
+        v_vis := v_vis || jsonb_build_object(v_nome, v_n::text);
+      EXCEPTION WHEN OTHERS THEN v_vis := v_vis || jsonb_build_object(v_nome, SQLSTATE || ':' || left(SQLERRM, 80));
+      END;
+    END LOOP;
+    RESET ROLE;
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P50C1';
+  EXCEPTION
+    WHEN SQLSTATE 'P50C1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P50C FAIL (g): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+
+  SELECT array_agg(k ORDER BY k) INTO g_rot
+    FROM jsonb_object_keys(v_pop) k
+   WHERE (v_vis ->> k) IS DISTINCT FROM (v_pop ->> k);
+  g_rot := coalesce(g_rot, '{}');
+
+  -- Evidência (a requisição aborta: só sai pela GUC que o sentinela carrega). Sem dado pessoal.
+  SELECT string_agg(
+           (CASE WHEN x ->> 's' = 'public' THEN x ->> 't' ELSE (x ->> 's') || '.' || (x ->> 't') END)
+           || ':' || (x ->> 'forma') || ':' || (x ->> 'pop') || '>'
+           || (v_pop ->> (CASE WHEN x ->> 's' = 'public' THEN x ->> 't' ELSE (x ->> 's') || '.' || (x ->> 't') END)),
+           ',' ORDER BY x ->> 's', x ->> 't')
+    INTO v_ev FROM jsonb_array_elements(v_rels) x;
+  PERFORM set_config('p50.evidencia', concat_ws(';', nullif(current_setting('p50.evidencia', true), ''),
+            '07:pop=' || coalesce(v_ev, '-'),
+            '07:semeadas=' || coalesce(nullif(array_to_string(v_sem, ','), ''), '-'),
+            '07:vacuos=' || coalesce(nullif(array_to_string(v_vac, ','), ''), '-')), false);
+  PERFORM set_config('smoke50.g_pop', v_pop::text, false);
+  PERFORM set_config('smoke50.g_vis', v_vis::text, false);
+  PERFORM set_config('smoke50.semeadas', to_jsonb(v_sem)::text, false);
+  PERFORM set_config('smoke50.vacuos', to_jsonb(v_vac)::text, false);
+
+  IF cardinality(g_rot) > 0 THEN
+    RAISE EXCEPTION 'P50C FAIL (g): [%]: rh ativo sem vaga propria (%) viu %, populacao como postgres (depois de semear) % ; vacuos=% (D-01: cada relacao do conjunto por forma, igual a populacao; sob o snapshot unico do ensaio a diferenca e da POLICY, nao de trafego)',
+      array_to_string(g_rot, ','), v_ativo, v_vis, v_pop, v_vac;
+  END IF;
+  PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
+END
+$g$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (h) SC2 nas relações — token antigo (das duas linhas inativas), claim `visualizador` com a linha
+--     ativa e candidato: nada que não seja dele, com o rh ativo da MESMA execução como controle.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $h$
+DECLARE
+  v_ativo   uuid   := current_setting('smoke50.a_ativo')::uuid;
+  v_inativo uuid   := current_setting('smoke50.a_inativo')::uuid;
+  v_inat_mp uuid   := current_setting('smoke50.a_inativo_mp')::uuid;
+  v_visual  uuid   := current_setting('smoke50.a_visualizador')::uuid;
+  v_cand    uuid   := current_setting('smoke50.a_cand')::uuid;
+  v_candid  uuid[] := string_to_array(current_setting('smoke50.cand_ids'), ',')::uuid[];
+  v_cids    uuid[] := coalesce(string_to_array(nullif(current_setting('smoke50.cand_cids'), ''), ',')::uuid[], '{}');
+  v_rels    jsonb  := current_setting('smoke50.rels')::jsonb;
+  r         jsonb;
+  a         text;
+  v_nome    text;
+  v_sql     text;
+  v_err     text;
+  v_ran     boolean := false;
+  v_n       bigint;
+  v_rc      int;
+  v_seed    uuid;
+  v_pop     jsonb  := '{}';
+  v_res     jsonb  := '{}';
+  h_rot     text[] := '{}';
+BEGIN
+  BEGIN
+    -- MESMA semente de (g) (cada cláusula é seu próprio envelope).
+    FOR r IN SELECT * FROM jsonb_array_elements(v_rels) LOOP
+      v_nome := CASE WHEN r ->> 's' = 'public' THEN r ->> 't' ELSE (r ->> 's') || '.' || (r ->> 't') END;
+      CONTINUE WHEN (r ->> 'pop')::bigint > 0 OR v_nome <> 'v_analises_presas';
+      v_seed := NULL;
+      SELECT a2.id INTO v_seed
+        FROM public.analise_candidato_vaga a2
+        JOIN public.candidaturas c ON c.id = a2.candidatura_id
+        JOIN public.vagas v ON v.id = c.vaga_id
+       WHERE c.deleted_at IS NULL AND c.is_rascunho = false AND v.deleted_at IS NULL
+         AND v.status IN ('ativa', 'rascunho') AND c.status NOT IN ('finalizado', 'rejeitado')
+         AND a2.updated_at < now() - interval '1 hour'
+         AND NOT (c.candidato_id = ANY (v_candid))
+       ORDER BY a2.id LIMIT 1;
+      IF v_seed IS NOT NULL THEN
+        UPDATE public.analise_candidato_vaga SET status = 'pendente' WHERE id = v_seed;
+        GET DIAGNOSTICS v_rc = ROW_COUNT;
+        IF v_rc <> 1 THEN RAISE EXCEPTION 'semear v_analises_presas atingiu % linha(s), esperado 1', v_rc; END IF;
+      END IF;
+    END LOOP;
+    FOR r IN SELECT * FROM jsonb_array_elements(v_rels) LOOP
+      v_nome := CASE WHEN r ->> 's' = 'public' THEN r ->> 't' ELSE (r ->> 's') || '.' || (r ->> 't') END;
+      EXECUTE format(
+        CASE r ->> 'forma'
+          WHEN 'B'      THEN 'SELECT count(*) FROM %I.%I t WHERE t.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.deleted_at IS NULL AND c.is_rascunho = false)'
+          WHEN 'A_viva' THEN 'SELECT count(*) FROM %I.%I t WHERE t.deleted_at IS NULL AND t.is_rascunho = false'
+          ELSE               'SELECT count(*) FROM %I.%I t'
+        END, r ->> 's', r ->> 't') INTO v_n;
+      v_pop := v_pop || jsonb_build_object(v_nome, v_n::text);
+    END LOOP;
+
+    FOREACH a IN ARRAY ARRAY['c_ativo', 'velho', 'velho_mp', 'visualizador', 'candidato'] LOOP
+      SET LOCAL ROLE authenticated;
+      PERFORM set_config('request.jwt.claims', json_build_object(
+                'sub', (CASE a WHEN 'c_ativo' THEN v_ativo WHEN 'velho' THEN v_inativo WHEN 'velho_mp' THEN v_inat_mp
+                               WHEN 'visualizador' THEN v_visual ELSE v_cand END)::text,
+                'role', 'authenticated',
+                'app_metadata', json_build_object('role', CASE a WHEN 'visualizador' THEN 'visualizador'
+                                                               WHEN 'candidato' THEN 'candidato' ELSE 'rh' END))::text, true);
+      FOR r IN SELECT * FROM jsonb_array_elements(v_rels) LOOP
+        v_nome := CASE WHEN r ->> 's' = 'public' THEN r ->> 't' ELSE (r ->> 's') || '.' || (r ->> 't') END;
+        -- candidato: só as linhas cuja candidatura NÃO é dele (as próprias são direito dele).
+        v_sql := CASE
+          WHEN a <> 'candidato' THEN format('SELECT count(*) FROM %I.%I t', r ->> 's', r ->> 't')
+          WHEN r ->> 's' = 'public' AND r ->> 't' = 'candidaturas'
+            THEN 'SELECT count(*) FROM public.candidaturas t WHERE NOT (t.id = ANY ($1))'
+          WHEN EXISTS (SELECT 1 FROM pg_catalog.pg_attribute pa
+                        WHERE pa.attrelid = format('%I.%I', r ->> 's', r ->> 't')::regclass
+                          AND pa.attname = 'candidatura_id' AND pa.attnum > 0 AND NOT pa.attisdropped)
+            THEN format('SELECT count(*) FROM %I.%I t WHERE t.candidatura_id IS NULL OR NOT (t.candidatura_id = ANY ($1))', r ->> 's', r ->> 't')
+          ELSE format('SELECT count(*) FROM %I.%I t', r ->> 's', r ->> 't')
+        END;
+        BEGIN
+          EXECUTE v_sql INTO v_n USING v_cids;
+          v_res := v_res || jsonb_build_object(a || '.' || v_nome, v_n::text);
+        EXCEPTION WHEN OTHERS THEN v_res := v_res || jsonb_build_object(a || '.' || v_nome, SQLSTATE || ':' || left(SQLERRM, 80));
+        END;
+      END LOOP;
+      RESET ROLE;
+    END LOOP;
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P50C1';
+  EXCEPTION
+    WHEN SQLSTATE 'P50C1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P50C FAIL (h): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+
+  -- Controle (c_ativo = população, como em (g)) e negativas (0 exato; erro também reprova —
+  -- uma negativa que «passa» por erro passa pelo motivo errado).
+  SELECT array_agg(x.k ORDER BY x.k) INTO h_rot
+    FROM (SELECT key AS k, value #>> '{}' AS v FROM jsonb_each(v_res)) x
+   WHERE (x.k LIKE 'c_ativo.%' AND x.v IS DISTINCT FROM (v_pop ->> substr(x.k, length('c_ativo.') + 1)))
+      OR (x.k NOT LIKE 'c_ativo.%' AND x.v IS DISTINCT FROM '0');
+  h_rot := coalesce(h_rot, '{}');
+  IF cardinality(h_rot) > 0 THEN
+    RAISE EXCEPTION 'P50C FAIL (h): [%]: vistas por ator.relacao % ; populacao %. (esperado: c_ativo = populacao; velho, velho_mp, visualizador = 0; candidato = 0 linhas cuja candidatura nao e dele. rotulo c_* = controle vacuo)',
+      array_to_string(h_rot, ','), v_res, v_pop;
+  END IF;
+  PERFORM set_config('smoke50.h_res', v_res::text, false);
+  PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
+END
+$h$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (i) SC2 e D-04 em CADA RPC do conjunto por forma — token antigo, sem papel, candidato e anon
+--     recusados; o rh ativo da MESMA execução passa da autorização (controle).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $i$
+DECLARE
+  v_ativo   uuid   := current_setting('smoke50.a_ativo')::uuid;
+  v_inativo uuid   := current_setting('smoke50.a_inativo')::uuid;
+  v_inat_mp uuid   := current_setting('smoke50.a_inativo_mp')::uuid;
+  v_cand    uuid   := current_setting('smoke50.a_cand')::uuid;
+  v_candid  uuid[] := string_to_array(current_setting('smoke50.cand_ids'), ',')::uuid[];
+  c_just    constant text := 'Sonda de autorizacao do smoke p50 (ensaio que aborta): nada aqui persiste nem e decisao real.';
+  v_cid     uuid;
+  v_ea      uuid;
+  v_red     uuid;
+  v_perg    uuid;
+  v_vperg   uuid;
+  v_map     jsonb;
+  v_set     jsonb  := '[]';
+  r         record;
+  e         jsonb;
+  a         text;
+  v_sub     uuid;
+  v_papel   text;
+  v_res     text;
+  v_out     jsonb  := '{}';
+  v_anonp   jsonb  := '{}';
+  v_err     text;
+  v_ran     boolean := false;
+  v_rc      int;
+  v_tok     text;
+  v_ev_a    text;
+  v_ev_c    text;
+  i_rot     text[] := '{}';
+BEGIN
+  -- Ids reais, lidos na execução (como postgres): uma candidatura VIVA cujo candidato NÃO é a_cand,
+  -- com análise de entrevista (o id dela serve às assinaturas que pedem `p_analise_id`) e sem
+  -- decisão revertida do próprio a_ativo (D-23 faria o controle positivo reprovar por OUTRA regra);
+  -- uma redação de candidato que não é a_cand; uma pergunta de OUTRA vaga, que vira rascunho
+  -- dentro do envelope (upsert_pergunta_opcoes_metadata recusa vaga fora de rascunho com P0001
+  -- ANTES da linha do helper — sem isso o token antigo «passaria» pelo motivo errado).
+  SELECT ea.candidatura_id, ea.id INTO v_cid, v_ea
+    FROM public.entrevista_analises ea
+    JOIN public.candidaturas c ON c.id = ea.candidatura_id
+   WHERE c.deleted_at IS NULL AND c.is_rascunho = false
+     AND NOT (c.candidato_id = ANY (v_candid))
+     AND NOT EXISTS (SELECT 1 FROM public.decisao_final d
+                      WHERE d.candidatura_id = c.id AND d.revisao_veredito = 'revertida' AND d.por_usuario = v_ativo)
+     AND NOT EXISTS (SELECT 1 FROM public.decisao_final_historico h
+                      WHERE h.candidatura_id = c.id AND h.revisao_veredito = 'revertida' AND h.por_usuario = v_ativo)
+   ORDER BY ea.id LIMIT 1;
+  SELECT rc.id INTO v_red
+    FROM public.redacoes_candidato rc
+    JOIN public.candidaturas c ON c.id = rc.candidatura_id
+   WHERE NOT (c.candidato_id = ANY (v_candid))
+   ORDER BY rc.id LIMIT 1;
+  SELECT p.id, p.vaga_id INTO v_perg, v_vperg
+    FROM public.perguntas_formulario p
+    JOIN public.vagas v ON v.id = p.vaga_id
+   WHERE p.deleted_at IS NULL AND v.deleted_at IS NULL
+     AND v.id IS DISTINCT FROM (SELECT c.vaga_id FROM public.candidaturas c WHERE c.id = v_cid)
+   ORDER BY p.id LIMIT 1;
+  IF v_cid IS NULL OR v_ea IS NULL OR v_red IS NULL OR v_perg IS NULL THEN
+    RAISE EXCEPTION 'P50C FAIL (i): sem fixture para as sondas — candidatura com analise de entrevista=% redacao=% pergunta=% (cada uma tem de existir; sem elas a clausula seria vacua)',
+      v_cid IS NOT NULL, v_red IS NOT NULL, v_perg IS NOT NULL;
+  END IF;
+
+  -- MAPA DE ARGUMENTOS — escopo DELIBERADO, uma entrada por função (`proname/nargs`), com o TIPO
+  -- (`leitura` devolve linhas, contagem, KPIs, histórico ou texto; `escrita` grava) e se a função
+  -- tem GUARDA DE PAPEL. Tem de cobrir o conjunto por forma (senão `sem_sonda:<f>`); uma entrada
+  -- do mapa que saiu do conjunto (perdeu o helper) continua sondada.
+  v_map := jsonb_build_object(
+    'listar_pedidos_dados/1',          jsonb_build_object('tipo', 'leitura', 'guarda', true,  'sql', 'SELECT ''n:'' || count(*) FROM public.listar_pedidos_dados(true)'),
+    'contar_pedidos_dados_pendentes/0',jsonb_build_object('tipo', 'leitura', 'guarda', true,  'sql', 'SELECT ''i:'' || public.contar_pedidos_dados_pendentes()'),
+    'listar_revisoes_decisao/1',       jsonb_build_object('tipo', 'leitura', 'guarda', true,  'sql', 'SELECT ''n:'' || count(*) FROM public.listar_revisoes_decisao(true)'),
+    'contar_revisoes_pendentes/0',     jsonb_build_object('tipo', 'leitura', 'guarda', true,  'sql', 'SELECT ''i:'' || public.contar_revisoes_pendentes()'),
+    'funil_kpis/1',                    jsonb_build_object('tipo', 'leitura', 'guarda', false, 'sql',
+        'SELECT CASE WHEN coalesce((k -> ''knockout_rate'' ->> ''total'')::int, 0) = 0 AND k -> ''volume_by_stage'' = ''{}''::jsonb'
+        || ' AND k -> ''conversion_stage_to_stage'' = ''[]''::jsonb AND k -> ''median_time_per_stage'' = ''{}''::jsonb'
+        || ' THEN ''kpis:vazio'' ELSE ''kpis:cheio'' END FROM (SELECT public.funil_kpis(NULL::uuid) AS k) x'),
+    'listar_historico_candidatura/1',  jsonb_build_object('tipo', 'leitura', 'guarda', true,  'sql', format('SELECT ''n:'' || count(*) FROM public.listar_historico_candidatura(%L::uuid)', v_cid)),
+    'ler_resposta_caso_aberto_sjt/1',  jsonb_build_object('tipo', 'leitura', 'guarda', true,  'sql', format('SELECT ''j:'' || coalesce(public.ler_resposta_caso_aberto_sjt(%L::uuid) ->> ''situacao'', ''?'')', v_cid)),
+    'registrar_decisao/3',             jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM public.registrar_decisao(%L::uuid, ''em_espera''::public.decisao_final_resultado, %L)', v_cid, c_just)),
+    'rejeitar_candidatura/3',          jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.rejeitar_candidatura(%L::uuid, ''outro''::public.motivo_rejeicao_rh, %L)) x', v_cid, c_just)),
+    'liberar_cognitivo/2',             jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.liberar_cognitivo(%L::uuid, NULL)) x', v_cid)),
+    'revogar_cognitivo/2',             jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.revogar_cognitivo(%L::uuid, NULL)) x', v_cid)),
+    'reprocessar_analise/1',           jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.reprocessar_analise(%L::uuid)) x', v_cid)),
+    'confirmar_revisao_entrevista/1',  jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.confirmar_revisao_entrevista(%L::uuid)) x', v_ea)),
+    'salvar_avaliacao_entrevista/3',   jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.salvar_avaliacao_entrevista(%L::uuid, ''{}''::jsonb, %L)) x', v_cid, c_just)),
+    'salvar_avaliacao_entrevista/4',   jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.salvar_avaliacao_entrevista(%L::uuid, %L::uuid, ''{}''::jsonb, %L)) x', v_cid, v_ea, c_just)),
+    'save_entrevista_guia_edits/3',    jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.save_entrevista_guia_edits(%L::uuid, ''online'', ''{}''::jsonb)) x', v_cid)),
+    'salvar_revisao_redacao/4',        jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.salvar_revisao_redacao(%L::uuid, ''aprovada'', %L, ''{}''::jsonb)) x', v_red, c_just)),
+    'upsert_pergunta_opcoes_metadata/2', jsonb_build_object('tipo', 'escrita', 'guarda', true, 'sql', format('SELECT ''ok'' FROM (SELECT public.upsert_pergunta_opcoes_metadata(%L::uuid, ''[]''::jsonb)) x', v_perg))
+  );
+
+  -- CONJUNTO POR FORMA: funções de `public` que chamam o helper ou trazem a forma do ramo rh
+  -- (`v_role = 'rh'`), sem o próprio helper; mais as entradas do mapa que existem.
+  SELECT coalesce(jsonb_agg(jsonb_build_object('k', x.k, 'oid', x.oid::bigint, 'forma', x.forma) ORDER BY x.k), '[]')
+    INTO v_set
+    FROM (SELECT p.proname || '/' || p.pronargs AS k, p.oid,
+                 (p.prosrc ~ 'is_active_rh_user' OR p.prosrc ~ 'v_role\s*=\s*''rh''') AS forma
+            FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+           WHERE n.nspname = 'public' AND p.proname <> 'is_active_rh_user'
+             AND (p.prosrc ~ 'is_active_rh_user' OR p.prosrc ~ 'v_role\s*=\s*''rh'''
+                  OR (p.proname || '/' || p.pronargs) IN (SELECT jsonb_object_keys(v_map)))) x;
+  FOR e IN SELECT * FROM jsonb_array_elements(v_set) LOOP
+    IF NOT v_map ? (e ->> 'k') THEN i_rot := i_rot || ('sem_sonda:' || (e ->> 'k')); END IF;
+    v_anonp := v_anonp || jsonb_build_object(e ->> 'k', has_function_privilege('anon', (e ->> 'oid')::oid, 'EXECUTE'));
+  END LOOP;
+
+  BEGIN
+    UPDATE public.vagas SET status = 'rascunho' WHERE id = v_vperg;
+    GET DIAGNOSTICS v_rc = ROW_COUNT;
+    IF v_rc <> 1 THEN RAISE EXCEPTION 'vaga da pergunta para rascunho atingiu % linha(s), esperado 1', v_rc; END IF;
+
+    FOR e IN SELECT * FROM jsonb_array_elements(v_set) LOOP
+      CONTINUE WHEN NOT v_map ? (e ->> 'k');
+      FOREACH a IN ARRAY ARRAY['ativo', 'velho', 'velho_mp', 'sem_papel', 'candidato', 'anon'] LOOP
+        -- sem_papel: `sub` VÁLIDO (o de a_cand, usuário real sem linha usuarios_rh) e SEM
+        -- `app_metadata.role` — a guarda de papel tem de recusar pelo `coalesce`, não pelo sub.
+        v_sub := CASE a WHEN 'ativo' THEN v_ativo WHEN 'velho' THEN v_inativo WHEN 'velho_mp' THEN v_inat_mp ELSE v_cand END;
+        v_papel := CASE a WHEN 'candidato' THEN 'candidato' WHEN 'sem_papel' THEN NULL ELSE 'rh' END;
+        -- Cada chamada no SEU bloco, que SEMPRE desfaz (P50C2 carrega o resultado): a escrita de
+        -- um controle positivo não contamina a sonda seguinte. SET LOCAL/claims locais também voltam.
+        BEGIN
+          IF a = 'anon' THEN
+            SET LOCAL ROLE anon;
+            PERFORM set_config('request.jwt.claims', '', true);
+          ELSE
+            SET LOCAL ROLE authenticated;
+            PERFORM set_config('request.jwt.claims', json_build_object('sub', v_sub::text, 'role', 'authenticated',
+                      'app_metadata', CASE WHEN v_papel IS NULL THEN json_build_object()
+                                           ELSE json_build_object('role', v_papel) END)::text, true);
+          END IF;
+          EXECUTE v_map -> (e ->> 'k') ->> 'sql' INTO v_res;
+          RAISE EXCEPTION '%', coalesce(v_res, 'null') USING ERRCODE = 'P50C2';
+        EXCEPTION
+          WHEN SQLSTATE 'P50C2' THEN v_res := SQLERRM;
+          WHEN OTHERS THEN v_res := 'e:' || SQLSTATE || ':' || left(SQLERRM, 60);
+        END;
+        RESET ROLE;
+        v_out := v_out || jsonb_build_object(a || '.' || (e ->> 'k'), v_res);
+      END LOOP;
+    END LOOP;
+    PERFORM set_config('request.jwt.claims', '', true);
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P50C1';
+  EXCEPTION
+    WHEN SQLSTATE 'P50C1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P50C FAIL (i): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  -- Um 40001 numa sonda é tráfego (escrita concorrente depois do snapshot), não autorização:
+  -- reprovar como INESPERADO (40001: …) para os runners o classificarem como INCONCLUSIVO.
+  SELECT string_agg(key, ',') INTO v_tok FROM jsonb_each_text(v_out) WHERE value LIKE 'e:40001:%';
+  IF v_tok IS NOT NULL THEN
+    RAISE EXCEPTION 'P50C FAIL (i): a subtransacao abortou por erro INESPERADO (40001: could not serialize access em %) — nada foi julgado', v_tok;
+  END IF;
+
+  FOR e IN SELECT * FROM jsonb_array_elements(v_set) LOOP
+    CONTINUE WHEN NOT v_map ? (e ->> 'k');
+    DECLARE
+      k      text    := e ->> 'k';
+      leit   boolean := (v_map -> k ->> 'tipo') = 'leitura';
+      guarda boolean := (v_map -> k ->> 'guarda')::boolean;
+      vazio  text[]  := ARRAY['n:0', 'i:0', 'kpis:vazio'];
+      x      text;
+    BEGIN
+      -- controle: o rh ativo passa da autorização (sucesso ou erro de negócio, nunca 42501); nos
+      -- KPIs, vê o funil (não vazio — 40 candidaturas vivas).
+      x := coalesce(v_out ->> ('ativo.' || k), '<ausente>');
+      IF x LIKE 'e:42501:%' OR (k = 'funil_kpis/1' AND x IS DISTINCT FROM 'kpis:cheio') THEN i_rot := i_rot || ('ativo.' || k); END IF;
+      -- token antigo (as duas linhas inativas): 42501; leitura admite vazio, nunca >= 1.
+      FOREACH a IN ARRAY ARRAY['velho', 'velho_mp'] LOOP
+        x := coalesce(v_out ->> (a || '.' || k), '<ausente>');
+        IF NOT (x LIKE 'e:42501:%' OR (leit AND x = ANY (vazio))) THEN i_rot := i_rot || (a || '.' || k); END IF;
+      END LOOP;
+      -- sem papel: 42501 onde há guarda de papel; sem guarda (funil), KPIs vazios.
+      x := coalesce(v_out ->> ('sem_papel.' || k), '<ausente>');
+      IF (guarda AND x NOT LIKE 'e:42501:%') OR (NOT guarda AND NOT x = ANY (vazio)) THEN
+        i_rot := i_rot || ('sem_papel.' || k);
+      END IF;
+      -- candidato apontando para candidatura ALHEIA: escrita só 42501; leitura 42501 ou vazio.
+      x := coalesce(v_out ->> ('candidato.' || k), '<ausente>');
+      IF NOT (x LIKE 'e:42501:%' OR (leit AND x = ANY (vazio))) THEN i_rot := i_rot || ('candidato.' || k); END IF;
+      -- anon: sem EXECUTE (ACL) e a chamada recusada PELO ACL, não pela guarda.
+      x := coalesce(v_out ->> ('anon.' || k), '<ausente>');
+      IF coalesce((v_anonp ->> k)::boolean, true) OR x NOT LIKE 'e:42501:permission denied for function%' THEN i_rot := i_rot || ('anon.' || k); END IF;
+    END;
+  END LOOP;
+
+  -- Evidência: desfecho do controle positivo e do candidato por função (SQLSTATE ou forma vazia).
+  SELECT string_agg(split_part(key, '.', 2) || '>' || CASE WHEN value LIKE 'e:%' THEN split_part(value, ':', 1) || ':' || split_part(value, ':', 2) ELSE value END, ',' ORDER BY key)
+    INTO v_ev_a FROM jsonb_each_text(v_out) WHERE key LIKE 'ativo.%';
+  SELECT string_agg(split_part(key, '.', 2) || '>' || CASE WHEN value LIKE 'e:%' THEN split_part(value, ':', 1) || ':' || split_part(value, ':', 2) ELSE value END, ',' ORDER BY key)
+    INTO v_ev_c FROM jsonb_each_text(v_out) WHERE key LIKE 'candidato.%';
+  PERFORM set_config('p50.evidencia', concat_ws(';', nullif(current_setting('p50.evidencia', true), ''),
+            '07:rpcs=' || jsonb_array_length(v_set),
+            '07:i_ativo=' || coalesce(v_ev_a, '-'),
+            '07:i_cand=' || coalesce(v_ev_c, '-')), false);
+  PERFORM set_config('smoke50.i_rpcs', jsonb_array_length(v_set)::text, false);
+  PERFORM set_config('smoke50.i_res', v_out::text, false);
+
+  IF jsonb_array_length(v_set) < 1 THEN
+    i_rot := i_rot || 'c_conjunto'::text;
+  END IF;
+  IF cardinality(i_rot) > 0 THEN
+    RAISE EXCEPTION 'P50C FAIL (i): [%]: % funcao(oes) no conjunto por forma; desfechos %',
+      array_to_string(i_rot, ','), jsonb_array_length(v_set), v_out;
+  END IF;
+  PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
+END
+$i$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (z) resíduo — contagens globais iguais à baseline DESTA execução.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
@@ -885,16 +1410,23 @@ DECLARE
   g_cand  bigint;
   g_vagas bigint;
   g_urh   bigint;
+  g_solic bigint;
+  g_df    bigint;
 BEGIN
   SELECT count(*) INTO g_cand  FROM public.candidaturas;
   SELECT count(*) INTO g_vagas FROM public.vagas;
   SELECT count(*) INTO g_urh   FROM public.usuarios_rh;
+  SELECT count(*) INTO g_solic FROM public.solicitacoes_dados;
+  SELECT count(*) INTO g_df    FROM public.decisao_final;
   IF g_cand     IS DISTINCT FROM current_setting('smoke50.z_cand')::bigint
      OR g_vagas IS DISTINCT FROM current_setting('smoke50.z_vagas')::bigint
-     OR g_urh   IS DISTINCT FROM current_setting('smoke50.z_urh')::bigint THEN
-    RAISE EXCEPTION 'P50C FAIL (z): contagem global mudou (candidaturas % -> %, vagas % -> %, usuarios_rh % -> %) — sob o snapshot unico do ensaio (REPEATABLE READ) o trafego de fora nao aparece aqui: o delta e RESIDUO DESTA requisicao, uma escrita que escapou de um envelope P50C1 (este smoke ESCREVE dentro deles) — NAO repetir: achar a escrita',
+     OR g_urh   IS DISTINCT FROM current_setting('smoke50.z_urh')::bigint
+     OR g_solic IS DISTINCT FROM current_setting('smoke50.z_solic')::bigint
+     OR g_df    IS DISTINCT FROM current_setting('smoke50.z_df')::bigint THEN
+    RAISE EXCEPTION 'P50C FAIL (z): contagem global mudou (candidaturas % -> %, vagas % -> %, usuarios_rh % -> %, solicitacoes_dados % -> %, decisao_final % -> %) — sob o snapshot unico do ensaio (REPEATABLE READ) o trafego de fora nao aparece aqui: o delta e RESIDUO DESTA requisicao, uma escrita que escapou de um envelope P50C1 (este smoke ESCREVE dentro deles) — NAO repetir: achar a escrita',
       current_setting('smoke50.z_cand'), g_cand, current_setting('smoke50.z_vagas'), g_vagas,
-      current_setting('smoke50.z_urh'), g_urh;
+      current_setting('smoke50.z_urh'), g_urh, current_setting('smoke50.z_solic'), g_solic,
+      current_setting('smoke50.z_df'), g_df;
   END IF;
   PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
 END
