@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 50-07-PLAN.md
-last_updated: "2026-10-06T01:48:14.222Z"
+stopped_at: Completed 50-08-PLAN.md
+last_updated: "2026-10-06T02:08:12.061Z"
 last_activity: 2026-10-05
-state_head: 3fe1aac38718689ba285e42e34cb04fc82c0eca9
+state_head: 9353ad48d5bdca80700f238601d45556d5cc8c0e
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 134
-  completed_plans: 128
+  completed_plans: 129
   percent: 96
 current_phase: 50
 current_phase_name: Acesso do Recrutador
@@ -974,6 +974,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 50 P05 | 55min | 3 tasks | 1 files |
 | Phase 50 P06 | ~10min | 3 tasks | 14 files |
 | Phase 50 P07 | ~45min | 3 tasks | 2 files |
+| Phase 50 P08 | 15 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1338,6 +1339,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 50]: 50-05: pos-portao prova a CAUDA do corpo (tudo depois da linha de autorizacao) byte-identica ao vivo por md5 — cobre D-23, minimos, RNF-07a e transicoes por construcao
 - [Phase 50]: 50-06: 5 EFs autorizam só pela linha viva de usuarios_rh (D-01); integridade D-09 mantida; consolidar sem cross-check candidatura<->vaga (pré-existente) ficou em deferred-items para decisão do operador antes do 50-10
 - [Phase 50]: 50-07: smoke p50 v2 e o portao da fase (13 clausulas a-l,z): relacoes/RPCs por FORMA unidas a mapa deliberado (nunca restringe), cobertura de policies sem filtro de schema provada por count(pg_policy), mordida exata em pg_temp; sem_papel de (i) usa sub de usuario fora de usuarios_rh porque save_entrevista_guia_edits le o papel de usuarios_rh (ENTREV-08)
+- [Phase 50]: 50-08: smokes legados de RLS/escopo em pares — rh ATIVO nao-autor le a vaga alheia (contagem exata), token velho (recrutador INATIVO lido em execucao) le 0; nenhum sub de impersonacao vem de vagas.created_by
+- [Phase 50]: 50-08: o texto antigo do sec05_08 nao quebrava pela regra nova (sub sintetico sem linha continua negado pelo helper); o vermelho era preexistente (autor inativo bbbbbbbb escolhido por LIMIT 1)
+- [Phase 50]: 50-08: p37_lacunas (n)/(k)/(l) passam a baseline capturada na execucao (eram fotografias: 0 linhas, 8 linhas); seg33 (c) prova integridade D-09 (vaga_id normalizado pelo trigger, agendado_por = ator)
 
 ### Roadmap Evolution
 
@@ -1670,8 +1674,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T01:48:13.730Z
-Stopped at: Completed 50-07-PLAN.md
+Last session: 2026-10-06T02:08:11.584Z
+Stopped at: Completed 50-08-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
