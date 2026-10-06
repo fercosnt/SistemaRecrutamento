@@ -56,7 +56,39 @@ const CATALOGO_BASE: ColunaViva[] = [
   { tabela: 'config_sla_dados', coluna: 'chave', tipo: 'text' },
 ];
 
+// Catalogos LOCAIS de (i), (i2) e (i3) — nunca no CATALOGO_BASE, que o caso (a) fixa.
+const CATALOGO_PREFIXO_COLUNA: ColunaViva[] = [
+  ...CATALOGO_BASE,
+  { tabela: 'candidatos', coluna: 'ativo_publico', tipo: 'boolean' },
+];
+const CATALOGO_PREFIXO_TABELA: ColunaViva[] = [
+  ...CATALOGO_BASE,
+  { tabela: 'config_sla_dados_historico', coluna: 'chave', tipo: 'text' },
+];
+
 const MEDIDO_EM = '2026-08-03T06:09:19Z';
+
+/**
+ * A saida de `--sql-values*` esta na ordem que o GERADOR emite? (WR-07, 44-15)
+ *
+ * A chave real e a do `.sort()` padrao de `paresPor`/`paresTabelas` em
+ * `gen-export-allowlist.cjs`: a string `('tabela','coluna')` SEM o recuo de 4 espacos
+ * e SEM a virgula final que `emitirPares` acrescenta. Por isso a chave aqui e a linha
+ * com `trim()` e sem a virgula final — e nada mais.
+ *
+ * A versao anterior trocava `(`, `)`, `,` e `'` por `|` antes de reordenar. A aspa
+ * (0x27) ordena ANTES de `_` (0x5F); a barra (0x7C), DEPOIS. Todo par de nomes em que um
+ * e prefixo do outro inverte: o gerador emite `('candidatos','ativo')` antes de
+ * `('candidatos','ativo_publico')` (correto), e a chave antiga julgava isso fora de
+ * ordem. O artefato real tem tres pares assim (`decisao_final`/`decisao_final_historico`,
+ * `perguntas`/`perguntas_cultura`, `redacoes_candidato`/`redacoes_candidato_em_progresso`);
+ * a fixture antiga nao tinha nenhum, e o portao so passava por isso. A (i3) prova que a
+ * fixture continua exercendo o prefixo comum e que esta checagem morde.
+ */
+function ordenadoComoOGerador(linhas: string[]): boolean {
+  const chaves = linhas.map((l) => l.trim().replace(/,$/, ''));
+  return JSON.stringify([...chaves].sort()) === JSON.stringify(chaves);
+}
 
 function catalogo(colunas: ColunaViva[] = CATALOGO_BASE): string {
   return JSON.stringify(
@@ -426,7 +458,7 @@ ponteiros_de_infra:
   });
 
   it('(i) --sql-values imprime pares colaveis ordenados e NADA mais', () => {
-    montar();
+    montar({ catalogo: catalogo(CATALOGO_PREFIXO_COLUNA) });
     const r = rodar('--sql-values');
     expect(r.status).toBe(0);
 
@@ -450,9 +482,11 @@ ponteiros_de_infra:
       expect(l).toMatch(/^ {4}\('[a-z0-9_]+','[a-z0-9_]+'\),?$/);
     }
     // Ordenado por tabela e coluna — determinismo e o que torna a saida colavel
-    // sem edicao manual.
-    const chaves = linhas.map((l) => l.replace(/[(),']/g, '|'));
-    expect([...chaves].sort()).toEqual(chaves);
+    // sem edicao manual. A ordem e a do GERADOR (ver `ordenadoComoOGerador`), e a
+    // fixture local carrega `ativo`/`ativo_publico` para exercer o prefixo comum.
+    expect(linhas).toContain("    ('candidatos','ativo'),");
+    expect(linhas).toContain("    ('candidatos','ativo_publico'),");
+    expect(ordenadoComoOGerador(linhas), `fora da ordem do gerador: ${JSON.stringify(linhas)}`).toBe(true);
     // A ultima linha nao carrega virgula: cola direto no VALUES.
     expect(linhas[linhas.length - 1].endsWith(',')).toBe(false);
     // Nenhum ruido: o par de uma tabela EXCLUIDA nunca aparece.
@@ -464,7 +498,7 @@ ponteiros_de_infra:
     // dentro do artefato: o SQL compara `information_schema.tables` medido na
     // execucao contra ESTES pares. Antes dele, seis tabelas novas ficaram
     // invisiveis a todo portao automatico (G5, 2026-10-06).
-    montar();
+    montar({ catalogo: catalogo(CATALOGO_PREFIXO_TABELA) });
     // O artefato e gerado NA MESMA execucao: o numero esperado vem dele, nunca de
     // uma constante que envelhece quando a fixture muda.
     expect(rodar().status).toBe(0);
@@ -482,9 +516,11 @@ ponteiros_de_infra:
     for (const l of linhas) {
       expect(l).toMatch(/^ {4}\('[a-z0-9_]+','[a-z0-9_]+'\),?$/);
     }
-    const chaves = linhas.map((l) => l.replace(/[(),']/g, '|'));
-    expect([...chaves].sort()).toEqual(chaves);
+    // A ordem e a do GERADOR; a fixture local carrega o par de prefixo comum
+    // `config_sla_dados`/`config_sla_dados_historico` (os dois excluidos por FE1).
+    expect(ordenadoComoOGerador(linhas), `fora da ordem do gerador: ${JSON.stringify(linhas)}`).toBe(true);
     expect(linhas[linhas.length - 1].endsWith(',')).toBe(false);
+    expect(r.stdout).toContain("('config_sla_dados_historico','configuracao_do_produto')");
 
     // Em escopo sai com o destino literal; excluida sai com a SUA razao.
     expect(linhas).toContain("    ('candidatos','escopo_titular'),");
@@ -493,5 +529,29 @@ ponteiros_de_infra:
 
     // Nada alem dos pares: nenhuma linha que nao seja par de disposicao.
     expect(r.stdout.split('\n').filter((l) => l !== '' && !/^ {4}\(/.test(l))).toEqual([]);
+  });
+
+  it('(i3) a checagem de ordem MORDE e a fixture exerce o prefixo comum (WR-07)', () => {
+    // CLAUDE.md §Portoes: depois do conserto, provar por execucao que o portao ainda
+    // morde — e, aqui, tambem que a fixture continua sendo a que fazia o portao antigo
+    // reprovar saida CORRETA. Sem o par de prefixo comum, as duas chaves concordam e a
+    // (i)/(i2) voltariam a passar por acidente.
+    montar({ catalogo: catalogo(CATALOGO_PREFIXO_TABELA) });
+    const r = rodar('--sql-values-tabelas');
+    expect(r.status).toBe(0);
+    const linhas = r.stdout.replace(/\n$/, '').split('\n');
+    expect(linhas.length).toBeGreaterThan(1);
+    expect(ordenadoComoOGerador(linhas), 'a saida correta do gerador').toBe(true);
+
+    // 1. Morde: a mesma saida invertida reprova.
+    expect(ordenadoComoOGerador([...linhas].reverse()), 'saida invertida deveria reprovar').toBe(false);
+
+    // 2. A fixture exerce o prefixo comum: a chave ANTIGA (WR-07) julgaria a saida
+    //    CORRETA fora de ordem. Ela so sobrevive aqui, como prova.
+    const chavesAntigas = linhas.map((l) => l.replace(/[(),']/g, '|'));
+    expect(
+      [...chavesAntigas].sort(),
+      'a fixture perdeu o par de prefixo comum — a chave antiga ja nao reprova a saida correta, e a (i2) nao prova nada sobre ele',
+    ).not.toEqual(chavesAntigas);
   });
 });
