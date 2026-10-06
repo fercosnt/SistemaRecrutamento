@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 44 --gaps-only em execucao — 44-11 concluido (G5 decidido no artefato, allowlist 1.4.0); proximo 44-12 (prova contra PROD), sequencial"
-last_updated: "2026-10-06T21:00:25.344Z"
+stopped_at: "Phase 44 --gaps-only em execucao — 44-12 concluido (portoes nomeados do G5 vistos mordendo; smoke aprova contra PROD); proximo 44-13 (publicacao), sequencial"
+last_updated: "2026-10-06T21:07:52.908Z"
 last_activity: 2026-10-06
-state_head: 35246a188cb4d0a25822ee8f9e117aa9d9c3a57a
+state_head: 2b12ef075ea45722153bbad172ea260793ba0ce4
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 138
-  completed_plans: 134
-  percent: 97
+  completed_plans: 135
+  percent: 98
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: 44-11 concluido — 6 tabelas e 9 colunas do G5 medidas e decididas (BD-9..BD-13); allowlist 1.4.0 (75 = 32 + 43; 451 = 395 + 56); portoes locais verdes (proximo 44-12)
+last_activity_desc: 44-12 concluido — (l) e Deno (19) prendem o G5 por nome e foram vistos mordendo (M-a, M-b, md5 restaurado); smoke p44_export_drift APROVA contra PROD (n_drift 0, 75/75, 451/451), relatorio 05 = [] (proximo 44-13)
 ---
 
 # Project State
@@ -981,6 +981,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 50 P11 | ~11h (espera do operador + conserto da gerenciar-usuario-rh) | 3 tasks | 1 files (+2 do conserto 4ccc4dd1) |
 | Phase 44 P10 | 10min | 3 tasks | 8 files |
 | Phase 44 P11 | 8min | 2 tasks | 7 files |
+| Phase 44 P12 | ~4min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1361,6 +1362,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-10: vereditos do G5 nao decididos aqui — o portao ve as 15 linhas (6 tabelas + 9 colunas) em PROD; resolucao e do 44-11 (BD-9..BD-13, autoria registrada no 44-CONTEXT)
 - [Phase 44]: 44-11: G5 fechado no artefato — cognitivo_liberacao (BD-9) e retencao_hold (BD-10) em escopo; purga_execucao_itens/purga_execucoes telemetria_interna (BD-11/12); config_purga/config_janela_exclusao pela FE1 (BD-12 medido: zero chave do titular); 9 colunas com veredito e autoria (BD-13 i/ii/iii/iv); allowlist 1.4.0 (75 = 32 + 43; 451 = 395 + 56)
 - [Phase 44]: 44-11: criado_por/liberado_por em ponteiros.de_terceiro (veto estrutural); retencao_hold.detalhe, solicitacoes_dados.plano e recibo_enviado_em fora por veredito; prova contra PROD e do 44-12
+- [Phase 44]: 44-12: proibicoes do G5 presas por NOME fora de snapshot — (l) no Vitest (7 vetadas com prefixo da razao, 4 tabelas fora, 13 vereditos explicitos com proveniencia decisoes_por_coluna) e (19) no Deno (ponte + vetos por token sobre o select real do handler); M-a e M-b vistas mordendo
+- [Phase 44]: 44-12: SC#3 medido contra PROD — smoke p44_export_drift aprova (n_drift 0; 75 tabelas vivas = 75 com disposicao; 451 colunas vivas em escopo = 451 pares), relatorio 05 = []; item da 48 do drift de 9 colunas resolved; publicacao e do 44-13
 
 ### Roadmap Evolution
 
@@ -1693,8 +1696,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T21:00:25.085Z
-Stopped at: Completed 44-11-PLAN.md
+Last session: 2026-10-06T21:07:52.908Z
+Stopped at: Completed 44-12-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
