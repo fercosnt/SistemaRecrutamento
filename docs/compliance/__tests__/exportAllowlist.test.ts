@@ -141,10 +141,22 @@ const MARCADORES = [
  * recorte lê vazio, e a mensagem da (k) culparia o `VALUES` ERRADO («envelheceu —
  * rode --sql-values…») por um defeito que é de estrutura do arquivo.
  */
-function paresDoArquivo(caminho: string): { allowlist: string[]; excluidas: string[]; tabelas: string[] } {
-  const nome = caminho.slice(REPO.length + 1)
-  expect(existsSync(caminho), `${nome}: arquivo ausente`).toBe(true)
-  const sql = readFileSync(caminho, 'utf8')
+type Blocos<T> = { allowlist: T; excluidas: T; tabelas: T }
+
+/** O fim do terceiro recorte: a primeira CTE depois dos `VALUES` (44-15). */
+const FIM_DOS_VALUES = 'com_veredito(tabela, coluna, destino) AS ('
+
+/**
+ * O mesmo que `paresDoArquivo`, sobre TEXTO — para a (k4) rodar a (k) sobre o smoke
+ * mutado em memória. Devolve os pares da extração CANÔNICA e, por bloco, a contagem
+ * PERMISSIVA de tuplas (WR-01, 44-15).
+ *
+ * O terceiro recorte termina em `com_veredito(tabela, coluna, destino) AS (` (exigido
+ * uma vez, depois do terceiro marcador) e não mais no fim do arquivo: não há tupla
+ * canônica depois dele, então a extração canônica não muda, e a contagem permissiva não
+ * lê o predicado.
+ */
+function paresDoTexto(nome: string, sql: string): Blocos<string[]> & { permissiva: Blocos<number> } {
   const cortes = MARCADORES.map((m) => {
     const i = sql.indexOf(m)
     expect(i, `${nome}: marcador de CTE \`${m}\` ausente`).not.toBe(-1)
@@ -152,13 +164,38 @@ function paresDoArquivo(caminho: string): { allowlist: string[]; excluidas: stri
     return i
   })
   expect([...cortes].sort((x, y) => x - y), `${nome}: os três marcadores de CTE fora de ordem`).toEqual(cortes)
+  const fim = sql.indexOf(FIM_DOS_VALUES)
+  expect(fim, `${nome}: cabeçalho \`${FIM_DOS_VALUES}\` ausente`).not.toBe(-1)
+  expect(sql.lastIndexOf(FIM_DOS_VALUES), `${nome}: cabeçalho \`${FIM_DOS_VALUES}\` ocorre mais de uma vez`).toBe(fim)
+  expect(fim, `${nome}: \`${FIM_DOS_VALUES}\` antes do terceiro marcador`).toBeGreaterThan(cortes[2])
+  const trechos: Blocos<string> = {
+    allowlist: sql.slice(0, cortes[1]),
+    excluidas: sql.slice(cortes[1], cortes[2]),
+    tabelas: sql.slice(cortes[2], fim),
+  }
+  // CANÔNICA — rígida de propósito; ver o comentário acima da (k). NÃO afrouxar.
   const ler = (trecho: string) =>
     [...trecho.matchAll(/^ {4}\('([a-z0-9_]+)','([a-z0-9_]+)'\),?$/gim)].map((m) => `${m[1]}.${m[2]}`).sort()
+  // PERMISSIVA — toda tupla de duas strings que o SQL EXECUTA, em qualquer recuo e com
+  // espaço em qualquer ponto, no texto sem comentário. Só conta; quem compara é a (k).
+  const contar = (trecho: string) =>
+    (semComentarioSql(trecho).match(/\(\s*'[^']*'\s*,\s*'[^']*'\s*\)/g) ?? []).length
   return {
-    allowlist: ler(sql.slice(0, cortes[1])),
-    excluidas: ler(sql.slice(cortes[1], cortes[2])),
-    tabelas: ler(sql.slice(cortes[2])),
+    allowlist: ler(trechos.allowlist),
+    excluidas: ler(trechos.excluidas),
+    tabelas: ler(trechos.tabelas),
+    permissiva: {
+      allowlist: contar(trechos.allowlist),
+      excluidas: contar(trechos.excluidas),
+      tabelas: contar(trechos.tabelas),
+    },
   }
+}
+
+function paresDoArquivo(caminho: string): ReturnType<typeof paresDoTexto> {
+  const nome = caminho.slice(REPO.length + 1)
+  expect(existsSync(caminho), `${nome}: arquivo ausente`).toBe(true)
+  return paresDoTexto(nome, readFileSync(caminho, 'utf8'))
 }
 
 /*
@@ -1181,9 +1218,29 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     // E são DOIS arquivos: o relatório (`05`, lista as linhas) e o smoke (falha
     // alto). Um smoke com `VALUES` envelhecido aprovaria em silêncio o que o
     // relatório acusa — os dois são vigiados pela mesma asserção.
+    //
+    // ⚠ 44-15 (WR-01): DUAS LEITURAS DO MESMO `VALUES`, e nenhuma substitui a outra.
+    // A extração CANÔNICA (`^ {4}\('x','y'\),?$`) continua rígida pelo motivo do docblock
+    // acima de `INDENT_VALUES` no gerador: um padrão frouxo leria tupla de comentário ou
+    // de exemplo como se fosse do `VALUES`. Mas a rígida só prova «extraído == artefato»,
+    // não «o que o SQL executa == extraído»: uma linha com 2 espaços de recuo ou com
+    // espaço depois da vírgula EXECUTA e fica invisível — o revisor injetou duas no smoke
+    // e a (k) seguiu em 526 pares, verde, com 528 tuplas no SQL. Por isso a contagem
+    // PERMISSIVA, por bloco e por arquivo, tem de IGUALAR a canônica: uma tupla fora do
+    // formato deixa de passar calada. A (k4) prova que esta igualdade morde.
     for (const caminho of ARQUIVOS_DRIFT) {
       const arquivo = caminho.slice(REPO.length + 1)
       const doArquivo = paresDoArquivo(caminho)
+      for (const [bloco, cte] of [
+        ['allowlist', 'allowlist'],
+        ['excluidas', 'excluidas'],
+        ['tabelas', 'disposicao_tabelas'],
+      ] as const) {
+        expect(
+          doArquivo.permissiva[bloco],
+          `${arquivo}: tupla fora do formato canônico na CTE ${cte} — o SQL executa uma linha que a (k) não vê; cole a saída do gerador sem editar`,
+        ).toBe(doArquivo[bloco].length)
+      }
       expect(
         doArquivo.allowlist,
         `${arquivo}: o \`VALUES\` da CTE \`allowlist\` envelheceu — rode --sql-values`,
@@ -1235,6 +1292,202 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
       problemasDaEstrutura(smoke),
       'WR-02/WR-03: a estrutura que faz o smoke falhar alto e fechado (DO $gate$, guardas, agregador) está quebrada',
     ).toEqual([])
+  })
+
+  /**
+   * (k4) OS PORTÕES (k) E (k3) MORDEM — e a prova mora na suíte, não num SUMMARY.
+   *
+   * CLAUDE.md §Portões: «depois do conserto, prove por execução que o portão ainda
+   * MORDE». Um portão endurecido uma vez e nunca mais visto falhando volta a ser
+   * convenção na primeira refatoração dos helpers. Aqui cada rota que a re-revisão
+   * (WR-01/WR-02/WR-03) ou o checker nomeou para calar o veredito vira uma mutação do
+   * texto REAL do smoke, EM MEMÓRIA (nenhum arquivo em disco é tocado), e o checador que
+   * lhe corresponde tem de reprovar NOMEANDO o alvo — lista não vazia não basta: um
+   * checador que reprovasse pelo motivo errado passaria.
+   *
+   * Ordem por caso: a âncora casa EXATAMENTE uma vez (uma ambígua mutaria o lugar errado
+   * e o caso provaria outra coisa); a mutação mudou o texto; e só então a mordida.
+   */
+  describe('(k4) os portões (k) e (k3) MORDEM — mutações em memória do smoke real', () => {
+    type Alvo =
+      | { checador: 'k' }
+      | { checador: 'predicado'; nomeia: string }
+      | { checador: 'estrutura'; nomeia: string }
+    interface Mutacao {
+      rotulo: string
+      ancora: RegExp // com flag `g`, para contar
+      troca: (casado: string, ...grupos: string[]) => string
+      alvo: Alvo
+    }
+    const NA_ALLOWLIST = /allowlist\(tabela, coluna\) AS \(\n {2}VALUES\n/g
+    const MUTACOES: Mutacao[] = [
+      {
+        rotulo: 'M1 · tupla com recuo de 2 espaços no VALUES da allowlist (WR-01)',
+        ancora: NA_ALLOWLIST,
+        troca: (a) => `${a}  ('candidatos','coluna_nova_vazando'),\n`,
+        alvo: { checador: 'k' },
+      },
+      {
+        rotulo: 'M2 · tupla com espaço depois da vírgula no VALUES da allowlist (WR-01)',
+        ancora: NA_ALLOWLIST,
+        troca: (a) => `${a}    ('candidatos', 'outra'),\n`,
+        alvo: { checador: 'k' },
+      },
+      {
+        rotulo: 'M3 · `tabelas_vivas` editada só no smoke (WR-02)',
+        ancora: /( {4}AND t\.table_type {3}= 'BASE TABLE')(\n\),\nvivo AS \()/g,
+        troca: (_a, antes: string, depois: string) => `${antes}\n    AND t.table_name NOT LIKE 'purga%'${depois}`,
+        alvo: { checador: 'predicado', nomeia: 'tabelas_vivas:' },
+      },
+      {
+        rotulo: 'M4 · bloco `DO $gate$` removido (WR-02)',
+        ancora: /DO \$gate\$[\s\S]*?\n\$gate\$;\n/g,
+        troca: () => '',
+        alvo: { checador: 'estrutura', nomeia: 'DO $gate$:' },
+      },
+      {
+        rotulo: 'M5 · `EXCEPTION WHEN OTHERS` inserido no bloco (WR-02)',
+        ancora: /\nEND\n\$gate\$;/g,
+        troca: (a) => `\n  EXCEPTION WHEN OTHERS THEN NULL;${a}`,
+        alvo: { checador: 'estrutura', nomeia: 'EXCEPTION WHEN' },
+      },
+      {
+        rotulo: 'M6 · `IS DISTINCT FROM 0` trocado por `> 0` na guarda de drift (WR-03)',
+        ancora: /IS DISTINCT FROM 0 THEN/g,
+        troca: () => '> 0 THEN',
+        alvo: { checador: 'estrutura', nomeia: 'chave n_drift: comparação nua' },
+      },
+      {
+        rotulo: 'M7 · chave `n_drift` renomeada no json_build_object do set_config (WR-03)',
+        ancora: /^ {2}'n_drift',(\s+)\(SELECT/gm,
+        troca: (_a, espaco: string) => `  'n_drift_renomeada',${espaco}(SELECT`,
+        alvo: { checador: 'estrutura', nomeia: 'chave n_drift: lida por ->> mas não construída' },
+      },
+      {
+        rotulo: 'M8 · `vivo` editada só no smoke (WR-02)',
+        ancora: /^ {4}AND c\.table_name::text IN \(/gm,
+        troca: (a) => `    AND c.column_name::text NOT LIKE 'tmp%'\n${a}`,
+        alvo: { checador: 'predicado', nomeia: 'vivo:' },
+      },
+      {
+        rotulo: 'M9 · `com_veredito` editada só no smoke (WR-02)',
+        ancora: /FROM excluidas e/g,
+        troca: (a) => `${a} WHERE e.tabela <> 'retencao_hold'`,
+        alvo: { checador: 'predicado', nomeia: 'com_veredito:' },
+      },
+      {
+        rotulo: 'M10 · `FULL OUTER JOIN` do braço de coluna trocado por `LEFT JOIN` (WR-02)',
+        ancora: /FULL OUTER JOIN com_veredito d/g,
+        troca: () => 'LEFT JOIN com_veredito d',
+        alvo: { checador: 'predicado', nomeia: 'drift_coluna:' },
+      },
+      {
+        rotulo: 'M11 · `WHERE` do braço de tabela encurtado — some a TABELA NOVA (WR-02)',
+        ancora: /^ {5}OR dt\.tabela IS NULL\n/gm,
+        troca: () => '',
+        alvo: { checador: 'predicado', nomeia: 'drift_tabela:' },
+      },
+      {
+        rotulo: 'M12 · braço de tabela inteiro retirado do `drift` (a partição acha 1 braço)',
+        ancora: /\n {2}UNION ALL\n {2}SELECT\n {4}COALESCE\(tv\.tabela[\s\S]*?OR dt\.tabela IS NULL/g,
+        troca: () => '',
+        alvo: { checador: 'predicado', nomeia: 'drift: 1 braço(s), esperado 2' },
+      },
+      {
+        rotulo: 'M13 · `IF` de drift inteiro retirado (WR-02)',
+        ancora: / {2}IF \(r->>'n_drift'\)[\s\S]*?END IF;\n/g,
+        troca: () => '',
+        alvo: { checador: 'estrutura', nomeia: "RAISE EXCEPTION 'P44-DRIFT FAIL:" },
+      },
+      {
+        rotulo: 'M14 · só o `RAISE` de drift trocado por `NULL;` (WR-02)',
+        ancora: /RAISE EXCEPTION 'P44-DRIFT FAIL:[\s\S]*?r->>'linhas';/g,
+        troca: () => 'NULL;',
+        alvo: { checador: 'estrutura', nomeia: "RAISE EXCEPTION 'P44-DRIFT FAIL:" },
+      },
+      {
+        rotulo: 'M15 · só o `RAISE` de população trocado por `NULL;` (WR-02)',
+        ancora: /RAISE EXCEPTION 'P44-DRIFT FAIL \(população vazia\)[\s\S]*?r->>'n_pares_com_veredito';/g,
+        troca: () => 'NULL;',
+        alvo: { checador: 'estrutura', nomeia: "RAISE EXCEPTION 'P44-DRIFT FAIL (população vazia)" },
+      },
+      {
+        rotulo: 'M16 · agregador de `n_drift` trocado por `(SELECT 0)` (checker)',
+        ancora: /\(SELECT count\(\*\) FROM drift\)/g,
+        troca: () => '(SELECT 0)',
+        alvo: { checador: 'estrutura', nomeia: 'agregador da chave n_drift' },
+      },
+      {
+        rotulo: 'M17 · agregador de `n_drift` trocado por `… FROM drift WHERE false` (checker)',
+        ancora: /\(SELECT count\(\*\) FROM drift\)/g,
+        troca: () => '(SELECT count(*) FROM drift WHERE false)',
+        alvo: { checador: 'estrutura', nomeia: 'agregador da chave n_drift' },
+      },
+      {
+        rotulo: 'M18 · agregador de `n_tabelas_vivas` trocado por `(SELECT 1)` (a regra derivada, não só `drift`)',
+        ancora: /\(SELECT count\(\*\) FROM tabelas_vivas\)/g,
+        troca: () => '(SELECT 1)',
+        alvo: { checador: 'estrutura', nomeia: 'agregador da chave n_tabelas_vivas' },
+      },
+    ]
+
+    const real = () => readFileSync(CAMINHO_DRIFT_SMOKE, 'utf8')
+    const relatorio = () => readFileSync(CAMINHO_SMOKE, 'utf8')
+    const mutar = (texto: string, m: Mutacao): string => {
+      expect(
+        (texto.match(m.ancora) ?? []).length,
+        `${m.rotulo}: a âncora tem de casar EXATAMENTE uma vez no smoke real — uma ambígua mutaria o lugar errado`,
+      ).toBe(1)
+      const mutado = texto.replace(m.ancora, m.troca as (s: string, ...g: unknown[]) => string)
+      expect(mutado, `${m.rotulo}: a mutação não mudou o texto`).not.toBe(texto)
+      return mutado
+    }
+
+    it('META: as rotas M1–M18 estão todas aqui, uma vez cada', () => {
+      const numeros = MUTACOES.map((m) => Number(/^M(\d+) ·/.exec(m.rotulo)?.[1]))
+      expect(numeros).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
+    })
+
+    for (const m of MUTACOES) {
+      it(m.rotulo, () => {
+        const mutado = mutar(real(), m)
+        if (m.alvo.checador === 'k') {
+          const p = paresDoTexto('smoke (mutado em memória)', mutado)
+          const original = paresDoTexto('smoke', real())
+          expect(p.allowlist, `${m.rotulo}: a extração canônica não deveria ver a tupla fora do formato`).toEqual(
+            original.allowlist,
+          )
+          expect(
+            p.permissiva.allowlist === p.allowlist.length,
+            `${m.rotulo}: a contagem permissiva do bloco allowlist (${p.permissiva.allowlist}) deveria DIFERIR da canônica (${p.allowlist.length})`,
+          ).toBe(false)
+          expect(p.permissiva.excluidas, `${m.rotulo}: o bloco excluidas não foi mutado`).toBe(p.excluidas.length)
+          expect(p.permissiva.tabelas, `${m.rotulo}: o bloco disposicao_tabelas não foi mutado`).toBe(p.tabelas.length)
+          return
+        }
+        const problemas =
+          m.alvo.checador === 'predicado' ? problemasDoPredicado(relatorio(), mutado) : problemasDaEstrutura(mutado)
+        const nomeia = m.alvo.nomeia
+        const acertou =
+          m.alvo.checador === 'predicado'
+            ? problemas.some((p) => p.startsWith(nomeia))
+            : problemas.some((p) => p.includes(nomeia))
+        expect(
+          acertou,
+          `${m.rotulo}: o checador «${m.alvo.checador}» deveria reprovar NOMEANDO «${nomeia}»; devolveu ${JSON.stringify(problemas)}`,
+        ).toBe(true)
+      })
+    }
+
+    it('M1+M2 juntas · reproduz o número do revisor: a canônica não se move, a permissiva sobe 2', () => {
+      const original = paresDoTexto('smoke', real())
+      const mutado = mutar(mutar(real(), MUTACOES[0]), MUTACOES[1])
+      const p = paresDoTexto('smoke (M1+M2)', mutado)
+      const total = (b: Blocos<number>) => b.allowlist + b.excluidas + b.tabelas
+      const canonica = (x: Blocos<string[]>) => x.allowlist.length + x.excluidas.length + x.tabelas.length
+      expect(canonica(p), 'a canônica não vê as duas tuplas').toBe(canonica(original))
+      expect(total(p.permissiva), 'a permissiva vê as duas').toBe(canonica(original) + 2)
+    })
   })
 
   /**
