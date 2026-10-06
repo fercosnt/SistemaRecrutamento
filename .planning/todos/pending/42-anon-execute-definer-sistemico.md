@@ -69,3 +69,4 @@ está.**
 A P41 já sabia revogar de `anon` nominalmente, e a 42-06 regrediu contra esse padrão vivo.
 Conhecimento correto existindo em UMA migration não impede recorrência — só um gate impede. Mesmo
 formato do débito `processo-origem-do-drift-desconhecida`.
+- 2026-10-06 — Phase 50 (D-04): fail-open guards fechados em `reprocessar_analise` e `salvar_revisao_redacao`; EXECUTE de `anon` revogado em `funil_kpis(uuid)`, `rejeitar_candidatura(uuid,motivo_rejeicao_rh,text)`, `reprocessar_analise(uuid)`, `salvar_revisao_redacao(uuid,text,text,jsonb)`, `save_entrevista_guia_edits(uuid,text,jsonb)`, `upsert_pergunta_opcoes_metadata(uuid,jsonb)` (lista medida no 50-04/50-05; conferida ao vivo depois do apply: `anon_exec=false` nas 6). O resto deste todo segue aberto (deferido no 50-CONTEXT).
