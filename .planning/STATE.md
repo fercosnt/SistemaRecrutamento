@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: gaps_found
-stopped_at: "Phase 44 G5 fechado e publicado (44-10..44-13); reverificacao gaps_found 6/7 — CR-01 (frase «o que nao esta» falsa sob 1.4.0, no ar) → /gsd-plan-phase 44 --gaps"
-last_updated: "2026-10-06T21:17:32.000Z"
+stopped_at: "Phase 44 CR-01 planejado (44-14..44-16, gap_closure; checker aprovou na iteracao 2) → /gsd-execute-phase 44 --gaps-only; 44-16 para no checkpoint de publicacao"
+last_updated: "2026-10-06T23:07:28.898Z"
 last_activity: 2026-10-06
-state_head: 142f8971664f15f1eaf8916c75e4e8961cc96c12
+state_head: e8c008d01d3aaf8f14bbd5c12380536e0ae4820c
 progress:
   total_phases: 9
   completed_phases: 9
-  total_plans: 138
+  total_plans: 141
   completed_plans: 136
-  percent: 99
+  percent: 96
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "Phase 44 G5 executado e publicado (front + EF v6); re-review 1 critical; verificacao gaps_found 6/7 (CR-01)"
+last_activity_desc: "Phase 44 --gaps planejado: 44-14 (frase CR-01), 44-15 (portoes WR-01/02/03/07), 44-16 (publicacao com checkpoint); BD-15..17 no CONTEXT"
 ---
 
 # Project State
