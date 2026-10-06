@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 50-06-PLAN.md
-last_updated: "2026-10-06T01:21:49.035Z"
+stopped_at: Completed 50-07-PLAN.md
+last_updated: "2026-10-06T01:48:14.222Z"
 last_activity: 2026-10-05
-state_head: ee8ce82772a362c9ebe26258ed4e9b007502562d
+state_head: 3fe1aac38718689ba285e42e34cb04fc82c0eca9
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 134
-  completed_plans: 127
-  percent: 95
+  completed_plans: 128
+  percent: 96
 current_phase: 50
 current_phase_name: Acesso do Recrutador
 last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a ponta, conferência visual com WR-07, aceite do custo residual WR-03), verificação human_needed → passed, 45/45 planos. COVERAGE.md encurtado (reason >200 chars bloqueava o portão api-coverage). Próximo: fechar a verificação das 42, 43, 47 (human_needed) e 44, 46 (gaps_found), depois /gsd-audit-milestone."
@@ -973,6 +973,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 50 P04 | 60min | 2 tasks | 1 files |
 | Phase 50 P05 | 55min | 3 tasks | 1 files |
 | Phase 50 P06 | ~10min | 3 tasks | 14 files |
+| Phase 50 P07 | ~45min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1336,6 +1337,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 50]: 50-05: guarda fail-closed 'v_role IS NULL OR v_role NOT IN' reescrita como coalesce(v_role,'') NOT IN em 5 RPCs de escrita (mesma recusa) para o pos-portao por forma nao ter excecao de idioma
 - [Phase 50]: 50-05: pos-portao prova a CAUDA do corpo (tudo depois da linha de autorizacao) byte-identica ao vivo por md5 — cobre D-23, minimos, RNF-07a e transicoes por construcao
 - [Phase 50]: 50-06: 5 EFs autorizam só pela linha viva de usuarios_rh (D-01); integridade D-09 mantida; consolidar sem cross-check candidatura<->vaga (pré-existente) ficou em deferred-items para decisão do operador antes do 50-10
+- [Phase 50]: 50-07: smoke p50 v2 e o portao da fase (13 clausulas a-l,z): relacoes/RPCs por FORMA unidas a mapa deliberado (nunca restringe), cobertura de policies sem filtro de schema provada por count(pg_policy), mordida exata em pg_temp; sem_papel de (i) usa sub de usuario fora de usuarios_rh porque save_entrevista_guia_edits le o papel de usuarios_rh (ENTREV-08)
 
 ### Roadmap Evolution
 
@@ -1668,8 +1670,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T01:21:32.653Z
-Stopped at: Completed 50-06-PLAN.md
+Last session: 2026-10-06T01:48:13.730Z
+Stopped at: Completed 50-07-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
