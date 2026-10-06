@@ -38,6 +38,11 @@
  * Rodar:      node docs/compliance/sql/gen-export-allowlist.cjs
  * Checar:     node docs/compliance/sql/gen-export-allowlist.cjs --check
  * Colar SQL:  node docs/compliance/sql/gen-export-allowlist.cjs --sql-values
+ *             node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas
+ *             node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-tabelas
+ *   (os TRÊS blocos `VALUES` de `05-export-allowlist-drift.sql` e de
+ *   `supabase/tests/p44_export_drift_smoke.sql` — a asserção (k) de
+ *   `exportAllowlist.test.ts` compara cada um com o artefato)
  */
 const fs = require('fs');
 const path = require('path');
@@ -632,6 +637,32 @@ function paresPor(doc, quais) {
 }
 
 /**
+ * A DISPOSIÇÃO de toda tabela que o artefato conhece — UM par por tabela:
+ * `('<tabela>','escopo_titular')` para cada tabela em escopo e
+ * `('<tabela>','<razao>')` para cada tabela excluída.
+ *
+ * POR QUE EXISTE (G5, medido em 2026-10-06). O universo de TABELAS do relatório
+ * de drift vinha do próprio artefato (`IN (SELECT DISTINCT tabela FROM
+ * allowlist)`), e o fecho de tabela deste gerador compara contra o SNAPSHOT
+ * versionado `catalogo-vivo-44.json`, medido em 2026-08-04 — não contra o banco.
+ * As Phases 45-48 criaram seis tabelas em `public` (`cognitivo_liberacao`,
+ * `config_janela_exclusao`, `config_purga`, `purga_execucao_itens`,
+ * `purga_execucoes`, `retencao_hold`) e elas ficaram invisíveis a TODO portão
+ * automático: nenhuma estava no snapshot, logo o fecho não as via; nenhuma
+ * estava na allowlist, logo o relatório não as varria.
+ *
+ * Com este bloco, o universo de tabelas do relatório e do smoke passa a ser o
+ * catálogo vivo medido NA EXECUÇÃO (BD-14), comparado contra esta lista: tabela
+ * viva sem par = sem disposição; par sem tabela viva = disposição órfã.
+ */
+function paresTabelas(doc) {
+  const pares = [];
+  for (const tabela of Object.keys(doc.tabelas)) pares.push(`('${tabela}','escopo_titular')`);
+  for (const [tabela, razao] of Object.entries(doc.excluidas || {})) pares.push(`('${tabela}','${razao}')`);
+  return pares.sort();
+}
+
+/**
  * Nada além dos pares: a saída é para ser COLADA no `VALUES` do smoke SQL.
  *
  * ⚠ A INDENTAÇÃO DE 4 ESPAÇOS É PARTE DO CONTRATO, NÃO ESTILO.
@@ -662,10 +693,15 @@ function emitirPares(pares) {
   process.exit(0);
 }
 
-// `--sql-values-excluidas` ANTES de `--sql-values`: `includes` não é prefixo,
-// mas a ordem deixa explícito que a flag mais específica manda.
+// `--sql-values-excluidas` e `--sql-values-tabelas` ANTES de `--sql-values`:
+// `includes` não é prefixo, mas a ordem deixa explícito que a flag mais
+// específica manda.
 if (args.includes('--sql-values-excluidas')) {
   emitirPares(paresPor(construir(), 'excluidas'));
+}
+
+if (args.includes('--sql-values-tabelas')) {
+  emitirPares(paresTabelas(construir()));
 }
 
 if (args.includes('--sql-values')) {

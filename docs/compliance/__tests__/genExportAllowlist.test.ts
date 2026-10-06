@@ -458,4 +458,40 @@ ponteiros_de_infra:
     // Nenhum ruido: o par de uma tabela EXCLUIDA nunca aparece.
     expect(r.stdout).not.toContain('ai_call_logs');
   });
+
+  it('(i2) --sql-values-tabelas imprime UM par de disposicao por tabela conhecida e NADA mais (G5 / BD-14)', () => {
+    // O bloco `disposicao_tabelas` e o que tira o universo de TABELAS do drift de
+    // dentro do artefato: o SQL compara `information_schema.tables` medido na
+    // execucao contra ESTES pares. Antes dele, seis tabelas novas ficaram
+    // invisiveis a todo portao automatico (G5, 2026-10-06).
+    montar();
+    // O artefato e gerado NA MESMA execucao: o numero esperado vem dele, nunca de
+    // uma constante que envelhece quando a fixture muda.
+    expect(rodar().status).toBe(0);
+    const totais = lerJson().meta.totais;
+    const esperado = totais.tabelas_em_escopo + totais.tabelas_excluidas;
+    expect(esperado).toBeGreaterThan(0);
+
+    const r = rodar('--sql-values-tabelas');
+    expect(r.status).toBe(0);
+    expect(r.stderr).toBe('');
+
+    // Sem .trim() — mesma razao do (i): a primeira linha tambem deve o recuo.
+    const linhas = r.stdout.replace(/\n$/, '').split('\n');
+    expect(linhas).toHaveLength(esperado);
+    for (const l of linhas) {
+      expect(l).toMatch(/^ {4}\('[a-z0-9_]+','[a-z0-9_]+'\),?$/);
+    }
+    const chaves = linhas.map((l) => l.replace(/[(),']/g, '|'));
+    expect([...chaves].sort()).toEqual(chaves);
+    expect(linhas[linhas.length - 1].endsWith(',')).toBe(false);
+
+    // Em escopo sai com o destino literal; excluida sai com a SUA razao.
+    expect(linhas).toContain("    ('candidatos','escopo_titular'),");
+    expect(r.stdout).toContain("('ai_call_logs','telemetria_interna')");
+    expect(r.stdout).toContain("('config_sla_dados','configuracao_do_produto')");
+
+    // Nada alem dos pares: nenhuma linha que nao seja par de disposicao.
+    expect(r.stdout.split('\n').filter((l) => l !== '' && !/^ {4}\(/.test(l))).toEqual([]);
+  });
 });

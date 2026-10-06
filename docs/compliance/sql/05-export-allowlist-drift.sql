@@ -3,17 +3,25 @@
 -- =============================================================================
 --
 -- Requirement coberto : EXPORT-02 · EXPORT-04 · EXPORT-06
--- Decisão de origem   : 44-CONTEXT §Área 3 (SC#3, asserção 2) · BD-6
--- Milestone           : M8 / v8.0 — Phase 44 / Plano 44-03 (Task 3)
+-- Decisão de origem   : 44-CONTEXT §Área 3 (SC#3, asserção 2) · BD-6 · BD-14
+-- Milestone           : M8 / v8.0 — Phase 44 / Plano 44-03 (Task 3) · Plano 44-10 (gap G5)
 -- Autoria             : 2026-08-03 · predicado corrigido no mesmo dia (ver abaixo)
+--                       · universo de TABELAS trocado pelo banco vivo em 2026-10-06 (44-10)
 -- Natureza            : **READ-ONLY — seguro em PROD.** Zero statement de escrita.
 --
 -- COMO EXECUTAR
 -- -------------
--- Pelo orquestrador / main thread, via `execute_sql` do MCP do Supabase contra o
--- projeto `isljnozzlvckrgjjbjwp`. Subagentes GSD não recebem esses tools
--- (anthropics/claude-code#13898) — esta consulta nunca roda dentro do agente que
--- a escreveu, e isso é premissa de planejamento, não descoberta de meio de fase.
+--     node p46apply.cjs run docs/compliance/sql/05-export-allowlist-drift.sql
+--
+-- Uma requisição à Management API = uma transação (CLAUDE.md, «Via de apply
+-- ATUAL», propriedade 1); o resultado volta como JSON. Este arquivo é o RELATÓRIO
+-- (lista as linhas de drift). A forma que FALHA ALTO com o mesmo predicado é
+-- `supabase/tests/p44_export_drift_smoke.sql` (BD-14) — é ela que se roda como
+-- portão; este arquivo é o que se lê para saber o que decidir.
+--
+-- (Até o 44-10 a instrução era rodar pelo `execute_sql` do MCP, no orquestrador:
+-- subagentes GSD não recebiam esses tools — anthropics/claude-code#13898. O
+-- `p46apply.cjs run` lê o arquivo do disco e não depende de transcrição.)
 --
 -- POR QUE ESTE ARQUIVO EXISTE, E POR QUE O TESTE VITEST **NÃO** O SUBSTITUI
 -- ------------------------------------------------------------------------
@@ -50,8 +58,8 @@
 -- `allowlist ∪ excluídas` — TUDO O QUE TEM VEREDITO. Sobra dos dois lados é o que
 -- ninguém decidiu. A asserção volta a ser `0 linhas` com significado real.
 --
--- AS TRÊS DIREÇÕES, E A RAZÃO DE CADA UMA
--- ----------------------------------------
+-- AS CINCO DIREÇÕES (TRÊS DE COLUNA, DUAS DE TABELA), E A RAZÃO DE CADA UMA
+-- --------------------------------------------------------------------------
 --   COLUNA NOVA NO BANCO — sem veredito
 --       O VAZAMENTO EM POTENCIAL. Ninguém decidiu se ela é dado do titular sob o
 --       Art. 18, II. Enquanto ninguém decide ela fica fora da cópia — seguro, porém
@@ -66,18 +74,33 @@
 --
 --   COLUNA EXCLUÍDA SUMIU DO BANCO
 --       Veredito ÓRFÃO: o YAML carrega decisão sobre coluna que não existe mais.
---       Não vaza nada — mas é apodrecimento do registro que a Phase 45 vai herdar
---       como plano de exclusão (EXPORT-06). Um plano que fala de colunas fantasmas
---       é um plano em que não se pode confiar para a fase irreversível.
+--       Não vaza nada — mas é apodrecimento do registro de escopo do titular.
+--       (Até 2026-10-04 este parágrafo dizia que a Phase 45 herdaria este registro
+--       como plano de exclusão; o EXPORT-06 reescrito diz que não herda — o motor
+--       lê `pii-inventory.yaml`. O apodrecimento continua sendo defeito do export.)
+--
+--   TABELA NOVA NO BANCO — sem disposição (44-10, BD-14)
+--       Tabela base de `public` que o artefato não conhece: nem em escopo do
+--       titular, nem excluída com razão. Ninguém decidiu se ela guarda dado do
+--       titular. Foi o caso das seis tabelas do G5 (2026-10-06).
+--
+--   TABELA COM DISPOSIÇÃO SUMIU DO BANCO (44-10, BD-14)
+--       Disposição órfã: o YAML decide sobre tabela que não existe mais. Se a
+--       tabela estava em escopo, as colunas dela aparecem também como «COLUNA DA
+--       ALLOWLIST SUMIU» — a linha de tabela diz a causa, as de coluna o tamanho.
 --
 -- REGRA DE HONESTIDADE DE NÚMERO (herdada de 04-invent05-blast-radius.sql:30-40)
 -- ------------------------------------------------------------------------------
--- Os DOIS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS**:
+-- Os TRÊS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS** (contagens
+-- medidas com `wc -l` sobre a saída de cada comando em 2026-10-06, allowlist 1.3.0):
 --
 --     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 378 pares
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 49   pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 49  pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-tabelas     ⇒ 69  pares
 --
--- Soma: **427 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
+-- Soma das duas primeiras: **427 colunas com veredito**, sobre 30 tabelas. A
+-- terceira é a disposição de TODA tabela que o artefato conhece: 30 em escopo do
+-- titular + 39 excluídas com razão nomeada = 69. O artefato de origem é o
 -- `export-allowlist.json` derivado do catálogo medido em **2026-08-04T01:34:27Z**
 -- (69 tabelas base / 1025 colunas / 105 FKs em `public`), com os `meta.acrescimos`
 -- das Phases 48 e 49.
@@ -120,32 +143,44 @@
 -- corretamente: é a consulta fazendo o seu trabalho, não drift novo.
 --
 -- ⚠ E as outras 4 colunas da fase (`comparativo_solicitado` ×2, `entrevista_guias`
--- ×2) NUNCA aparecem aqui, e isso é o «ESCOPO DELIBERADO: COLUNA, NÃO TABELA»
--- abaixo: as duas tabelas estão fora do escopo do titular no nível de TABELA, e o
--- predicado só varre as tabelas que a allowlist declara. 12 + 4 = as 16 da fase.
+-- ×2) NUNCA aparecem aqui: as duas tabelas estão fora do escopo do titular no
+-- nível de TABELA, e colunas só são varridas em tabela em escopo. 12 + 4 = as 16
+-- da fase. (Uma tabela NOVA, porém, aparece — ver «O UNIVERSO DE TABELAS É O
+-- BANCO», abaixo.)
 --
--- ⚠ Toda regeração da allowlist obriga a regerar os DOIS blocos. Essa obrigação
+-- ⚠ Toda regeração da allowlist obriga a regerar os TRÊS blocos. Essa obrigação
 -- deixou de ser promessa em prosa: a asserção (k) de `exportAllowlist.test.ts`
--- extrai os dois `VALUES` deste arquivo e os compara com o artefato, e falha se um
--- dos dois envelhecer. Um aviso que depende de alguém lembrar de obedecê-lo é
--- exatamente o que esta fase aprendeu a não escrever.
+-- extrai os três `VALUES` deste arquivo E do smoke
+-- `supabase/tests/p44_export_drift_smoke.sql` e os compara com o artefato, e
+-- falha se um deles envelhecer. Um aviso que depende de alguém lembrar de
+-- obedecê-lo é exatamente o que esta fase aprendeu a não escrever.
 --
--- ESCOPO DELIBERADO: COLUNA, NÃO TABELA
--- --------------------------------------
--- O predicado restringe `information_schema` às tabelas que a allowlist declara.
--- Esta consulta NÃO vê uma tabela nova inteira aparecendo em `public`. Não é
--- lacuna, é divisão de trabalho — e os três mecanismos ficam nomeados para que
--- ninguém os presuma:
+-- O UNIVERSO DE TABELAS É O BANCO (BD-14, 44-10, 2026-10-06)
+-- -----------------------------------------------------------
+-- Até o 44-10 esta seção se chamava «ESCOPO DELIBERADO: COLUNA, NÃO TABELA» e
+-- defendia que o predicado restringisse `information_schema` às tabelas que a
+-- allowlist declara, como «divisão de trabalho»: tabela nova seria vista pelo
+-- fecho de tabela do gerador. **Aquela divisão de trabalho ERA o ponto cego**, e
+-- a verificação de 2026-10-06 o mediu (G5): o fecho do gerador compara contra o
+-- SNAPSHOT versionado `catalogo-vivo-44.json` (2026-08-04, 69 tabelas), não contra
+-- o banco (75). Seis tabelas das Phases 45-48 — três delas ligadas ao titular —
+-- não estavam em nenhum dos dois universos, e TODO portão automático seguiu verde.
+-- Uma divisão de trabalho em que cada lado presume que o outro olha é o mesmo que
+-- ninguém olhar.
 --
---   · tabela NOVA sem disposição   ⇒ `gen-export-allowlist.cjs` FALHA a geração
---                                    (fecho de tabela sobre `catalogo-vivo-44.json`.tabelas)
---   · tabela DECLARADA e não viva  ⇒ `meta.escopo_declarado_nao_vivo` + asserção (i)
---                                    do Vitest. Foi o caso de `solicitacoes_dados`
---                                    entre o 44-01 e o 44-04; hoje a lista está
---                                    VAZIA e a (i) é satisfeita pelo outro lado da
---                                    disjunção (a tabela está na cópia). O mecanismo
---                                    continua armado para a próxima declaração.
---   · coluna nova, sumida ou órfã  ⇒ ESTA CONSULTA
+-- Por decisão do operador (BD-14, «Universo do banco + smoke»), o universo de
+-- TABELAS desta consulta é agora `information_schema.tables` de `public`
+-- (`BASE TABLE`) medido NA EXECUÇÃO, comparado com a disposição de toda tabela do
+-- artefato (CTE `disposicao_tabelas`). O universo de COLUNAS continua restrito às
+-- tabelas em escopo do titular — coluna de tabela excluída não é exportada, e a
+-- decisão sobre ela é a da tabela.
+--
+--   · tabela nova ou sumida        ⇒ ESTA CONSULTA (e o smoke, que falha alto)
+--   · coluna nova, sumida ou órfã  ⇒ ESTA CONSULTA (e o smoke, que falha alto)
+--   · tabela DECLARADA em escopo   ⇒ `meta.escopo_declarado_nao_vivo` + asserção (i)
+--     que nunca existiu no catálogo  do Vitest, do lado do artefato (o gerador não a
+--                                    põe em `tabelas`, logo ela não chega a
+--                                    `disposicao_tabelas` e esta consulta não a vê)
 --
 -- =============================================================================
 
@@ -585,13 +620,97 @@ excluidas(tabela, coluna) AS (
     ('solicitacoes_dados','aviso_cancelamento_enviado_em'),
     ('solicitacoes_dados','aviso_pedido_enviado_em')
 ),
+disposicao_tabelas(tabela, destino) AS (
+  -- A disposição de TODA tabela que o artefato conhece: `escopo_titular` ou a
+  -- razão nomeada da exclusão. É contra ESTE conjunto que o catálogo vivo de
+  -- tabelas é comparado (BD-14) — e é dele que sai o universo de colunas varrido
+  -- abaixo, em vez do `DISTINCT` da allowlist.
+  VALUES
+    ('agendamentos_entrevista','escopo_titular'),
+    ('ai_call_logs','telemetria_interna'),
+    ('ai_cost_daily','telemetria_interna'),
+    ('analise_candidato_vaga','escopo_titular'),
+    ('autorizacoes','escopo_titular'),
+    ('avaliacoes_rh','escopo_titular'),
+    ('bias_audit_log','telemetria_interna'),
+    ('biblioteca_perguntas','configuracao_do_produto'),
+    ('bigfive_itens','configuracao_do_produto'),
+    ('candidate_ai_decisions','escopo_titular'),
+    ('candidatos','escopo_titular'),
+    ('candidaturas','escopo_titular'),
+    ('classe_evento_notificacao','vocabulario_do_sistema'),
+    ('cognitivo_itens','configuracao_do_produto'),
+    ('cognitivo_respostas','escopo_titular'),
+    ('comparativo_solicitado','pii_de_terceiro'),
+    ('config_retencao_etapa','configuracao_do_produto'),
+    ('config_sla_dados','configuracao_do_produto'),
+    ('config_sla_etapa','configuracao_do_produto'),
+    ('config_sla_revisao','configuracao_do_produto'),
+    ('configuracoes_empresa','segredo'),
+    ('data_deletion_log','telemetria_interna'),
+    ('decisao_final','escopo_titular'),
+    ('decisao_final_historico','escopo_titular'),
+    ('devolutivas_candidato','escopo_titular'),
+    ('disponibilidade','escopo_titular'),
+    ('entrevista_analises','escopo_titular'),
+    ('entrevista_guias','configuracao_do_produto'),
+    ('entrevistas_online','escopo_titular'),
+    ('entrevistas_presenciais','escopo_titular'),
+    ('historico_acoes','telemetria_interna'),
+    ('historico_candidatura','escopo_titular'),
+    ('logs_acesso','telemetria_interna'),
+    ('logs_auditoria','telemetria_interna'),
+    ('notificacoes_enviadas','telemetria_interna'),
+    ('pergunta_opcao_metadata','configuracao_do_produto'),
+    ('perguntas','configuracao_do_produto'),
+    ('perguntas_cultura','configuracao_do_produto'),
+    ('perguntas_formulario','configuracao_do_produto'),
+    ('perguntas_opcao_sjt','configuracao_do_produto'),
+    ('perguntas_redacao','configuracao_do_produto'),
+    ('perguntas_vaga_origem','configuracao_do_produto'),
+    ('preferencias_notificacoes','pii_de_terceiro'),
+    ('prompt_versions','configuracao_do_produto'),
+    ('questoes_bigfive','configuracao_do_produto'),
+    ('questoes_disc','configuracao_do_produto'),
+    ('questoes_raven','configuracao_do_produto'),
+    ('rate_limit_check_duplicate','telemetria_interna'),
+    ('recruiter_alerts','escopo_titular'),
+    ('redacoes_candidato','escopo_titular'),
+    ('redacoes_candidato_em_progresso','escopo_titular'),
+    ('respostas_avaliacao','escopo_titular'),
+    ('respostas_bigfive','escopo_titular'),
+    ('respostas_cultura','escopo_titular'),
+    ('respostas_disc','escopo_titular'),
+    ('respostas_formulario','escopo_titular'),
+    ('respostas_raven','escopo_titular'),
+    ('scores_bigfive','escopo_titular'),
+    ('scores_candidato','escopo_titular'),
+    ('scores_disc','escopo_titular'),
+    ('scores_raven','escopo_titular'),
+    ('sessoes_ativas','telemetria_interna'),
+    ('solicitacoes_dados','escopo_titular'),
+    ('templates_email','configuracao_do_produto'),
+    ('usuarios_rh','pii_de_terceiro'),
+    ('vagas','configuracao_do_produto'),
+    ('vagas_associadas_recrutadores','pii_de_terceiro'),
+    ('webhooks_config','segredo'),
+    ('webhooks_logs','telemetria_interna')
+),
 com_veredito(tabela, coluna, destino) AS (
   SELECT a.tabela, a.coluna, 'allowlist'::text FROM allowlist a
   UNION ALL
   SELECT e.tabela, e.coluna, 'excluida'::text  FROM excluidas e
 ),
+tabelas_vivas AS (
+  -- O UNIVERSO DE TABELAS, medido NA EXECUÇÃO. Só tabelas BASE de `public` — view
+  -- e foreign table não são o que a EF projeta.
+  SELECT t.table_name::text AS tabela
+  FROM information_schema.tables t
+  WHERE t.table_schema = 'public'
+    AND t.table_type   = 'BASE TABLE'
+),
 vivo AS (
-  -- Só tabelas BASE de `public` — view e foreign table não são o que a EF projeta.
+  -- Colunas vivas das tabelas EM ESCOPO do titular.
   SELECT c.table_name::text  AS tabela,
          c.column_name::text AS coluna
   FROM information_schema.columns c
@@ -604,26 +723,48 @@ vivo AS (
     -- e o `VALUES` produz `text`. Funciona por coerção implícita, mas depender de
     -- coerção implícita numa consulta de compliance é depender de um detalhe que uma
     -- versão futura do Postgres pode apertar. O cast custa nada e remove a dúvida.
-    AND c.table_name::text IN (SELECT DISTINCT a.tabela FROM allowlist a)
+    AND c.table_name::text IN (
+      SELECT d.tabela FROM disposicao_tabelas d WHERE d.destino = 'escopo_titular'
+    )
+),
+drift_coluna AS (
+  SELECT
+    COALESCE(v.tabela, d.tabela) AS tabela,
+    COALESCE(v.coluna, d.coluna) AS coluna,
+    CASE
+      WHEN d.coluna IS NULL              THEN 'COLUNA NOVA NO BANCO — sem veredito em export-scope-rules.yaml'
+      WHEN d.destino = 'allowlist'       THEN 'COLUNA DA ALLOWLIST SUMIU DO BANCO — o export entrega menos do que declara'
+      ELSE                                    'COLUNA EXCLUÍDA SUMIU DO BANCO — veredito órfão no YAML'
+    END AS veredito
+  FROM vivo v
+  FULL OUTER JOIN com_veredito d
+    ON d.tabela = v.tabela
+   AND d.coluna = v.coluna
+  -- O `FULL OUTER JOIN` é o que torna as duas pontas visíveis numa consulta só. Um
+  -- `LEFT JOIN` veria metade do drift, e a metade invisível seria escolhida por
+  -- acidente de escrita em vez de por decisão.
+  WHERE v.coluna IS NULL
+     OR d.coluna IS NULL
+),
+drift_tabela AS (
+  -- A mesma forma, um nível acima: catálogo vivo de tabelas × disposição.
+  SELECT
+    COALESCE(tv.tabela, dt.tabela) AS tabela,
+    NULL::text                     AS coluna,
+    CASE
+      WHEN dt.tabela IS NULL THEN 'TABELA NOVA NO BANCO — sem disposição em export-scope-rules.yaml'
+      ELSE                        'TABELA COM DISPOSIÇÃO SUMIU DO BANCO — disposição órfã no YAML'
+    END AS veredito
+  FROM tabelas_vivas tv
+  FULL OUTER JOIN disposicao_tabelas dt
+    ON dt.tabela = tv.tabela
+  WHERE tv.tabela IS NULL
+     OR dt.tabela IS NULL
 )
-SELECT
-  COALESCE(v.tabela, d.tabela) AS tabela,
-  COALESCE(v.coluna, d.coluna) AS coluna,
-  CASE
-    WHEN d.coluna IS NULL              THEN 'COLUNA NOVA NO BANCO — sem veredito em export-scope-rules.yaml'
-    WHEN d.destino = 'allowlist'       THEN 'COLUNA DA ALLOWLIST SUMIU DO BANCO — o export entrega menos do que declara'
-    ELSE                                    'COLUNA EXCLUÍDA SUMIU DO BANCO — veredito órfão no YAML'
-  END AS veredito
-FROM vivo v
-FULL OUTER JOIN com_veredito d
-  ON d.tabela = v.tabela
- AND d.coluna = v.coluna
--- O `FULL OUTER JOIN` é o que torna as duas pontas visíveis numa consulta só. Um
--- `LEFT JOIN` veria metade do drift, e a metade invisível seria escolhida por
--- acidente de escrita em vez de por decisão.
-WHERE v.coluna IS NULL
-   OR d.coluna IS NULL
-ORDER BY 3, 1, 2;
+SELECT tabela, coluna, veredito FROM drift_coluna
+UNION ALL
+SELECT tabela, coluna, veredito FROM drift_tabela
+ORDER BY veredito, tabela, coluna NULLS FIRST;
 
 -- =============================================================================
 -- LEITURA DO RESULTADO
@@ -634,8 +775,16 @@ ORDER BY 3, 1, 2;
 --
 -- Uma linha NUNCA se resolve afrouxando esta consulta — foi assim que a primeira
 -- versão dela quase virou ruído de fundo. Resolve-se dando veredito nomeado em
--- `docs/compliance/export-scope-rules.yaml`, regerando os artefatos e regerando os
--- dois `VALUES` acima.
+-- `docs/compliance/export-scope-rules.yaml` (veredito de coluna, ou disposição de
+-- tabela), regerando os artefatos e regerando os TRÊS `VALUES` acima — aqui e no
+-- smoke `supabase/tests/p44_export_drift_smoke.sql`.
+--
+-- ⚠ BASELINE CONHECIDA EM 2026-10-06 (antes dos vereditos do 44-11): **15 linhas**
+-- — 6 «TABELA NOVA» (`cognitivo_liberacao`, `config_janela_exclusao`,
+-- `config_purga`, `purga_execucao_itens`, `purga_execucoes`, `retencao_hold`) e
+-- 9 «COLUNA NOVA» (`candidatos.faixa_etaria_materializada`,
+-- `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados`). É o G5,
+-- reproduzido por esta consulta sozinha — o que a verificação achou à mão.
 --
 -- =============================================================================
 -- META-TEST — prova que este gate é real e não um no-op
@@ -674,9 +823,23 @@ ORDER BY 3, 1, 2;
 --      CTE `excluidas` — p.ex. `('agendamentos_entrevista','entrevistador'),` — e
 --      espere **1 linha** com o MESMO veredito de "sem veredito". As duas remoções
 --      provam que o universo comparado é a UNIÃO, e não só a allowlist.
+--   6b. DIREÇÃO DE TABELA (44-10, BD-14): remova em vez disso UMA linha da CTE
+--      `disposicao_tabelas` de tabela EXCLUÍDA — p.ex.
+--      `('ai_cost_daily','telemetria_interna'),` — e espere **exatamente 1 linha**:
+--
+--          tabela        | coluna | veredito
+--          ai_cost_daily | NULL   | TABELA NOVA NO BANCO — sem disposição em export-scope-rules.yaml
+--
+--      (Removendo uma tabela EM ESCOPO o resultado é maior, e corretamente: além da
+--      linha de tabela, as colunas dela deixam de ser varridas e os pares com
+--      veredito viram «SUMIU». Para a prova de 1 linha, use uma excluída.)
 --   7. Descarte o arquivo do scratch. O versionado permanece intacto, e os pares
 --      antes/depois (0 linhas × 1 linha, com timestamp de cada execução) vão colados
 --      no `44-VERIFICATION.md`.
 --
 -- ⚠ O arquivo alterado NUNCA é commitado.
+--
+-- A FORMA QUE FALHA ALTO: `supabase/tests/p44_export_drift_smoke.sql` roda o MESMO
+-- predicado e sai com `RAISE EXCEPTION 'P44-DRIFT FAIL …'` em qualquer linha de
+-- drift (e em população vazia). Este relatório lista; o smoke reprova.
 -- =============================================================================

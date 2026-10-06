@@ -95,16 +95,56 @@ function excluidasAchatadas(): string[] {
 }
 
 /**
- * Extrai os pares `('tabela','coluna')` dos DOIS blocos `VALUES` do smoke SQL.
+ * `['tabela.destino', …]` ordenado — a DISPOSIÇÃO de toda tabela que o artefato
+ * conhece: `tabela.escopo_titular` para cada tabela em escopo e `tabela.<razao>`
+ * para cada excluída. É o conjunto contra o qual o catálogo VIVO de tabelas é
+ * comparado no SQL (BD-14, 44-10): tabela viva fora dele é tabela sem disposição.
+ */
+function disposicaoAchatada(): string[] {
+  const a = allowlist()
+  return [
+    ...Object.keys(a.tabelas).map((tabela) => `${tabela}.escopo_titular`),
+    ...Object.entries(a.excluidas).map(([tabela, razao]) => `${tabela}.${razao}`),
+  ].sort()
+}
+
+/** Os três marcadores de CTE, NA ORDEM em que o arquivo os declara. */
+const MARCADORES = [
+  'allowlist(tabela, coluna) AS (',
+  'excluidas(tabela, coluna) AS (',
+  'disposicao_tabelas(tabela, destino) AS (',
+] as const
+
+/**
+ * Extrai os pares dos TRÊS blocos `VALUES` de um arquivo SQL, cortando pelos três
+ * marcadores na ordem: `allowlist` = do início ao 2º marcador; `excluidas` = do 2º
+ * ao 3º; `tabelas` = do 3º ao fim.
+ *
  * Linhas de comentário começam com `--` e nunca com quatro espaços, então o recorte
  * por indentação não confunde o exemplo do bloco META-TEST com o `VALUES` real.
+ *
+ * ⚠ CADA MARCADOR TEM DE OCORRER EXATAMENTE UMA VEZ — e isso é asserido aqui, com o
+ * nome do arquivo e do marcador. Um marcador ausente faz `indexOf` devolver -1, o
+ * recorte lê vazio, e a mensagem da (k) culparia o `VALUES` ERRADO («envelheceu —
+ * rode --sql-values…») por um defeito que é de estrutura do arquivo.
  */
-function paresDoSmoke(): { allowlist: string[]; excluidas: string[] } {
-  const sql = readFileSync(CAMINHO_SMOKE, 'utf8')
-  const corte = sql.indexOf('excluidas(tabela, coluna) AS (')
+function paresDoArquivo(caminho: string): { allowlist: string[]; excluidas: string[]; tabelas: string[] } {
+  const sql = readFileSync(caminho, 'utf8')
+  const nome = caminho.slice(REPO.length + 1)
+  const cortes = MARCADORES.map((m) => {
+    const i = sql.indexOf(m)
+    expect(i, `${nome}: marcador de CTE \`${m}\` ausente`).not.toBe(-1)
+    expect(sql.lastIndexOf(m), `${nome}: marcador de CTE \`${m}\` ocorre mais de uma vez`).toBe(i)
+    return i
+  })
+  expect([...cortes].sort((x, y) => x - y), `${nome}: os três marcadores de CTE fora de ordem`).toEqual(cortes)
   const ler = (trecho: string) =>
     [...trecho.matchAll(/^ {4}\('([a-z0-9_]+)','([a-z0-9_]+)'\),?$/gim)].map((m) => `${m[1]}.${m[2]}`).sort()
-  return { allowlist: ler(sql.slice(0, corte)), excluidas: ler(sql.slice(corte)) }
+  return {
+    allowlist: ler(sql.slice(0, cortes[1])),
+    excluidas: ler(sql.slice(cortes[1], cortes[2])),
+    tabelas: ler(sql.slice(cortes[2])),
+  }
 }
 
 // Tokens de segredo e de telemetria montados em runtime — ver docblock.
@@ -734,7 +774,7 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     )
   })
 
-  it('(k) os dois `VALUES` do smoke SQL estão em sincronia com o artefato', () => {
+  it('(k) os três `VALUES` do relatório de drift estão em sincronia com o artefato', () => {
     // ⚠ ESTA ASSERÇÃO NASCEU DE UM DEFEITO REAL, e a lição não é sobre sincronia.
     // A primeira versão do smoke definia drift como `viva AND NOT IN allowlist` e
     // devolveu 34 linhas contra PROD em 2026-08-03T19:58:54Z — as 34 exclusões
@@ -748,20 +788,32 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     // Aqui o aviso vira asserção: os dois `VALUES` são extraídos do .sql e comparados
     // com o artefato. Um bloco envelhecido é falso positivo no gate que grita e falso
     // NEGATIVO no gate que protege — o pior par possível.
-    const doSmoke = paresDoSmoke()
-    expect(doSmoke.allowlist, 'o `VALUES` da CTE `allowlist` envelheceu — rode --sql-values').toEqual(
+    //
+    // ⚠ 44-10 (G5 / BD-14): TRÊS blocos. O terceiro, `disposicao_tabelas`, é a
+    // disposição de toda tabela conhecida; o SQL o compara com o catálogo VIVO de
+    // tabelas. Antes dele, o universo de tabelas do relatório vinha da própria
+    // allowlist, e seis tabelas novas ficaram invisíveis a todo portão automático.
+    const arquivo = CAMINHO_SMOKE.slice(REPO.length + 1)
+    const doArquivo = paresDoArquivo(CAMINHO_SMOKE)
+    expect(doArquivo.allowlist, `${arquivo}: o \`VALUES\` da CTE \`allowlist\` envelheceu — rode --sql-values`).toEqual(
       chavesAchatadas(),
     )
     expect(
-      doSmoke.excluidas,
-      'o `VALUES` da CTE `excluidas` envelheceu — rode --sql-values-excluidas',
+      doArquivo.excluidas,
+      `${arquivo}: o \`VALUES\` da CTE \`excluidas\` envelheceu — rode --sql-values-excluidas`,
     ).toEqual(excluidasAchatadas())
+    expect(
+      doArquivo.tabelas,
+      `${arquivo}: o \`VALUES\` da CTE \`disposicao_tabelas\` envelheceu — rode --sql-values-tabelas`,
+    ).toEqual(disposicaoAchatada())
 
-    // O smoke é READ-ONLY em PROD, e isso é invariante do arquivo, não do runbook.
+    // O relatório é READ-ONLY em PROD, e isso é invariante do arquivo, não do runbook.
     const semComentario = readFileSync(CAMINHO_SMOKE, 'utf8')
       .split('\n')
       .filter((l) => !l.trimStart().startsWith('--'))
       .join('\n')
-    expect(semComentario).not.toMatch(/\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|GRANT|REVOKE)\b/i)
+    expect(semComentario, `${arquivo}: palavra de escrita fora de comentário`).not.toMatch(
+      /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|GRANT|REVOKE)\b/i,
+    )
   })
 })
