@@ -348,11 +348,14 @@ BEGIN
   -- ═══════════════════════════════════════════════════════════════════════════
   -- 4 · AS TRES VAGAS
   -- ═══════════════════════════════════════════════════════════════════════════
-  -- `created_by` fica NULO de proposito: `rh_le_candidaturas`
-  -- (`20260706110004:63-69`) escopa o papel `rh` a `vagas.created_by =
-  -- auth.uid()`, entao nenhuma vaga sem dono aparece para nenhum recrutador. O
-  -- `titulo` carrega o prefixo `fixture-p46`, que e a unica marca pela qual o
-  -- teardown alcanca estas tres linhas.
+  -- `created_by` fica NULO, como sempre ficou. A premissa antiga deste
+  -- comentario («`rh_le_candidaturas` escopa o papel `rh` a `vagas.created_by =
+  -- auth.uid()`, entao nenhuma vaga sem dono aparece para nenhum recrutador»)
+  -- deixou de valer na Phase 50: o recrutador ATIVO ve TODAS as vagas e o que
+  -- pende delas (D-01, helper `public.is_active_rh_user()`), estas tres
+  -- inclusive — e os dados de teste ficam visiveis de proposito (D-07: nenhuma
+  -- exclusao nesta fase). O `titulo` carrega o prefixo `fixture-p46`, que
+  -- continua sendo a unica marca pela qual o teardown alcanca estas tres linhas.
   INSERT INTO public.vagas (id, titulo, slug, status, descricao_curta, cidade, estado, exibir_salario, created_at, updated_at)
   VALUES
     (v_vaga_arq1,  'fixture-p46 vaga arquivada 1 (sintetica)', 'fixture-p46-vaga-arquivada-1', 'arquivada'::public.status_vaga, 'Vaga sintetica da fixture da Phase 46. Nao e uma vaga real.', 'Sao Paulo', 'SP', false, v_agora - make_interval(months => v_meses_fora), v_agora - make_interval(months => v_meses_fora)),
