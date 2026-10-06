@@ -72,10 +72,20 @@
 --       para uma candidatura real e recebe ≥1 linha, com ≥1 rótulo IGUAL ao
 --       `nome_completo` de um usuário RH vivo. Um `42804` (o cast ausente) reprova
 --       AQUI; uma junção pelo lado errado reprova AQUI, porque nenhum nome resolveria.
---   (b) ⊖ NEGATIVA — ESCOPO POR VAGA. Um `rh` que não criou a vaga daquela candidatura
---       recebe `42501`. Sem esta asserção a regressão da SEG-02/WR-04 é SILENCIOSA NA
---       UI: nada muda de aparência, e um recrutador passa a ler o histórico de
---       candidaturas de vagas que não são dele.
+--   (b) ⊕/⊖ PAR — PHASE 50 (D-01, D-02). ⊕ Um `rh` ATIVO (linha viva de `usuarios_rh`,
+--       lida em execução) que NÃO criou a vaga daquela candidatura LÊ o histórico: a
+--       contagem é EXATA contra a população lida como postgres, com ≥ 1 transição
+--       semeada numa subtransação revertida. ⊖ O TOKEN VELHO (claim `rh` + recrutador
+--       INATIVO, lido em execução) e o `rh` sem linha em `usuarios_rh` (sub sorteado)
+--       recebem `42501` — o helper vivo `public.is_active_rh_user()`.
+--       Até a Phase 49 esta asserção exigia `42501` de QUALQUER rh que não criou a vaga
+--       (escopo por vaga, SEG-02/WR-04). A D-01 (operador, 2026-10-04/05) trocou a regra:
+--       o recrutador ativo lê o histórico de qualquer candidatura, como o administrador;
+--       o que continua recusado é o token de quem foi desativado (D-02).
+--       Rodar SÓ pelo envelope que aborta: `node scripts/p50_ensaio.cjs
+--       supabase/tests/p47_historico_smoke.sql` (antes do apply do 50-10 ele prefixa
+--       20261005000002..4; depois, `--sem-migracoes`). VERMELHO sem o 20261005000003
+--       (o rh ativo não-autor recebe 42501), VERDE com ele.
 --   (c) ⊖ NEGATIVA — PAPEL DO CANDIDATO, e o chamador sem claim nenhuma. A policy
 --       `candidato_le_proprio_historico` continua VIVA no banco, então esta é a
 --       asserção que prova que a fase NÃO abriu um vazamento de PII de funcionário que
@@ -323,45 +333,120 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (b) ⊖ NEGATIVA — ESCOPO POR VAGA. Um `rh` que não criou a vaga recebe `42501`.
+-- (b) ⊕/⊖ PAR — PHASE 50 (D-01, D-02).
 --
---     `SECURITY DEFINER` BYPASSA a RLS `rh_le_historico`, que a Phase 32 tornou
---     vaga-scoped (WR-04). Se o corpo não reimpuser o predicado, a mudança de tier de
---     controle APAGA o escopo — e a regressão é SILENCIOSA NA UI: nada muda de
---     aparência, e um recrutador passa a ler o histórico de candidaturas de vagas
---     alheias.
+--     ⊕ Um `rh` ATIVO que NÃO criou a vaga desta candidatura LÊ o histórico, com
+--       contagem EXATA contra a população lida como postgres. Uma transição é semeada
+--       numa subtransação revertida (idioma de (a)), para que a população seja ≥ 1
+--       qualquer que seja a candidatura que a fixture escolheu. O ator é lido de
+--       `usuarios_rh` em execução (`ativo`, não excluído, `user_id` distinto do autor da
+--       vaga e do titular) — nunca de `vagas.created_by`.
+--     ⊖ O TOKEN VELHO (claim `rh` + recrutador INATIVO, lido em execução) e o `rh` sem
+--       linha em `usuarios_rh` (uuid SORTEADO, o ator histórico desta asserção) recebem
+--       `42501`.
 --
---     ⚠ O `sub` impersonado é um uuid SORTEADO de propósito: assim ele não pode
---     coincidir com o criador da vaga, e a asserção não depende de qual candidatura a
---     fixture escolheu.
+--     `SECURITY DEFINER` BYPASSA a RLS `rh_le_historico`: o corpo tem de reimpor a regra.
+--     Até a Phase 49 a regra era a posse da vaga (P32/WR-04); desde a D-01 é «rh ATIVO
+--     pelo helper vivo». Se o corpo perder o helper, o token velho passa a ler o
+--     histórico de TODAS as candidaturas — é o que a metade ⊖ prende.
+--
+--     ⚠ A claim é fixada FORA da subtransação (ver o cabeçalho): um `set_config` dentro
+--     do bloco revertido voltaria atrás junto com a linha semeada.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
 DECLARE
-  v_cand uuid := current_setting('smoke47h.cand')::uuid;
-  v_ok   int := 0;
+  v_cand    uuid := current_setting('smoke47h.cand')::uuid;
+  v_titular uuid := current_setting('smoke47h.titular')::uuid;
+  v_autor   uuid;
+  v_ativo   uuid;
+  v_velho   uuid;
+  v_pop     int := -1;
+  v_lidas   int := -1;
+  v_erro    text;
+  v_ok      int := 0;
+  v_rot     text;
 BEGIN
-  PERFORM set_config('request.jwt.claims',
-    json_build_object('sub', gen_random_uuid()::text,
-                      'app_metadata', json_build_object('role', 'rh'))::text, false);
+  SELECT v.created_by INTO v_autor
+    FROM public.candidaturas cv JOIN public.vagas v ON v.id = cv.vaga_id
+   WHERE cv.id = v_cand;
 
+  -- Ator ⊕: rh ATIVO que não é o autor da vaga nem o titular (recrutador primeiro).
+  SELECT u.user_id INTO v_ativo
+    FROM public.usuarios_rh u
+   WHERE u.user_id IS NOT NULL AND u.ativo AND u.deleted_at IS NULL
+     AND u.user_id IS DISTINCT FROM v_autor
+     AND u.user_id IS DISTINCT FROM v_titular
+   ORDER BY (u.role = 'recrutador') DESC, u.created_at, u.user_id
+   LIMIT 1;
+
+  -- Ator ⊖: o token velho — recrutador INATIVO.
+  SELECT u.user_id INTO v_velho
+    FROM public.usuarios_rh u
+   WHERE u.user_id IS NOT NULL AND u.role = 'recrutador' AND NOT u.ativo
+     AND u.user_id IS DISTINCT FROM v_titular
+   ORDER BY u.created_at, u.user_id
+   LIMIT 1;
+
+  IF v_ativo IS NULL OR v_velho IS NULL THEN
+    RAISE EXCEPTION 'P47H FAIL (b): fixture do par incompleta (rh ativo nao-autor = %, recrutador inativo = %) — sem os dois atores o par nao prova nada; ausencia de ator REPROVA, nunca pula', v_ativo IS NOT NULL, v_velho IS NOT NULL;
+  END IF;
+
+  -- ⊕ rh ATIVO não-autor
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_ativo::text,
+                      'app_metadata', json_build_object('role', 'rh'))::text, false);
   BEGIN
-    PERFORM * FROM public.listar_historico_candidatura(v_cand);
-    RAISE EXCEPTION 'P47H FAIL (b): a funcao ACEITOU um recrutador que NAO criou a vaga desta candidatura — o escopo por vaga da RLS rh_le_historico (P32/WR-04) foi apagado pela troca para SECURITY DEFINER e nao foi reimposto no corpo. E o vazamento horizontal que a SEG-02 abriu para fechar, reaberto pela porta que esta fase abriu para consertar um UUID'
-      USING ERRCODE = 'P4702';
+    INSERT INTO public.historico_candidatura
+           (candidatura_id, etapa_de, etapa_para, criterio_texto, ator)
+    VALUES (v_cand, 'triagem', 'triagem', 'P47H fixture (b) — revertida', NULL);
+
+    SELECT count(*) INTO v_pop FROM public.historico_candidatura WHERE candidatura_id = v_cand;
+    BEGIN
+      SELECT count(*) INTO v_lidas FROM public.listar_historico_candidatura(v_cand) t;
+    EXCEPTION WHEN OTHERS THEN
+      v_erro := SQLSTATE || ': ' || SQLERRM;
+    END;
+
+    -- ROLLBACK INTENCIONAL da linha semeada (as variaveis sobrevivem).
+    RAISE EXCEPTION 'rollback_p47h_b' USING ERRCODE = 'P4704';
   EXCEPTION
-    WHEN sqlstate 'P4702' THEN RAISE;
-    WHEN sqlstate '42501' THEN v_ok := v_ok + 1;
+    WHEN sqlstate 'P4704' THEN
+      NULL;
   END;
+
+  IF v_erro IS NOT NULL THEN
+    PERFORM set_config('request.jwt.claims', '', false);
+    RAISE EXCEPTION 'P47H FAIL (b): o rh ATIVO que NAO criou a vaga foi recusado (%) — a D-01 nao vale no corpo de listar_historico_candidatura', v_erro;
+  END IF;
+  IF v_pop < 1 OR v_lidas IS DISTINCT FROM v_pop THEN
+    PERFORM set_config('request.jwt.claims', '', false);
+    RAISE EXCEPTION 'P47H FAIL (b): o rh ATIVO nao-autor leu %/% linha(s) do historico da candidatura — esperado EXATAMENTE a populacao lida como postgres', v_lidas, v_pop;
+  END IF;
+
+  -- ⊖ token velho e rh sem linha
+  FOREACH v_rot IN ARRAY ARRAY['token velho (recrutador INATIVO)', 'rh sem linha em usuarios_rh'] LOOP
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', CASE WHEN v_rot LIKE 'token velho%' THEN v_velho::text ELSE gen_random_uuid()::text END,
+                        'app_metadata', json_build_object('role', 'rh'))::text, false);
+    BEGIN
+      PERFORM * FROM public.listar_historico_candidatura(v_cand);
+      RAISE EXCEPTION 'P47H FAIL (b): a funcao ACEITOU % — o helper vivo (D-02) nao e reimposto no corpo SECURITY DEFINER, e quem foi desativado le o historico de todas as candidaturas', v_rot
+        USING ERRCODE = 'P4702';
+    EXCEPTION
+      WHEN sqlstate 'P4702' THEN RAISE;
+      WHEN sqlstate '42501' THEN v_ok := v_ok + 1;
+    END;
+  END LOOP;
 
   PERFORM set_config('request.jwt.claims', '', false);
 
-  IF v_ok <> 1 THEN
-    RAISE EXCEPTION 'P47H FAIL (b): a recusa nao veio com 42501 (ok = %)', v_ok;
+  IF v_ok <> 2 THEN
+    RAISE EXCEPTION 'P47H FAIL (b): as recusas nao vieram com 42501 (ok = %/2)', v_ok;
   END IF;
 
   PERFORM set_config('smoke47h.pass', (coalesce(nullif(current_setting('smoke47h.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (b): recrutador fora do escopo da vaga recusado com 42501 — o predicado do rh_le_historico vive no corpo';
+  RAISE NOTICE 'PASS (b): rh ATIVO nao-autor leu %/% linha(s); token velho e rh sem linha recusados com 42501', v_lidas, v_pop;
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
