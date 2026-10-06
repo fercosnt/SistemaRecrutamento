@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 44 --gaps-only (CR-01) — 44-14 concluido (frase oQueNaoEsta nomeia toda categoria retida + canal; portao (cr1) derivado do artefato, (cr3) visto mordendo; 44-UI-SPEC = codigo); proximo 44-15 (portoes), depois 44-16 (publicacao com checkpoint)"
-last_updated: "2026-10-06T23:46:08.000Z"
+stopped_at: "Phase 44 --gaps-only (CR-01) — 44-15 concluido (smoke fail-closed provado contra PROD so leitura; (k) permissiva, (k3) estrutura+predicado+agregador, (k4) M1-M18, (i)/(i2)/(i3) WR-07 — cada portao visto mordendo); proximo 44-16 (publicacao com checkpoint do operador)"
+last_updated: "2026-10-06T23:58:00.000Z"
 last_activity: 2026-10-06
-state_head: 18e35dd92136bc60ab70da6183a160d594719285
+state_head: 813b191cadcaecc45070bd81a608a659835769a1
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 141
-  completed_plans: 137
-  percent: 97
+  completed_plans: 138
+  percent: 98
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "44-14 concluido — CR-01 no codigo: oQueNaoEsta reescrita (BD-17) igual na tela, .html e .json; (cr1) familias de razao do artefato 1.4.0 = chaves do mapa (9 familias, 99 itens, 0 sem familia), (cr3) 5 controles negativos, mutacao unica da frase real mordeu nomeando BD-13 (ii) e md5 restaurado; nada publicado (proximo 44-15)"
+last_activity_desc: "44-15 concluido — WR-03: DO $gate$ fail-closed (coalesce / IS DISTINCT FROM 0); PROD so leitura: A (arquivo anterior) aprovava com n_drift null, B/C/D reprovam, E limpo aprova n_drift 0; WR-01/02: (k) permissiva, (k3), (k4) M1-M18 (526/528); WR-07: (i)/(i2) com a chave do gerador + (i3); 91 testes verdes; nada publicado (proximo 44-16)"
 ---
 
 # Project State
@@ -984,6 +984,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P12 | ~4min | 3 tasks | 3 files |
 | Phase 44 P13 | ~9min | 3 tasks | 3 files |
 | Phase 44 P14 | ~6min | 3 tasks | 3 files |
+| Phase 44 P15 | ~9min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1370,6 +1371,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-13: G5 no ar nos dois canais, front antes da EF — push 797c6110..4aa9f2ca (24 commits, todos autorizados), EF exportar-meus-dados v6 ACTIVE verify_jwt true com 1.4.0; re-revisao independente (gsd-code-review) nao rodou por falta de ferramenta de agente no executor — pendencia do re-verificador
 - [Phase 44]: 44-14: COPY_PEDIR_COPIA.oQueNaoEsta nomeia toda categoria retida pela 1.4.0 (telemetria, controle de envio, configuracao do sistema, dados de outras pessoas, anotacoes de conservacao BD-10, ficha tecnica do motor BD-13 (ii)/BD-16, justificativa da decisao final BD-9) + canal; texto final sujeito ao checkpoint do operador no 44-16
 - [Phase 44]: 44-14: portao (cr1) deriva as familias de razao do ARTEFATO (regra de 7 passos, vocabulario = valores de excluidas) e exige igualdade de conjuntos com CLAUSULA_POR_FAMILIA (escopo deliberado); (cr3) com 5 controles negativos permanentes; allowlist intocada (BD-15)
+- [Phase 44]: 44-15: smoke p44_export_drift falha FECHADO (WR-03) — coalesce((r->>'<k>')::int, 0) = 0 nas guardas de populacao e IS DISTINCT FROM 0 na de drift; provado contra PROD so leitura (o arquivo anterior aprovava com n_drift null e drift presente; o novo reprova)
+- [Phase 44]: 44-15: a (k3) prende o predicado do smoke ao relatorio 05 (com_veredito, tabelas_vivas, vivo, os dois bracos do drift) e a estrutura que falha alto (DO $gate$, sem EXCEPTION WHEN, guardas exatas, chave lida = construida, agregador = contagem nua de CTE; drift = escopo deliberado); a (k4) ve 18 mutacoes reprovarem nomeando o alvo; a (k) ganhou contagem permissiva sem afrouxar a canonica
+- [Phase 44]: 44-15: (i)/(i2) ordenam com a chave do gerador (linha sem recuo e sem virgula final) e as fixtures LOCAIS carregam prefixo comum; (i3) prova a mordida; gerador, allowlist, YAML, relatorio 05 e EF intocados
 
 ### Roadmap Evolution
 
@@ -1702,8 +1706,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T23:46:08.000Z
-Stopped at: Completed 44-14-PLAN.md
+Last session: 2026-10-06T23:58:00.000Z
+Stopped at: Completed 44-15-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
