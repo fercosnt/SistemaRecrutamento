@@ -317,13 +317,18 @@ export async function handler(req: Request, deps: GerenciarUsuarioRhDeps): Promi
  * Throwaway password for `createUser`. It must pass the project's GoTrue password policy
  * (lowercase + uppercase + digit). Two concatenated UUIDs did not (lowercase hex only),
  * and every `criar` failed with 400 in PROD (2026-10-06). 32 random bytes → base64
- * alphanumerics, plus one random character of each required class.
+ * alphanumerics, plus one random character of each class — symbol included, so turning on
+ * GoTrue's stricter option (lower+upper+digit+symbol) does not break `criar` again.
  */
 function gerarSenhaTemporaria(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const base = btoa(String.fromCharCode(...bytes)).replace(/[^A-Za-z0-9]/g, "");
   const pick = (chars: string) => chars[crypto.getRandomValues(new Uint32Array(1))[0] % chars.length];
-  return base + pick("abcdefghijklmnopqrstuvwxyz") + pick("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + pick("0123456789");
+  return base +
+    pick("abcdefghijklmnopqrstuvwxyz") +
+    pick("ABCDEFGHIJKLMNOPQRSTUVWXYZ") +
+    pick("0123456789") +
+    pick("!@#$%^&*-_");
 }
 
 /**

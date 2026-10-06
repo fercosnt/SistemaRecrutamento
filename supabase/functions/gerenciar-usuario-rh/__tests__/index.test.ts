@@ -247,8 +247,14 @@ Deno.test("USR-02 — criar: when criar_usuario_rh_com_audit RPC errors, handler
 // PROD's GoTrue policy requires lowercase + uppercase + digit. The old temp password
 // (two UUIDs: lowercase hex only) was rejected → every `criar` returned 400. The mock
 // createUser accepts anything, so the policy is asserted on the password it received.
-Deno.test("USR-02 — criar: temp password satisfies the Auth policy (lower + upper + digit, ≥32 chars)", async () => {
+// 50-REVIEW WR-01: composition alone let two mutations pass (no randomness → 43 'A's + 3
+// random chars; password returned in the body and logged). So the test also asserts the
+// passwords differ, the base is varied, and the password never reaches the body or console.
+// IN-01: one symbol too, so the stricter GoTrue option (lower+upper+digit+symbol) can't
+// silently break `criar` again.
+Deno.test("USR-02 — criar: temp password satisfies the Auth policy (lower + upper + digit + symbol, ≥32 chars)", async () => {
   const { handler } = await loadHandler();
+  const seen = new Set<string>();
   for (let i = 0; i < 20; i++) {
     const supabaseAdmin = makeMockSupabaseAdmin({ rhRow: { role: "administrador" } });
     const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(ADMIN_USER) };
@@ -258,7 +264,33 @@ Deno.test("USR-02 — criar: temp password satisfies the Auth policy (lower + up
     assert(/[a-z]/.test(pw), "temp password lacks a lowercase letter");
     assert(/[A-Z]/.test(pw), "temp password lacks an uppercase letter");
     assert(/[0-9]/.test(pw), "temp password lacks a digit");
+    assert(/[^A-Za-z0-9]/.test(pw), "temp password lacks a symbol");
+    assert(new Set(pw).size >= 16, `temp password is not varied enough: ${new Set(pw).size} distinct chars`);
+    seen.add(pw);
   }
+  assertEquals(seen.size, 20, "temp passwords repeat across calls");
+});
+
+Deno.test("USR-02 — criar: temp password never reaches the response body or the console", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabaseAdmin({ rhRow: { role: "administrador" } });
+  const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(ADMIN_USER) };
+  const logged: string[] = [];
+  const original = { log: console.log, info: console.info, warn: console.warn, error: console.error };
+  for (const k of Object.keys(original) as (keyof typeof original)[]) {
+    console[k] = (...args: unknown[]) => logged.push(args.map((a) => typeof a === "string" ? a : JSON.stringify(a)).join(" "));
+  }
+  let body = "";
+  try {
+    const res = await handler(makeRequest(CRIAR_BODY), deps);
+    body = await res.text();
+  } finally {
+    Object.assign(console, original);
+  }
+  const pw = String(supabaseAdmin.createUserCalls[0]?.password ?? "");
+  assert(pw.length > 0, "createUser was not called");
+  assert(!body.includes(pw), "temp password leaked into the response body");
+  assert(!logged.some((line) => line.includes(pw)), "temp password leaked into the console");
 });
 
 // ── USR-05 email path: resetPasswordForEmail redirectTo + non-fatal send failure ──
