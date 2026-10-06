@@ -120,7 +120,12 @@ function makeMockSupabaseAdmin(
   // WR-05 (50-REVIEW-ACESSO-1): linhas EXPLÍCITAS de usuarios_rh (inativa, excluída, de outro
   // usuário). `null` = uma linha VIVA com `usuariosRhRole` para cada chamador destes testes.
   rhRows: Record<string, unknown>[] | null = null,
+  // WR-06/WR-07 (50-REVIEW-ACESSO-1): linhas de `candidaturas`. `null` = a candidatura do BODY,
+  // VIVA e da vaga do BODY. A consulta APLICA os filtros da EF.
+  candRows: Record<string, unknown>[] | null = null,
 ) {
+  const linhasCand = candRows ??
+    [{ id: BODY.candidatura_id, vaga_id: BODY.vaga_id, deleted_at: null, is_rascunho: false }];
   const linhasRh = rhRows ??
     (usuariosRhRole === null
       ? []
@@ -133,6 +138,9 @@ function makeMockSupabaseAdmin(
       // usuarios_rh role lookup: .select('role').eq().eq().is().maybeSingle()
       if (table === "usuarios_rh") {
         return consultaQueFiltra(linhasRh);
+      }
+      if (table === "candidaturas") {
+        return consultaQueFiltra(linhasCand);
       }
       // vagas: pesos_avaliacao (the author column is inert since Phase 50) — .select(...).eq(...).maybeSingle()
       if (table === "vagas") {
@@ -673,4 +681,47 @@ Deno.test("WR-05 — só a linha viva de OUTRO usuário → 403 (o filtro user_i
   const { res, supabaseAdmin } = await comLinhasRh([linhaRh("rh-outro", "administrador")]);
   assertEquals(res.status, 403);
   assertEquals(supabaseAdmin.calledTables, ["usuarios_rh"]);
+});
+
+// ── WR-06 (50-REVIEW-ACESSO-1) — só candidatura VIVA, o predicado do ramo rh da RLS ──
+// Morta e rascunho → 403 genérico (o idioma do cross-check do gerar-guia), ANTES de qualquer
+// leitura de score/análise.
+async function comCand(cands: Record<string, unknown>[]) {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabaseAdmin(scoresRows(), ANALISE_TRIAGEM, "rh-1", "recrutador", PESOS, null, cands);
+  const res = await handler(makeRequest(BODY), { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) });
+  return { res, supabaseAdmin };
+}
+const candViva = (extra: Record<string, unknown> = {}) => ({
+  id: BODY.candidatura_id,
+  vaga_id: BODY.vaga_id,
+  deleted_at: null,
+  is_rascunho: false,
+  ...extra,
+});
+const leuScores = (t: string[]) => t.includes("scores_candidato") || t.includes("analise_candidato_vaga");
+
+Deno.test("WR-06 controle — candidatura VIVA da vaga → 200, scores lidos", async () => {
+  const { res, supabaseAdmin } = await comCand([candViva()]);
+  assertEquals(res.status, 200);
+  assertEquals(leuScores(supabaseAdmin.calledTables), true);
+});
+
+Deno.test("WR-06 — candidatura RASCUNHO → 403, nenhum score/análise lido", async () => {
+  const { res, supabaseAdmin } = await comCand([candViva({ is_rascunho: true })]);
+  assertEquals(res.status, 403);
+  assertEquals((await res.json()).error_code, "FORBIDDEN");
+  assertEquals(leuScores(supabaseAdmin.calledTables), false);
+});
+
+Deno.test("WR-06 — candidatura EXCLUÍDA (deleted_at) → 403, nenhum score/análise lido", async () => {
+  const { res, supabaseAdmin } = await comCand([candViva({ deleted_at: "2026-10-01T00:00:00Z" })]);
+  assertEquals(res.status, 403);
+  assertEquals(leuScores(supabaseAdmin.calledTables), false);
+});
+
+Deno.test("WR-06 — candidatura inexistente → 403 (o mesmo da morta)", async () => {
+  const { res, supabaseAdmin } = await comCand([]);
+  assertEquals(res.status, 403);
+  assertEquals(leuScores(supabaseAdmin.calledTables), false);
 });

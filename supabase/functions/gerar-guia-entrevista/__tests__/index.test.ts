@@ -273,3 +273,30 @@ Deno.test("cross-check — candidatura de outra vaga → 403, zero IA, zero grav
   assertEquals(anthropic.calls.length, 0);
   assertEquals(guias.length, 0);
 });
+
+// ── WR-06 (50-REVIEW-ACESSO-1) — só candidatura VIVA, o predicado do ramo rh da RLS ──
+// `deleted_at IS NULL AND is_rascunho = false`. Morta e rascunho → o MESMO 403 genérico da
+// ausente e da de outra vaga; nenhum score lido, zero IA, zero gravação.
+Deno.test("WR-06 — candidatura RASCUNHO → 403, nenhum score lido, zero IA, zero gravação", async () => {
+  const { res, supabaseAdmin, anthropic, guias } = await rodar({ candRows: [linhaCand({ is_rascunho: true })] });
+  assertEquals(res.status, 403);
+  assertEquals(supabaseAdmin.lidas.includes("scores_candidato"), false);
+  assertEquals(anthropic.calls.length, 0);
+  assertEquals(guias.length, 0);
+});
+
+Deno.test("WR-06 — candidatura EXCLUÍDA (deleted_at) → 403, nenhum score lido, zero IA", async () => {
+  const { res, supabaseAdmin, anthropic, guias } = await rodar({
+    candRows: [linhaCand({ deleted_at: "2026-10-01T00:00:00Z" })],
+  });
+  assertEquals(res.status, 403);
+  assertEquals(supabaseAdmin.lidas.includes("scores_candidato"), false);
+  assertEquals(anthropic.calls.length, 0);
+  assertEquals(guias.length, 0);
+});
+
+Deno.test("WR-06 — candidatura inexistente → 403 (o mesmo da morta)", async () => {
+  const { res, guias } = await rodar({ candRows: [] });
+  assertEquals(res.status, 403);
+  assertEquals(guias.length, 0);
+});

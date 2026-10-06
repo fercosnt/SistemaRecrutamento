@@ -337,6 +337,26 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
       return errorResponse("NOT_FOUND", "Vaga não encontrada.", 404);
     }
 
+    // ── 3b. A candidatura do pedido, VIVA (WR-06 do 50-REVIEW-ACESSO-1) — o predicado do
+    //      ramo rh de `rh_le_candidaturas` (`deleted_at IS NULL AND is_rascunho = false`).
+    //      As leituras abaixo são service_role (a RLS não protege aqui): sem esta leitura,
+    //      todo rh ativo obteria o breakdown de scores de candidatura excluída ou de
+    //      rascunho pelo id. Ausente/morta/rascunho → 403 genérico, o idioma do cross-check
+    //      do gerar-guia (nada distingue «não existe» de «não pode»).
+    const { data: candRow, error: candErr } = await supabaseAdmin
+      .from("candidaturas")
+      .select("id, vaga_id")
+      .eq("id", body.candidatura_id)
+      .is("deleted_at", null)
+      .eq("is_rascunho", false)
+      .maybeSingle();
+    if (candErr) {
+      return errorResponse("SERVER_ERROR", "Falha ao verificar a candidatura.", 500);
+    }
+    if (!candRow) {
+      return errorResponse("FORBIDDEN", "Acesso negado.", 403);
+    }
+
     // WR-06: tipado como `unknown` (não `number`) — a coluna é jsonb e um peso pode
     // chegar como string/valor inválido; cada leitura coage+valida (ver weightedRows).
     const pesos = (vagaRow.pesos_avaliacao ?? {}) as Record<string, unknown>;

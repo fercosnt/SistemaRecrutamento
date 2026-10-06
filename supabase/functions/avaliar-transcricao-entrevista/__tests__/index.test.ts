@@ -180,6 +180,8 @@ interface AdminOpts {
   usuariosRhRole?: string | null;
   /** WR-05: linhas EXPLÍCITAS de usuarios_rh (inativa, excluída, de outro usuário) — vence `usuariosRhRole`. */
   rhRows?: Array<Record<string, unknown>>;
+  /** WR-06: atributos da candidatura (p.ex. `deleted_at`, `is_rascunho`) — VIVA por padrão. */
+  candidatura?: Record<string, unknown>;
   /** etapa da candidatura — é o PADRÃO do `tipo` quando o body não o manda (D-41). */
   etapaAtual?: string;
   /** Autor da vaga devolvido pelo mock (inerte desde a Phase 50 / D-01). null ⇒ sem linha de vaga. */
@@ -264,24 +266,19 @@ function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
       }
 
       if (table === "candidaturas") {
-        return {
-          select: (_c?: string) => ({
-            eq: () => ({
-              maybeSingle: () => {
-                reads.push({ table, filtros: {} });
-                return Promise.resolve({
-                  data: {
-                    id: CANDIDATURA,
-                    vaga_id: VAGA,
-                    candidato_id: CANDIDATO,
-                    etapa_atual: etapaAtual,
-                  },
-                  error: null,
-                });
-              },
-            }),
-          }),
-        };
+        // WR-06: a consulta APLICA os filtros da EF — morta/rascunho só some se a EF filtrar.
+        return consultaQueFiltra(
+          [{
+            id: CANDIDATURA,
+            vaga_id: VAGA,
+            candidato_id: CANDIDATO,
+            etapa_atual: etapaAtual,
+            deleted_at: null,
+            is_rascunho: false,
+            ...(opts.candidatura ?? {}),
+          }],
+          () => reads.push({ table, filtros: {} }),
+        );
       }
 
       if (table === "vagas") {
@@ -1101,5 +1098,38 @@ Deno.test("WR-05 — linha do chamador EXCLUÍDA (deleted_at) → 403, zero RPC"
 Deno.test("WR-05 — só a linha viva de OUTRO usuário → 403 (o filtro user_id)", async () => {
   const { res, admin } = await comLinhasRh([linhaRh("rh-outro", "administrador")]);
   assertEquals(res.status, 403);
+  assertEquals(admin.rpcCalls.length, 0);
+});
+
+// ── WR-06 (50-REVIEW-ACESSO-1) — só candidatura VIVA, o predicado do ramo rh da RLS ──
+// Morta e rascunho → o MESMO 403 genérico da ausente; zero IA, zero gravação.
+async function comCandidatura(candidatura: Record<string, unknown>) {
+  const handler = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ candidatura });
+  const anthropic = makeMockAnthropic();
+  const res = await handler(
+    post({ candidatura_id: CANDIDATURA, transcricao: TRANSCRICAO_A, tipo: "online" }),
+    deps(admin, { anthropic }),
+  );
+  return { res, admin, anthropic };
+}
+
+Deno.test("WR-06 controle — candidatura VIVA → 200, IA e gravação", async () => {
+  const { res, admin } = await comCandidatura({ deleted_at: null, is_rascunho: false });
+  assertEquals(res.status, 200);
+  assertEquals(admin.rpcCalls.length, 1);
+});
+
+Deno.test("WR-06 — candidatura RASCUNHO → 403, zero IA, zero RPC", async () => {
+  const { res, admin, anthropic } = await comCandidatura({ is_rascunho: true });
+  assertEquals(res.status, 403);
+  assertEquals(anthropic.calls.length, 0);
+  assertEquals(admin.rpcCalls.length, 0);
+});
+
+Deno.test("WR-06 — candidatura EXCLUÍDA (deleted_at) → 403, zero IA, zero RPC", async () => {
+  const { res, admin, anthropic } = await comCandidatura({ deleted_at: "2026-10-01T00:00:00Z" });
+  assertEquals(res.status, 403);
+  assertEquals(anthropic.calls.length, 0);
   assertEquals(admin.rpcCalls.length, 0);
 });

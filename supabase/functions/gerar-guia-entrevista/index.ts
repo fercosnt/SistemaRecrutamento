@@ -250,10 +250,16 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
     }
 
     // Cross-check: a candidatura pertence à vaga informada (IDOR).
+    // WR-06 (50-REVIEW-ACESSO-1): e é VIVA — o predicado do ramo rh de `rh_le_candidaturas`
+    // (`deleted_at IS NULL AND is_rascunho = false`). Leitura service_role: sem o filtro, todo
+    // rh ativo leria os scores e geraria roteiro (IA + gravação) de candidatura excluída ou de
+    // rascunho. Morta/rascunho → o MESMO 403 genérico da ausente e da de outra vaga.
     const { data: candRow } = await supabaseAdmin
       .from("candidaturas")
       .select("id, vaga_id, candidato_id")
       .eq("id", body.candidatura_id)
+      .is("deleted_at", null)
+      .eq("is_rascunho", false)
       .maybeSingle();
     if (!candRow || candRow.vaga_id !== body.vaga_id) {
       return errorResponse("FORBIDDEN", "Acesso negado.", 403);

@@ -23,8 +23,9 @@
  *   3. INPUT: `{ candidatura_id }` ONLY — NEVER a client-supplied storage path
  *      (forgeable — Tampering T-32-03). The path is resolved server-side.
  *   4. RESOLVE: `candidaturas.select('curriculo_url')` (allowlist projection, NEVER
- *      select('*') — [[reference_select_star_leaks_pii]]), soft-deleted rows excluded;
- *      missing row → 404.
+ *      select('*') — [[reference_select_star_leaks_pii]]), only a LIVE candidatura
+ *      (`deleted_at IS NULL AND is_rascunho = false`, the rh branch of
+ *      `rh_le_candidaturas` — WR-06 of 50-REVIEW-ACESSO-1); missing/dead/draft row → 404.
  *   5. NULL curriculo_url → 404.
  *   6. MINT: supabaseAdmin.storage.from('curriculos').createSignedUrl(path, 60) → 200.
  *
@@ -161,11 +162,18 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     // ── 4. Resolve o path server-side (allowlist projection — NÃO select('*'),
     //      [[reference_select_star_leaks_pii]]). Linha ausente OU curriculo_url
     //      NULL → 404.
+    //      WR-06 (50-REVIEW-ACESSO-1): só candidatura VIVA — o mesmo predicado do ramo rh de
+    //      `rh_le_candidaturas` (`deleted_at IS NULL AND is_rascunho = false`, migration
+    //      20261005000001). A EF lê com service_role (a RLS não protege aqui): sem o filtro,
+    //      todo rh ativo obteria o CV de um RASCUNHO (alguém que nunca se candidatou) que o
+    //      banco esconde dele. Morta/rascunho → o MESMO 404 da ausente (nada distingue).
+    //      Vale também para o administrador — esta EF já recusava a excluída a todos (WR-03).
     const { data: candRaw, error: candErr } = await supabaseAdmin
       .from("candidaturas")
       .select("curriculo_url")
       .eq("id", candidaturaId)
       .is("deleted_at", null) // WR-03: NEVER mint a URL for a soft-deleted candidatura's CV
+      .eq("is_rascunho", false) // WR-06: nor for a draft one
       .maybeSingle();
     if (candErr) {
       return errorResponse("SERVER_ERROR", "Falha ao carregar a candidatura.", 500);

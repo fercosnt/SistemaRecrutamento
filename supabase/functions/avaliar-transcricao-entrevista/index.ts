@@ -228,10 +228,17 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
     //      vaga deixou de ser autorização). Candidatura ausente → 403 genérico. O título
     //      é só contexto do prompt e pode faltar (leitura null-safe mais abaixo).
     //      `etapa_atual` entra na MESMA allowlist (D-41) — é o padrão do `tipo`.
+    //      WR-06 (50-REVIEW-ACESSO-1): só candidatura VIVA — o predicado do ramo rh de
+    //      `rh_le_candidaturas` (`deleted_at IS NULL AND is_rascunho = false`). Leitura
+    //      service_role: sem o filtro, todo rh ativo rodaria IA e GRAVARIA
+    //      (`registrar_analise_entrevista`) análise ligada a candidatura excluída ou de
+    //      rascunho. Morta/rascunho → o MESMO 403 genérico da ausente.
     const { data: candRow } = await supabaseAdmin
       .from("candidaturas")
       .select("id, vaga_id, candidato_id, etapa_atual")
       .eq("id", body.candidatura_id)
+      .is("deleted_at", null)
+      .eq("is_rascunho", false)
       .maybeSingle();
     if (!candRow) {
       return errorResponse("FORBIDDEN", "Acesso negado.", 403);

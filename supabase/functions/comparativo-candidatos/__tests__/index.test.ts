@@ -182,13 +182,15 @@ function makeMockSupabaseAdmin(
   // IA» são o que distingue uma recusa CORRETA (antes de tocar PII de vaga alheia) de uma
   // recusa que já leu tudo e só não mostrou (T-49-08-01).
   const reads: string[] = [];
-  const candidaturas = candidaturaRows ??
+  // WR-06: VIVAS por padrão (`deleted_at` nulo, `is_rascunho` falso), e a consulta APLICA os
+  // filtros da EF — uma morta/rascunho só some do resultado se a EF a filtrar.
+  const candidaturas = (candidaturaRows ??
     analiseRows.map((r) => ({
       id: r.candidatura_id,
       vaga_id: r.vaga_id,
       etapa_atual: "triagem",
       status: "em_analise",
-    }));
+    }))).map((c) => ({ deleted_at: null, is_rascunho: false, ...c }));
   return {
     inserts,
     reads,
@@ -230,17 +232,7 @@ function makeMockSupabaseAdmin(
       // 49-08 Task 2: leitura de `candidaturas` (allowlist `id, vaga_id, etapa_atual, status`)
       // pelos ids pedidos — a posse e o estado de CADA candidatura, antes das análises.
       if (table === "candidaturas") {
-        return {
-          select: (_cols?: string) => ({
-            in: (_col: string, ids: string[]) => {
-              reads.push("candidaturas");
-              return Promise.resolve({
-                data: candidaturas.filter((c) => ids.includes(c.id as string)),
-                error: null,
-              });
-            },
-          }),
-        };
+        return consultaQueFiltra(candidaturas, () => reads.push("candidaturas"));
       }
       return {
         select: (_cols?: string) => ({
@@ -1132,4 +1124,49 @@ Deno.test("WR-05 — só a linha viva de OUTRO usuário → 403 (o filtro user_i
   const { res, admin } = await comLinhasRh([linhaRh("rh-outro", "administrador")]);
   assertEquals(res.status, 403);
   assertEquals(admin.reads.length, 0);
+});
+
+// ── WR-06 (50-REVIEW-ACESSO-1) — só candidatura VIVA, o predicado do ramo rh da RLS ──
+// Morta e rascunho caem no MESMO 403 genérico da ausente/forasteira (T-49-08-02): zero
+// leituras de análise, zero IA.
+async function comCandidaturas(cands: Record<string, unknown>[]) {
+  const { handler } = await loadHandler();
+  const anthropic = makeMockAnthropic();
+  const admin = makeMockSupabaseAdmin(rowsForVaga("v1", ["c1", "c2"]), "rh-1", "recrutador", null, cands);
+  const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), {
+    anthropic,
+    openai: makeMockOpenAI(),
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(RH_USER),
+  });
+  return { res, admin, anthropic };
+}
+const viva = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  vaga_id: "v1",
+  etapa_atual: "triagem",
+  status: "em_analise",
+  deleted_at: null,
+  is_rascunho: false,
+  ...extra,
+});
+
+Deno.test("WR-06 controle — duas candidaturas VIVAS → 200", async () => {
+  const { res } = await comCandidaturas([viva("c1"), viva("c2")]);
+  assertEquals(res.status, 200);
+});
+
+Deno.test("WR-06 — uma candidatura RASCUNHO → 403 genérico, zero leitura de análise, zero IA", async () => {
+  const { res, admin, anthropic } = await comCandidaturas([viva("c1"), viva("c2", { is_rascunho: true })]);
+  assertEquals(res.status, 403);
+  assertEquals((await res.json()).error_code, "FORBIDDEN");
+  assertEquals(admin.reads.includes("analise_candidato_vaga"), false);
+  assertEquals(anthropic.calls.length, 0);
+});
+
+Deno.test("WR-06 — uma candidatura EXCLUÍDA (deleted_at) → 403 genérico, zero IA", async () => {
+  const { res, admin, anthropic } = await comCandidaturas([viva("c1", { deleted_at: "2026-10-01T00:00:00Z" }), viva("c2")]);
+  assertEquals(res.status, 403);
+  assertEquals(admin.reads.includes("analise_candidato_vaga"), false);
+  assertEquals(anthropic.calls.length, 0);
 });

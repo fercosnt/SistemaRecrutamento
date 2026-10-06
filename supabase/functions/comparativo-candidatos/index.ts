@@ -298,10 +298,17 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
       return errorResponse("VALIDATION", "Há candidatos repetidos na seleção.");
     }
 
+    // WR-06 (50-REVIEW-ACESSO-1): só candidatura VIVA — o predicado do ramo rh de
+    // `rh_le_candidaturas` (`deleted_at IS NULL AND is_rascunho = false`). A leitura é
+    // service_role: sem o filtro, todo rh ativo compararia análises de candidatura excluída ou
+    // de rascunho que a RLS esconde dele. Morta/rascunho fica fora do resultado e cai no MESMO
+    // 403 genérico da ausente e da forasteira, logo abaixo (nenhum oráculo de existência).
     const { data: candsRaw, error: candsErr } = await supabaseAdmin
       .from("candidaturas")
       .select("id, vaga_id, etapa_atual, status")
-      .in("id", ids);
+      .in("id", ids)
+      .is("deleted_at", null)
+      .eq("is_rascunho", false);
     if (candsErr) {
       return errorResponse("SERVER_ERROR", "Falha ao carregar as candidaturas.", 500);
     }

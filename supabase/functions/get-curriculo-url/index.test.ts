@@ -124,8 +124,10 @@ interface AdminOpts {
   role?: string | null;
   /** Explicit usuarios_rh rows (overrides `role`) — the WR-05 cases (inactive, deleted, other user). */
   rhRows?: Array<Record<string, unknown>>;
-  /** candidaturas row projection {curriculo_url, vaga_id}; `null` = no row (404). */
-  cand?: { curriculo_url: string | null; vaga_id: string } | null;
+  /** candidaturas row {curriculo_url, vaga_id, [deleted_at, is_rascunho]}; `null` = no row (404).
+   *  WR-06: the row is LIVE (`deleted_at` null, `is_rascunho` false) unless the test says otherwise,
+   *  and the query APPLIES the EF's filters — a dead/draft row is only hidden if the EF filters it. */
+  cand?: { curriculo_url: string | null; vaga_id: string; deleted_at?: string | null; is_rascunho?: boolean } | null;
   /** vagas row projection {created_by}; inert since Phase 50 / D-01 (the EF no longer reads vagas). */
   vaga?: { created_by: string } | null;
   signedUrl?: string;
@@ -152,7 +154,9 @@ function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
       }
       if (table === "candidaturas") {
         reads.candidaturas++;
-        return makeChainable({ data: cand, error: null });
+        return consultaQueFiltra(
+          cand === null ? [] : [{ id: CANDIDATURA_ID, deleted_at: null, is_rascunho: false, ...cand }],
+        );
       }
       if (table === "vagas") {
         reads.vagas++;
@@ -339,4 +343,41 @@ Deno.test("WR-05 — só a linha viva de OUTRO usuário → 403 (o filtro user_i
   const { res, admin } = await comLinhas([linhaRh(OTHER_UID, "administrador")]);
   assertEquals(res.status, 403);
   assertEquals(admin.reads.candidaturas, 0);
+});
+
+// ── WR-06 (50-REVIEW-ACESSO-1) — só candidatura VIVA, o predicado do ramo rh da RLS ──
+// `deleted_at IS NULL AND is_rascunho = false` (rh_le_candidaturas). Morta e rascunho recebem o
+// MESMO 404 da candidatura ausente — e nenhuma URL é assinada.
+async function comCand(cand: AdminOpts["cand"], role = "recrutador") {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ role, cand });
+  const res = await handler(makeRequest(VALID_BODY), {
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(OWNER),
+  });
+  return { res, admin };
+}
+
+Deno.test("WR-06 controle — candidatura VIVA → 200", async () => {
+  const { res } = await comCand({ curriculo_url: CV_PATH, vaga_id: VAGA_ID, deleted_at: null, is_rascunho: false });
+  assertEquals(res.status, 200);
+});
+
+Deno.test("WR-06 — candidatura RASCUNHO → 404 (o mesmo da ausente), sem URL", async () => {
+  const { res } = await comCand({ curriculo_url: CV_PATH, vaga_id: VAGA_ID, is_rascunho: true });
+  assertEquals(res.status, 404);
+  const json = await res.json();
+  assertEquals(json.error_code, "NOT_FOUND");
+  assertEquals(json.signedUrl, undefined);
+});
+
+Deno.test("WR-06 — candidatura EXCLUÍDA (deleted_at) → 404, sem URL", async () => {
+  const { res } = await comCand({ curriculo_url: CV_PATH, vaga_id: VAGA_ID, deleted_at: "2026-10-01T00:00:00Z" });
+  assertEquals(res.status, 404);
+  assertEquals((await res.json()).signedUrl, undefined);
+});
+
+Deno.test("WR-06 — administrador e candidatura RASCUNHO → 404 também", async () => {
+  const { res } = await comCand({ curriculo_url: CV_PATH, vaga_id: VAGA_ID, is_rascunho: true }, "administrador");
+  assertEquals(res.status, 404);
 });
