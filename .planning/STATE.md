@@ -2,11 +2,11 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: planning
-stopped_at: "Phase 44 gap plans 44-10..44-13 ready — run /gsd-execute-phase 44 --gaps-only"
-last_updated: "2026-10-06T18:40:25.465Z"
+status: executing
+stopped_at: "Phase 44 --gaps-only em execucao — 44-10..44-13 (G5), sequencial"
+last_updated: "2026-10-06T20:37:33.204Z"
 last_activity: 2026-10-06
-state_head: 6951da0e627bd8fca8b726040d18b491de1e3d12
+state_head: f171b9c1183bd7f3c7673883e0862bddc99bc186
 progress:
   total_phases: 9
   completed_phases: 9
@@ -15,7 +15,7 @@ progress:
   percent: 96
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "Phase 44 gap plans 44-10..44-13 (G5) planned — plan-checker passed (round 2, info only)"
+last_activity_desc: Phase 44 gap plans 44-10..44-13 (G5) planned — plan-checker passed (round 2, info only)
 ---
 
 # Project State
@@ -178,7 +178,7 @@ Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 49 — Consertos da Jornada — Bloco 2
+**Current focus:** Phase 44 — Exportação & Acesso
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
