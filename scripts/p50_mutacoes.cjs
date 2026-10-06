@@ -13,7 +13,11 @@
  *   CONTROLE : prefixo + migrations faltantes + smoke + sentinela
  *              ⇒ tem de chegar ao sentinela com smoke50 = esperado, sem `FAIL (` (senão
  *                CONTROLE VERMELHO, e para ali).
- *   M1..M6   : prefixo + migrations faltantes + MUTAÇÃO (DDL avulsa) + smoke + sentinela
+ *   M1..M<N> : prefixo + migrations faltantes + MUTAÇÃO (DDL avulsa) + smoke + sentinela
+ *              (M1..M6 tracer; M7..M11 rodada de conserto do 50-REVIEW-TRACER-1; M12..M23 do 50-07,
+ *              uma por cláusula nova (g)..(l) e pela extensão de (e) — extraídas de 0002..0004 ou,
+ *              para objeto que a fase não reescreve, do `pg_get_functiondef` VIVO lido só-leitura
+ *              no início; N = MUTACOES.length, ids sem buraco)
  *              ⇒ tem de reprovar na letra declarada e NÃO chegar ao sentinela. A mutação entra
  *                DEPOIS da migration, para que o pré e o pós-portão passem e quem morda seja o
  *                SMOKE (o portão recorrente). Cada uma declara `requer`: se a versão exigida não
@@ -33,7 +37,8 @@
  * antes da baseline e saem sem a leitura: nada foi enviado ainda.
  *
  * LOCK. Cada requisição com a migration prefixada segura `AccessExclusiveLock` em `candidaturas`
- * até abortar (o ALTER POLICY da migration e o de M2/M4/M5/M6). `lock_timeout = 3s` /
+ * até abortar (o ALTER POLICY da migration e o de M2/M4/M5/M6) — desde o 50-07, com 0002..0004
+ * prefixadas, em até 12 tabelas (as 13 policies do 0002) mais a view. `lock_timeout = 3s` /
  * `statement_timeout = 5s` vêm do prefixo do ensaio. A duração de cada requisição é impressa.
  * `LOCK TIMEOUT` / `STATEMENT TIMEOUT` saem 3 SEM concluir nada sobre o portão.
  *
@@ -122,6 +127,32 @@ function trocar(trecho, ancora, novo, rotulo) {
 const fnHelper = extrair(mig1, 'CREATE FUNCTION public.is_active_rh_user()', '$helper$;', 'helper');
 const polCand = extrair(mig1, 'ALTER POLICY rh_le_candidaturas ON public.candidaturas', '\n  );', 'rh_le_candidaturas');
 const HELPER_NA_POLICY = ' AND (SELECT public.is_active_rh_user())';
+
+/* v2 (50-07): os textos das migrations 0002..0004, de onde M12..M23 são extraídas por âncora. */
+const mig2 = fs.readFileSync(path.join(E.ROOT, E.MIGS[1]), 'utf8');
+const mig3 = fs.readFileSync(path.join(E.ROOT, E.MIGS[2]), 'utf8');
+const mig4 = fs.readFileSync(path.join(E.ROOT, E.MIGS[3]), 'utf8');
+const pol2 = (nome, tabela) => extrair(mig2, `ALTER POLICY ${nome} ON public.${tabela}`, '\n  );', nome);
+const fn = (mig, nome) => extrair(mig, `CREATE OR REPLACE FUNCTION public.${nome}(`, '$function$;', nome);
+/* O ramo rh da Forma B do 0002 — helper + candidatura viva (o mesmo texto nas 10 policies). */
+const RAMO_B = '(SELECT public.is_active_rh_user()) AND (candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.deleted_at IS NULL AND c.is_rascunho = false))';
+const LINHA_H = "IF v_role = 'rh' AND NOT public.is_active_rh_user() THEN";
+
+/*
+ * Objetos que a fase NÃO reescreve vêm do corpo VIVO, lido só-leitura no início do runner
+ * (`pg_get_functiondef`), nunca transcrito. Preguiçoso: `require()` deste módulo (a conferência
+ * do verify) não toca a rede.
+ */
+let vivoResponder = null;
+function responderVivo() {
+  if (vivoResponder === null) {
+    const r = E.sqlLeitura(
+      "set transaction read only; select pg_get_functiondef('public.responder_revisao_decisao(uuid, text, text)'::regprocedure) as d"
+    );
+    vivoResponder = String(r[0].d).replace(/\s*$/, '') + ';\n';
+  }
+  return vivoResponder;
+}
 
 const MUTACOES = [
   {
@@ -221,6 +252,153 @@ const MUTACOES = [
     requer: ['20261005000001'],
     sql: trocar(trocar(fnHelper, 'CREATE FUNCTION', 'CREATE OR REPLACE FUNCTION', 'M11'), 'AND u.deleted_at IS NULL', 'AND true', 'M11'),
   },
+
+  // ── v2 (Plano 50-07): uma mutação por cláusula nova (g)..(l) e pela extensão de (e). Cada uma
+  //    declara `rotulos` — a lista que a cláusula tem de imprimir em `P50C FAIL (<letra>): [...]`.
+  {
+    // (g) SC1: a policy de scores volta à posse da vaga (ainda TO authenticated) — o rh ativo sem
+    // vaga própria deixa de ver os scores.
+    id: 'M12',
+    desc: 'rh_le_scores de volta a subconsulta de posse (vagas.created_by = auth.uid()), TO authenticated',
+    letra: 'g',
+    rotulos: ['scores_candidato'],
+    requer: ['20261005000002'],
+    sql: trocar(
+      pol2('rh_le_scores', 'scores_candidato'),
+      RAMO_B,
+      '(candidatura_id IN (SELECT c.id FROM public.candidaturas c JOIN public.vagas v ON v.id = c.vaga_id WHERE v.created_by = (SELECT auth.uid())))',
+      'M12'
+    ),
+  },
+  {
+    // (h) SC2: ramo rh de decisao_final só pelo JWT — o token antigo (das duas linhas inativas) lê.
+    id: 'M13',
+    desc: 'rh_le_decisao_final com o ramo rh so pelo JWT (sem helper, sem posse)',
+    letra: 'h',
+    rotulos: ['velho.decisao_final', 'velho_mp.decisao_final'],
+    requer: ['20261005000002'],
+    sql: trocar(pol2('rh_le_decisao_final', 'decisao_final'), ' AND ' + RAMO_B, '', 'M13'),
+  },
+  {
+    // (h) D-05: a view volta a ler como dona (ignora a RLS) — a linha SEMEADA de (h) aparece a
+    // quem não deveria vê-la.
+    id: 'M14',
+    desc: 'v_analises_presas sem security_invoker (RESET)',
+    letra: 'h',
+    rotulos: ['candidato.v_analises_presas', 'velho.v_analises_presas', 'visualizador.v_analises_presas'],
+    requer: ['20261005000002'],
+    sql: 'ALTER VIEW public.v_analises_presas RESET (security_invoker);',
+  },
+  {
+    // (i) D-01: liberar_cognitivo volta a comparar o dono da vaga — o rh ativo (controle) é recusado.
+    id: 'M15',
+    desc: 'liberar_cognitivo com a comparacao de posse reintroduzida na linha de autorizacao',
+    letra: 'i',
+    rotulos: ['ativo.liberar_cognitivo/2'],
+    requer: ['20261005000004'],
+    sql: trocar(
+      fn(mig4, 'liberar_cognitivo'),
+      LINHA_H,
+      "IF v_role = 'rh' AND NOT EXISTS (SELECT 1 FROM public.candidaturas c2 JOIN public.vagas v2 ON v2.id = c2.vaga_id WHERE c2.id = p_candidatura_id AND v2.created_by = v_uid) THEN",
+      'M15'
+    ),
+  },
+  {
+    // (i) D-04: a guarda de reprocessar_analise sem o coalesce — falha ABERTO com papel nulo.
+    id: 'M16',
+    desc: 'reprocessar_analise com a guarda sem coalesce (v_role NOT IN)',
+    letra: 'i',
+    rotulos: ['sem_papel.reprocessar_analise/1'],
+    requer: ['20261005000004'],
+    sql: trocar(
+      fn(mig4, 'reprocessar_analise'),
+      "IF v_uid IS NULL OR coalesce(v_role, '') NOT IN ('rh', 'administrador') THEN",
+      "IF v_uid IS NULL OR v_role NOT IN ('rh', 'administrador') THEN",
+      'M16'
+    ),
+  },
+  {
+    // (i) D-04: EXECUTE de volta a anon numa RPC de escrita.
+    id: 'M17',
+    desc: 'GRANT EXECUTE de rejeitar_candidatura a anon',
+    letra: 'i',
+    rotulos: ['anon.rejeitar_candidatura/3'],
+    requer: ['20261005000004'],
+    sql: 'GRANT EXECUTE ON FUNCTION public.rejeitar_candidatura(uuid, public.motivo_rejeicao_rh, text) TO anon;',
+  },
+  {
+    // (k) D-03: a fila de pedidos do rh volta a exigir candidatura viva — o ÓRFÃO some para o rh.
+    id: 'M18',
+    desc: 'listar_pedidos_dados com filtro de candidatura viva no ramo rh (orfao escondido)',
+    letra: 'k',
+    rotulos: ['rh_ve_orfao', 'igual.listar_pedidos_dados'],
+    requer: ['20261005000003'],
+    sql: trocar(
+      fn(mig3, 'listar_pedidos_dados'),
+      "OR (v_role = 'rh' AND public.is_active_rh_user())",
+      "OR (v_role = 'rh' AND public.is_active_rh_user() AND EXISTS (SELECT 1 FROM public.candidaturas cd WHERE cd.candidato_id = s.candidato_id AND cd.deleted_at IS NULL AND cd.is_rascunho = false))",
+      'M18'
+    ),
+  },
+  {
+    // (l) REVISAO-05: a trava do decisor neutralizada no corpo VIVO (objeto que a fase não reescreve).
+    id: 'M19',
+    desc: 'responder_revisao_decisao com a trava do decisor neutralizada (IF false)',
+    letra: 'l',
+    rotulos: ['decisor'],
+    requer: [],
+    sql: () => trocar(responderVivo(), 'IF v_uid = v_row.por_usuario THEN', 'IF false THEN', 'M19'),
+  },
+  {
+    // (j) SC3: uma função NOVA com a posse da vaga (ninguém a chama). Sem `v_role = 'rh'` de
+    // propósito: com ele, (i) a pegaria antes como [sem_sonda] — a forma indireta já é mordida em
+    // pg_temp pela própria (j).
+    id: 'M20',
+    desc: 'funcao nova public.p50_mut_dono() com a forma de posse (created_by + vagas)',
+    letra: 'j',
+    rotulos: ['fn:public.p50_mut_dono/0'],
+    requer: [],
+    sql:
+      'CREATE FUNCTION public.p50_mut_dono() RETURNS boolean LANGUAGE sql STABLE SET search_path = \'\' AS $p50mut$\n' +
+      '  SELECT EXISTS (SELECT 1 FROM public.vagas v WHERE v.created_by = (SELECT auth.uid()));\n' +
+      '$p50mut$;',
+  },
+  {
+    // (j) SC3: uma policy NOVA, RESTRICTIVE, numa tabela sem uso (0 linhas), que cita o autor da vaga.
+    id: 'M21',
+    desc: 'policy RESTRICTIVE nova em vagas_associadas_recrutadores com o autor da vaga',
+    letra: 'j',
+    rotulos: ['pol:public.vagas_associadas_recrutadores.p50_mut_dono_pol'],
+    requer: ['20261005000002'],
+    sql:
+      'CREATE POLICY p50_mut_dono_pol ON public.vagas_associadas_recrutadores AS RESTRICTIVE FOR SELECT TO authenticated\n' +
+      '  USING (vaga_id IN (SELECT v.id FROM public.vagas v WHERE v.created_by = (SELECT auth.uid())));',
+  },
+  {
+    // (i) D-02/D-04: o escopo do funil incondicional — quem não devia vê os KPIs. A função sai do
+    // conjunto por forma (perde o helper e `v_role = 'rh'`); o MAPA de (i) continua a sondá-la.
+    id: 'M22',
+    desc: 'funil_kpis com v_ve_tudo := true',
+    letra: 'i',
+    rotulos: ['velho.funil_kpis/1', 'sem_papel.funil_kpis/1', 'candidato.funil_kpis/1'],
+    requer: ['20261005000003'],
+    sql: trocar(
+      fn(mig3, 'funil_kpis'),
+      "v_ve_tudo  boolean := coalesce(v_role = 'administrador' OR (v_role = 'rh' AND public.is_active_rh_user()), false);",
+      'v_ve_tudo  boolean := true;',
+      'M22'
+    ),
+  },
+  {
+    // (e) D-02: o disjunto do administrador de OUTRA policy da forma (não rh_le_candidaturas),
+    // mantendo o helper no ramo rh.
+    id: 'M23',
+    desc: "disjunto do administrador de rh_le_historico alterado (= ANY (ARRAY['administrador'])), helper mantido",
+    letra: 'e',
+    rotulos: ['admin_disjunto:historico_candidatura.rh_le_historico'],
+    requer: ['20261005000002'],
+    sql: trocar(pol2('rh_le_historico', 'historico_candidatura'), "= 'administrador')", "= ANY (ARRAY['administrador']))", 'M23'),
+  },
 ];
 
 /* A PRIMEIRA reprovação do smoke. `inesperado` = o envelope abortou por erro que não é o RAISE
@@ -316,7 +494,9 @@ function principal() {
       continue;
     }
     contadas += 1;
-    const r = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [smoke], mutacao: m.sql, rotuloMutacao: `MUTACAO ${m.id}` }), m.id);
+    // `sql` função = texto do corpo VIVO, lido só-leitura agora (M19); string = DDL avulsa pronta.
+    const sql = typeof m.sql === 'function' ? m.sql() : m.sql;
+    const r = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [smoke], mutacao: sql, rotuloMutacao: `MUTACAO ${m.id}` }), m.id);
     const v = julgarMutacao(m, r);
     if (v.tipo === 'inconclusivo') sair(`INCONCLUSIVO: ${m.id} (${r.ms} ms) — ${v.motivo}; nada concluido sobre o portao`, 3);
     const { motivo, f } = v;

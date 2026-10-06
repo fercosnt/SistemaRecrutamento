@@ -232,6 +232,33 @@
 --   policies de `public`, `role|ativo|deleted_at` das 7 linhas de `usuarios_rh` e a borda de
 --   `candidaturas` (0), iguais antes e depois.
 --
+--   v2 (Plano 50-07, 2026-10-05) — uma mutação por cláusula nova e pela extensão de (e), com
+--   0002..0004 PREFIXADAS (modo padrão do ensaio); cada uma extraída por âncora única das
+--   migrations ou, para objeto que a fase não reescreve (M19), do `pg_get_functiondef` vivo lido
+--   só-leitura no início do runner:
+--   | Mutação | Inversão                                                        | Reprova (rótulos exigidos)                    | Medido (2026-10-05)                                     |
+--   |---------|-----------------------------------------------------------------|-----------------------------------------------|---------------------------------------------------------|
+--   | M12     | `rh_le_scores` de volta à subconsulta de posse, TO authenticated | (g) scores_candidato                          | (g) [scores_candidato], 1135 ms                         |
+--   | M13     | `rh_le_decisao_final`: ramo rh só pelo JWT (sem helper/posse)   | (h) velho.decisao_final, velho_mp.decisao_final | (h) [velho_mp.decisao_final,velho.decisao_final], 961 ms |
+--   | M14     | `v_analises_presas` RESET (security_invoker)                    | (h) candidato/velho/visualizador.v_analises_presas | (h) [candidato.…,velho_mp.…,velho.…,visualizador.v_analises_presas], 1506 ms |
+--   | M15     | `liberar_cognitivo` com a comparação de posse de volta          | (i) ativo.liberar_cognitivo/2                 | (i) [ativo.liberar_cognitivo/2], 1344 ms                |
+--   | M16     | `reprocessar_analise`: guarda sem `coalesce`                    | (i) sem_papel.reprocessar_analise/1           | (i) [sem_papel.reprocessar_analise/1], 1177 ms          |
+--   | M17     | `GRANT EXECUTE … rejeitar_candidatura … TO anon`                | (i) anon.rejeitar_candidatura/3               | (i) [anon.rejeitar_candidatura/3], 1059 ms              |
+--   | M18     | `listar_pedidos_dados` exige candidatura viva no ramo rh        | (k) rh_ve_orfao, igual.listar_pedidos_dados   | (k) [igual.listar_pedidos_dados,rh_ve_orfao], 1320 ms   |
+--   | M19     | `responder_revisao_decisao` (vivo): trava do decisor `IF false` | (l) decisor                                   | (l) [decisor], 1278 ms                                  |
+--   | M20     | função NOVA `public.p50_mut_dono()` com created_by + vagas      | (j) fn:public.p50_mut_dono/0                  | (j) [fn:public.p50_mut_dono/0], 1281 ms                 |
+--   | M21     | policy RESTRICTIVE NOVA em `vagas_associadas_recrutadores` (autor da vaga) | (j) pol:public.vagas_associadas_recrutadores.p50_mut_dono_pol | (j) [pol:…p50_mut_dono_pol], 1272 ms |
+--   | M22     | `funil_kpis` com `v_ve_tudo := true`                            | (i) velho/sem_papel/candidato.funil_kpis/1    | (i) [velho.…,velho_mp.…,sem_papel.…,candidato.funil_kpis/1], 1294 ms |
+--   | M23     | disjunto do administrador de `rh_le_historico` (helper mantido) | (e) admin_disjunto:historico_candidatura.rh_le_historico | (e) [admin_disjunto:historico_candidatura.rh_le_historico], 1137 ms |
+--   CONTROLE 13/13 (1847 ms); M1..M11 seguem mordendo nas mesmas letras e rótulos (M6 agora com
+--   [admin_disjunto:candidaturas.rh_le_candidaturas]); «controle verde; 23/23 mutacoes mordem;
+--   nada persistiu». M20 não traz `v_role = 'rh'` de propósito: com ele, (i) pegaria antes como
+--   [sem_sonda:p50_mut_dono/0] (também um portão — mas o de (j) é o que M20 prova); a forma
+--   indireta e a metade positiva das funções são mordidas pela própria (j), em pg_temp. A
+--   cobertura de policies não tem mutação DDL possível em `storage.objects` (ver (j)) — o lado
+--   storage se prova pela igualdade lidas = total na execução, e `cobertura_antiga` mostra os 28
+--   que a lista antiga deixaria de ler.
+--
 -- Varredura (forma) — 2026-10-05, padrão do CLAUDE.md §«Portões» sobre `supabase/tests/*.sql`
 -- (`grep -rnE '(<>|!=|IS DISTINCT FROM) *[0-9]+|= ANY \(ARRAY\[.|\b(proname|jobname|relname|tgname|conname|typname) +IN +\(.'`).
 --   População da forma: 336 linhas (re-medida na execução do 50-01; igual à do planejamento);
