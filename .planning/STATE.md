@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 50-10-PLAN.md
-last_updated: "2026-10-06T04:22:19.134Z"
+stopped_at: Completed 50-11-PLAN.md
+last_updated: "2026-10-06T12:33:40.659Z"
 last_activity: 2026-10-06
-state_head: 3435743e169847354b3816ac26b36c6c2b8ffeb5
+state_head: 98e65a35e0d39312022d03c82a2db2276f21f5a1
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 134
-  completed_plans: 131
-  percent: 98
+  completed_plans: 132
+  percent: 99
 current_phase: 50
 current_phase_name: Acesso do Recrutador
 last_activity_desc: "2026-10-03 — Phase 49 concluída: UAT 3/3 (sinal ponta a ponta, conferência visual com WR-07, aceite do custo residual WR-03), verificação human_needed → passed, 45/45 planos. COVERAGE.md encurtado (reason >200 chars bloqueava o portão api-coverage). Próximo: fechar a verificação das 42, 43, 47 (human_needed) e 44, 46 (gaps_found), depois /gsd-audit-milestone."
@@ -977,6 +977,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 50 P08 | 15 min | 2 tasks | 6 files |
 | Phase 50 P09 | ~25 min | 3 tasks | 7 files |
 | Phase 50 P10 | ~7min (continuação); ~1h32 desde o ACESSO-1 | 3 tasks | 21 files |
+| Phase 50 P11 | ~11h (espera do operador + conserto da gerenciar-usuario-rh) | 3 tasks | 1 files (+2 do conserto 4ccc4dd1) |
 
 ## Accumulated Context
 
@@ -1350,6 +1351,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 50]: 50-10: 20261005000002..4 aplicadas em PROD pela via do projeto (pin 703613e8 = codigo do reviewed_head 0e671953 do 50-REVIEW-ACESSO-2), ledger md5 = arquivo; D-08 intocado
 - [Phase 50]: 50-10: 5 EFs sem posse publicadas (comparativo v33, get-curriculo-url v6, consolidar v11, gerar-guia v25, avaliar v22), ACTIVE verify_jwt=true; push 9271ba43..743c4fca enumerado
 - [Phase 50]: 50-10: disposicoes do ACESSO-2 pelo orquestrador — WR-01 sem saida (i), WR-02 inconclusivo em reescrito = STOP (medido 0), WR-03 residuo aceito, IN-08 deno test 146/0 antes do deploy
+- [Phase 50]: 50-11: SC1 com sessao real — RH2 (recrutador real, sub af4ebf97…, 0 vagas proprias) 14/14 conferencias OK em PROD (2026-10-06); operador confirmou telas (itens 1 e 2), PDF do CV nao confirmado visualmente (provado pelo script, 200)
+- [Phase 50]: 50-11: D-11 «pular» e script sem revisao adversarial «aceito» (operador, 2026-10-06)
+- [Phase 50]: 50-11: defeito pre-existente desde a Phase 28 — senha temporaria da gerenciar-usuario-rh violava a politica do GoTrue (createUser 400); conserto 4ccc4dd1 (orquestrador, escolha «1» do operador), v6 ACTIVE; push 743c4fca..4ccc4dd1 com excecao estreita aceita pelo operador (sha + patch-id)
 
 ### Roadmap Evolution
 
@@ -1682,8 +1686,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T04:22:18.639Z
-Stopped at: Completed 50-10-PLAN.md
+Last session: 2026-10-06T12:33:40.659Z
+Stopped at: Completed 50-11-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
