@@ -20,13 +20,20 @@
  *     `ALHEIO[codigo depois do reviewed_head …]`.
  *   · `--aplicado <rev>`: todo commit `codigo` tem de estar contido no commit APLICADO (o pin do
  *     apply), senão `ALHEIO[codigo depois do apply …]` — o que sobe é o que está em PROD.
+ *   · WR-02 do 50-REVIEW-ACESSO-1 — a revisão lida tem de estar COMMITADA: o arquivo de maior N é
+ *     escolhido pela árvore de trabalho, e uma revisão nova ainda não commitada (de uma rodada de
+ *     conserto em andamento, ou de outra janela) com `critical: 0` amarrava o push a um texto que
+ *     ninguém registrou. Exige `git rev-list --count <ate> -- <arquivo>` = 1 (commitado uma única
+ *     vez, contido no que sobe) e o arquivo idêntico a HEAD (nem staged, nem modificado).
+ *   · `--base <rev>` (opcional, com `--revisoes`): o `diff_base` do frontmatter tem de ser ancestral
+ *     de <rev> (a revisão COBRE a base da expansão), senão `REVISAO NAO COBRE A BASE`.
  *
  * Só leitura de git. NUNCA roda `git push` — quem empurra é o comando que o chama, e só depois de
  * `enumeracao ok`.
  *
  * Uso:
  *   node scripts/p50_enumera.cjs --de <rev> --ate <rev> --caminhos '<regex>' --assunto '<regex>'
- *                                [--revisoes <prefixo-dos-REVIEW>] [--aplicado <rev>]
+ *                                [--revisoes <prefixo-dos-REVIEW> [--base <rev>]] [--aplicado <rev>]
  * Saída: uma linha `<sha> <planning|codigo|ALHEIO[…]> <assunto>` por commit e, no fim,
  *        `enumeracao ok: <n> commit(s) em <de>..<ate>`.
  */
@@ -49,7 +56,7 @@ function args() {
   const v = process.argv.slice(2);
   for (let i = 0; i < v.length; i += 1) {
     const k = v[i];
-    if (!['--de', '--ate', '--caminhos', '--assunto', '--revisoes', '--aplicado'].includes(k)) sair(`opcao desconhecida: ${k}`);
+    if (!['--de', '--ate', '--caminhos', '--assunto', '--revisoes', '--aplicado', '--base'].includes(k)) sair(`opcao desconhecida: ${k}`);
     if (i + 1 >= v.length) sair(`opcao sem valor: ${k}`);
     o[k.slice(2)] = v[i + 1];
     i += 1;
@@ -101,7 +108,37 @@ if (o.revisoes) {
   } catch {
     sair(`reviewed_head ${rh} de ${revisadoArq} nao resolve`);
   }
+  // WR-02 (50-REVIEW-ACESSO-1): a revisão lida tem de estar commitada uma única vez no que sobe e
+  // idêntica a HEAD — senão o push se amarra a um texto que não está no histórico.
+  let vezes = '';
+  try {
+    vezes = git('rev-list', '--count', ate, '--', revisadoArq);
+  } catch {
+    sair(`REVISAO NAO COMMITADA: ${revisadoArq} (git rev-list falhou)`);
+  }
+  if (vezes !== '1') sair(`REVISAO NAO COMMITADA OU REESCRITA: ${revisadoArq} aparece em ${vezes} commit(s) de ${ate.slice(0, 8)} (exigido: 1)`);
+  try {
+    execFileSync('git', ['diff', '--quiet', 'HEAD', '--', revisadoArq], { stdio: 'ignore' });
+  } catch {
+    sair(`REVISAO MODIFICADA NA ARVORE (diferente de HEAD): ${revisadoArq}`);
+  }
+  if (o.base) {
+    const db = (fm.map((l) => l.match(/^diff_base: *([0-9a-f]{7,40}) *$/)).find(Boolean) || [])[1];
+    if (!db) sair(`REVISAO SEM diff_base: ${revisadoArq}`);
+    let base;
+    try {
+      base = git('rev-parse', '--verify', '-q', `${o.base}^{commit}`);
+    } catch {
+      sair(`REVISAO INVALIDA: --base ${o.base}`);
+    }
+    try {
+      execFileSync('git', ['merge-base', '--is-ancestor', db, base], { stdio: 'ignore' });
+    } catch {
+      sair(`REVISAO NAO COBRE A BASE: diff_base=${db} de ${revisadoArq} nao e ancestral de ${o.base} (${base.slice(0, 8)})`);
+    }
+  }
 }
+if (o.base && !o.revisoes) sair('--base exige --revisoes');
 let aplicado = null;
 if (o.aplicado) {
   try {
