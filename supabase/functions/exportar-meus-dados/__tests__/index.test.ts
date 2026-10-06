@@ -723,3 +723,73 @@ Deno.test("(18b) titular SEM candidatura → 200 e as indiretas vazias, sem erro
   assertEquals(corpo.payload.candidaturas, []);
   assertEquals(corpo.payload.entrevistas_online, []);
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// (19) G5 (44-11) — o que o artefato DECIDIU é o que a EF PEDE ao banco.
+// A asserção (l) do Vitest prende o artefato; esta prende o HANDLER que o
+// consome com `service_role`. Sem ela, um artefato certo com uma EF que
+// montasse o select de outro jeito passaria nos dois portões locais.
+// ═══════════════════════════════════════════════════════════════════════════
+Deno.test("(19) G5 — as duas tabelas novas entram pela ponte candidaturas, e as colunas vetadas nunca chegam ao select", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin();
+  const res = await handler(makeRequest(), {
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(USER),
+  });
+  assertEquals(res.status, 200);
+
+  const leituras = leiturasDeProjecao(admin.ops);
+  const porTabela = new Map(leituras.map((o) => [o.tabela, o]));
+  // ⚠ POR TOKEN, nunca por substring: `detalhe` não pode passar (nem reprovar) por
+  // estar dentro de outro nome de coluna.
+  const tokens = (tabela: string): string[] => {
+    const op = porTabela.get(tabela);
+    assert(op, `G5 (19): ${tabela} não foi lida na projeção`);
+    assert(typeof op!.cols === "string" && op!.cols.length > 0, `G5 (19): ${tabela} sem select`);
+    return op!.cols!.split(", ");
+  };
+  // META: a sonda é por token — um nome que CONTÉM o vetado não é o vetado.
+  assert(!"a, detalhe_x, b".split(", ").includes("detalhe"));
+  assert("a, detalhe, b".split(", ").includes("detalhe"));
+
+  // As duas tabelas novas: ligação pela ponte, filtro pelos ids da ponte.
+  const iPonte = leituras.findIndex((o) => o.tabela === "candidaturas");
+  assert(iPonte >= 0, "G5 (19): a ponte candidaturas não foi lida");
+  for (const tabela of ["retencao_hold", "cognitivo_liberacao"]) {
+    const def = (EXPORT_ALLOWLIST.tabelas as Record<string, { ligacao: string; chave_titular: string }>)[tabela];
+    assert(def, `G5 (19): ${tabela} sumiu do artefato`);
+    assertEquals(def.ligacao, "via:candidaturas", `G5 (19): ${tabela} — ligação deveria ser via:candidaturas`);
+    assertEquals(def.chave_titular, "candidatura_id", `G5 (19): ${tabela} — chave deveria ser candidatura_id`);
+    const op = porTabela.get(tabela);
+    assert(op, `G5 (19): ${tabela} não foi lida na projeção`);
+    assert(
+      leituras.indexOf(op!) > iPonte,
+      `G5 (19): ${tabela} foi lida ANTES da ponte candidaturas`,
+    );
+    assertEquals(
+      op!.ins.find(([c]) => c === "candidatura_id")?.[1],
+      [CANDIDATURA_ID],
+      `G5 (19): ${tabela} não filtrou por in("candidatura_id", ids da ponte)`,
+    );
+    assertEquals(op!.eqs.length, 0, `G5 (19): ${tabela} filtrou por eq — devia ser só pela ponte`);
+  }
+
+  const VETADAS: ReadonlyArray<readonly [string, readonly string[]]> = [
+    ["retencao_hold", ["detalhe", "criado_por", "liberado_por"]],
+    ["cognitivo_liberacao", ["liberado_por", "revogado_por"]],
+    ["solicitacoes_dados", ["plano", "recibo_enviado_em"]],
+  ];
+  for (const [tabela, colunas] of VETADAS) {
+    const t = tokens(tabela);
+    for (const coluna of colunas) {
+      assert(!t.includes(coluna), `G5 (19): ${tabela}.${coluna} está no select da EF — o G5 a vetou`);
+    }
+  }
+
+  // E o lado positivo, para a negativa acima não ser verde por um select vazio.
+  const t = tokens("solicitacoes_dados");
+  for (const coluna of ["executar_em", "cancelado_em"]) {
+    assert(t.includes(coluna), `G5 (19): solicitacoes_dados.${coluna} saiu do select — o G5 decidiu que ela ENTRA`);
+  }
+});
