@@ -3,8 +3,8 @@
  * Edge Function `consolidar-decisao-final` (DECISAO-01).
  *
  * The EF receives `{ candidatura_id, vaga_id }` from an authenticated RH user
- * (two-client D-23, JWT verify ON), AUTHORIZES (role from `usuarios_rh` + vaga
- * ownership via `vagas.created_by`; administrador bypasses), then READ-ONLY
+ * (two-client D-23, JWT verify ON), AUTHORIZES (role from a live active `usuarios_rh`
+ * row; since Phase 50 / D-01 vaga authorship is no longer authorization), then READ-ONLY
  * AGGREGATES the per-etapa scores into a single weighted consolidated number.
  * It NEVER re-scores (no evaluation-EF / LLM invoke) and NEVER auto-decides
  * (RNF-07a) — the consolidated score is advisory, the RH decides.
@@ -63,10 +63,10 @@ function scoresRows(opts: { entrevistaStatus?: string } = {}): Record<string, un
 // pesos_avaliacao: 4 weight keys summing to 100 (Phase 7 publish invariant).
 const PESOS = { triagem: 40, work_sample_sjt: 30, redacao_cultural: 20, entrevista: 10 };
 
-// Mock Supabase admin: serves the usuarios_rh role lookup, the vagas ownership row,
+// Mock Supabase admin: serves the usuarios_rh role lookup, the vagas row,
 // the analise_candidato_vaga read, the scores_candidato read, and the vaga.pesos_avaliacao.
-// `vagaOwner` = vagas.created_by for the ownership guard; the happy-path RH user
-// (RH_USER.id === 'rh-1') OWNS the vaga by default.
+// `vagaOwner` = the vaga author the mock returns (inert since Phase 50 / D-01 — the EF no
+// longer reads it); `null` = no vaga row (→ 404).
 function makeMockSupabaseAdmin(
   scores: Record<string, unknown>[],
   analise: Record<string, unknown> | null = ANALISE_TRIAGEM,
@@ -89,7 +89,7 @@ function makeMockSupabaseAdmin(
         };
         return { select: (_cols?: string) => chain };
       }
-      // vagas: ownership (created_by) AND pesos_avaliacao — .select(...).eq(...).maybeSingle()
+      // vagas: pesos_avaliacao (the author column is inert since Phase 50) — .select(...).eq(...).maybeSingle()
       if (table === "vagas") {
         const chain = {
           eq: () => chain,
@@ -401,15 +401,30 @@ Deno.test("authorize — candidato-role caller → 403 FORBIDDEN (never reaches 
   assertEquals(json.error_code, "FORBIDDEN");
 });
 
-Deno.test("authorize — rh who does NOT own the vaga → 403 FORBIDDEN", async () => {
+// Phase 50 / D-01: este teste assertava 403 para um rh que não criou a vaga. A autoria
+// deixou de ser autorização — todo rh ATIVO consolida em qualquer vaga. O negativo que
+// fica é o de cima (sem linha ativa em usuarios_rh ⇒ 403).
+Deno.test("authorize — rh ativo em vaga criada por outro → 200 (Phase 50 / D-01)", async () => {
   const { handler } = await loadHandler();
-  // vaga owned by a DIFFERENT rh ('rh-other'), not RH_USER ('rh-1').
+  // vaga criada por OUTRO rh ('rh-other'), não por RH_USER ('rh-1'); RH_USER é recrutador ativo.
   const supabaseAdmin = makeMockSupabaseAdmin(scoresRows(), ANALISE_TRIAGEM, "rh-other");
   const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) };
   const res = await handler(makeRequest(BODY), deps);
-  assertEquals(res.status, 403);
+  assertEquals(res.status, 200);
   const json = await res.json();
-  assertEquals(json.error_code, "FORBIDDEN");
+  assert("consolidated" in json, "a resposta traz o consolidado");
+  assert(Array.isArray(json.breakdown), "a resposta traz o breakdown por etapa");
+});
+
+Deno.test("authorize — vaga inexistente → 404 NOT_FOUND (a existência da vaga segue checada)", async () => {
+  const { handler } = await loadHandler();
+  // vagaOwner null ⇒ o mock devolve linha nenhuma para `vagas`.
+  const supabaseAdmin = makeMockSupabaseAdmin(scoresRows(), ANALISE_TRIAGEM, null);
+  const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) };
+  const res = await handler(makeRequest(BODY), deps);
+  assertEquals(res.status, 404);
+  const json = await res.json();
+  assertEquals(json.error_code, "NOT_FOUND");
 });
 
 Deno.test("authorize — administrador bypasses vaga ownership → 200", async () => {

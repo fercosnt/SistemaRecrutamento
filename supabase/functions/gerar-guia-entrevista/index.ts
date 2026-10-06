@@ -9,8 +9,9 @@
  * Arquitetura (two-client D-23 + C1 authenticate-THEN-authorize, lição Phase 10):
  *   Recebe `{ candidatura_id, vaga_id, tipo }`, verifica o JWT do RH
  *   (supabaseUser anon + Authorization → auth.getUser()), AUTORIZA o papel a partir
- *   de `usuarios_rh` (NÃO dos claims do JWT — silent-403 landmine) + posse da vaga
- *   (vagas.created_by === user.id; administrador bypassa), lê o scorecard prévio
+ *   da linha viva e ativa de `usuarios_rh` (NÃO dos claims do JWT — silent-403
+ *   landmine; desde a Phase 50 / D-01 a autoria da vaga não é mais autorização),
+ *   confere que a candidatura é da vaga informada (integridade), lê o scorecard prévio
  *   (Etapa 3) de `scores_candidato` para computar as dimensões fracas, roda o prompt
  *   `interview_guide` (Sonnet) via callAi com o `InterviewGuideSchema`, e — depois
  *   do parse — valida server-side que TODA dimensão fraca é coberta (Pitfall 4); se
@@ -232,20 +233,19 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
   }
 
   try {
-    // ── 3. Posse da vaga (C1): role='rh' DEVE ser o dono (vagas.created_by===user.id);
-    //      administrador bypassa. Sem isso, um RH de OUTRA vaga geraria a guia alheia.
+    // ── 3. Vaga do pedido. O papel já veio da linha viva e ativa de usuarios_rh (1b):
+    //      todo rh ATIVO gera a guia de qualquer vaga, como o administrador (Phase 50 /
+    //      D-01 — a autoria da vaga deixou de ser autorização). Vaga ausente → 403
+    //      genérico; o cross-check abaixo é INTEGRIDADE e fica (D-09).
     const { data: vagaRow, error: vagaErr } = await supabaseAdmin
       .from("vagas")
-      .select("id, created_by, titulo, pesos_avaliacao, perfil_ideal, requisitos_habilidades")
+      .select("id, titulo, pesos_avaliacao, perfil_ideal, requisitos_habilidades")
       .eq("id", body.vaga_id)
       .maybeSingle();
     if (vagaErr) {
       return errorResponse("SERVER_ERROR", "Falha ao verificar a vaga.", 500);
     }
     if (!vagaRow) {
-      return errorResponse("FORBIDDEN", "Acesso negado.", 403);
-    }
-    if (role === "rh" && vagaRow.created_by !== user.id) {
       return errorResponse("FORBIDDEN", "Acesso negado.", 403);
     }
 

@@ -133,7 +133,7 @@ interface AdminOpts {
   usuariosRhRole?: string | null;
   /** etapa da candidatura — é o PADRÃO do `tipo` quando o body não o manda (D-41). */
   etapaAtual?: string;
-  /** `vagas.created_by` do guard de posse. */
+  /** Autor da vaga devolvido pelo mock (inerte desde a Phase 50 / D-01). null ⇒ sem linha de vaga. */
   vagaOwner?: string | null;
   /** Guias por tipo — a leitura passa a filtrar, e o teste confere que filtrou. */
   guiasPorTipo?: Record<string, Array<Record<string, unknown>>>;
@@ -846,7 +846,10 @@ Deno.test("tipo fora do vocabulário ⇒ 400 (o enum do body recusa antes de qua
   assertEquals(admin.rpcCalls.length, 0);
 });
 
-Deno.test("RH que não é dono da vaga ⇒ 403, sem IA e sem gravação", async () => {
+// Phase 50 / D-01: este teste assertava 403 para um RH que não criou a vaga. A autoria
+// deixou de ser autorização — todo RH ATIVO avalia transcrições de qualquer vaga. O
+// negativo que fica é o seguinte (sem linha ativa em usuarios_rh ⇒ 403).
+Deno.test("RH ativo em vaga criada por outro ⇒ sucesso (IA chamada, gravação feita)", async () => {
   const handler = await loadHandler();
   const admin = makeMockSupabaseAdmin({ vagaOwner: "outro-rh" });
   const anthropic = makeMockAnthropic();
@@ -854,9 +857,26 @@ Deno.test("RH que não é dono da vaga ⇒ 403, sem IA e sem gravação", async 
     post({ candidatura_id: CANDIDATURA, transcricao: TRANSCRICAO_A, tipo: "online" }),
     deps(admin, { anthropic }),
   );
-  assertEquals(res.status, 403);
-  assertEquals(anthropic.calls.length, 0);
-  assertEquals(admin.rpcCalls.length, 0);
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).ok, true);
+  assertEquals(anthropic.calls.length, 1);
+  assertEquals(admin.rpcCalls.length, 1);
+  assertEquals(admin.rpcCalls[0].fn, "registrar_analise_entrevista");
+});
+
+// Antes da Phase 50 o ramo rh garantia uma linha de vaga não nula (sem ela, 403). Sem esse
+// ramo, a vaga é só o título do prompt — e o título ausente não pode derrubar a análise.
+Deno.test("RH ativo e vaga sem linha (título ausente) ⇒ sucesso, leitura do título null-safe", async () => {
+  const handler = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ vagaOwner: null });
+  const anthropic = makeMockAnthropic();
+  const res = await handler(
+    post({ candidatura_id: CANDIDATURA, transcricao: TRANSCRICAO_A, tipo: "online" }),
+    deps(admin, { anthropic }),
+  );
+  assertEquals(res.status, 200);
+  assertEquals(anthropic.calls.length, 1);
+  assertEquals(admin.rpcCalls.length, 1);
 });
 
 Deno.test("sem linha ativa em usuarios_rh ⇒ 403 (o papel não vem dos claims)", async () => {

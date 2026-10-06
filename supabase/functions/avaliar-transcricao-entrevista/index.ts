@@ -9,8 +9,8 @@
  * Arquitetura (two-client D-23 + C1 authenticate-THEN-authorize, lição Phase 10):
  *   Recebe `{ candidatura_id, transcricao }`, verifica o JWT do RH (supabaseUser anon
  *   + Authorization → auth.getUser()), AUTORIZA o papel a partir de `usuarios_rh`
- *   (NÃO dos claims do JWT — silent-403 landmine) + posse da vaga da candidatura
- *   (vagas.created_by === user.id; administrador bypassa), revalida
+ *   (NÃO dos claims do JWT — silent-403 landmine), só de linha viva e ativa
+ *   (desde a Phase 50 / D-01 a autoria da vaga não é mais autorização), revalida
  *   `len(transcricao) >= 200` server-side, roda o prompt `transcript_analysis`
  *   (Sonnet) via callAi com o `TranscriptAnalysisSchema` (a transcrição é UNTRUSTED
  *   — callAi faz injection-detect + maskPII por dentro), DERIVA a flag de língua/
@@ -222,8 +222,11 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
   }
 
   try {
-    // ── 4. Resolve a vaga da candidatura + posse (C1 — IDOR/PII). role='rh' DEVE
-    //      possuir a vaga (vagas.created_by===user.id); administrador bypassa.
+    // ── 4. Resolve a candidatura e o título da vaga dela. O papel já veio da linha
+    //      viva e ativa de usuarios_rh (1b): todo rh ATIVO avalia a transcrição de
+    //      qualquer candidatura, como o administrador (Phase 50 / D-01 — a autoria da
+    //      vaga deixou de ser autorização). Candidatura ausente → 403 genérico. O título
+    //      é só contexto do prompt e pode faltar (leitura null-safe mais abaixo).
     //      `etapa_atual` entra na MESMA allowlist (D-41) — é o padrão do `tipo`.
     const { data: candRow } = await supabaseAdmin
       .from("candidaturas")
@@ -235,14 +238,9 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
     }
     const { data: vagaRow } = await supabaseAdmin
       .from("vagas")
-      .select("titulo, created_by")
+      .select("titulo")
       .eq("id", candRow.vaga_id)
       .maybeSingle();
-    if (role === "rh") {
-      if (!vagaRow || vagaRow.created_by !== user.id) {
-        return errorResponse("FORBIDDEN", "Acesso negado.", 403);
-      }
-    }
 
     // ── 4a. De QUAL entrevista é esta transcrição (D-41). O `tipo` do body vence; a
     //      etapa atual é o padrão. Resolvido ANTES de qualquer chamada de IA: um 400 por

@@ -5,8 +5,9 @@
  *
  * Arquitetura (RESEARCH §Consolidation Aggregation — two-client D-23, JWT verify ON):
  *   Recebe `{ candidatura_id, vaga_id }`, verifica o JWT do RH (supabaseUser anon +
- *   Authorization → auth.getUser()), AUTORIZA (role from `usuarios_rh` + posse da
- *   vaga via `vagas.created_by`; administrador bypassa), então AGREGA (read-only) os
+ *   Authorization → auth.getUser()), AUTORIZA (role da linha viva e ativa de
+ *   `usuarios_rh` — recrutador ativo ou administrador; desde a Phase 50 / D-01 a
+ *   autoria da vaga não é mais autorização), então AGREGA (read-only) os
  *   scores por etapa JÁ GRAVADOS num único número consolidado ponderado.
  *
  *   DETERMINÍSTICA — NÃO faz NENHUMA chamada LLM. NUNCA re-pontua (lê
@@ -29,8 +30,8 @@
  *   para auth.getUser() (sem contexto auth.uid()).
  *
  * Segurança (T-15-03 IDOR/PII): autenticar NÃO basta. Os scores são lidos via
- *   service_role (bypassa RLS), então a EF DEVE verificar papel + posse ANTES de
- *   tocar os dados (clone de comparativo-candidatos :114-190).
+ *   service_role (bypassa RLS), então a EF DEVE verificar o papel (linha viva e ativa
+ *   de usuarios_rh) ANTES de tocar os dados (clone de comparativo-candidatos :114-190).
  *   [[reference_ef_authenticate_vs_authorize]] — Phase-10 C1 crítico.
  *
  * Deploy: `supabase functions deploy consolidar-decisao-final` (JWT-ON; SEM
@@ -285,8 +286,8 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
   const user = userRes.user;
 
   // ── 1b. AUTORIZAÇÃO (T-15-03 — IDOR/PII): autenticar NÃO basta. Os scores são
-  //      lidos via service_role (bypassa RLS), então a EF DEVE verificar o papel +
-  //      posse ANTES de tocar os dados. role NÃO vem de getUser().app_metadata (o
+  //      lidos via service_role (bypassa RLS), então a EF DEVE verificar o papel
+  //      ANTES de tocar os dados. role NÃO vem de getUser().app_metadata (o
   //      getUser reflete raw_app_meta_data SEM role); fonte de verdade = usuarios_rh
   //      (mesma derivação do custom_access_token_hook: recrutador→rh, admin→admin).
   //      [[reference_ef_authenticate_vs_authorize]] — Phase-10 C1 crítico.
@@ -321,11 +322,12 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
   }
 
   try {
-    // ── 3. Posse da vaga + pesos (C1 — role='rh' DEVE ser dono; administrador bypassa).
-    //      A mesma leitura de vagas traz created_by (posse) E pesos_avaliacao (pesos).
+    // ── 3. Pesos da vaga. O papel já veio da linha viva e ativa de usuarios_rh (1b):
+    //      todo rh ATIVO pode consolidar, como o administrador (Phase 50 / D-01 — a
+    //      autoria da vaga deixou de ser autorização). Vaga ausente → 404.
     const { data: vagaRow, error: vagaErr } = await supabaseAdmin
       .from("vagas")
-      .select("created_by, pesos_avaliacao")
+      .select("pesos_avaliacao")
       .eq("id", body.vaga_id)
       .maybeSingle();
     if (vagaErr) {
@@ -333,9 +335,6 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
     }
     if (!vagaRow) {
       return errorResponse("NOT_FOUND", "Vaga não encontrada.", 404);
-    }
-    if (role === "rh" && vagaRow.created_by !== user.id) {
-      return errorResponse("FORBIDDEN", "Acesso negado.", 403);
     }
 
     // WR-06: tipado como `unknown` (não `number`) — a coluna é jsonb e um peso pode
