@@ -69,8 +69,9 @@
 --   (e) notificacoes_enviadas — RLS ligada; EXATAMENTE 1 policy; nome
 --       `rh_le_notificacoes`; cmd `SELECT`; roles `{authenticated}`; PERMISSIVE;
 --       e o `qual` byte-idêntico ao da policy precedente `rh_gerencia_agendamento`
---       (P33/WR-04). ESTA É A ASSERÇÃO MAIS IMPORTANTE DO ARQUIVO — é ela que
---       prova que o LEDGER-03 vivo É o join-through vaga-scoped e não outra coisa.
+--       (P33/WR-04; desde a Phase 50, o predicado do RH ATIVO). ESTA É A ASSERÇÃO
+--       MAIS IMPORTANTE DO ARQUIVO — é ela que prova que o LEDGER-03 vivo É o
+--       mesmo predicado auditado do agendamento e não outra coisa.
 --       Comparar catálogo-contra-catálogo (e não contra uma string transcrita à
 --       mão) é deliberado: o deparse do Postgres reescreve o predicado com
 --       parênteses, casts e quebras de linha próprios, então uma transcrição
@@ -433,7 +434,7 @@ END IF;
 
 SELECT count(*) INTO v_n FROM pg_policies WHERE schemaname = 'public' AND tablename = 'notificacoes_enviadas';
 IF v_n <> 1 THEN
-  RAISE EXCEPTION 'P37-FID FAIL (e): notificacoes_enviadas tem % policies — esperado exatamente 1 (uma 2a policy permissiva faria OR e derrotaria o escopo por vaga)', v_n;
+  RAISE EXCEPTION 'P37-FID FAIL (e): notificacoes_enviadas tem % policies — esperado exatamente 1 (uma 2a policy permissiva faria OR e derrotaria a restricao ao RH ativo pelo helper)', v_n;
 END IF;
 
 SELECT p.policyname || '|' || p.permissive || '|' || p.cmd, p.roles, p.qual
@@ -450,7 +451,13 @@ IF strpos(coalesce(v_txt2, ''), 'administrador') = 0 THEN
   RAISE EXCEPTION 'P37-FID FAIL (e): o qual de rh_le_notificacoes não contém o literal de role "administrador" (o repo usa administrador, NUNCA admin) — qual encontrado: %', coalesce(v_txt2, '<nulo>');
 END IF;
 
--- Igualdade EXATA contra o predicado precedente já auditado (P33 / WR-04).
+-- Igualdade EXATA contra o predicado precedente já auditado (P33 / WR-04, reescrito na Phase 50).
+-- Desde a Phase 50 (20261005000002, D-01/D-02) o ramo `rh` das duas policies deixou de ser o
+-- join-through escopado pela autoria da vaga (`vagas.created_by = auth.uid()`) e passou a ser o
+-- predicado do RH ATIVO: claim `rh` AND `(SELECT public.is_active_rh_user())` (linha VIVA em
+-- usuarios_rh) AND `candidatura_id IN (candidaturas vivas)`; o ramo `administrador` ficou como
+-- estava. As duas ALTER POLICY usam a MESMA linha, e esta igualdade é o que o prova. Um `qual`
+-- divergente continua sendo ESCALAÇÃO, não ajuste deste smoke.
 SELECT p.qual INTO v_txt
   FROM pg_policies p
  WHERE p.schemaname = 'public' AND p.tablename = 'agendamentos_entrevista'
@@ -459,11 +466,11 @@ IF v_txt IS NULL THEN
   RAISE EXCEPTION 'P37-FID FAIL (e): a policy precedente rh_gerencia_agendamento não foi encontrada — impossível provar a igualdade do predicado do LEDGER-03';
 END IF;
 IF v_txt2 IS DISTINCT FROM v_txt THEN
-  RAISE EXCEPTION 'P37-FID FAIL (e): o qual de rh_le_notificacoes NÃO é o join-through vaga-scoped auditado. ESCALAR (não ajustar este smoke). esperado (rh_gerencia_agendamento): % · encontrado (rh_le_notificacoes): %',
+  RAISE EXCEPTION 'P37-FID FAIL (e): o qual de rh_le_notificacoes NÃO é o predicado auditado de rh_gerencia_agendamento (RH ativo pelo helper, Phase 50). ESCALAR (não ajustar este smoke). esperado (rh_gerencia_agendamento): % · encontrado (rh_le_notificacoes): %',
     v_txt, v_txt2;
 END IF;
 v_pass := v_pass + 1;
-RAISE NOTICE 'PASS (e): rh_le_notificacoes é a policy única (SELECT/{authenticated}) e seu predicado é byte-idêntico ao join-through vaga-scoped WR-04; candidato-DENY vale por default-deny';
+RAISE NOTICE 'PASS (e): rh_le_notificacoes é a policy única (SELECT/{authenticated}) e seu predicado é byte-idêntico ao de rh_gerencia_agendamento (RH ativo pelo helper, Phase 50); candidato-DENY vale por default-deny';
 
 -- ---------------------------------------------------------------------------
 -- (f) notificacoes_enviadas — o trigger do P37-03 existe, por nome

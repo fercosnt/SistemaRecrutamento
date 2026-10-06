@@ -1,6 +1,29 @@
 -- =============================================================================
 -- Phase 33 / Plan 33-02 — SEG-03 + AGEND-01 agendamentos_entrevista behavioral smoke
+-- Reescrito na Phase 50 / Plano 50-08 (D-01, D-02, D-09) — (a) e (c); leia a nota abaixo.
 -- =============================================================================
+-- ⚠ RODAR SÓ PELO ENVELOPE QUE ABORTA:
+--     node scripts/p50_ensaio.cjs supabase/tests/seg33_agendamento_smokes.sql
+--   A fixture é do idioma antigo (escreve vagas/candidatura/agendamentos e apaga no fim) e o
+--   INSERT em agendamentos_entrevista dispara `trg_notif_convite` (net.http_post para a EF de
+--   notificação). Fora da requisição que aborta, nada disto pode rodar.
+--
+-- PHASE 50 — A REGRA MUDOU, E (a)/(c) DIZEM A NOVA.
+--   Desde a Phase 50 o recrutador ATIVO vê e gerencia o agendamento de qualquer candidatura viva
+--   (D-01); quem separa quem pode é a linha VIVA em `usuarios_rh` (`public.is_active_rh_user()`),
+--   não a autoria da vaga (D-02: o JWT vive 3600 s e desativar não desloga).
+--   (a) virou um PAR: recruiter A (ATIVO, dono só da vagaA vazia) LÊ o agendamento da vagaB
+--       (contagem EXATA contra a lida como postgres); o TOKEN VELHO (claim rh + recrutador
+--       INATIVO, lido em execução) lê 0; um candidato que não é o titular lê 0.
+--   (c) deixou de provar posse e passou a provar INTEGRIDADE (D-09: alargar não é remover
+--       integridade): recruiter A ativo INSERE um agendamento da candidatura d01 (vagaB) mandando
+--       `vaga_id` = vagaA (forjado); o INSERT passa e o `vaga_id` GRAVADO é o da candidatura
+--       (vagaB) — `trg_agendamento_normaliza_vaga` reescreve — e `agendado_por` é o ator. O mesmo
+--       INSERT com o token velho é RECUSADO (42501, WITH CHECK de rh_gerencia_agendamento).
+--   As demais cláusulas, a contagem (nove PASS, a..i) e o `AS resultado` final não mudaram.
+--   Matriz do 50-08: sem as migrations 20261005000002..4 este arquivo REPROVA em (a); com elas,
+--   passa.
+--
 -- The LOAD-BEARING acceptance gate for Phase 33 (above any structural pg_policies/grep —
 -- P24/P32 precedent). Run via Supabase MCP `execute_sql` AFTER 33-03 applies the migration.
 -- GREEN gate = all NINE `PASS (a..i)` NOTICEs present (Pitfall 2: "no EXCEPTION" is
@@ -9,13 +32,13 @@
 -- The 8 assertions:
 --   (b) AGEND-01 owner WRITE+READ: recruiter B (owns vagaB) INSERTs an agendamento for its
 --       candidatura (agendado_por set) and reads it back → 1.
---   (a) SEG-03 cross-recruiter READ deny: recruiter A (owns only empty vagaA) counts
---       agendamentos on vagaB's candidatura → 0 (WR-04 join-through USING).
---   (c) SEG-03 spoofed-vaga_id INSERT deny: recruiter A INSERTs candidatura_id=vagaB's +
---       vaga_id=own vagaA → DENIED (42501). Belt-and-suspenders — denied by BOTH the
---       join-through WITH CHECK (keys on candidatura_id → real vaga) AND the 33-01
---       normalize-vaga_id BEFORE trigger. NOT a sole discriminator of predicate choice
---       (the AUTHORITATIVE guard is the static grep in 33-02 + review). See plan-check W1.
+--   (a) [Phase 50] cross-recruiter READ pair: recruiter A (ATIVO, owns only empty vagaA) reads
+--       vagaB's agendamento (= population); the stale token (rh claim + INACTIVE recrutador) reads
+--       0; a non-titular candidato reads 0.
+--   (c) [Phase 50, D-09] spoofed-vaga_id INSERT integrity: recruiter A (ativo) INSERTs
+--       candidatura_id=d01 (vagaB) + vaga_id=vagaA → ACCEPTED, and the stored vaga_id is d01's
+--       vaga (vagaB, rewritten by trg_agendamento_normaliza_vaga) with agendado_por = A; the same
+--       INSERT under the stale token → DENIED (42501 WITH CHECK).
 --   (d) admin bypass: administrador reads any agendamento → rows returned.
 --   (e) SEG-03 candidate DIRECT base-table deny: owning candidate SELECTs the base table →
 --       0 rows (NO candidate SELECT policy → observacoes_rh + every column unreachable).
@@ -35,6 +58,7 @@
 --   · a SECOND real candidato user_id for (g); falls back to recruiter A's user_id (a real
 --     non-owning user) if only one candidato exists — either way (g) proves a non-owner gets 0.
 --   · TWO DISTINCT REAL usuarios_rh users owning ZERO vagas → recruiter A / recruiter B.
+--   · [Phase 50] a recrutador INATIVO (role = 'recrutador' AND NOT ativo) → the stale token.
 --     ⚠ vagas.created_by HAS a FK (vagas_created_by_fkey) — synthetic UUIDs violate it (P32 Pitfall 4).
 --   · a 3rd real usuarios_rh → impersonated administrador (sub only).
 --   · vagaA (created_by=A, empty) · vagaB (created_by=B) · one candidatura d01 on vagaB.
@@ -44,6 +68,7 @@
 
 -- Fixed disposable UUIDs (33010033-* → setup + cleanup idempotent).
 --   vagaA = ...0a01 · vagaB = ...0b01 · candidatura = ...0d01 · agendamento(b) = ...0e01 · spoof(c) = ...0e02
+--   · spoof do token velho (c) = ...0e04 (nunca deve existir; está nas limpezas por segurança)
 
 RESET ROLE;
 DO $$
@@ -54,10 +79,11 @@ DECLARE
   v_recA       uuid;   -- real 0-vaga usuarios_rh → owns empty vagaA
   v_recB       uuid;   -- real 0-vaga usuarios_rh → owns vagaB
   v_admin      uuid;   -- real usuarios_rh (impersonated administrador)
+  v_velho      uuid;   -- [Phase 50] recrutador INATIVO → token velho de (a)/(c)
 BEGIN
   DELETE FROM public.agendamentos_entrevista WHERE id IN (
     '33010033-0000-4000-8000-000000000e01', '33010033-0000-4000-8000-000000000e02',
-    '33010033-0000-4000-8000-000000000e03');
+    '33010033-0000-4000-8000-000000000e03', '33010033-0000-4000-8000-000000000e04');
   DELETE FROM public.candidaturas WHERE id = '33010033-0000-4000-8000-000000000d01';
   DELETE FROM public.vagas WHERE id IN (
     '33010033-0000-4000-8000-000000000a01', '33010033-0000-4000-8000-000000000b01');
@@ -78,9 +104,14 @@ BEGIN
     WHERE user_id IS NOT NULL AND deleted_at IS NULL AND user_id NOT IN (v_recA, v_recB)
     ORDER BY user_id LIMIT 1;
 
-  IF v_cand IS NULL OR v_cand_user IS NULL OR v_recA IS NULL OR v_recB IS NULL OR v_admin IS NULL THEN
+  SELECT user_id INTO v_velho FROM public.usuarios_rh u
+    WHERE user_id IS NOT NULL AND u.role = 'recrutador' AND NOT u.ativo
+      AND NOT EXISTS (SELECT 1 FROM public.candidatos ca WHERE ca.user_id = u.user_id)
+    ORDER BY user_id LIMIT 1;
+
+  IF v_cand IS NULL OR v_cand_user IS NULL OR v_recA IS NULL OR v_recB IS NULL OR v_admin IS NULL OR v_velho IS NULL THEN
     PERFORM set_config('smoke.ready', 'n', false);
-    RAISE NOTICE 'SEG-33 SKIP: need 1 candidato(user_id) + 2 distinct 0-vaga usuarios_rh + 1 more usuarios_rh (cand=% recA=% recB=% admin=%)', v_cand, v_recA, v_recB, v_admin;
+    RAISE NOTICE 'SEG-33 SKIP: need 1 candidato(user_id) + 2 distinct 0-vaga usuarios_rh + 1 more usuarios_rh + 1 recrutador inativo (cand=% recA=% recB=% admin=% velho=%)', v_cand, v_recA, v_recB, v_admin, v_velho;
     RETURN;
   END IF;
   IF v_cand2_user IS NULL THEN v_cand2_user := v_recA; END IF;  -- fallback: any real non-owning user
@@ -96,6 +127,7 @@ BEGIN
   PERFORM set_config('smoke.recruiterA', v_recA::text, false);
   PERFORM set_config('smoke.recruiterB', v_recB::text, false);
   PERFORM set_config('smoke.admin',      v_admin::text, false);
+  PERFORM set_config('smoke.velho',      v_velho::text, false);
   PERFORM set_config('smoke.candUser',   v_cand_user::text, false);
   PERFORM set_config('smoke.cand2User',  v_cand2_user::text, false);
   PERFORM set_config('smoke.cand',       '33010033-0000-4000-8000-000000000d01', false);
@@ -125,21 +157,39 @@ BEGIN
   RAISE NOTICE 'PASS (b): recruiter B (owner) inserted + read back its agendamento (agendado_por set)';
 END $$;
 
--- (a) SEG-03 cross-recruiter READ deny — recruiter A (non-owner) sees 0 of vagaB's agendamentos.
+-- (a) [Phase 50] cross-recruiter READ pair — recruiter A (ATIVO, non-owner) reads vagaB's
+--     agendamento (= population read as postgres); stale token → 0; non-titular candidato → 0.
+RESET ROLE;
+SELECT set_config('smoke.ag_n', (SELECT count(*) FROM public.agendamentos_entrevista
+                                  WHERE candidatura_id = '33010033-0000-4000-8000-000000000d01')::text, false);
 SET ROLE authenticated;
 DO $$
-DECLARE v_count integer;
+DECLARE v_count integer; v_pop integer := nullif(current_setting('smoke.ag_n', true), '')::int;
 BEGIN
   IF current_setting('smoke.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'SEG-33 SKIP (a)'; RETURN; END IF;
+  IF coalesce(v_pop, 0) < 1 THEN RAISE EXCEPTION 'SEG-33 FAIL (a): populacao de agendamentos da vagaB vazia (%) — o par nao provaria nada', v_pop; END IF;
+  -- positivo: recruiter A ATIVO, nao-autor
   PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.recruiterA'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'rh'))::text, false);
   SELECT count(*) INTO v_count FROM public.agendamentos_entrevista WHERE candidatura_id = current_setting('smoke.cand')::uuid;
-  IF v_count <> 0 THEN RAISE EXCEPTION 'SEG-33 FAIL (a): recruiter A read % vaga-B agendamento row(s) — WR-04 leak', v_count; END IF;
-  RAISE NOTICE 'PASS (a): recruiter A reads 0 vaga-B agendamentos (rh_gerencia_agendamento WR-04 USING)';
+  IF v_count IS DISTINCT FROM v_pop THEN RAISE EXCEPTION 'SEG-33 FAIL (a): recruiter A (ativo, nao-autor) leu %/% agendamento(s) da vagaB — D-01 nao vale', v_count, v_pop; END IF;
+  -- negativo: token velho (claim rh + recrutador INATIVO)
+  PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.velho'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'rh'))::text, false);
+  SELECT count(*) INTO v_count FROM public.agendamentos_entrevista WHERE candidatura_id = current_setting('smoke.cand')::uuid;
+  IF v_count <> 0 THEN RAISE EXCEPTION 'SEG-33 FAIL (a): token velho (recrutador INATIVO) leu % agendamento(s) da vagaB — D-02 nao vale', v_count; END IF;
+  -- negativo: candidato que NAO e o titular
+  PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.cand2User'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'candidato'))::text, false);
+  SELECT count(*) INTO v_count FROM public.agendamentos_entrevista WHERE candidatura_id = current_setting('smoke.cand')::uuid;
+  IF v_count <> 0 THEN RAISE EXCEPTION 'SEG-33 FAIL (a): candidato nao-titular leu % agendamento(s) da tabela base', v_count; END IF;
+  RAISE NOTICE 'PASS (a): recruiter A ativo le %/% agendamento(s) da vagaB; token velho → 0; candidato nao-titular → 0', v_pop, v_pop;
 END $$;
 
--- (c) SEG-03 spoofed-vaga_id INSERT deny — recruiter A INSERTs candidatura d01 + vaga_id=own vagaA → 42501.
+-- (c) [Phase 50, D-09] spoofed-vaga_id INSERT INTEGRITY — recruiter A (ATIVO) INSERTs candidatura
+--     d01 (vagaB) with vaga_id = vagaA: accepted, and the STORED vaga_id is the candidatura's
+--     (vagaB, rewritten by trg_agendamento_normaliza_vaga) with agendado_por = A. The same INSERT
+--     under the stale token → 42501 (WITH CHECK of rh_gerencia_agendamento).
 SET ROLE authenticated;
 DO $$
+DECLARE v_vaga uuid; v_author uuid; v_cand_vaga uuid; v_negado boolean := false;
 BEGIN
   IF current_setting('smoke.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'SEG-33 SKIP (c)'; RETURN; END IF;
   PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.recruiterA'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'rh'))::text, false);
@@ -147,17 +197,46 @@ BEGIN
     INSERT INTO public.agendamentos_entrevista
       (id, candidatura_id, vaga_id, tipo, data_hora, local_ou_link, agendado_por)
     VALUES ('33010033-0000-4000-8000-000000000e02', current_setting('smoke.cand')::uuid,
-       '33010033-0000-4000-8000-000000000a01', 'online'::public.tipo_entrevista_avaliacao,
+       '33010033-0000-4000-8000-000000000a01',  -- FORJADO: vagaA; a candidatura d01 e da vagaB
+       'online'::public.tipo_entrevista_avaliacao,
        now() + interval '1 day',
-       -- 20260921000003 (JORN-D5): sem link, o BEFORE trigger recusaria com 23514 ANTES do
-       -- WITH CHECK da RLS, e a (c) deixaria de provar o 42501 que ela existe para provar.
+       -- 20260921000003 (JORN-D5): sem link, o BEFORE trigger recusaria com 23514 — a (c) tem de
+       -- chegar ao WITH CHECK (token velho) e ao trigger de normalizacao (rh ativo).
        'https://meet.example.com/smoke33',
-       current_setting('smoke.recruiterA')::uuid);
-    RAISE EXCEPTION 'SEG-33 FAIL (c): recruiter A inserted a cross-vaga agendamento (spoofed vaga_id) — WITH CHECK leak';
+       '00000000-0000-4000-8000-000000000bad'::uuid);  -- autor forjado; o trigger carimba auth.uid()
   EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'PASS (c): recruiter A spoofed-vaga_id INSERT denied (42501 WITH CHECK)';
+    RAISE EXCEPTION 'SEG-33 FAIL (c): recruiter A (ativo) teve o INSERT recusado (42501) — D-01 nao vale para agendamento';
   END;
+  SELECT a.vaga_id, a.agendado_por INTO v_vaga, v_author
+    FROM public.agendamentos_entrevista a WHERE a.id = '33010033-0000-4000-8000-000000000e02';
+  SELECT c.vaga_id INTO v_cand_vaga FROM public.candidaturas c WHERE c.id = current_setting('smoke.cand')::uuid;
+  IF v_cand_vaga IS DISTINCT FROM '33010033-0000-4000-8000-000000000b01'::uuid THEN
+    RAISE EXCEPTION 'SEG-33 FAIL (c): a candidatura d01 nao esta na vagaB para A (lida: %) — premissa da integridade', v_cand_vaga; END IF;
+  IF v_vaga IS DISTINCT FROM v_cand_vaga THEN
+    RAISE EXCEPTION 'SEG-33 FAIL (c): vaga_id gravado (%) NAO e o da candidatura (%) — o vaga_id forjado passou; integridade D-09 perdida', v_vaga, v_cand_vaga; END IF;
+  IF v_author IS DISTINCT FROM current_setting('smoke.recruiterA')::uuid THEN
+    RAISE EXCEPTION 'SEG-33 FAIL (c): agendado_por gravado (%) nao e o ator A — autor forjavel pelo cliente', v_author; END IF;
+
+  PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.velho'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'rh'))::text, false);
+  BEGIN
+    INSERT INTO public.agendamentos_entrevista
+      (id, candidatura_id, vaga_id, tipo, data_hora, local_ou_link)
+    VALUES ('33010033-0000-4000-8000-000000000e04', current_setting('smoke.cand')::uuid,
+       '33010033-0000-4000-8000-000000000a01', 'online'::public.tipo_entrevista_avaliacao,
+       now() + interval '1 day', 'https://meet.example.com/smoke33');
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_negado := true;
+  END;
+  IF NOT v_negado THEN
+    RAISE EXCEPTION 'SEG-33 FAIL (c): token velho (recrutador INATIVO) INSERIU um agendamento — D-02 nao vale (WITH CHECK)'; END IF;
+  RAISE NOTICE 'PASS (c): rh ativo com vaga_id forjado → gravado o da candidatura (vagaB) e agendado_por = A; token velho → 42501';
 END $$;
+
+-- Depois de (c): o agendamento e02 (que, desde a Phase 50, (c) CRIA de fato) sai da fixture. As
+-- cláusulas seguintes foram escritas para UM agendamento da d01 — (f) exige que o titular receba
+-- exatamente 1 linha do get_meu_agendamento. Remover aqui mantém aquele contrato da fixture.
+RESET ROLE;
+DELETE FROM public.agendamentos_entrevista WHERE id = '33010033-0000-4000-8000-000000000e02';
 
 -- (d) admin bypass — administrador reads the agendamento.
 SET ROLE authenticated;
@@ -258,7 +337,7 @@ SELECT set_config('request.jwt.claims', '', false);
 RESET ROLE;
 DELETE FROM public.agendamentos_entrevista WHERE id IN (
   '33010033-0000-4000-8000-000000000e01', '33010033-0000-4000-8000-000000000e02',
-  '33010033-0000-4000-8000-000000000e03');
+  '33010033-0000-4000-8000-000000000e03', '33010033-0000-4000-8000-000000000e04');
 DELETE FROM public.candidaturas WHERE id = '33010033-0000-4000-8000-000000000d01';
 DELETE FROM public.vagas WHERE id IN (
   '33010033-0000-4000-8000-000000000a01', '33010033-0000-4000-8000-000000000b01');

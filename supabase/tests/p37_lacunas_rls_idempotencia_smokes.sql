@@ -1,7 +1,31 @@
 -- =============================================================================
 -- Phase 37 / Plano 37-03 — smoke COMPORTAMENTAL do ledger de notificação
 -- (LEDGER-01 · LEDGER-02 · LEDGER-03 · TIMELINE-01)
+-- Reescrito na Phase 50 / Plano 50-08 (D-01, D-02) — (h), (h2) novo, (k)/(l)/(n) por baseline.
 -- =============================================================================
+-- ⚠ RODAR SÓ PELO ENVELOPE QUE ABORTA:
+--     node scripts/p50_ensaio.cjs supabase/tests/p37_lacunas_rls_idempotencia_smokes.sql
+--   A fixture é do idioma antigo (escreve vagas/candidatura/notificações, faz UPDATE no seed de
+--   config_sla_etapa e apaga no fim); o INSERT em candidaturas dispara os triggers de
+--   notificação/análise. Fora da requisição que aborta, nada disto pode rodar.
+--
+-- PHASE 50 — O QUE MUDOU NESTE ARQUIVO
+--   · (h) dizia «recrutador NÃO-dono lê 0». Desde a Phase 50 o recrutador ATIVO vê tudo o que o
+--     administrador vê (D-01), e quem separa quem vê é a linha VIVA em `usuarios_rh`
+--     (`public.is_active_rh_user()`), não a autoria (D-02: o JWT vive 3600 s e desativar não
+--     desloga). (h) agora exige que o recrutador A (ATIVO, dono só da vagaA vazia) LEIA as
+--     notificações da vagaB — contagem EXATA contra a lida como postgres na mesma execução.
+--   · (h2) é a negativa nova: o TOKEN VELHO (claim rh + recrutador INATIVO, lido em execução) lê 0.
+--   · (n) dizia «a tabela termina com 0 linhas, como começou» — verdade em 2026-07-22, FOTOGRAFIA
+--     hoje (PROD tem o ledger em uso; medido no 50-08: o texto antigo reprovava em (n) com 73
+--     linhas, antes de qualquer migration da fase). Agora: termina com a contagem CAPTURADA no
+--     começo desta execução (CLAUDE.md §«Portões: varra pela FORMA»).
+--   · (k)/(l) diziam «8 linhas» — a mesma forma: o seed é UMA linha por label de
+--     `etapa_processo`. Agora comparam com o número de labels lido na execução.
+--   · (o) passa de 14 para 15 (o PASS de (h2)).
+--   Matriz do 50-08: sem as migrations 20261005000002..4 este arquivo REPROVA em (h); com elas,
+--   passa.
+--
 -- O gate de aceitação LOAD-BEARING da Phase 37. Rodar via Supabase MCP
 -- `execute_sql` DEPOIS que o Plano 37-04 aplicar a migration aditiva
 -- `20260722000002_p37_notificacoes_lacunas.sql`.
@@ -12,10 +36,10 @@
 -- de fato carimba. Estrutura correta e comportamento correto são coisas
 -- diferentes; um schema pode passar no primeiro e vazar no segundo.
 --
--- GATE VERDE = 14 asserções `PASS (a..n)` + o RESUMO (o). O gate NÃO é
+-- GATE VERDE = 15 asserções `PASS (a..n, h2)` + o RESUMO (o). O gate NÃO é
 -- "não levantou exceção" (Pitfall 2 do seg33: um run todo-SKIP mascara falha
 -- de fixture). Aqui a contagem é AUTO-EXIGIDA: cada asserção incrementa o GUC
--- `smoke37.pass` e a asserção (o) levanta exceção se o total não for 14.
+-- `smoke37.pass` e a asserção (o) levanta exceção se o total não for 15.
 --
 -- AS ASSERÇÕES
 --   (a) LEDGER-02 idempotência EMPÍRICA — a MESMA `dedupe_key` inserida duas
@@ -35,20 +59,24 @@
 --       colunas de negócio asseridas IDÊNTICAS antes/depois.
 --   (g) LEDGER-03 candidato-DENY — candidato REAL impersonado lê 0 linhas com a
 --       linha da fixture EXISTINDO, e seu INSERT é negado (42501).
---   (h) LEDGER-03 RH não-dono — recrutador A (dono só da vagaA vazia) lê 0.
+--   (h) LEDGER-03 [Phase 50] RH ATIVO não-dono — recrutador A (dono só da vagaA vazia) LÊ as
+--       notificações da vagaB (= população lida como postgres).
+--   (h2) LEDGER-03 [Phase 50] token velho — claim rh + recrutador INATIVO lê 0.
 --   (i) LEDGER-03 RH dono — recrutador B (dono da vagaB) lê >= 1.
 --   (j) LEDGER-03 admin — role `administrador` lê >= 1.
---   (k) TIMELINE-01 seed + CHECKs — 8 linhas cobrindo os 8 labels do enum, e os
---       3 CHECKs provados por violação exigida, sem deixar a linha alterada.
---   (l) TIMELINE-01 public-read — `anon` lê as 8 linhas (`sla_public_read`).
+--   (k) TIMELINE-01 seed + CHECKs — uma linha por label do enum (o número de labels é lido na
+--       execução), e os 3 CHECKs provados por violação exigida, sem deixar a linha alterada.
+--   (l) TIMELINE-01 public-read — `anon` lê todas as linhas (`sla_public_read`).
 --   (m) idx_notif_retry — asserção ESTRUTURAL sobre índice PRÉ-EXISTENTE.
---   (n) CLEANUP — `notificacoes_enviadas` termina com 0 linhas, como começou.
---   (o) RESUMO — exige o total de 14 PASS.
+--   (n) CLEANUP — `notificacoes_enviadas` termina com a contagem capturada no começo da execução.
+--   (o) RESUMO — exige o total de 15 PASS.
 --
--- ⚠ POR QUE (h) SEM (i) SERIA UM GATE VAZIO
---   "Não-dono lê 0" passa TRIVIALMENTE num bug que nega tudo — inclusive ao
---   dono legítimo. O par nega/permite (h)+(i) é obrigatório: só ele distingue
---   "a policy está escopada" de "a policy está quebrada".
+-- ⚠ POR QUE (h2) SEM (h) SERIA UM GATE VAZIO (Phase 50 — era «(h) sem (i)»)
+--   "Token velho lê 0" passa TRIVIALMENTE num bug que nega tudo — inclusive ao
+--   recrutador ativo legítimo. E "ativo lê" sozinho passa num bug que abre para
+--   todos. O par permite/nega (h)+(h2) é obrigatório: só ele distingue "a policy
+--   separa pelo helper vivo" de "a policy está quebrada" (nos dois sentidos). (i)
+--   (o dono, que continua lendo) e (j) (o administrador) ficam como controles.
 --
 -- ⚠ POR QUE (g) NÃO CONSULTA `pg_policies`
 --   A ausência de policy de candidato é a ÚNICA barreira do candidato-DENY.
@@ -63,6 +91,7 @@
 --     se não existir, cai para o primeiro candidato com `user_id` e REGISTRA o
 --     fallback no NOTICE — degradar em silêncio é o que este arquivo combate.
 --   · DOIS `usuarios_rh` REAIS distintos com ZERO vagas → recrutador A / B.
+--   · [Phase 50] um recrutador INATIVO (role = 'recrutador' AND NOT ativo) → token velho de (h2).
 --     ⚠ `vagas.created_by` TEM FK — UUID sintético a viola (P32 Pitfall 4).
 --   · um 3º `usuarios_rh` real → impersonado como `administrador`.
 --   · vagaA (created_by = A, vazia) · vagaB (created_by = B) · candidatura d01
@@ -110,11 +139,14 @@ DECLARE
   v_recA      uuid;
   v_recB      uuid;
   v_admin     uuid;
+  v_velho     uuid;
   v_fallback  boolean := false;
 BEGIN
   PERFORM set_config('smoke37.pass', '0', false);
 
   DELETE FROM public.notificacoes_enviadas WHERE dedupe_key LIKE 'smoke37:%';
+  -- Phase 50: baseline de (n), capturada NA execução (antes de qualquer linha da fixture).
+  PERFORM set_config('smoke37.notif_base', (SELECT count(*) FROM public.notificacoes_enviadas)::text, false);
   DELETE FROM public.candidaturas WHERE id = '37010037-0000-4000-8000-000000000d01';
   DELETE FROM public.vagas WHERE id IN (
     '37010037-0000-4000-8000-000000000a01', '37010037-0000-4000-8000-000000000b01');
@@ -140,11 +172,15 @@ BEGIN
   SELECT user_id INTO v_admin FROM public.usuarios_rh u
    WHERE user_id IS NOT NULL AND deleted_at IS NULL AND user_id NOT IN (v_recA, v_recB)
    ORDER BY user_id LIMIT 1;
+  SELECT user_id INTO v_velho FROM public.usuarios_rh u
+   WHERE user_id IS NOT NULL AND u.role = 'recrutador' AND NOT u.ativo
+     AND NOT EXISTS (SELECT 1 FROM public.candidatos ca WHERE ca.user_id = u.user_id)
+   ORDER BY user_id LIMIT 1;
 
-  IF v_cand IS NULL OR v_cand_user IS NULL OR v_recA IS NULL OR v_recB IS NULL OR v_admin IS NULL THEN
+  IF v_cand IS NULL OR v_cand_user IS NULL OR v_recA IS NULL OR v_recB IS NULL OR v_admin IS NULL OR v_velho IS NULL THEN
     PERFORM set_config('smoke37.ready', 'n', false);
-    RAISE NOTICE 'P37-LAC SKIP: fixture incompleta (cand=% recA=% recB=% admin=%)',
-      v_cand IS NOT NULL, v_recA IS NOT NULL, v_recB IS NOT NULL, v_admin IS NOT NULL;
+    RAISE NOTICE 'P37-LAC SKIP: fixture incompleta (cand=% recA=% recB=% admin=% velho=%)',
+      v_cand IS NOT NULL, v_recA IS NOT NULL, v_recB IS NOT NULL, v_admin IS NOT NULL, v_velho IS NOT NULL;
     RETURN;
   END IF;
 
@@ -162,6 +198,7 @@ BEGIN
   PERFORM set_config('smoke37.recA',     v_recA::text,      false);
   PERFORM set_config('smoke37.recB',     v_recB::text,      false);
   PERFORM set_config('smoke37.admin',    v_admin::text,     false);
+  PERFORM set_config('smoke37.velho',    v_velho::text,     false);
   PERFORM set_config('smoke37.ready',    'y',               false);
   RAISE NOTICE 'P37-LAC fixture construída (candidato de teste resolvido por e-mail: % · fallback usado: %)',
     NOT v_fallback, v_fallback;
@@ -425,25 +462,52 @@ BEGIN
   RAISE NOTICE 'PASS (g): candidato REAL impersonado lê 0 linhas com a fixture existindo, e sua escrita é negada (42501) — candidato-DENY por default-deny confirmado por comportamento';
 END $$;
 
--- (h) LEDGER-03 RH não-dono — recrutador A (dono só da vagaA vazia) lê 0 da linha da vagaB.
+-- (h) LEDGER-03 [Phase 50] RH ATIVO não-dono — recrutador A (dono só da vagaA vazia) LÊ as
+--     notificações da vagaB: contagem EXATA contra a população lida como postgres agora.
 RESET ROLE;
+SELECT set_config('smoke37.notif_d01', (SELECT count(*) FROM public.notificacoes_enviadas
+                                         WHERE candidatura_id = '37010037-0000-4000-8000-000000000d01')::text, false);
 SET ROLE authenticated;
 DO $$
-DECLARE v_n integer;
+DECLARE v_n integer; v_pop integer := nullif(current_setting('smoke37.notif_d01', true), '')::int;
 BEGIN
   IF current_setting('smoke37.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'P37-LAC SKIP (h)'; RETURN; END IF;
+  IF coalesce(v_pop, 0) < 1 THEN
+    RAISE EXCEPTION 'P37-LAC FAIL (h): a populacao de notificacoes da vagaB esta vazia (%) — (h)/(h2) nao provariam nada', v_pop;
+  END IF;
   PERFORM set_config('request.jwt.claims', jsonb_build_object(
     'sub', current_setting('smoke37.recA'), 'role', 'authenticated',
     'app_metadata', jsonb_build_object('role', 'rh'))::text, false);
 
   SELECT count(*) INTO v_n FROM public.notificacoes_enviadas
    WHERE candidatura_id = current_setting('smoke37.cand')::uuid;
-  IF v_n <> 0 THEN
-    RAISE EXCEPTION 'P37-LAC FAIL (h): recrutador NÃO-dono leu % linha(s) de candidatura de vaga alheia — o join-through de rh_le_notificacoes vazou', v_n;
+  IF v_n IS DISTINCT FROM v_pop THEN
+    RAISE EXCEPTION 'P37-LAC FAIL (h): recrutador ATIVO não-dono leu %/% notificação(ões) da vagaB — D-01 (rh ativo vê tudo) não vale em rh_le_notificacoes', v_n, v_pop;
   END IF;
 
   PERFORM set_config('smoke37.pass', (coalesce(nullif(current_setting('smoke37.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (h): recrutador não-dono lê 0 notificações da vaga alheia';
+  RAISE NOTICE 'PASS (h): recrutador ativo não-dono lê %/% notificações da vaga alheia', v_n, v_pop;
+END $$;
+
+-- (h2) LEDGER-03 [Phase 50] token velho — claim rh + recrutador INATIVO lê 0 das MESMAS linhas.
+RESET ROLE;
+SET ROLE authenticated;
+DO $$
+DECLARE v_n integer;
+BEGIN
+  IF current_setting('smoke37.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'P37-LAC SKIP (h2)'; RETURN; END IF;
+  PERFORM set_config('request.jwt.claims', jsonb_build_object(
+    'sub', current_setting('smoke37.velho'), 'role', 'authenticated',
+    'app_metadata', jsonb_build_object('role', 'rh'))::text, false);
+
+  SELECT count(*) INTO v_n FROM public.notificacoes_enviadas
+   WHERE candidatura_id = current_setting('smoke37.cand')::uuid;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'P37-LAC FAIL (h2): token velho (recrutador INATIVO) leu % notificação(ões) — D-02 (helper vivo) não vale em rh_le_notificacoes', v_n;
+  END IF;
+
+  PERFORM set_config('smoke37.pass', (coalesce(nullif(current_setting('smoke37.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'PASS (h2): token velho lê 0 notificações (o par com (h) fecha)';
 END $$;
 
 -- (i) LEDGER-03 RH dono — sem esta, (h) passaria trivialmente num bug que nega tudo.
@@ -460,11 +524,11 @@ BEGIN
   SELECT count(*) INTO v_n FROM public.notificacoes_enviadas
    WHERE candidatura_id = current_setting('smoke37.cand')::uuid;
   IF v_n < 1 THEN
-    RAISE EXCEPTION 'P37-LAC FAIL (i): recrutador DONO da vaga leu % linha(s) (esperado >= 1) — a policy nega até o acesso legítimo, e a asserção (h) estaria passando por vacuidade', v_n;
+    RAISE EXCEPTION 'P37-LAC FAIL (i): recrutador DONO da vaga leu % linha(s) (esperado >= 1) — a policy nega até o acesso legítimo', v_n;
   END IF;
 
   PERFORM set_config('smoke37.pass', (coalesce(nullif(current_setting('smoke37.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (i): recrutador dono da vaga lê as notificações da própria candidatura (o par nega/permite fecha)';
+  RAISE NOTICE 'PASS (i): recrutador dono da vaga lê as notificações da própria candidatura';
 END $$;
 
 -- (j) LEDGER-03 admin — literal de role `administrador` (seção D do dump).
@@ -497,9 +561,11 @@ DECLARE
 BEGIN
   IF current_setting('smoke37.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'P37-LAC SKIP (k)'; RETURN; END IF;
 
+  -- Phase 50 / 50-08: era `v_n <> 8` (fotografia do enum de 2026-07); o seed é uma linha por label.
   SELECT count(*) INTO v_n FROM public.config_sla_etapa;
-  IF v_n <> 8 THEN
-    RAISE EXCEPTION 'P37-LAC FAIL (k): config_sla_etapa tem % linhas (esperado 8) — o seed da TIMELINE-01 está incompleto ou foi adulterado', v_n;
+  IF v_n IS DISTINCT FROM (SELECT count(*) FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                            WHERE t.typname = 'etapa_processo')::int THEN
+    RAISE EXCEPTION 'P37-LAC FAIL (k): config_sla_etapa tem % linhas, diferente do número de labels de etapa_processo — o seed da TIMELINE-01 está incompleto ou foi adulterado', v_n;
   END IF;
 
   SELECT string_agg(e.enumlabel, ', ' ORDER BY e.enumsortorder) INTO v_faltando
@@ -556,7 +622,7 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke37.pass', (coalesce(nullif(current_setting('smoke37.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (k): seed 8/8 cobrindo todos os labels do enum e os 3 CHECKs provados por violação, sem alterar a linha';
+  RAISE NOTICE 'PASS (k): seed com uma linha por label do enum e os 3 CHECKs provados por violação, sem alterar a linha';
 END $$;
 
 -- (l) TIMELINE-01 public-read — a policy sla_public_read é o que a P40 vai usar.
@@ -568,13 +634,15 @@ BEGIN
   IF current_setting('smoke37.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'P37-LAC SKIP (l)'; RETURN; END IF;
   PERFORM set_config('request.jwt.claims', '', false);
 
+  -- Phase 50 / 50-08: era `v_n <> 8`; agora o número de labels de etapa_processo, lido na execução.
   SELECT count(*) INTO v_n FROM public.config_sla_etapa;
-  IF v_n <> 8 THEN
-    RAISE EXCEPTION 'P37-LAC FAIL (l): anon leu % linhas de config_sla_etapa (esperado 8) — o painel público da P40 ficaria sem os prazos', v_n;
+  IF v_n IS DISTINCT FROM (SELECT count(*) FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                            WHERE t.typname = 'etapa_processo')::int THEN
+    RAISE EXCEPTION 'P37-LAC FAIL (l): anon leu % linhas de config_sla_etapa, diferente do número de labels de etapa_processo — o painel público da P40 ficaria sem os prazos', v_n;
   END IF;
 
   PERFORM set_config('smoke37.pass', (coalesce(nullif(current_setting('smoke37.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (l): anon lê as 8 linhas de config_sla_etapa via sla_public_read';
+  RAISE NOTICE 'PASS (l): anon lê as % linhas de config_sla_etapa via sla_public_read', v_n;
 END $$;
 
 -- (m) idx_notif_retry — ÚNICA asserção ESTRUTURAL do arquivo, e sobre um índice
@@ -614,13 +682,15 @@ BEGIN
   RAISE NOTICE 'PASS (m): idx_notif_retry PRÉ-EXISTENTE cobre proxima_tentativa_em sob o predicado pendente/falhou — verificado, não criado';
 END $$;
 
--- (n) CLEANUP — ROLLBACK-free. Apaga APENAS o namespace descartável 37010037-* e as
---     notificações com dedupe_key de prefixo smoke37:. A tabela DEVE terminar com 0
---     linhas, como começou (seção J do dump): resíduo de teste polui a auditoria de PROD
---     e envenenaria a reivindicação de idempotência da EF da P38.
+-- (n) CLEANUP — Apaga APENAS o namespace descartável 37010037-* e as notificações com
+--     dedupe_key de prefixo smoke37:. A tabela DEVE terminar com a contagem que tinha no
+--     COMEÇO desta execução (baseline capturada na fixture): resíduo de teste polui a
+--     auditoria de PROD e envenenaria a reivindicação de idempotência da EF da P38.
+--     Phase 50 / 50-08: era «0 linhas, como começou (seção J do dump)» — fotografia de
+--     2026-07-22; o ledger de PROD tem linhas reais desde então.
 RESET ROLE;
 DO $$
-DECLARE v_n integer;
+DECLARE v_n integer; v_base integer := nullif(current_setting('smoke37.notif_base', true), '')::int;
 BEGIN
   PERFORM set_config('request.jwt.claims', '', false);
 
@@ -629,13 +699,16 @@ BEGIN
   DELETE FROM public.vagas WHERE id IN (
     '37010037-0000-4000-8000-000000000a01', '37010037-0000-4000-8000-000000000b01');
 
+  IF v_base IS NULL THEN
+    RAISE EXCEPTION 'P37-LAC FAIL (n): baseline de notificacoes_enviadas ausente — a fixture nao a capturou; impossivel provar o cleanup';
+  END IF;
   SELECT count(*) INTO v_n FROM public.notificacoes_enviadas;
-  IF v_n <> 0 THEN
-    RAISE EXCEPTION 'P37-LAC FAIL (n): notificacoes_enviadas terminou com % linha(s) (esperado 0) — o smoke deixou resíduo em PROD', v_n;
+  IF v_n IS DISTINCT FROM v_base THEN
+    RAISE EXCEPTION 'P37-LAC FAIL (n): notificacoes_enviadas terminou com % linha(s) (no começo da execução: %) — o smoke deixou resíduo em PROD', v_n, v_base;
   END IF;
 
   PERFORM set_config('smoke37.pass', (coalesce(nullif(current_setting('smoke37.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (n): cleanup completo — notificacoes_enviadas voltou a 0 linhas';
+  RAISE NOTICE 'PASS (n): cleanup completo — notificacoes_enviadas voltou às % linhas do começo da execução', v_base;
 END $$;
 
 -- (o) RESUMO — o gate de contagem. Um run parcial ou todo-SKIP falha AQUI.
@@ -643,10 +716,11 @@ DO $$
 DECLARE v_n integer;
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke37.pass', true), ''), '0')::int;
-  IF v_n <> 14 THEN
-    RAISE EXCEPTION 'P37-LAC FAIL (o): RESUMO % asserções PASS de 14 esperadas — run parcial ou fixture não construída; NÃO tratar como verde', v_n;
+  -- 15 = as cláusulas DESTE arquivo (a..n + h2): escopo deliberado, não fotografia de dado.
+  IF v_n <> 15 THEN
+    RAISE EXCEPTION 'P37-LAC FAIL (o): RESUMO % asserções PASS de 15 esperadas — run parcial ou fixture não construída; NÃO tratar como verde', v_n;
   END IF;
-  RAISE NOTICE 'RESUMO: % asserções PASS de 14 esperadas — gate VERDE', v_n;
+  RAISE NOTICE 'RESUMO: % asserções PASS de 15 esperadas — gate VERDE', v_n;
 END $$;
 
 SELECT set_config('smoke37.ready', '', false);
