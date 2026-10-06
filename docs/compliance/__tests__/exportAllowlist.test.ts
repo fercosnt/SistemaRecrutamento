@@ -38,7 +38,7 @@
  * @see .planning/phases/44-exporta-o-acesso/44-03-PLAN.md Task 2
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const REPO = resolve(__dirname, '..', '..', '..')
@@ -46,6 +46,10 @@ const CAMINHO_JSON = resolve(REPO, 'docs/compliance/export-allowlist.json')
 const CAMINHO_TS = resolve(REPO, 'supabase/functions/_shared/exportAllowlist.ts')
 const CAMINHO_CATALOGO = resolve(REPO, 'docs/compliance/catalogo-vivo-44.json')
 const CAMINHO_SMOKE = resolve(REPO, 'docs/compliance/sql/05-export-allowlist-drift.sql')
+// O MESMO predicado, na forma que FALHA ALTO (BD-14, 44-10). Os dois arquivos carregam
+// os mesmos três `VALUES` e os mesmos cinco textos de veredito — (k) e (k2) prendem isso.
+const CAMINHO_DRIFT_SMOKE = resolve(REPO, 'supabase/tests/p44_export_drift_smoke.sql')
+const ARQUIVOS_DRIFT = [CAMINHO_SMOKE, CAMINHO_DRIFT_SMOKE] as const
 
 interface TabelaAllowlist {
   chave_titular: string
@@ -108,6 +112,15 @@ function disposicaoAchatada(): string[] {
   ].sort()
 }
 
+/** O arquivo SQL sem as linhas de comentário (`--`), para os invariantes de código. */
+function semComentario(caminho: string): string {
+  expect(existsSync(caminho), `${caminho.slice(REPO.length + 1)}: arquivo ausente`).toBe(true)
+  return readFileSync(caminho, 'utf8')
+    .split('\n')
+    .filter((l) => !l.trimStart().startsWith('--'))
+    .join('\n')
+}
+
 /** Os três marcadores de CTE, NA ORDEM em que o arquivo os declara. */
 const MARCADORES = [
   'allowlist(tabela, coluna) AS (',
@@ -129,8 +142,9 @@ const MARCADORES = [
  * rode --sql-values…») por um defeito que é de estrutura do arquivo.
  */
 function paresDoArquivo(caminho: string): { allowlist: string[]; excluidas: string[]; tabelas: string[] } {
-  const sql = readFileSync(caminho, 'utf8')
   const nome = caminho.slice(REPO.length + 1)
+  expect(existsSync(caminho), `${nome}: arquivo ausente`).toBe(true)
+  const sql = readFileSync(caminho, 'utf8')
   const cortes = MARCADORES.map((m) => {
     const i = sql.indexOf(m)
     expect(i, `${nome}: marcador de CTE \`${m}\` ausente`).not.toBe(-1)
@@ -634,9 +648,25 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     }
   })
 
-  it('(e) `meta` declara a Phase 45 como consumidora e carrega versão semântica (SC#5)', () => {
+  /**
+   * ⚠ A VERSÃO ANTERIOR DESTA ASSERÇÃO ERA OCA (advisory da verificação de 2026-10-06).
+   * Ela se chamava «declara a Phase 45 como consumidora» e testava só que a substring
+   * «Phase 45» aparecesse em `meta.consumidores`. Desde 2026-09-27 essa substring
+   * aparece na frase que NEGA o consumo — e a asserção seguia verde pelo motivo
+   * oposto ao do seu título, e seguiria verde se a Phase 45 voltasse a ser declarada
+   * consumidora. O contrato agora é o EXPORT-06 reescrito (aprovado em 2026-10-04):
+   * a negação é o que se testa.
+   */
+  it('(e) `meta` declara que a Phase 45 NÃO consome este escopo (EXPORT-06, redação de 2026-10-04) e carrega versão semântica', () => {
     const meta = allowlist().meta
-    expect(JSON.stringify(meta.consumidores)).toContain('Phase 45')
+    const daPhase45 = meta.consumidores.filter((c) => c.includes('Phase 45'))
+    expect(daPhase45, 'exatamente UMA entrada de meta.consumidores deve citar a Phase 45').toHaveLength(1)
+    expect(daPhase45[0], 'a entrada da Phase 45 deve NEGAR o consumo').toContain('NÃO consome')
+    expect(daPhase45[0], 'a entrada da Phase 45 deve remeter ao insumo real do motor').toContain('pii-inventory.yaml')
+    expect(
+      meta.consumidores.some((c) => c.includes('exportar-meus-dados')),
+      'a consumidora real (EF exportar-meus-dados) não está declarada em meta.consumidores',
+    ).toBe(true)
     expect(meta.versao).toMatch(/^\d+\.\d+\.\d+$/)
   })
 
@@ -774,7 +804,7 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     )
   })
 
-  it('(k) os três `VALUES` do relatório de drift estão em sincronia com o artefato', () => {
+  it('(k) os três `VALUES` do relatório E do smoke de drift estão em sincronia com o artefato', () => {
     // ⚠ ESTA ASSERÇÃO NASCEU DE UM DEFEITO REAL, e a lição não é sobre sincronia.
     // A primeira versão do smoke definia drift como `viva AND NOT IN allowlist` e
     // devolveu 34 linhas contra PROD em 2026-08-03T19:58:54Z — as 34 exclusões
@@ -793,27 +823,43 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     // disposição de toda tabela conhecida; o SQL o compara com o catálogo VIVO de
     // tabelas. Antes dele, o universo de tabelas do relatório vinha da própria
     // allowlist, e seis tabelas novas ficaram invisíveis a todo portão automático.
-    const arquivo = CAMINHO_SMOKE.slice(REPO.length + 1)
-    const doArquivo = paresDoArquivo(CAMINHO_SMOKE)
-    expect(doArquivo.allowlist, `${arquivo}: o \`VALUES\` da CTE \`allowlist\` envelheceu — rode --sql-values`).toEqual(
-      chavesAchatadas(),
-    )
-    expect(
-      doArquivo.excluidas,
-      `${arquivo}: o \`VALUES\` da CTE \`excluidas\` envelheceu — rode --sql-values-excluidas`,
-    ).toEqual(excluidasAchatadas())
-    expect(
-      doArquivo.tabelas,
-      `${arquivo}: o \`VALUES\` da CTE \`disposicao_tabelas\` envelheceu — rode --sql-values-tabelas`,
-    ).toEqual(disposicaoAchatada())
+    //
+    // E são DOIS arquivos: o relatório (`05`, lista as linhas) e o smoke (falha
+    // alto). Um smoke com `VALUES` envelhecido aprovaria em silêncio o que o
+    // relatório acusa — os dois são vigiados pela mesma asserção.
+    for (const caminho of ARQUIVOS_DRIFT) {
+      const arquivo = caminho.slice(REPO.length + 1)
+      const doArquivo = paresDoArquivo(caminho)
+      expect(
+        doArquivo.allowlist,
+        `${arquivo}: o \`VALUES\` da CTE \`allowlist\` envelheceu — rode --sql-values`,
+      ).toEqual(chavesAchatadas())
+      expect(
+        doArquivo.excluidas,
+        `${arquivo}: o \`VALUES\` da CTE \`excluidas\` envelheceu — rode --sql-values-excluidas`,
+      ).toEqual(excluidasAchatadas())
+      expect(
+        doArquivo.tabelas,
+        `${arquivo}: o \`VALUES\` da CTE \`disposicao_tabelas\` envelheceu — rode --sql-values-tabelas`,
+      ).toEqual(disposicaoAchatada())
 
-    // O relatório é READ-ONLY em PROD, e isso é invariante do arquivo, não do runbook.
-    const semComentario = readFileSync(CAMINHO_SMOKE, 'utf8')
-      .split('\n')
-      .filter((l) => !l.trimStart().startsWith('--'))
-      .join('\n')
-    expect(semComentario, `${arquivo}: palavra de escrita fora de comentário`).not.toMatch(
-      /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|GRANT|REVOKE)\b/i,
-    )
+      // READ-ONLY em PROD, e isso é invariante do arquivo, não do runbook.
+      expect(semComentario(caminho), `${arquivo}: palavra de escrita fora de comentário`).not.toMatch(
+        /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|GRANT|REVOKE)\b/i,
+      )
+    }
+  })
+
+  it('(k2) o relatório e o smoke de drift usam os MESMOS cinco textos de veredito', () => {
+    // O smoke copia o predicado do relatório. Se um dos dois ganhar uma direção
+    // (ou perder uma, ou reescrever uma frase), o portão que falha alto e o
+    // relatório que se lê passam a medir coisas diferentes — e a divergência só
+    // apareceria no dia em que um aprovasse o que o outro acusa.
+    const literais = (caminho: string) =>
+      [...new Set([...semComentario(caminho).matchAll(/'((?:COLUNA|TABELA) [^']*)'/g)].map((m) => m[1]))].sort()
+    const doRelatorio = literais(CAMINHO_SMOKE)
+    const doSmoke = literais(CAMINHO_DRIFT_SMOKE)
+    expect(doRelatorio, 'o relatório deveria ter 3 vereditos de coluna + 2 de tabela').toHaveLength(5)
+    expect(doSmoke, 'os textos de veredito do smoke divergem dos do relatório').toEqual(doRelatorio)
   })
 })
