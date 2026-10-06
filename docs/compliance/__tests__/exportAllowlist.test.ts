@@ -904,4 +904,110 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     expect(doRelatorio, 'o relatório deveria ter 3 vereditos de coluna + 2 de tabela').toHaveLength(5)
     expect(doSmoke, 'os textos de veredito do smoke divergem dos do relatório').toEqual(doRelatorio)
   })
+
+  /**
+   * (l) AS DECISÕES DO G5 (44-11, BD-9..BD-13) PRESAS POR NOME — e não por snapshot.
+   *
+   * POR QUE NÃO BASTAM OS SNAPSHOTS (b) E (j): os dois são aprovados por um `vitest -u`
+   * distraído. Uma coluna vetada que voltasse para a cópia apareceria como «+1 linha»
+   * num diff de mais de 400, e o `-u` a aceitaria sem perguntar. Aqui ela falha com o
+   * próprio nome no output.
+   *
+   * A ARMADILHA DA R1 (achado M1 do 49-17): toda coluna `*_em` de tabela em escopo
+   * ENTRA pela R1 mesmo sem veredito. Se o veredito explícito de uma delas for apagado
+   * do `export-scope-rules.yaml`, o gerador regera sem reclamar (o fecho só exige que
+   * toda coluna viva tenha disposição, e a R1 é uma disposição), a coluna continua na
+   * cópia, e o snapshot (b) nem se move. O que muda é só a PROVENIÊNCIA — e é ela que
+   * esta asserção prende: as colunas que o G5 decidiu POR ESCRITO têm de continuar
+   * decididas por escrito. Um veredito que some calado é uma decisão do operador que
+   * deixou de existir sem ninguém decidir isso.
+   *
+   * FORA DA ASSERÇÃO DE PROVENIÊNCIA, DE PROPÓSITO: `id` e `candidatura_id` de
+   * `retencao_hold` e `cognitivo_liberacao`. Elas entram pela R1, como em TODA tabela
+   * em escopo (são as chaves da linha e da ponte), e nunca receberam veredito
+   * explícito — exigir `decisoes_por_coluna` delas reprovaria o artefato correto.
+   *
+   * As listas abaixo são LITERAIS porque a asserção É sobre esses nomes. Não são
+   * fotografia de um escopo que envelhece: são o registro das decisões BD-9..BD-13, e
+   * mudar uma delas é mudar uma decisão — o que exige editar este arquivo.
+   */
+  it('(l) proibições nomeadas do G5 (44-11) — sobrevivem a um `vitest -u`', () => {
+    const a = allowlist()
+
+    // [tabela, coluna, prefixo da razão em `colunas_excluidas`]
+    const VETADAS: ReadonlyArray<readonly [string, string, string]> = [
+      ['retencao_hold', 'detalhe', 'decisoes_por_coluna:'], // BD-10, operador
+      ['retencao_hold', 'criado_por', 'pii_de_terceiro (R2)'], // UUID de funcionário
+      ['retencao_hold', 'liberado_por', 'pii_de_terceiro (R2)'],
+      ['cognitivo_liberacao', 'liberado_por', 'pii_de_terceiro (R2)'],
+      ['cognitivo_liberacao', 'revogado_por', 'pii_de_terceiro (R2)'],
+      ['solicitacoes_dados', 'plano', 'decisoes_por_coluna:'], // BD-13 (ii)
+      ['solicitacoes_dados', 'recibo_enviado_em', 'decisoes_por_coluna:'], // BD-13 (iv), operador
+    ]
+    const TABELAS_FORA: ReadonlyArray<readonly [string, string]> = [
+      ['purga_execucao_itens', 'telemetria_interna'], // BD-11
+      ['purga_execucoes', 'telemetria_interna'], // BD-11
+      ['config_purga', 'configuracao_do_produto'], // BD-12, medido sem chave do titular
+      ['config_janela_exclusao', 'configuracao_do_produto'], // BD-12
+    ]
+    // As 13 que ENTRAM por veredito explícito (as `*_em` entrariam caladas pela R1).
+    const VEREDITO_EXPLICITO: ReadonlyArray<readonly [string, string]> = [
+      ['candidatos', 'faixa_etaria_materializada'], // BD-13 (iii)
+      ['candidaturas', 'encerrada_a_pedido_em'], // BD-13 (i)
+      ['solicitacoes_dados', 'executar_em'], // BD-13 (i)
+      ['solicitacoes_dados', 'cancelado_em'], // BD-13 (i)
+      ['solicitacoes_dados', 'storage_concluido_em'], // BD-13 (iv), operador
+      ['solicitacoes_dados', 'postgres_concluido_em'],
+      ['solicitacoes_dados', 'auth_concluido_em'],
+      ['retencao_hold', 'motivo'], // BD-10
+      ['retencao_hold', 'criado_em'],
+      ['retencao_hold', 'liberado_em'],
+      ['cognitivo_liberacao', 'liberado_em'], // BD-9 (adendo 2026-10-06)
+      ['cognitivo_liberacao', 'revogado_em'],
+      ['cognitivo_liberacao', 'motivo'],
+    ]
+
+    // META: uma lista vazia, ou uma tabela renomeada no artefato, faria os laços abaixo
+    // passarem por vacuidade — verdes por não terem o que testar.
+    for (const [nome, lista] of [
+      ['VETADAS', VETADAS],
+      ['TABELAS_FORA', TABELAS_FORA],
+      ['VEREDITO_EXPLICITO', VEREDITO_EXPLICITO],
+    ] as const) {
+      expect(lista.length, `G5 (l): a lista ${nome} está vazia — a asserção seria um no-op`).toBeGreaterThan(0)
+    }
+    for (const [tabela] of [...VETADAS, ...VEREDITO_EXPLICITO]) {
+      expect(a.tabelas[tabela], `G5 (l): ${tabela} sumiu de \`tabelas\` — os laços da (l) passariam vazios`).toBeDefined()
+    }
+
+    for (const [tabela, coluna, prefixo] of VETADAS) {
+      const t = a.tabelas[tabela]
+      expect(
+        t.colunas,
+        `G5 (l): ${tabela}.${coluna} está na CÓPIA — o G5 a vetou (fora da cópia do titular)`,
+      ).not.toContain(coluna)
+      expect(
+        Object.keys(t.colunas_excluidas ?? {}),
+        `G5 (l): ${tabela}.${coluna} não está em \`colunas_excluidas\` — o veto perdeu o registro`,
+      ).toContain(coluna)
+      expect(
+        (t.colunas_excluidas ?? {})[coluna]?.startsWith(prefixo),
+        `G5 (l): ${tabela}.${coluna} — a razão do veto deveria começar por «${prefixo}», veio «${(t.colunas_excluidas ?? {})[coluna]?.slice(0, 40)}»`,
+      ).toBe(true)
+    }
+
+    for (const [tabela, razao] of TABELAS_FORA) {
+      expect(a.tabelas[tabela], `G5 (l): ${tabela} entrou em escopo — o G5 a deixou FORA (${razao})`).toBeUndefined()
+      expect(a.excluidas[tabela], `G5 (l): ${tabela} — a razão de exclusão decidida é «${razao}»`).toBe(razao)
+    }
+
+    for (const [tabela, coluna] of VEREDITO_EXPLICITO) {
+      const t = a.tabelas[tabela]
+      expect(t.colunas, `G5 (l): ${tabela}.${coluna} saiu da cópia — o G5 decidiu que ela ENTRA`).toContain(coluna)
+      expect(
+        t.proveniencia[coluna],
+        `G5 (l): ${tabela}.${coluna} — proveniência deveria ser «decisoes_por_coluna»: o veredito escrito sumiu e a coluna entra calada pela R1 (o fecho do gerador não reprova isso; esta asserção sim)`,
+      ).toBe('decisoes_por_coluna')
+    }
+  })
 })
