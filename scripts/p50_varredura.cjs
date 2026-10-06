@@ -32,7 +32,13 @@
  *                            cada arquivo UMA vez, `--sem-migracoes` (objetos vivos), resultado em
  *                            `${TMPDIR:-/tmp}/p50_varredura_<rotulo>.json` — para rodar ao redor do
  *                            apply do 50-10.
- *   --comparar               lê os dois JSONs da rodada e julga antes (A) × depois (B).
+ *                            Cada rodada é CARIMBADA com o ledger p50 lido no início e no fim
+ *                            (`ledger_inicio`/`ledger_fim`); ledger que muda no meio = rodada
+ *                            inválida, nada gravado. O JSON do rótulo é APAGADO antes de tudo, para
+ *                            uma rodada que falha não deixar o de uma tentativa anterior (WR-01).
+ *   --comparar               lê os dois JSONs da rodada e julga antes (A) × depois (B). RECUSA
+ *                            (exit 1, nada julgado) se o «antes» não foi carimbado SEM nenhuma
+ *                            versão da expansão (MIGS depois do tracer) ou o «depois» COM todas.
  *   --so=<trecho>            restringe aos arquivos cujo nome contém o trecho (depuração). A linha
  *                            final passa a começar com `varredura-parcial:` — uma execução filtrada
  *                            NUNCA satisfaz o portão.
@@ -42,9 +48,12 @@
  *   esperado-reescrito  vermelho → verde, SÓ para arquivo alterado desde `refs/gsd/50-expansao/base`
  *                       (calculado com git, nunca com lista)
  *   REGRESSAO           verde → vermelho
- *   pre-existente       vermelho/vermelho com a MESMA primeira cláusula reprovada
- *   INVESTIGAR          vermelho/vermelho com cláusula diferente, ou vermelho → verde num arquivo
- *                       que a fase NÃO alterou
+ *   pre-existente       vermelho/vermelho com a MESMA primeira cláusula reprovada, SÓ para arquivo
+ *                       que a fase NÃO alterou desde a base
+ *   INVESTIGAR          vermelho/vermelho com cláusula diferente; vermelho/vermelho num arquivo
+ *                       ALTERADO desde a base (WR-01 do 50-REVIEW-ACESSO-1: o smoke reescrito
+ *                       tinha de ficar verde com a expansão); ou vermelho → verde num arquivo que
+ *                       a fase NÃO alterou
  *   INCONCLUSIVO        timeout (55P03/57014) ou 40001 em qualquer das duas execuções, depois de
  *                       UMA repetição (~60 s depois) — nunca concluído
  *   Primeira cláusula: `/([A-Z0-9-]+ FAIL \([^)]*\))/`; sem ela, o erro (SQLSTATE + mensagem, com
@@ -221,12 +230,48 @@ function executar(f, modo) {
   return { ...j, ms: r.ms, prefixadas: plano.prefixadas.map(E.versao), soResultado: !!soRes };
 }
 
+/*
+ * WR-01 (50-REVIEW-ACESSO-1): vermelho/vermelho num arquivo ALTERADO desde a base é INVESTIGAR,
+ * nunca `pre-existente`. Os smokes reescritos pela fase são vermelhos ANTES do apply por
+ * construção (dependem da expansão); se um deles continua vermelho DEPOIS — mesmo na mesma
+ * cláusula —, um efeito esperado da expansão não apareceu, e isso não pode sair como
+ * «sem regressão». `pre-existente` fica só para o arquivo que a fase NÃO tocou.
+ */
 function veredito(f, a, b) {
   if (a.estado === 'TIMEOUT' || b.estado === 'TIMEOUT') return 'INCONCLUSIVO';
   if (a.estado === 'VERDE' && b.estado === 'VERDE') return 'ok';
   if (a.estado === 'VERDE' && b.estado === 'VERMELHO') return 'REGRESSAO';
   if (a.estado === 'VERMELHO' && b.estado === 'VERDE') return alteradoDesdeBase(f) ? 'esperado-reescrito' : 'INVESTIGAR';
+  if (alteradoDesdeBase(f)) return 'INVESTIGAR';
   return a.clausula === b.clausula ? 'pre-existente' : 'INVESTIGAR';
+}
+
+/*
+ * WR-01: carimbo de ledger. As versões da EXPANSÃO são as de `MIGS` depois do tracer (o 0001 foi
+ * aplicado no 50-02). A rodada «antes» tem de ter rodado sem NENHUMA delas no ledger e a
+ * «depois» com TODAS — senão a comparação não é «antes × depois do apply» (um «antes» refeito
+ * depois do apply compara depois × depois e fica verde por construção; WR-07 do TRACER-1, a
+ * mesma regra da sonda de vistas).
+ */
+const EXPANSAO = E.MIGS.slice(1).map(E.versao);
+function conferirCarimbos(A, B) {
+  const erros = [];
+  for (const [R, rot, quer] of [[A, 'antes', 'nenhuma'], [B, 'depois', 'todas']]) {
+    const li = R.ledger_inicio;
+    const lf = R.ledger_fim;
+    if (!Array.isArray(li) || !Array.isArray(lf)) {
+      erros.push(`rodada ${rot} sem carimbo de ledger (ledger_inicio/ledger_fim) — rodada antiga ou forjada`);
+      continue;
+    }
+    if (JSON.stringify(li) !== JSON.stringify(lf)) {
+      erros.push(`rodada ${rot}: o ledger mudou DURANTE a rodada (${JSON.stringify(li)} -> ${JSON.stringify(lf)})`);
+      continue;
+    }
+    const tem = EXPANSAO.filter((v) => li.includes(v));
+    if (quer === 'nenhuma' && tem.length) erros.push(`rodada antes rodou com ${tem.join(',')} no ledger — nao e de antes do apply (refazer o «antes» NAO e saida)`);
+    if (quer === 'todas' && tem.length !== EXPANSAO.length) erros.push(`rodada depois rodou sem ${EXPANSAO.filter((v) => !li.includes(v)).join(',')} no ledger — nao e de depois do apply`);
+  }
+  return erros;
 }
 
 function relatorio(linhas, rotA, rotB, parcial) {
@@ -270,6 +315,13 @@ function principal() {
   if (comparar) {
     const A = JSON.parse(fs.readFileSync(arqRodada('antes'), 'utf8'));
     const B = JSON.parse(fs.readFileSync(arqRodada('depois'), 'utf8'));
+    const erros = conferirCarimbos(A, B);
+    if (erros.length) {
+      for (const e of erros) console.error(`CARIMBO DE LEDGER INVALIDO: ${e}`);
+      console.error('comparar RECUSADO: nada julgado');
+      process.exit(1);
+    }
+    console.log(`carimbos: antes ledger=${JSON.stringify(A.ledger_inicio)} · depois ledger=${JSON.stringify(B.ledger_inicio)} (expansao=${EXPANSAO.join(',')})`);
     const nomes = [...new Set([...Object.keys(A.arquivos), ...Object.keys(B.arquivos)])].sort();
     const linhas = nomes.map((f) => {
       const a = A.arquivos[f] || { estado: 'TIMEOUT', clausula: 'AUSENTE na rodada antes', detalhe: 'ausente' };
@@ -283,6 +335,17 @@ function principal() {
   if (modo !== 'ensaio' && modo !== 'rodada') {
     console.error('uso: --modo=ensaio | --modo=rodada --rotulo=antes|depois | --comparar   [--so=<trecho>]');
     process.exit(2);
+  }
+  if (modo === 'rodada') {
+    const rotulo = opt('rotulo');
+    if (rotulo !== 'antes' && rotulo !== 'depois') {
+      console.error('--modo=rodada exige --rotulo=antes|depois');
+      process.exit(2);
+    }
+    // WR-01: o JSON desta rótulo é APAGADO antes de qualquer coisa que possa falhar. Uma rodada
+    // que sai com erro (PERSISTIU, seleção vazia, rede) não deixa no lugar o JSON de uma tentativa
+    // anterior para o `--comparar` ler como se fosse desta.
+    fs.rmSync(arqRodada(rotulo), { force: true });
   }
   const nomes = nomesDaFase();
   const { selecionados, excluidos, populacaoSql } = selecionar(nomes, so);
@@ -299,18 +362,23 @@ function principal() {
 
   if (modo === 'rodada') {
     const rotulo = opt('rotulo');
-    if (rotulo !== 'antes' && rotulo !== 'depois') {
-      console.error('--modo=rodada exige --rotulo=antes|depois');
-      process.exit(2);
-    }
-    const saida = { quando: new Date().toISOString(), rotulo, parcial: !!so, arquivos: {} };
+    // WR-01: carimbo do ledger no início E no fim da rodada (só leitura). `--comparar` exige
+    // «antes» sem nenhuma versão da expansão e «depois» com todas, e o mesmo ledger nas duas pontas.
+    const ledgerInicio = E.lerEstado().ledger;
+    const saida = { quando: new Date().toISOString(), rotulo, parcial: !!so, ledger_inicio: ledgerInicio, ledger_fim: null, arquivos: {} };
+    console.log(`rodada ${rotulo}: ledger p50 no inicio = ${JSON.stringify(ledgerInicio)}`);
     for (const f of selecionados) {
       const r = executar(f, 'sem');
       saida.arquivos[f] = r;
       console.log(`  ${r.estado.padEnd(8)} ${f} ${r.clausula ? `· ${r.clausula}` : ''} · ${r.ms} ms`);
     }
+    saida.ledger_fim = E.lerEstado().ledger;
+    if (JSON.stringify(saida.ledger_fim) !== JSON.stringify(ledgerInicio)) {
+      console.error(`rodada ${rotulo} INVALIDA: o ledger mudou durante a rodada (${JSON.stringify(ledgerInicio)} -> ${JSON.stringify(saida.ledger_fim)}) — nada gravado`);
+      process.exit(1);
+    }
     fs.writeFileSync(arqRodada(rotulo), JSON.stringify(saida, null, 2));
-    console.log(`rodada ${rotulo}: ${selecionados.length} arquivos → ${arqRodada(rotulo)}`);
+    console.log(`rodada ${rotulo}: ${selecionados.length} arquivos → ${arqRodada(rotulo)} · ledger=${JSON.stringify(saida.ledger_fim)}`);
     process.exit(0);
   }
 
@@ -325,6 +393,6 @@ function principal() {
   process.exit(relatorio(linhas, 'A sem expansão', 'B com expansão', !!so));
 }
 
-module.exports = { nomesDaFase, selecionar, julgar, veredito, alteradoDesdeBase, normalizar, soResultado };
+module.exports = { nomesDaFase, selecionar, julgar, veredito, alteradoDesdeBase, normalizar, soResultado, conferirCarimbos, EXPANSAO };
 
 if (require.main === module) principal();
