@@ -90,7 +90,7 @@
 ### Exportação & Acesso (EXPORT)
 
 - [x] **EXPORT-01**: Candidato solicita cópia dos próprios dados pelo painel — ⚠ exercitado em PROD por **conta de teste do operador**, nunca por titular de terceiro (ver nota)
-- [x] **EXPORT-02**: Export em JSON por allowlist explícita de colunas — nunca `select('*')`, a classe de vulnerabilidade nº 1 recorrente deste projeto — ⚠ exercitado na allowlist **1.1.0**; PROD roda **1.3.0** (ver nota)
+- [x] **EXPORT-02**: Export em JSON por allowlist explícita de colunas — nunca `select('*')`, a classe de vulnerabilidade nº 1 recorrente deste projeto — ⚠ exercitado na allowlist **1.1.0**; PROD roda **1.4.0** desde 06/10/2026 (EF `exportar-meus-dados` v6, fecho do G5) (ver nota)
 - [x] **EXPORT-03**: Currículo entregue por signed URL de TTL curto a partir de bucket privado, nunca inline nem base64 — ⚠ mesma ressalva de titular do EXPORT-01 (ver nota)
 - [x] **EXPORT-04**: Chaves do export cobertas por snapshot test — uma coluna nova no banco não pode vazar silenciosamente para o export
 - [x] **EXPORT-05**: Pedido de acesso atendido dentro do prazo do **Art. 19, II** (15 dias corridos) — G4-b fechado pela Phase 50 em 2026-10-06 (verificação `50-VERIFICATION.md`); a metade «visível ao RH» fora rebaixada a parcial pela `44-VERIFICATION.md` (histórico na nota)
@@ -366,7 +366,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | RETEN-05 | Phase 46 | Complete |
 | RETEN-06 | Phase 43 | Complete |
 | EXPORT-01 | Phase 44 | Complete (exercitado em PROD: 3 pedidos `acesso`+`atendido` em 11/08, 06/09 e 20/09, atendidos em ~4,7 s; os **dois** arquivos baixados em `GUIA-VALIDACAO-FINAL` F1. ⚠ titular = **conta de teste do operador**, nunca terceiro — a marca significa "a capacidade funciona em produção", não "já atendemos um titular real". Medido em 2026-09-26, `44-AUDITORIA-GAPS-2026-09-26.md`) |
-| EXPORT-02 | Phase 44 | Complete (payload real projetado por allowlist: 30 coleções, 18 KB / 82.715 B; conserto CR-01 vivo nos DOIS canais — corpo da EF v5 e bundle publicado. ⚠ exercitado na allowlist **1.1.0**; PROD roda **1.3.0** desde 24/09. ⚠ mesma ressalva de titular do EXPORT-01) |
+| EXPORT-02 | Phase 44 | Complete (payload real projetado por allowlist: 30 coleções, 18 KB / 82.715 B; conserto CR-01 vivo nos DOIS canais — corpo da EF v5 e bundle publicado. ⚠ exercitado na allowlist **1.1.0**; PROD roda **1.4.0** desde 06/10/2026 (EF v6, fecho do G5; 1.3.0 de 24/09 a 06/10). ⚠ mesma ressalva de titular do EXPORT-01) |
 | EXPORT-03 | Phase 44 | Complete (`GUIA-VALIDACAO-FINAL` B14 ✅ TTL 60 s, recarregada → **400**; B15 ✅ zero chamadas a `get-curriculo-url`, URL ausente do console e do DOM — a expiração e as três asserções negativas **observadas**. Banco: 18/18 objetos de `curriculos` com prefixo = `owner`. ⚠ mesma ressalva de titular do EXPORT-01) |
 | EXPORT-04 | Phase 44 | Complete |
 | EXPORT-05 | Phase 44 + Phase 50 | Complete — G4-b fechado pela Phase 50 em 2026-10-06 (`50-VERIFICATION.md`). Histórico: **(marca da fase — rebaixada a PARCIAL pela `44-VERIFICATION.md`, e o rebaixamento CONFIRMADO por medição em 2026-09-26)**: a metade «visível ao RH» não vale para o papel `rh` — predicado `vagas.created_by = auth.uid()` inalterado, **0** vagas de recrutador, **1** recrutador e **0 ativos**, **9** vagas órfãs, `vagas_associadas_recrutadores` vazia e sem leitor. ⚠ transversal: o mesmo predicado é a espinha de `rh_le_candidaturas` e a Phase 49 o **reforçou** no 49-08 — decisão do operador, e varrer pela FORMA todos os consumidores |
