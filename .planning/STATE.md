@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: planning
-stopped_at: Phase 50 complete, ready to plan Phase 44
-last_updated: "2026-10-06T12:47:41.793Z"
+stopped_at: "Phase 44 gap plans 44-10..44-13 ready — run /gsd-execute-phase 44 --gaps-only"
+last_updated: "2026-10-06T18:40:25.465Z"
 last_activity: 2026-10-06
-last_activity_desc: Phase 50 complete, transitioned to Phase 44
-state_head: 50433eeefa008cfd037c4183c0515f367482eaf4
+state_head: 6951da0e627bd8fca8b726040d18b491de1e3d12
 progress:
   total_phases: 9
   completed_phases: 9
-  total_plans: 134
+  total_plans: 138
   completed_plans: 132
-  percent: 99
-current_phase: 50
-current_phase_name: Acesso do Recrutador
+  percent: 96
+current_phase_name: Exportação & Acesso
+current_phase: 44
+last_activity_desc: "Phase 44 gap plans 44-10..44-13 (G5) planned — plan-checker passed (round 2, info only)"
 ---
 
 # Project State
@@ -747,7 +747,7 @@ Status: Ready to execute
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-10-05
+Last activity: 2026-10-06
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
