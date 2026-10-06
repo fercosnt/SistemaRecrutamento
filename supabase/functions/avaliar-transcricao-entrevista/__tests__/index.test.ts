@@ -128,9 +128,58 @@ function makeMockOpenAI() {
   };
 }
 
+// ── WR-05 (50-REVIEW-ACESSO-1) ─────────────────────────────────────────────────
+// Desde a Phase 50 / D-01 a ÚNICA autorização desta EF é a linha VIVA do chamador em
+// usuarios_rh (`.eq("user_id", user.id).eq("ativo", true).is("deleted_at", null)`). Um mock
+// que devolvesse a mesma linha para qualquer filtro deixaria verde a EF que perdeu um desses
+// predicados. Esta consulta APLICA os `.eq`/`.is`/`.in` que recebe às linhas em memória.
+// deno-lint-ignore no-explicit-any
+function consultaQueFiltra(linhas: Array<Record<string, unknown>>, aoLer?: () => void): any {
+  const preds: Array<(r: Record<string, unknown>) => boolean> = [];
+  const filtradas = () => {
+    aoLer?.();
+    return linhas.filter((r) => preds.every((p) => p(r)));
+  };
+  // deno-lint-ignore no-explicit-any
+  const q: any = {
+    select: () => q,
+    eq: (c: string, v: unknown) => {
+      preds.push((r) => r[c] === v);
+      return q;
+    },
+    is: (c: string, v: unknown) => {
+      preds.push((r) => (r[c] ?? null) === v);
+      return q;
+    },
+    in: (c: string, vs: unknown[]) => {
+      preds.push((r) => vs.includes(r[c]));
+      return q;
+    },
+    maybeSingle: () => {
+      const a = filtradas();
+      return Promise.resolve(
+        a.length > 1
+          ? { data: null, error: { code: "PGRST116", message: "mais de uma linha" } }
+          : { data: a[0] ?? null, error: null },
+      );
+    },
+    // deno-lint-ignore no-explicit-any
+    then: (ok: (v: any) => unknown, ko?: (e: unknown) => unknown) =>
+      Promise.resolve({ data: filtradas(), error: null }).then(ok, ko),
+  };
+  return q;
+}
+
+/** Linha de usuarios_rh; VIVA (ativo, não excluída) salvo o que `extra` disser. */
+function linhaRh(user_id: string, role: string, extra: Record<string, unknown> = {}) {
+  return { user_id, role, ativo: true, deleted_at: null, ...extra };
+}
+
 interface AdminOpts {
-  /** `role` devolvido pelo lookup em `usuarios_rh`. null ⇒ sem linha RH ⇒ 403. */
+  /** `role` da linha VIVA de `usuarios_rh` do chamador. null ⇒ sem linha RH ⇒ 403. */
   usuariosRhRole?: string | null;
+  /** WR-05: linhas EXPLÍCITAS de usuarios_rh (inativa, excluída, de outro usuário) — vence `usuariosRhRole`. */
+  rhRows?: Array<Record<string, unknown>>;
   /** etapa da candidatura — é o PADRÃO do `tipo` quando o body não o manda (D-41). */
   etapaAtual?: string;
   /** Autor da vaga devolvido pelo mock (inerte desde a Phase 50 / D-01). null ⇒ sem linha de vaga. */
@@ -172,6 +221,7 @@ function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
     rpcError = null,
     custoDiarioUsd = 0,
   } = opts;
+  const linhasRh = opts.rhRows ?? (usuariosRhRole === null ? [] : [linhaRh(RH_USER.id, usuariosRhRole)]);
 
   const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
   const reads: Array<{ table: string; filtros: Record<string, unknown> }> = [];
@@ -210,16 +260,7 @@ function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
       }
 
       if (table === "usuarios_rh") {
-        const chain = {
-          eq: () => chain,
-          is: () => chain,
-          maybeSingle: () =>
-            Promise.resolve({
-              data: usuariosRhRole === null ? null : { role: usuariosRhRole },
-              error: null,
-            }),
-        };
-        return { select: (_c?: string) => chain };
+        return consultaQueFiltra(linhasRh);
       }
 
       if (table === "candidaturas") {
@@ -1018,4 +1059,47 @@ Deno.test("JORN-41 / 49-40 — transcrição SEM a frase → nenhum elemento { s
   assertEquals(elementosDeSinal(a.p_bias_flags), []);
   assertEquals(a.p_bloqueio_avanco, false);
   assert(!base.admin.logRows.some((r) => r.error_code === "prompt_injection_flagged"));
+});
+
+// ── WR-05 (50-REVIEW-ACESSO-1) — o filtro da linha viva É a autorização ─────────
+// Cada negativa difere do controle positivo em UM atributo da linha do chamador. Sem o
+// predicado correspondente na EF, a negativa roda IA e grava.
+async function comLinhasRh(rows: Array<Record<string, unknown>>) {
+  const handler = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ rhRows: rows });
+  const anthropic = makeMockAnthropic();
+  const res = await handler(
+    post({ candidatura_id: CANDIDATURA, transcricao: TRANSCRICAO_A, tipo: "online" }),
+    deps(admin, { anthropic }),
+  );
+  return { res, admin, anthropic };
+}
+
+Deno.test("WR-05 controle — linha usuarios_rh VIVA do chamador → 200, IA e gravação", async () => {
+  const { res, admin } = await comLinhasRh([linhaRh(RH_USER.id, "recrutador")]);
+  assertEquals(res.status, 200);
+  assertEquals(admin.rpcCalls.length, 1);
+});
+
+Deno.test("WR-05 — linha do chamador INATIVA (ativo=false) → 403, zero leituras, zero IA, zero RPC", async () => {
+  const { res, admin, anthropic } = await comLinhasRh([linhaRh(RH_USER.id, "recrutador", { ativo: false })]);
+  assertEquals(res.status, 403);
+  assertEquals(admin.reads.length, 0);
+  assertEquals(anthropic.calls.length, 0);
+  assertEquals(admin.rpcCalls.length, 0);
+});
+
+Deno.test("WR-05 — linha do chamador EXCLUÍDA (deleted_at) → 403, zero RPC", async () => {
+  const { res, admin } = await comLinhasRh([
+    linhaRh(RH_USER.id, "recrutador", { deleted_at: "2026-10-01T00:00:00Z" }),
+  ]);
+  assertEquals(res.status, 403);
+  assertEquals(admin.reads.length, 0);
+  assertEquals(admin.rpcCalls.length, 0);
+});
+
+Deno.test("WR-05 — só a linha viva de OUTRO usuário → 403 (o filtro user_id)", async () => {
+  const { res, admin } = await comLinhasRh([linhaRh("rh-outro", "administrador")]);
+  assertEquals(res.status, 403);
+  assertEquals(admin.rpcCalls.length, 0);
 });

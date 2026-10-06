@@ -55,6 +55,35 @@ const FUNCTIONS_DIR = join(ROOT, 'supabase', 'functions')
 const POSSE_RE =
   /created_by\s*!==?\s*user\.id|user\.id\s*!==?\s*\S*created_by|created_by\s*===?\s*user\.id|vagaRow\.created_by|vagaRow\?\.created_by/
 
+/**
+ * WR-05 (50-REVIEW-ACESSO-1) — depois da Phase 50, a ÚNICA autorização das EFs do RH é a leitura
+ * da linha do PRÓPRIO chamador em `usuarios_rh`. Forma: toda cadeia `.from("usuarios_rh")` (até o
+ * `;` que a encerra) que filtra `.eq("user_id", user.id)` tem de trazer, na MESMA cadeia,
+ * `.eq("ativo", true)` e `.is("deleted_at", null)`. Sem eles, o token de um recrutador desativado
+ * (o JWT vale até 1 h) lê CV, scores e análises de todas as candidaturas — e a posse da vaga,
+ * que antes era uma segunda barreira, não existe mais.
+ */
+const FROM_RH_RE = /\.from\(\s*["']usuarios_rh["']\s*\)/g
+const PROPRIO_RE = /\.eq\(\s*["']user_id["']\s*,\s*user\.id\s*\)/
+const ATIVO_RE = /\.eq\(\s*["']ativo["']\s*,\s*true\s*\)/
+const VIVO_RE = /\.is\(\s*["']deleted_at["']\s*,\s*null\s*\)/
+
+/** Cadeias `.from("usuarios_rh")…;` de um fonte que leem a linha do PRÓPRIO chamador. */
+function cadeiasDoProprioChamador(src: string): Array<{ linha: number; texto: string }> {
+  const out: Array<{ linha: number; texto: string }> = []
+  for (const m of src.matchAll(FROM_RH_RE)) {
+    const ini = m.index ?? 0
+    const fim = src.indexOf(';', ini)
+    const texto = src.slice(ini, fim < 0 ? src.length : fim).replace(/\s+/g, ' ')
+    if (PROPRIO_RE.test(texto)) out.push({ linha: src.slice(0, ini).split('\n').length, texto })
+  }
+  return out
+}
+
+/** Mordida de D: a cadeia viva de hoje e as três mutações que tiram um predicado. */
+const FIXTURE_CADEIA_VIVA =
+  '  const { data: rhRow } = await supabaseAdmin\n    .from("usuarios_rh")\n    .select("role")\n    .eq("user_id", user.id)\n    .eq("ativo", true)\n    .is("deleted_at", null)\n    .maybeSingle();'
+
 /** Linhas antigas, copiadas literalmente das EFs antes da Phase 50 (mordida). */
 const FIXTURE_COMPARATIVO_286 = '      if (!vagaRow || vagaRow.created_by !== user.id) {'
 const FIXTURE_CONSOLIDAR_337 = '    if (role === "rh" && vagaRow.created_by !== user.id) {'
@@ -124,5 +153,55 @@ describe('SC3 (EF) — nenhuma Edge Function autoriza pela autoria da vaga (Phas
   it('C — mordida: a mesma regex casa as linhas antigas do comparativo e do consolidar', () => {
     expect(POSSE_RE.test(FIXTURE_COMPARATIVO_286)).toBe(true)
     expect(POSSE_RE.test(FIXTURE_CONSOLIDAR_337)).toBe(true)
+  })
+
+  it('D — WR-05: toda leitura da linha do PRÓPRIO chamador em usuarios_rh exige ativo=true e deleted_at nulo', () => {
+    const achados: string[] = []
+    let cadeias = 0
+    const semIdioma: string[] = []
+    for (const file of collectEfSources(FUNCTIONS_DIR)) {
+      const src = readFileSync(file, 'utf-8')
+      const proprias = cadeiasDoProprioChamador(src)
+      cadeias += proprias.length
+      // PISO por arquivo, calculado na execução: quem autentica (`auth.getUser(`) e lê
+      // usuarios_rh tem de ter ≥ 1 cadeia que esta sonda RECONHECE — senão o idioma mudou
+      // (p.ex. `.eq("user_id", uid)`) e a sonda ficaria cega para aquele arquivo.
+      if (src.includes('auth.getUser(') && src.search(FROM_RH_RE) >= 0 && proprias.length === 0) {
+        semIdioma.push(relative(ROOT, file))
+      }
+      for (const c of proprias) {
+        const falta = [ATIVO_RE.test(c.texto) ? null : '.eq("ativo", true)', VIVO_RE.test(c.texto) ? null : '.is("deleted_at", null)']
+          .filter(Boolean)
+        if (falta.length) achados.push(`  ${relative(ROOT, file)}:${c.linha}  falta ${falta.join(' e ')}  →  ${c.texto}`)
+      }
+    }
+    if (semIdioma.length) {
+      throw new Error(
+        `WR-05 — arquivo(s) que autenticam e leem usuarios_rh sem a cadeia \`.eq("user_id", user.id)\` que a sonda reconhece ` +
+          `(o idioma mudou; estender a sonda antes de seguir):\n  ${semIdioma.join('\n  ')}`,
+      )
+    }
+    if (achados.length) {
+      throw new Error(
+        `WR-05 (Phase 50 / D-02) — leitura do papel do chamador sem o filtro da linha VIVA:\n${achados.join('\n')}\n` +
+          `Sem ele, o token de um recrutador desativado (até 1 h) passa — e a posse da vaga não é mais segunda barreira.`,
+      )
+    }
+    expect(cadeias).toBeGreaterThan(0)
+  })
+
+  it('E — mordida de D: a cadeia viva passa; sem ativo, sem deleted_at ou sem user_id, a forma acusa/ignora como deve', () => {
+    const [viva] = cadeiasDoProprioChamador(FIXTURE_CADEIA_VIVA)
+    expect(viva).toBeDefined()
+    expect(ATIVO_RE.test(viva.texto) && VIVO_RE.test(viva.texto)).toBe(true)
+    const [semAtivo] = cadeiasDoProprioChamador(FIXTURE_CADEIA_VIVA.replace('\n    .eq("ativo", true)', ''))
+    expect(semAtivo).toBeDefined()
+    expect(ATIVO_RE.test(semAtivo.texto)).toBe(false)
+    const [semVivo] = cadeiasDoProprioChamador(FIXTURE_CADEIA_VIVA.replace('\n    .is("deleted_at", null)', ''))
+    expect(semVivo).toBeDefined()
+    expect(VIVO_RE.test(semVivo.texto)).toBe(false)
+    // Sem `.eq("user_id", user.id)` a cadeia deixa de ser «do próprio chamador» — e o PISO de D
+    // (arquivo que autentica e lê usuarios_rh sem cadeia reconhecida) é quem acusa.
+    expect(cadeiasDoProprioChamador(FIXTURE_CADEIA_VIVA.replace('\n    .eq("user_id", user.id)', ''))).toHaveLength(0)
   })
 })

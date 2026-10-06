@@ -69,9 +69,61 @@ function makeChainable(result: { data: unknown; error: unknown }): any {
   return chain;
 }
 
+// ── WR-05 (50-REVIEW-ACESSO-1) ─────────────────────────────────────────────────
+// Since Phase 50 / D-01 the ONLY authorization of this EF is the caller's LIVE usuarios_rh
+// row (`.eq("user_id", user.id).eq("ativo", true).is("deleted_at", null)`). A mock that
+// returns the same row whatever filter the EF chains would keep every test green with any
+// of those predicates deleted. This query APPLIES the `.eq`/`.is`/`.in` predicates it
+// receives to in-memory rows, so a deleted filter changes what the EF reads.
+// deno-lint-ignore no-explicit-any
+function consultaQueFiltra(linhas: Array<Record<string, unknown>>): any {
+  const preds: Array<(r: Record<string, unknown>) => boolean> = [];
+  const filtradas = () => linhas.filter((r) => preds.every((p) => p(r)));
+  // deno-lint-ignore no-explicit-any
+  const q: any = {
+    select: () => q,
+    eq: (c: string, v: unknown) => {
+      preds.push((r) => r[c] === v);
+      return q;
+    },
+    is: (c: string, v: unknown) => {
+      preds.push((r) => (r[c] ?? null) === v);
+      return q;
+    },
+    in: (c: string, vs: unknown[]) => {
+      preds.push((r) => vs.includes(r[c]));
+      return q;
+    },
+    maybeSingle: () => {
+      const a = filtradas();
+      return Promise.resolve(
+        a.length > 1
+          ? { data: null, error: { code: "PGRST116", message: "mais de uma linha" } }
+          : { data: a[0] ?? null, error: null },
+      );
+    },
+    // deno-lint-ignore no-explicit-any
+    then: (ok: (v: any) => unknown, ko?: (e: unknown) => unknown) =>
+      Promise.resolve({ data: filtradas(), error: null }).then(ok, ko),
+  };
+  return q;
+}
+
+/** A usuarios_rh row; live (`ativo`, not deleted) unless `extra` says otherwise. */
+function linhaRh(user_id: string, role: string, extra: Record<string, unknown> = {}) {
+  return { user_id, role, ativo: true, deleted_at: null, ...extra };
+}
+
+const ADMIN_UID = "admin-uid";
+const CAND_UID = "cand-uid";
+/** Every caller these tests authenticate as; `role` (below) gives each of them a live row. */
+const CALLERS = [OWNER.id, ADMIN_UID, CAND_UID];
+
 interface AdminOpts {
-  /** usuarios_rh.role row; `null` = no RH row (a candidato) → handler maps to 403. */
+  /** usuarios_rh.role of a LIVE row for every caller; `null` = no RH row (a candidato) → 403. */
   role?: string | null;
+  /** Explicit usuarios_rh rows (overrides `role`) — the WR-05 cases (inactive, deleted, other user). */
+  rhRows?: Array<Record<string, unknown>>;
   /** candidaturas row projection {curriculo_url, vaga_id}; `null` = no row (404). */
   cand?: { curriculo_url: string | null; vaga_id: string } | null;
   /** vagas row projection {created_by}; inert since Phase 50 / D-01 (the EF no longer reads vagas). */
@@ -89,13 +141,14 @@ function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
     : opts.cand;
   const vaga = opts.vaga === undefined ? { created_by: OWNER.id } : opts.vaga;
   const signedUrl = opts.signedUrl ?? SIGNED_URL;
+  const rhRows = opts.rhRows ?? (role === null ? [] : CALLERS.map((id) => linhaRh(id, role)));
   const reads = { usuariosRh: 0, candidaturas: 0, vagas: 0 };
   return {
     reads,
     from(table: string) {
       if (table === "usuarios_rh") {
         reads.usuariosRh++;
-        return makeChainable({ data: role === null ? null : { role }, error: null });
+        return consultaQueFiltra(rhRows);
       }
       if (table === "candidaturas") {
         reads.candidaturas++;
@@ -172,7 +225,7 @@ Deno.test("authed candidato (no usuarios_rh row → role null) → 403 FORBIDDEN
   const admin = makeMockSupabaseAdmin({ role: null });
   const deps = {
     supabaseAdmin: admin,
-    supabaseUser: makeMockSupabaseUser({ id: "cand-uid", app_metadata: { role: "candidato" } }),
+    supabaseUser: makeMockSupabaseUser({ id: CAND_UID, app_metadata: { role: "candidato" } }),
   };
   const res = await handler(makeRequest(VALID_BODY), deps);
   assertEquals(res.status, 403);
@@ -239,7 +292,7 @@ Deno.test("administrador bypasses ownership → 200 and does NOT read vagas", as
   });
   const deps = {
     supabaseAdmin: admin,
-    supabaseUser: makeMockSupabaseUser({ id: "admin-uid", app_metadata: { role: "administrador" } }),
+    supabaseUser: makeMockSupabaseUser({ id: ADMIN_UID, app_metadata: { role: "administrador" } }),
   };
   const res = await handler(makeRequest(VALID_BODY), deps);
   assertEquals(res.status, 200);
@@ -247,4 +300,43 @@ Deno.test("administrador bypasses ownership → 200 and does NOT read vagas", as
   assertEquals(json.ok, true);
   assert(typeof json.signedUrl === "string" && json.signedUrl.length > 0, "admin gets a signedUrl");
   assertEquals(admin.reads.vagas, 0, "administrador must NOT read vagas (ownership bypass)");
+});
+
+// ── WR-05 (50-REVIEW-ACESSO-1) — the live-row filter IS the authorization ─────────
+// Each negative differs from the positive control in ONE attribute of the caller's
+// usuarios_rh row. With the matching predicate deleted from the EF, that negative goes 200.
+async function comLinhas(rows: Array<Record<string, unknown>>) {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ rhRows: rows });
+  const res = await handler(makeRequest(VALID_BODY), {
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(OWNER),
+  });
+  return { res, admin };
+}
+
+Deno.test("WR-05 controle — linha usuarios_rh VIVA do chamador → 200", async () => {
+  const { res } = await comLinhas([linhaRh(OWNER.id, "recrutador")]);
+  assertEquals(res.status, 200);
+});
+
+Deno.test("WR-05 — linha do chamador INATIVA (ativo=false) → 403, nenhuma candidatura lida", async () => {
+  const { res, admin } = await comLinhas([linhaRh(OWNER.id, "recrutador", { ativo: false })]);
+  assertEquals(res.status, 403);
+  assertEquals((await res.json()).error_code, "FORBIDDEN");
+  assertEquals(admin.reads.candidaturas, 0);
+});
+
+Deno.test("WR-05 — linha do chamador EXCLUÍDA (deleted_at) → 403, nenhuma candidatura lida", async () => {
+  const { res, admin } = await comLinhas([
+    linhaRh(OWNER.id, "recrutador", { deleted_at: "2026-10-01T00:00:00Z" }),
+  ]);
+  assertEquals(res.status, 403);
+  assertEquals(admin.reads.candidaturas, 0);
+});
+
+Deno.test("WR-05 — só a linha viva de OUTRO usuário → 403 (o filtro user_id)", async () => {
+  const { res, admin } = await comLinhas([linhaRh(OTHER_UID, "administrador")]);
+  assertEquals(res.status, 403);
+  assertEquals(admin.reads.candidaturas, 0);
 });

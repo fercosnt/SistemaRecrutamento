@@ -63,6 +63,50 @@ function scoresRows(opts: { entrevistaStatus?: string } = {}): Record<string, un
 // pesos_avaliacao: 4 weight keys summing to 100 (Phase 7 publish invariant).
 const PESOS = { triagem: 40, work_sample_sjt: 30, redacao_cultural: 20, entrevista: 10 };
 
+// ── WR-05 (50-REVIEW-ACESSO-1) ─────────────────────────────────────────────────
+// Desde a Phase 50 / D-01 a ÚNICA autorização desta EF é a linha VIVA do chamador em
+// usuarios_rh (`.eq("user_id", user.id).eq("ativo", true).is("deleted_at", null)`). Um mock
+// que devolvesse a mesma linha para qualquer filtro deixaria verde a EF que perdeu um desses
+// predicados. Esta consulta APLICA os `.eq`/`.is`/`.in` que recebe às linhas em memória.
+// deno-lint-ignore no-explicit-any
+function consultaQueFiltra(linhas: Array<Record<string, unknown>>): any {
+  const preds: Array<(r: Record<string, unknown>) => boolean> = [];
+  const filtradas = () => linhas.filter((r) => preds.every((p) => p(r)));
+  // deno-lint-ignore no-explicit-any
+  const q: any = {
+    select: () => q,
+    eq: (c: string, v: unknown) => {
+      preds.push((r) => r[c] === v);
+      return q;
+    },
+    is: (c: string, v: unknown) => {
+      preds.push((r) => (r[c] ?? null) === v);
+      return q;
+    },
+    in: (c: string, vs: unknown[]) => {
+      preds.push((r) => vs.includes(r[c]));
+      return q;
+    },
+    maybeSingle: () => {
+      const a = filtradas();
+      return Promise.resolve(
+        a.length > 1
+          ? { data: null, error: { code: "PGRST116", message: "mais de uma linha" } }
+          : { data: a[0] ?? null, error: null },
+      );
+    },
+    // deno-lint-ignore no-explicit-any
+    then: (ok: (v: any) => unknown, ko?: (e: unknown) => unknown) =>
+      Promise.resolve({ data: filtradas(), error: null }).then(ok, ko),
+  };
+  return q;
+}
+
+/** Linha de usuarios_rh; VIVA (ativo, não excluída) salvo o que `extra` disser. */
+function linhaRh(user_id: string, role: string, extra: Record<string, unknown> = {}) {
+  return { user_id, role, ativo: true, deleted_at: null, ...extra };
+}
+
 // Mock Supabase admin: serves the usuarios_rh role lookup, the vagas row,
 // the analise_candidato_vaga read, the scores_candidato read, and the vaga.pesos_avaliacao.
 // `vagaOwner` = the vaga author the mock returns (inert since Phase 50 / D-01 — the EF no
@@ -73,7 +117,14 @@ function makeMockSupabaseAdmin(
   vagaOwner: string | null = "rh-1",
   usuariosRhRole: string | null = "recrutador",
   pesos: Record<string, number> = PESOS,
+  // WR-05 (50-REVIEW-ACESSO-1): linhas EXPLÍCITAS de usuarios_rh (inativa, excluída, de outro
+  // usuário). `null` = uma linha VIVA com `usuariosRhRole` para cada chamador destes testes.
+  rhRows: Record<string, unknown>[] | null = null,
 ) {
+  const linhasRh = rhRows ??
+    (usuariosRhRole === null
+      ? []
+      : [RH_USER.id, ADMIN_USER.id, CANDIDATO_USER.id].map((id) => linhaRh(id, usuariosRhRole)));
   const calledTables: string[] = [];
   return {
     calledTables,
@@ -81,13 +132,7 @@ function makeMockSupabaseAdmin(
       calledTables.push(table);
       // usuarios_rh role lookup: .select('role').eq().eq().is().maybeSingle()
       if (table === "usuarios_rh") {
-        const chain = {
-          eq: () => chain,
-          is: () => chain,
-          maybeSingle: () =>
-            Promise.resolve({ data: usuariosRhRole === null ? null : { role: usuariosRhRole }, error: null }),
-        };
-        return { select: (_cols?: string) => chain };
+        return consultaQueFiltra(linhasRh);
       }
       // vagas: pesos_avaliacao (the author column is inert since Phase 50) — .select(...).eq(...).maybeSingle()
       if (table === "vagas") {
@@ -592,4 +637,40 @@ Deno.test("CR-02 — só códigos do vocabulário do sinal saem, sem duplicar en
   );
   const json = await consolidar(rows);
   assertEquals(etapa(json, "work_sample_sjt").sinais_revisao, ["instrucao_ao_modelo"]);
+});
+
+// ── WR-05 (50-REVIEW-ACESSO-1) — o filtro da linha viva É a autorização ─────────
+// Cada negativa difere do controle positivo em UM atributo da linha do chamador. Sem o
+// predicado correspondente na EF, a negativa deixa de ser 403.
+async function comLinhasRh(rows: Record<string, unknown>[]) {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabaseAdmin(scoresRows(), ANALISE_TRIAGEM, "rh-1", "recrutador", PESOS, rows);
+  const res = await handler(makeRequest(BODY), { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) });
+  return { res, supabaseAdmin };
+}
+
+Deno.test("WR-05 controle — linha usuarios_rh VIVA do chamador → 200", async () => {
+  const { res } = await comLinhasRh([linhaRh(RH_USER.id, "recrutador")]);
+  assertEquals(res.status, 200);
+});
+
+Deno.test("WR-05 — linha do chamador INATIVA (ativo=false) → 403, só usuarios_rh lida", async () => {
+  const { res, supabaseAdmin } = await comLinhasRh([linhaRh(RH_USER.id, "recrutador", { ativo: false })]);
+  assertEquals(res.status, 403);
+  assertEquals((await res.json()).error_code, "FORBIDDEN");
+  assertEquals(supabaseAdmin.calledTables, ["usuarios_rh"]);
+});
+
+Deno.test("WR-05 — linha do chamador EXCLUÍDA (deleted_at) → 403, só usuarios_rh lida", async () => {
+  const { res, supabaseAdmin } = await comLinhasRh([
+    linhaRh(RH_USER.id, "recrutador", { deleted_at: "2026-10-01T00:00:00Z" }),
+  ]);
+  assertEquals(res.status, 403);
+  assertEquals(supabaseAdmin.calledTables, ["usuarios_rh"]);
+});
+
+Deno.test("WR-05 — só a linha viva de OUTRO usuário → 403 (o filtro user_id)", async () => {
+  const { res, supabaseAdmin } = await comLinhasRh([linhaRh("rh-outro", "administrador")]);
+  assertEquals(res.status, 403);
+  assertEquals(supabaseAdmin.calledTables, ["usuarios_rh"]);
 });

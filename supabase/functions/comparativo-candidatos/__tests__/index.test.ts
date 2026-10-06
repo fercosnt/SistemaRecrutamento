@@ -101,6 +101,53 @@ const PROMPT_ROW_FIXTURE = {
   content_hash: "hash-fixture",
 };
 
+// ── WR-05 (50-REVIEW-ACESSO-1) ─────────────────────────────────────────────────
+// Desde a Phase 50 / D-01 a ÚNICA autorização desta EF é a linha VIVA do chamador em
+// usuarios_rh (`.eq("user_id", user.id).eq("ativo", true).is("deleted_at", null)`). Um mock
+// que devolvesse a mesma linha para qualquer filtro deixaria verde a EF que perdeu um desses
+// predicados. Esta consulta APLICA os `.eq`/`.is`/`.in` que recebe às linhas em memória.
+// deno-lint-ignore no-explicit-any
+function consultaQueFiltra(linhas: Array<Record<string, unknown>>, aoLer?: () => void): any {
+  const preds: Array<(r: Record<string, unknown>) => boolean> = [];
+  const filtradas = () => {
+    aoLer?.();
+    return linhas.filter((r) => preds.every((p) => p(r)));
+  };
+  // deno-lint-ignore no-explicit-any
+  const q: any = {
+    select: () => q,
+    eq: (c: string, v: unknown) => {
+      preds.push((r) => r[c] === v);
+      return q;
+    },
+    is: (c: string, v: unknown) => {
+      preds.push((r) => (r[c] ?? null) === v);
+      return q;
+    },
+    in: (c: string, vs: unknown[]) => {
+      preds.push((r) => vs.includes(r[c]));
+      return q;
+    },
+    maybeSingle: () => {
+      const a = filtradas();
+      return Promise.resolve(
+        a.length > 1
+          ? { data: null, error: { code: "PGRST116", message: "mais de uma linha" } }
+          : { data: a[0] ?? null, error: null },
+      );
+    },
+    // deno-lint-ignore no-explicit-any
+    then: (ok: (v: any) => unknown, ko?: (e: unknown) => unknown) =>
+      Promise.resolve({ data: filtradas(), error: null }).then(ok, ko),
+  };
+  return q;
+}
+
+/** Linha de usuarios_rh; VIVA (ativo, não excluída) salvo o que `extra` disser. */
+function linhaRh(user_id: string, role: string, extra: Record<string, unknown> = {}) {
+  return { user_id, role, ativo: true, deleted_at: null, ...extra };
+}
+
 function makeMockSupabaseAdmin(
   analiseRows: Record<string, unknown>[],
   vagaOwner: string | null = "rh-1",
@@ -124,7 +171,12 @@ function makeMockSupabaseAdmin(
   // `.gte`, a chamada lançava e o `catch` fail-open devolvia `false` — o teto NUNCA
   // estourava. Default 0 = nenhum gasto ⇒ todos os 18 testes anteriores seguem idênticos.
   custoDiarioUsd = 0,
+  // WR-05 (50-REVIEW-ACESSO-1): linhas EXPLÍCITAS de usuarios_rh (inativa, excluída, de outro
+  // usuário). `null` = uma linha VIVA com `usuariosRhRole` para cada chamador destes testes.
+  rhRows: Record<string, unknown>[] | null = null,
 ) {
+  const linhasRh = rhRows ??
+    (usuariosRhRole === null ? [] : [RH_USER.id, CANDIDATO_USER.id].map((id) => linhaRh(id, usuariosRhRole)));
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
   // Registra as tabelas LIDAS. As asserções «zero leituras de análise» e «zero chamadas de
   // IA» são o que distingue uma recusa CORRETA (antes de tocar PII de vaga alheia) de uma
@@ -152,16 +204,7 @@ function makeMockSupabaseAdmin(
       }
       // usuarios_rh role lookup: .select('role').eq('user_id').eq('ativo').is('deleted_at').maybeSingle()
       if (table === "usuarios_rh") {
-        const chain = {
-          eq: () => chain,
-          is: () => chain,
-          maybeSingle: () =>
-            Promise.resolve({
-              data: usuariosRhRole === null ? null : { role: usuariosRhRole },
-              error: null,
-            }),
-        };
-        return { select: (_cols?: string) => chain };
+        return consultaQueFiltra(linhasRh);
       }
       // 49-27: a soma do gasto do dia por vaga (AI-06) e a linha de auditoria do BLOQUEIO.
       // `callAi` consulta esta tabela ANTES de tocar qualquer provedor; o `insert` é o
@@ -1047,3 +1090,46 @@ Deno.test(
     assertEquals(gravado, { bloqueado: true, motivo: "prompt_injection_detected" });
   },
 );
+
+// ── WR-05 (50-REVIEW-ACESSO-1) — o filtro da linha viva É a autorização ─────────
+// Cada negativa difere do controle positivo em UM atributo da linha do chamador. Sem o
+// predicado correspondente na EF, a negativa vira 200 (prova por mutação no 50-10 fix round).
+async function comLinhasRh(rows: Record<string, unknown>[]) {
+  const { handler } = await loadHandler();
+  const anthropic = makeMockAnthropic();
+  const admin = makeMockSupabaseAdmin(rowsForVaga("v1", ["c1", "c2"]), "rh-1", "recrutador", null, null, 0, rows);
+  const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), {
+    anthropic,
+    openai: makeMockOpenAI(),
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(RH_USER),
+  });
+  return { res, admin, anthropic };
+}
+
+Deno.test("WR-05 controle — linha usuarios_rh VIVA do chamador → 200", async () => {
+  const { res } = await comLinhasRh([linhaRh(RH_USER.id, "recrutador")]);
+  assertEquals(res.status, 200);
+});
+
+Deno.test("WR-05 — linha do chamador INATIVA (ativo=false) → 403, zero leituras de candidatura/análise, zero IA", async () => {
+  const { res, admin, anthropic } = await comLinhasRh([linhaRh(RH_USER.id, "recrutador", { ativo: false })]);
+  assertEquals(res.status, 403);
+  assertEquals((await res.json()).error_code, "FORBIDDEN");
+  assertEquals(admin.reads.length, 0);
+  assertEquals(anthropic.calls.length, 0);
+});
+
+Deno.test("WR-05 — linha do chamador EXCLUÍDA (deleted_at) → 403, zero leituras", async () => {
+  const { res, admin } = await comLinhasRh([
+    linhaRh(RH_USER.id, "recrutador", { deleted_at: "2026-10-01T00:00:00Z" }),
+  ]);
+  assertEquals(res.status, 403);
+  assertEquals(admin.reads.length, 0);
+});
+
+Deno.test("WR-05 — só a linha viva de OUTRO usuário → 403 (o filtro user_id)", async () => {
+  const { res, admin } = await comLinhasRh([linhaRh("rh-outro", "administrador")]);
+  assertEquals(res.status, 403);
+  assertEquals(admin.reads.length, 0);
+});
