@@ -111,7 +111,8 @@
 ## 48-17 — contatos não consertados (2026-09-21)
 
 - Drift de export pré-existente: 9 colunas vivas sem veredito, confirmadas pelo `05-export-allowlist-drift.sql` contra PROD em 2026-09-21 (depois do 48-17)
-  status: open
+  status: resolved
+  Resolvido nos planos 44-11/44-12 (2026-10-06): vereditos em export-scope-rules.yaml, allowlist 1.4.0; smoke p44_export_drift aprova contra PROD; publicação na EF e no front no 44-13. (Medido em 2026-10-06T21:05:06Z: `n_drift` 0, 75 tabelas vivas = 75 com disposição, 451 colunas vivas em escopo = 451 pares com veredito; relatório `05` = `[]`.)
   **What:** `candidatos.faixa_etaria_materializada`, `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados` (`executar_em`, `cancelado_em`, `plano`, `storage_concluido_em`, `postgres_concluido_em`, `auth_concluido_em`, `recibo_enviado_em`). Fora do catálogo versionado de propósito (não são da Phase 48), por isso a cópia as omite (fail-safe da allowlist). Nenhuma coluna da Phase 48 aparece na lista. O conserto é medir e acrescentar ao `catalogo-vivo-44.json` e dar veredito a cada uma (`plano` é jsonb do motor P45: provável `false`).
 
 - `pii-inventory.yaml`: denominador de cobertura datado — o `.md` passou a dizer «Cobertura de tabelas: 65 / 64» (48-17)
