@@ -62,6 +62,131 @@
         ],
         "nota": "ACRESCIMO, nao re-medicao — colunas criadas pela Phase 49 (migration 20260922000002, plano 49-01). `medido_em` e `totais` do topo continuam sendo os da medicao de 2026-08-04 e NAO descrevem o schema de hoje. A entrada cobre as 16 colunas da fase em DUAS medicoes na MESMA entrada: as 7 de `entrevista_analises` medidas em 2026-09-23 (Task 1, o tracer que leva uma tabela de ponta a ponta) e as 9 restantes das outras quatro tabelas medidas em 2026-09-24T05:24:14Z (Task 3, campo `medido_em_task_3`, lido do proprio banco com now() na mesma consulta que as reconfirmou — nao arredondado). As 9 sao todas `text` e nulaveis: `provedor_ia`/`modelo_ia` em `analise_candidato_vaga` (16,17), `comparativo_solicitado` (8,9), `entrevista_guias` (8,9) e `redacoes_candidato` (31,32), mais `redacoes_candidato.rubrica_versao` (33). A consulta acima devolveu 19 linhas: 16 sao da Phase 49 e TRES sao pre-existentes e ja catalogadas (`comparativo_solicitado.solicitado_por`, `entrevista_guias.tipo`, `redacoes_candidato.texto_hash`) — nomes iguais em tabelas diferentes, conferidos um a um para nao serem duplicados aqui. Drift pre-existente NAO incluido, de proposito (nao e desta fase): as MESMAS 9 colunas que a Phase 48 deixou registradas — `candidatos.faixa_etaria_materializada`, `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados` (`executar_em`, `cancelado_em`, `plano`, `storage_concluido_em`, `postgres_concluido_em`, `auth_concluido_em`, `recibo_enviado_em`), re-medidas em 2026-09-23 pelo `05-export-allowlist-drift.sql` (21 linhas = 9 pre-existentes + 12 da fase em tabela EM ESCOPO; as outras 4 da fase vivem em tabela fora de escopo, que essa consulta nao varre).",
         "medido_em_task_3": "2026-09-24T05:24:14Z"
+      },
+      {
+        "medido_em": "2026-10-06T20:51:22Z",
+        "medido_em_bruto": "2026-10-06 17:51:22.467542-03",
+        "fase": 44,
+        "plano": "44-11",
+        "fonte": "information_schema.columns via Management API (node p46apply.cjs sql, SET TRANSACTION READ ONLY), projeto isljnozzlvckrgjjbjwp",
+        "query": "SELECT now() AS medido_em, c.table_name, c.column_name, c.data_type, c.is_nullable, c.ordinal_position FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema=c.table_schema AND t.table_name=c.table_name AND t.table_type='BASE TABLE' WHERE c.table_schema='public' AND (c.table_name IN ('cognitivo_liberacao','retencao_hold','purga_execucao_itens','purga_execucoes','config_purga','config_janela_exclusao') OR (c.table_name='candidatos' AND c.column_name='faixa_etaria_materializada') OR (c.table_name='candidaturas' AND c.column_name='encerrada_a_pedido_em') OR (c.table_name='solicitacoes_dados' AND c.column_name IN ('executar_em','cancelado_em','plano','storage_concluido_em','postgres_concluido_em','auth_concluido_em','recibo_enviado_em'))) ORDER BY 2,6",
+        "query_bd12": "SELECT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS medido_em, t.tn AS tabela, (SELECT count(*) FROM information_schema.columns c WHERE c.table_schema='public' AND c.table_name=t.tn AND c.column_name IN ('candidato_id','candidatura_id','user_id')) AS n_colunas_chave_titular, (SELECT coalesce(string_agg(c.column_name, ',' ORDER BY c.ordinal_position),'') FROM information_schema.columns c WHERE c.table_schema='public' AND c.table_name=t.tn AND c.column_name IN ('candidato_id','candidatura_id','user_id')) AS colunas_chave, (SELECT count(*) FROM pg_constraint k WHERE k.contype='f' AND k.conrelid=('public.'||t.tn)::regclass AND k.confrelid IN ('public.candidatos'::regclass,'public.candidaturas'::regclass,'auth.users'::regclass)) AS n_fk_para_titular, (SELECT count(*) FROM pg_constraint k WHERE k.contype='f' AND k.conrelid=('public.'||t.tn)::regclass) AS n_fk_total, (SELECT coalesce(string_agg(k.conname||'->'||k.confrelid::regclass::text, ', '),'') FROM pg_constraint k WHERE k.contype='f' AND k.conrelid=('public.'||t.tn)::regclass) AS fks FROM (VALUES ('purga_execucoes'),('config_purga'),('config_janela_exclusao'),('purga_execucao_itens'),('cognitivo_liberacao'),('retencao_hold')) t(tn) ORDER BY 2",
+        "tabelas": [
+          "cognitivo_liberacao",
+          "config_janela_exclusao",
+          "config_purga",
+          "purga_execucao_itens",
+          "purga_execucoes",
+          "retencao_hold"
+        ],
+        "colunas": [
+          "cognitivo_liberacao.id",
+          "cognitivo_liberacao.candidatura_id",
+          "cognitivo_liberacao.liberado_por",
+          "cognitivo_liberacao.liberado_em",
+          "cognitivo_liberacao.revogado_em",
+          "cognitivo_liberacao.revogado_por",
+          "cognitivo_liberacao.motivo",
+          "retencao_hold.id",
+          "retencao_hold.candidatura_id",
+          "retencao_hold.motivo",
+          "retencao_hold.detalhe",
+          "retencao_hold.criado_por",
+          "retencao_hold.criado_em",
+          "retencao_hold.liberado_em",
+          "retencao_hold.liberado_por",
+          "candidatos.faixa_etaria_materializada",
+          "candidaturas.encerrada_a_pedido_em",
+          "solicitacoes_dados.executar_em",
+          "solicitacoes_dados.cancelado_em",
+          "solicitacoes_dados.plano",
+          "solicitacoes_dados.storage_concluido_em",
+          "solicitacoes_dados.postgres_concluido_em",
+          "solicitacoes_dados.auth_concluido_em",
+          "solicitacoes_dados.recibo_enviado_em"
+        ],
+        "tabelas_fora_do_escopo_medidas": {
+          "config_janela_exclusao": {
+            "colunas": [
+              "chave text NOT NULL (1)",
+              "dias integer NOT NULL (2)",
+              "descricao text (3)",
+              "atualizado_em timestamp with time zone NOT NULL (4)"
+            ],
+            "checagem_bd12": {
+              "colunas_chave_titular": 0,
+              "colunas_chave": null,
+              "fks_para_candidatos_candidaturas_auth_users": 0,
+              "fks": null,
+              "medido_em": "2026-10-06T20:51:39Z"
+            }
+          },
+          "config_purga": {
+            "colunas": [
+              "id boolean NOT NULL (1)",
+              "modo text NOT NULL (2)",
+              "cap_titulares integer NOT NULL (3)",
+              "janela_notificacoes_meses integer NOT NULL (4)",
+              "alterado_por uuid (5)",
+              "atualizado_em timestamp with time zone NOT NULL (6)"
+            ],
+            "checagem_bd12": {
+              "colunas_chave_titular": 0,
+              "colunas_chave": null,
+              "fks_para_candidatos_candidaturas_auth_users": 0,
+              "fks": "config_purga_alterado_por_fkey->usuarios_rh",
+              "medido_em": "2026-10-06T20:51:39Z"
+            },
+            "nota": "`alterado_por` é UUID de funcionário (FK para `usuarios_rh`) dentro de configuração — não é chave do titular."
+          },
+          "purga_execucao_itens": {
+            "colunas": [
+              "id uuid NOT NULL (1)",
+              "execucao_id uuid NOT NULL (2)",
+              "candidato_id uuid NOT NULL (3)",
+              "etapa USER-DEFINED NOT NULL (4)",
+              "janela_meses_aplicada integer NOT NULL (5)",
+              "ancora_origem text NOT NULL (6)",
+              "ancora_em timestamp with time zone NOT NULL (7)",
+              "desfecho_storage text NOT NULL (8)",
+              "desfecho_postgres text NOT NULL (9)",
+              "desfecho_auth text NOT NULL (10)",
+              "relato_dry_run text (11)",
+              "criado_em timestamp with time zone NOT NULL (12)",
+              "concluido_em timestamp with time zone (13)"
+            ],
+            "checagem_bd12": {
+              "colunas_chave_titular": 1,
+              "colunas_chave": "candidato_id",
+              "fks_para_candidatos_candidaturas_auth_users": 0,
+              "fks": "purga_execucao_itens_execucao_id_fkey->purga_execucoes",
+              "medido_em": "2026-10-06T20:51:39Z"
+            },
+            "nota": "TEM `candidato_id` (sem FK, por desenho: o titular purgado não existe mais). Fica FORA por decisão NOMINAL do operador (BD-11), não por ausência de chave — o resultado `colunas_chave_titular: 1` é registrado, não escondido."
+          },
+          "purga_execucoes": {
+            "colunas": [
+              "id uuid NOT NULL (1)",
+              "modo_vigente text NOT NULL (2)",
+              "cap_vigente integer NOT NULL (3)",
+              "elegiveis integer NOT NULL (4)",
+              "processados integer NOT NULL (5)",
+              "notificacoes_expurgadas integer NOT NULL (6)",
+              "veredito text NOT NULL (7)",
+              "situacao text NOT NULL (8)",
+              "iniciada_em timestamp with time zone NOT NULL (9)",
+              "concluida_em timestamp with time zone (10)"
+            ],
+            "checagem_bd12": {
+              "colunas_chave_titular": 0,
+              "colunas_chave": null,
+              "fks_para_candidatos_candidaturas_auth_users": 0,
+              "fks": null,
+              "medido_em": "2026-10-06T20:51:39Z"
+            }
+          }
+        },
+        "nota": "ACRÉSCIMO, não re-medição — fecha o G5 da reverificação de 2026-10-06 (44-VERIFICATION.md) e, com ele, o drift de 9 colunas que as Phases 48 e 49 registraram e deixaram de fora de propósito. `medido_em` é o now() da própria consulta acima (devolvido como 2026-10-06 17:51:22.467542-03, campo `medido_em_bruto`; aqui em UTC, sem a fração). `medido_em` e `totais` do TOPO continuam sendo os da medição de 2026-08-04 e NÃO descrevem o schema de hoje. A consulta devolveu 57 linhas: 15 das 2 tabelas que entram no escopo (`cognitivo_liberacao` 7, `retencao_hold` 8), as 9 colunas novas de tabela já em escopo (`candidatos.faixa_etaria_materializada` ordem 33, `candidaturas.encerrada_a_pedido_em` 40, `solicitacoes_dados` 8..14) e 33 das 4 tabelas que ficam FORA. Só as 24 primeiras entram em `colunas`: o fecho de coluna do gerador só lê tabela em escopo; as 33 ficam registradas em `tabelas_fora_do_escopo_medidas`, com a checagem BD-12 (nenhuma coluna `candidato_id`/`candidatura_id`/`user_id` e nenhuma FK para `public.candidatos`/`public.candidaturas`/`auth.users` em `purga_execucoes`, `config_purga` e `config_janela_exclusao`). Igual, linha a linha, à medição do planejador de 2026-10-06; o `05-export-allowlist-drift.sql` rodado contra PROD na mesma execução devolveu as mesmas 15 linhas do G5 e nenhuma outra. ⚠ NOTA «69 × 75» (2026-10-06): o artefato carrega `meta.totais_medidos_em_public` COPIADO do topo deste catálogo (69 tabelas, medição de 2026-08-04, que não é reescrita) e `meta.totais.tabelas_catalogadas` CALCULADO de `tabelas` com os acréscimos (75 a partir deste). A divergência é por desenho: um é a fotografia datada do banco, o outro é o universo que o fecho de tabela usa hoje. Não é erro de contagem."
       }
     ]
   },
@@ -80,8 +205,11 @@
     "candidaturas",
     "classe_evento_notificacao",
     "cognitivo_itens",
+    "cognitivo_liberacao",
     "cognitivo_respostas",
     "comparativo_solicitado",
+    "config_janela_exclusao",
+    "config_purga",
     "config_retencao_etapa",
     "config_sla_dados",
     "config_sla_etapa",
@@ -110,6 +238,8 @@
     "perguntas_vaga_origem",
     "preferencias_notificacoes",
     "prompt_versions",
+    "purga_execucao_itens",
+    "purga_execucoes",
     "questoes_bigfive",
     "questoes_disc",
     "questoes_raven",
@@ -123,6 +253,7 @@
     "respostas_disc",
     "respostas_formulario",
     "respostas_raven",
+    "retencao_hold",
     "scores_bigfive",
     "scores_candidato",
     "scores_disc",
@@ -5477,6 +5608,174 @@
       "tipo": "text",
       "nullable": true,
       "ordem": 33
+    },
+    {
+      "tabela": "cognitivo_liberacao",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "cognitivo_liberacao",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "cognitivo_liberacao",
+      "coluna": "liberado_por",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "cognitivo_liberacao",
+      "coluna": "liberado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "cognitivo_liberacao",
+      "coluna": "revogado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "cognitivo_liberacao",
+      "coluna": "revogado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "cognitivo_liberacao",
+      "coluna": "motivo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "retencao_hold",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "retencao_hold",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "retencao_hold",
+      "coluna": "motivo",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "retencao_hold",
+      "coluna": "detalhe",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "retencao_hold",
+      "coluna": "criado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "retencao_hold",
+      "coluna": "criado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "retencao_hold",
+      "coluna": "liberado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "retencao_hold",
+      "coluna": "liberado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "faixa_etaria_materializada",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 33
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "encerrada_a_pedido_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 40
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "executar_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "cancelado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "plano",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "storage_concluido_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "postgres_concluido_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "auth_concluido_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "recibo_enviado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 14
     }
   ]
 }

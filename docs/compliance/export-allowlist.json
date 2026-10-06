@@ -8,6 +8,8 @@
     "classe_evento_notificacao": "vocabulario_do_sistema",
     "cognitivo_itens": "configuracao_do_produto",
     "comparativo_solicitado": "pii_de_terceiro",
+    "config_janela_exclusao": "configuracao_do_produto",
+    "config_purga": "configuracao_do_produto",
     "config_retencao_etapa": "configuracao_do_produto",
     "config_sla_dados": "configuracao_do_produto",
     "config_sla_etapa": "configuracao_do_produto",
@@ -28,6 +30,8 @@
     "perguntas_vaga_origem": "configuracao_do_produto",
     "preferencias_notificacoes": "pii_de_terceiro",
     "prompt_versions": "configuracao_do_produto",
+    "purga_execucao_itens": "telemetria_interna",
+    "purga_execucoes": "telemetria_interna",
     "questoes_bigfive": "configuracao_do_produto",
     "questoes_disc": "configuracao_do_produto",
     "questoes_raven": "configuracao_do_produto",
@@ -51,28 +55,28 @@
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-09-27T04:52:33.792Z",
+    "gerado_em": "2026-10-06T20:55:05.085Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-04T01:34:27Z",
     "padrao_nome_de_endereco": "(^|_)(url|urls|uri|uris|link|links)($|_)",
     "requirement": "EXPORT-02",
     "totais": {
-      "colunas_colhidas": 763,
-      "colunas_com_veredito_em_escopo": 427,
-      "colunas_excluidas_em_escopo": 49,
-      "colunas_exportadas": 378,
+      "colunas_colhidas": 787,
+      "colunas_com_veredito_em_escopo": 451,
+      "colunas_excluidas_em_escopo": 56,
+      "colunas_exportadas": 395,
       "colunas_fora_do_arquivo_legivel": 4,
-      "tabelas_catalogadas": 69,
-      "tabelas_com_colunas_colhidas": 51,
-      "tabelas_em_escopo": 30,
-      "tabelas_excluidas": 39
+      "tabelas_catalogadas": 75,
+      "tabelas_com_colunas_colhidas": 53,
+      "tabelas_em_escopo": 32,
+      "tabelas_excluidas": 43
     },
     "totais_medidos_em_public": {
       "colunas_public": 1025,
       "fks_public": 105,
       "tabelas_base_public": 69
     },
-    "versao": "1.3.0"
+    "versao": "1.4.0"
   },
   "tabelas": {
     "agendamentos_entrevista": {
@@ -316,6 +320,7 @@
         "email",
         "email_verificado",
         "estado",
+        "faixa_etaria_materializada",
         "genero",
         "id",
         "instagram",
@@ -356,6 +361,7 @@
         "email": "inventario:anonimizar",
         "email_verificado": "inventario:preservar",
         "estado": "inventario:anonimizar",
+        "faixa_etaria_materializada": "decisoes_por_coluna",
         "genero": "inventario:anonimizar",
         "id": "R1",
         "instagram": "inventario:apagar",
@@ -395,6 +401,7 @@
         "data_formulario_enviado",
         "data_raven_enviado",
         "deleted_at",
+        "encerrada_a_pedido_em",
         "etapa_atual",
         "etapa_justificativa",
         "feedback_rejeicao",
@@ -442,6 +449,7 @@
         "data_formulario_enviado": "R3",
         "data_raven_enviado": "R3",
         "deleted_at": "R1",
+        "encerrada_a_pedido_em": "decisoes_por_coluna",
         "etapa_atual": "R3",
         "etapa_justificativa": "inventario:preservar_com_ressalva",
         "feedback_rejeicao": "inventario:preservar_com_ressalva",
@@ -459,6 +467,30 @@
         "vaga_id": "R1"
       },
       "razao": "Vínculo candidato↔vaga: currículo, etapa, scores e o texto livre do RH sobre a pessoa."
+    },
+    "cognitivo_liberacao": {
+      "chave_titular": "candidatura_id",
+      "colunas": [
+        "candidatura_id",
+        "id",
+        "liberado_em",
+        "motivo",
+        "revogado_em"
+      ],
+      "colunas_excluidas": {
+        "liberado_por": "pii_de_terceiro (R2)",
+        "revogado_por": "pii_de_terceiro (R2)"
+      },
+      "fora_do_arquivo_legivel": [],
+      "ligacao": "via:candidaturas",
+      "proveniencia": {
+        "candidatura_id": "R1",
+        "id": "R1",
+        "liberado_em": "decisoes_por_coluna",
+        "motivo": "decisoes_por_coluna",
+        "revogado_em": "decisoes_por_coluna"
+      },
+      "razao": "BD-9 (OPERADOR, 2026-10-06). A liberação individual da avaliação cognitiva é um ato do RH SOBRE a candidatura da pessoa — e revogá-la também. Ela tem direito de saber quando o acesso foi aberto e fechado, e por quê. Os ids de quem liberou/revogou ficam fora (PII de terceiro, R2)."
     },
     "cognitivo_respostas": {
       "chave_titular": "candidatura_id",
@@ -1073,6 +1105,31 @@
       },
       "razao": "Idem, avaliação cognitiva."
     },
+    "retencao_hold": {
+      "chave_titular": "candidatura_id",
+      "colunas": [
+        "candidatura_id",
+        "criado_em",
+        "id",
+        "liberado_em",
+        "motivo"
+      ],
+      "colunas_excluidas": {
+        "criado_por": "pii_de_terceiro (R2)",
+        "detalhe": "decisoes_por_coluna: BD-10 — autoria: OPERADOR (2026-10-06). TEXTO LIVRE do RH sobre a retenção — pode conter estratégia de litígio, e o titular tem direito ao fato e à base (`motivo`, `criado_em`, `liberado_em`), não ao raciocínio interno de quem retém. ⚠ Não é exclusão profilática: medido em PROD em 2026-10-06, a única linha de `retencao_hold` (motivo `obrigacao_legal`) tem `detalhe` PREENCHIDO — este veredito protege um dado que existe hoje.",
+        "liberado_por": "pii_de_terceiro (R2)"
+      },
+      "fora_do_arquivo_legivel": [],
+      "ligacao": "via:candidaturas",
+      "proveniencia": {
+        "candidatura_id": "R1",
+        "criado_em": "decisoes_por_coluna",
+        "id": "R1",
+        "liberado_em": "decisoes_por_coluna",
+        "motivo": "decisoes_por_coluna"
+      },
+      "razao": "BD-10 (OPERADOR, 2026-10-06). O FATO e a BASE de os dados dela ficarem guardados além do prazo (o `motivo` do vocabulário fechado `ck_retencao_hold_motivo`, quando a retenção começou e quando terminou). O texto livre do RH (`detalhe`, que pode conter estratégia de litígio) e os ids de funcionário ficam fora, com razão nomeada."
+    },
     "scores_bigfive": {
       "chave_titular": "candidatura_id",
       "colunas": [
@@ -1209,26 +1266,38 @@
       "chave_titular": "candidato_id",
       "colunas": [
         "atendido_em",
+        "auth_concluido_em",
+        "cancelado_em",
         "candidato_id",
         "causa",
+        "executar_em",
         "id",
+        "postgres_concluido_em",
         "situacao",
         "solicitado_em",
+        "storage_concluido_em",
         "tipo"
       ],
       "colunas_excluidas": {
         "aviso_cancelamento_enviado_em": "decisoes_por_coluna: (i) telemetria_interna — idem `aviso_pedido_enviado_em`, para o aviso de cancelamento. Controle de entrega de e-mail, não estado do pedido.",
-        "aviso_pedido_enviado_em": "decisoes_por_coluna: (i) telemetria_interna — carimbo de CONTROLE do envio do aviso de pedido de\nexclusão (idempotência do e-mail, migration 20260921000005). Não é fato\nsobre a pessoa: o fato — que ela pediu, quando, e em que estado o pedido\nestá — já sai por `tipo`, `solicitado_em` e `situacao`. É a mesma natureza\nde `recibo_enviado_em`, cujo veredito segue PENDENTE e fora desta fase (é\ndrift do P45, junto com as outras seis colunas de estado do motor).\n"
+        "aviso_pedido_enviado_em": "decisoes_por_coluna: (i) telemetria_interna — carimbo de CONTROLE do envio do aviso de pedido de\nexclusão (idempotência do e-mail, migration 20260921000005). Não é fato\nsobre a pessoa: o fato — que ela pediu, quando, e em que estado o pedido\nestá — já sai por `tipo`, `solicitado_em` e `situacao`. É a mesma natureza\nde `recibo_enviado_em`, cujo veredito foi dado no 44-11 (2026-10-06, G5,\nBD-13 (iv), operador): FORA, como membro desta mesma família — ver o\nbloco «G5 (44-11)» abaixo.\n",
+        "plano": "decisoes_por_coluna: BD-13 (ii) — autoria: ORQUESTRADOR (não perguntada ao operador; apoiada na dica do `deferred-items.md` da Phase 48). telemetria_interna — jsonb de ESTADO INTERNO do motor de exclusão da Phase 45. Chaves de topo medidas em PROD em 2026-10-06 (só `jsonb_object_keys`, nunca valores; 2 de 8 linhas preenchidas): `achados_resumo`, `contagens`, `executor`, `previsto`, `versao` — a ficha de trabalho da máquina, inclusive QUEM a executou (`executor`). O fato que importa ao titular — que o pedido foi atendido e quando — sai por `situacao`, `atendido_em` e pelos três `*_concluido_em` abaixo.",
+        "recibo_enviado_em": "decisoes_por_coluna: BD-13 (iv) — autoria: OPERADOR, option-a («… recibo fora», 2026-10-06). telemetria_interna — carimbo de CONTROLE do envio do e-mail de recibo da exclusão (idempotência). É a MESMA família de `aviso_pedido_enviado_em` e `aviso_cancelamento_enviado_em`, que o 48-17 deixou fora pela mesma razão: controle de entrega de e-mail não é estado do pedido. O conteúdo do recibo está na caixa do titular; o fato de o pedido ter sido executado sai pelos três `*_concluido_em`. Entraria calada por R1 sem este veredito."
       },
       "fora_do_arquivo_legivel": [],
       "ligacao": "direta",
       "proveniencia": {
         "atendido_em": "R1",
+        "auth_concluido_em": "decisoes_por_coluna",
+        "cancelado_em": "decisoes_por_coluna",
         "candidato_id": "R2:do_titular",
         "causa": "decisoes_por_coluna",
+        "executar_em": "decisoes_por_coluna",
         "id": "R1",
+        "postgres_concluido_em": "decisoes_por_coluna",
         "situacao": "decisoes_por_coluna",
         "solicitado_em": "R1",
+        "storage_concluido_em": "decisoes_por_coluna",
         "tipo": "decisoes_por_coluna"
       },
       "razao": "Os próprios pedidos de acesso/exclusão do titular — o registro de que ele exerceu o direito. DDL escrito no 44-02, aplicado no 44-04."

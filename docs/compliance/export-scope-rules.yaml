@@ -32,7 +32,7 @@ meta:
   requirement: EXPORT-02
   fase: 44
   plano: 44-01
-  versao: "1.3.0"
+  versao: "1.4.0"
   # 1.1.0 → 1.2.0 (Phase 48 / 48-17, 2026-09-21): o CONJUNTO de colunas
   # exportadas mudou — entram as colunas criadas pela fase com veredito `true`
   # (marca do D-02 em `analise_candidato_vaga`; reabertura em `decisao_final`
@@ -48,6 +48,17 @@ meta:
   # não é o dela. As 9 colunas restantes da fase (as outras quatro tabelas)
   # entram no mesmo `1.3.0`, porque nenhuma delas é exportada — nem a versão
   # nem o conjunto se movem por causa delas.
+  #
+  # 1.3.0 → 1.4.0 (Phase 44 / 44-11, 2026-10-06, G5 — BD-9..BD-13): o CONJUNTO
+  # mudou pela terceira vez, e agora também o de TABELAS. Entram na cópia duas
+  # tabelas que o RH escreve sobre a pessoa (`cognitivo_liberacao`, BD-9;
+  # `retencao_hold`, BD-10) e nove colunas que existiam em PROD sem veredito
+  # (o drift que as Phases 48 e 49 registraram e deixaram de fora): 17 colunas
+  # entram, 7 ficam fora com razão, e quatro tabelas ficam fora com razão
+  # (BD-11, BD-12). Ver o bloco «G5 (44-11, 2026-10-06)» em `escopo_titular`,
+  # `fora_do_escopo` e `decisoes_por_coluna`.
+  # ⚠ O bump vive na MESMA entrega que muda o conjunto — a mesma regra das
+  # entradas 1.2.0 e 1.3.0, pelo mesmo motivo.
   fonte: |
     Decisão de escopo do titular, escrita à mão e revisável. NÃO é derivada de
     código nem inferida do schema: é o julgamento jurídico/de produto que o
@@ -75,13 +86,32 @@ meta:
        tabelas; exclui `ai_call_logs` e `logs_acesso`, 2 das 5 do ERASE-09). O
        insumo do motor destrutivo é `pii-inventory.yaml`, que cobre o catálogo
        inteiro. Ver `sql/gen-recibo-exclusao.cjs:12-25`"
-  cobertura_declarada_em: "2026-08-04"
+  cobertura_declarada_em: "2026-10-06"
   cobertura_declarada:
-    tabelas_vivas_no_momento_da_escrita: 69
-    em_escopo_titular: 30
-    fora_do_escopo_explicito: 21
-    fora_do_escopo_por_regra: 18
+    tabelas_vivas_no_momento_da_escrita: 75
+    em_escopo_titular: 32
+    fora_do_escopo_explicito: 23
+    fora_do_escopo_por_regra: 20
     nota: |
+      ⚠ ATUALIZADO PELO PLANO 44-11 (2026-10-06, G5): 32 + 23 + 20 = 75. As
+      seis tabelas que o G5 achou vivas em `public` e sem disposição (medidas
+      em PROD em 2026-10-06T20:51:22Z, `catalogo-vivo-44.json`, acréscimo
+      «44-11») foram para TRÊS baldes diferentes, duas em cada:
+        · `escopo_titular` (30 → 32): `cognitivo_liberacao` (BD-9) e
+          `retencao_hold` (BD-10) — atos do RH sobre a candidatura da pessoa,
+          chave `candidatura_id`.
+        · `fora_do_escopo` explícito (21 → 23): `purga_execucao_itens` (BD-11)
+          e `purga_execucoes` (BD-12), as duas `telemetria_interna`. A primeira
+          PRECISA de linha própria: a regra FE5 (`*_itens`) a arquivaria como
+          `configuracao_do_produto`, que é a razão errada.
+        · `fora_do_escopo_por_regra` (18 → 20): `config_purga` e
+          `config_janela_exclusao`, pela FE1 (`config_*`), sem intervenção —
+          depois de MEDIDO que nenhuma das duas carrega chave do titular
+          (BD-12).
+      As contagens anteriores (30 + 21 + 18 = 69, escritas em 2026-08-04)
+      ficam registradas aqui, não apagadas.
+
+
       30 + 21 + 18 = 69. Este total é CONFERÊNCIA DE ESCRITA, não prova: a prova
       é o fecho executado pelo gerador contra o catálogo VIVO a cada geração.
       Uma tabela viva que não caia em nenhum dos três baldes falha a geração.
@@ -119,6 +149,27 @@ meta:
       e o 44-03 pagou por essa distinção com quatro achados que tinham veredito.
       Histórico: a geração do 44-03 reprovou com 30 pendências (21 `true` /
       9 `false`); o critério de cada uma está no bloco 6.
+    geracao_44_11: |
+      Geração da 1.4.0 (Phase 44 / 44-11, 2026-10-06, G5). O catálogo ganhou
+      um ACRÉSCIMO medido em 2026-10-06T20:51:22Z (6 tabelas em `tabelas`, 24
+      colunas em `colunas`); `medido_em` e `totais` do topo do catálogo NÃO
+      foram reescritos. Fecho de TABELA: 75 tabelas catalogadas, zero
+      pendências — 32 em escopo + 43 excluídas. Fecho de COLUNA: as 24 colunas
+      novas de tabela em escopo têm veredito; 16 deles são ESCRITOS no bloco
+      «G5 (44-11)» de `decisoes_por_coluna`, 4 vêm da R2 de `ponteiros`
+      (`criado_por`/`liberado_por` de `retencao_hold`, `liberado_por`/
+      `revogado_por` de `cognitivo_liberacao`) e 4 da R1 (`id` e
+      `candidatura_id` das duas tabelas novas, de propósito, como em toda
+      tabela em escopo).
+
+      ⚠ NOTA «69 × 75» (2026-10-06) — para não virar ressalva infundada
+      depois: o artefato carrega `meta.totais_medidos_em_public` COPIADO do
+      topo do catálogo (69 tabelas, medição de 2026-08-04, que não é reescrita)
+      e `meta.totais.tabelas_catalogadas` CALCULADO de `tabelas` com os
+      acréscimos (75). A divergência é POR DESENHO: o primeiro é a fotografia
+      datada do banco; o segundo é o universo que o fecho de tabela usa hoje.
+      Nenhum dos dois está errado, e nenhum dos dois deve ser "corrigido" para
+      bater com o outro.
 
 # ---------------------------------------------------------------------------
 # 1 · ESCOPO DO TITULAR — tabela → como a linha se amarra à pessoa
@@ -272,6 +323,21 @@ escopo_titular:
     ligacao: direta
     razao: "Os próprios pedidos de acesso/exclusão do titular — o registro de que ele exerceu o direito. DDL escrito no 44-02, aplicado no 44-04."
 
+  # --- G5 (44-11, 2026-10-06) — duas tabelas que o RH escreve sobre a pessoa --
+  # Vivas em PROD e ausentes do catálogo e da allowlist até a reverificação de
+  # 2026-10-06 (gap G5): a cópia as ignorava inteiras, sem veredito. Medidas em
+  # 2026-10-06T20:51:22Z (acréscimo «44-11» do `catalogo-vivo-44.json`). As
+  # colunas que ficam fora de cada uma estão nomeadas em `ponteiros.de_terceiro`
+  # e no bloco «G5 (44-11)» de `decisoes_por_coluna`.
+  cognitivo_liberacao:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "BD-9 (OPERADOR, 2026-10-06). A liberação individual da avaliação cognitiva é um ato do RH SOBRE a candidatura da pessoa — e revogá-la também. Ela tem direito de saber quando o acesso foi aberto e fechado, e por quê. Os ids de quem liberou/revogou ficam fora (PII de terceiro, R2)."
+  retencao_hold:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "BD-10 (OPERADOR, 2026-10-06). O FATO e a BASE de os dados dela ficarem guardados além do prazo (o `motivo` do vocabulário fechado `ck_retencao_hold_motivo`, quando a retenção começou e quando terminou). O texto livre do RH (`detalhe`, que pode conter estratégia de litígio) e os ids de funcionário ficam fora, com razão nomeada."
+
 # ---------------------------------------------------------------------------
 # 2 · FORA DO ESCOPO — tabela → razão NOMEADA (vocabulário fechado de 5 valores)
 # ---------------------------------------------------------------------------
@@ -326,6 +392,21 @@ fora_do_escopo:
   templates_email: configuracao_do_produto
   vagas: configuracao_do_produto
   webhooks_logs: telemetria_interna
+  # --- G5 (44-11, 2026-10-06) — a telemetria da purga (Phase 46) -----------
+  # BD-11 (OPERADOR, 2026-10-06): telemetria operacional da purga. O titular
+  # purgado não existe mais para pedir cópia, e para titular vivo só há linhas
+  # de ensaio. ⚠ A tabela TEM `candidato_id` (medido em 2026-10-06; sem FK, por
+  # desenho) — fica fora por decisão NOMINAL do operador, não por ausência de
+  # chave. E a entrada explícita EXISTE por um motivo a mais: sem ela a regra
+  # FE5 (`*_itens`) a arquivaria como `configuracao_do_produto`, que é a razão
+  # ERRADA — a disposição sairia certa e o porquê, falso.
+  purga_execucao_itens: telemetria_interna
+  # BD-12 (OPERADOR, 2026-10-06, CONDICIONADO à medição): fora com razão
+  # nomeada. Medido em 2026-10-06T20:51:39Z: nenhuma coluna `candidato_id`/
+  # `candidatura_id`/`user_id` e nenhuma FK para `public.candidatos`,
+  # `public.candidaturas` ou `auth.users` (zero FK de qualquer tipo). São
+  # contadores e veredito de cada rodada da purga, não fatos sobre uma pessoa.
+  purga_execucoes: telemetria_interna
 
 # ---------------------------------------------------------------------------
 # 3 · FORA DO ESCOPO POR REGRA — famílias que não merecem uma linha cada
@@ -342,7 +423,7 @@ fora_do_escopo_por_regra:
   - id: FE1
     padrao: "config_*"
     razao: configuracao_do_produto
-    nota: "Limiares e janelas alteráveis sem deploy. Inclui `config_sla_dados`, VIVA desde o plano 44-04 e absorvida por esta regra sem intervenção — que é a razão de o bloco de regras existir: uma tabela de configuração nova não exige que alguém lembre de listá-la."
+    nota: "Limiares e janelas alteráveis sem deploy. Inclui `config_sla_dados`, VIVA desde o plano 44-04 e absorvida por esta regra sem intervenção — que é a razão de o bloco de regras existir: uma tabela de configuração nova não exige que alguém lembre de listá-la. Inclui também, desde o 44-11 (G5, BD-12, 2026-10-06), `config_purga` e `config_janela_exclusao` — absorvidas pela regra só DEPOIS de medido em PROD (2026-10-06T20:51:39Z) que nenhuma das duas carrega chave do titular (zero `candidato_id`/`candidatura_id`/`user_id`, zero FK para `candidatos`/`candidaturas`/`auth.users`). `config_purga.alterado_por` é UUID de funcionário (FK para `usuarios_rh`) dentro de configuração, não dado do titular."
   - id: FE2
     padrao: "perguntas*"
     razao: configuracao_do_produto
@@ -427,6 +508,14 @@ ponteiros:
     - alterado_por
     - created_by
     - updated_by
+    # G5 (44-11, 2026-10-06): UUIDs de usuário RH em `retencao_hold` (FK para
+    # `usuarios_rh`) e em `cognitivo_liberacao.liberado_por`. Veto ESTRUTURAL,
+    # e não veredito por coluna, de propósito: sobrevive à próxima tabela que
+    # nascer com o mesmo nome. Medido antes de acrescentar: nenhuma tabela em
+    # escopo até a 1.3.0 tinha coluna com esses nomes — nenhum veredito
+    # existente se move. (`revogado_por` já estava na lista.)
+    - criado_por
+    - liberado_por
 
 # ---------------------------------------------------------------------------
 # 6 · DECISÕES POR COLUNA — o que nem o inventário nem as regras resolvem
@@ -795,8 +884,9 @@ decisoes_por_coluna:
       exclusão (idempotência do e-mail, migration 20260921000005). Não é fato
       sobre a pessoa: o fato — que ela pediu, quando, e em que estado o pedido
       está — já sai por `tipo`, `solicitado_em` e `situacao`. É a mesma natureza
-      de `recibo_enviado_em`, cujo veredito segue PENDENTE e fora desta fase (é
-      drift do P45, junto com as outras seis colunas de estado do motor).
+      de `recibo_enviado_em`, cujo veredito foi dado no 44-11 (2026-10-06, G5,
+      BD-13 (iv), operador): FORA, como membro desta mesma família — ver o
+      bloco «G5 (44-11)» abaixo.
   solicitacoes_dados.aviso_cancelamento_enviado_em:
     export: false
     razao: "(i) telemetria_interna — idem `aviso_pedido_enviado_em`, para o aviso de cancelamento. Controle de entrega de e-mail, não estado do pedido."
@@ -948,6 +1038,90 @@ decisoes_por_coluna:
   redacoes_candidato.rubrica_versao:
     export: false
     razao: "(i) qual VERSÃO da rubrica de correção a avaliação usou. Descreve COMO O SISTEMA AVALIOU, não a pessoa — é literalmente o argumento de `redacoes_candidato.prompt_version`, a vizinha de que ela é irmã: a nota e a explicação entregues ao titular entram (`scores_dimensao`, `analise_ia`), o identificador interno do instrumento que as produziu, não. ⚠ Tensão registrada, e é a mesma do D-27 em outra roupa: a versão da rubrica é o que explicaria ao titular por que duas redações comparáveis receberam notas diferentes em meses diferentes. O critério do arquivo resolve isso pela EXPLICAÇÃO (que entra, e é texto sobre a pessoa), não pelo número de versão do instrumento (que é ficha técnica) — e é essa a decisão, revisável pelo operador com uma palavra."
+
+  # =========================================================================
+  # G5 (44-11, 2026-10-06) — as 9 colunas sem veredito e as 2 tabelas novas
+  # =========================================================================
+  # A reverificação de 2026-10-06 (`44-VERIFICATION.md`, gap G5) mediu 9 colunas
+  # vivas de tabela em escopo sem veredito e 6 tabelas sem disposição. Até aqui
+  # a cópia as omitia por FAIL-SAFE, e fail-safe não é veredito. Decisões no
+  # `44-CONTEXT.md` §«Adendo 2026-10-06» (BD-9..BD-13), e a AUTORIA de cada uma
+  # está escrita na razão — operador, orquestrador e planejador não se misturam.
+  # Medido em PROD em 2026-10-06T20:51:22Z (acréscimo «44-11» do catálogo).
+  # ⚠ HOMÔNIMO: o «BD-9» deste bloco é o do adendo de 2026-10-06 do
+  # `44-CONTEXT.md` (`cognitivo_liberacao`). NÃO é o «BD-9 EM ABERTO» citado em
+  # `decisao_final.justificativa` acima, que vem do `pii-inventory.yaml` e é
+  # outra numeração.
+  #
+  # ⚠ As colunas `*_em` abaixo recebem veredito EXPLÍCITO de propósito: sem ele
+  # a R1 as admitiria CALADAS, com proveniência "R1" e sem ninguém ter decidido —
+  # a mesma armadilha que as Phases 48 e 49 já nomearam. Quem morde quando uma
+  # delas perde o veredito é a asserção (l) do Vitest (44-12; achado M1 do 49-17),
+  # não o fecho do gerador.
+  # `id` e `candidatura_id` das duas tabelas novas NÃO têm linha aqui, de
+  # propósito: entram por R1 como em toda tabela em escopo. Os ids de funcionário
+  # (`criado_por`, `liberado_por`, `revogado_por`) também não: ficam fora pela
+  # R2 (`ponteiros.de_terceiro`), o veto estrutural.
+
+  # --- candidatos / candidaturas -------------------------------------------
+  candidatos.faixa_etaria_materializada:
+    export: true
+    razao: "BD-13 (iii) — autoria: PLANEJADOR (44-CONTEXT, adendo 2026-10-06). Dado DERIVADO da pessoa: a faixa etária calculada de `data_nascimento`, que já está na cópia, mantida pelo sistema inclusive depois da anonimização para a auditoria de viés. Dado derivado do titular é dado do titular sob o Art. 18, II quando nenhuma razão nomeada o exclui — e nenhuma exclui. Medido em 2026-10-06: `text` nulável, 2 de 45 candidatos com valor."
+  candidaturas.encerrada_a_pedido_em:
+    export: true
+    razao: "BD-13 (i) — autoria: ORQUESTRADOR (inclinação padrão do prompt de planejamento, não perguntada ao operador). Fato do PRÓPRIO pedido do titular: quando a candidatura foi encerrada porque ELE pediu a exclusão (migration 20260805000001). Uma das três que a verificação de 2026-10-06 apontou como omitidas da cópia. Entraria calada por R1 sem este veredito."
+
+  # --- solicitacoes_dados · o estado do pedido de exclusão (P45) -----------
+  solicitacoes_dados.executar_em:
+    export: true
+    razao: "BD-13 (i) — autoria: ORQUESTRADOR (não perguntada ao operador). QUANDO o pedido de exclusão do titular será executado (fim da janela de arrependimento, D-45-01). É compromisso da empresa perante a pessoa sobre o pedido DELA — o mesmo critério de `decisao_final.prazo_nova_decisao_em`. Entraria calada por R1 sem este veredito."
+  solicitacoes_dados.cancelado_em:
+    export: true
+    razao: "BD-13 (i) — autoria: ORQUESTRADOR (não perguntada ao operador). QUANDO o titular desistiu do próprio pedido de exclusão. Sonegar esse carimbo entregaria um pedido de exclusão sem dizer que ele foi cancelado — a cópia mentiria sobre o estado do direito que a pessoa exerceu. Entraria calada por R1 sem este veredito."
+  solicitacoes_dados.plano:
+    export: false
+    razao: "BD-13 (ii) — autoria: ORQUESTRADOR (não perguntada ao operador; apoiada na dica do `deferred-items.md` da Phase 48). telemetria_interna — jsonb de ESTADO INTERNO do motor de exclusão da Phase 45. Chaves de topo medidas em PROD em 2026-10-06 (só `jsonb_object_keys`, nunca valores; 2 de 8 linhas preenchidas): `achados_resumo`, `contagens`, `executor`, `previsto`, `versao` — a ficha de trabalho da máquina, inclusive QUEM a executou (`executor`). O fato que importa ao titular — que o pedido foi atendido e quando — sai por `situacao`, `atendido_em` e pelos três `*_concluido_em` abaixo."
+  # BD-13 (iv): (i) e o precedente do 48-17 (`aviso_*_enviado_em` FORA) puxavam
+  # para lados opostos; o operador decidiu, por AskUserQuestion do orquestrador
+  # em 2026-10-06, com a resposta verbatim «3 carimbos entram; recibo fora
+  # (Recommended)» = option-a.
+  solicitacoes_dados.storage_concluido_em:
+    export: true
+    razao: "BD-13 (iv) — autoria: OPERADOR, option-a («3 carimbos entram; recibo fora (Recommended)», 2026-10-06). QUANDO os ARQUIVOS do titular foram apagados do Storage na execução do pedido de exclusão dele (ERASE-04: Storage → Postgres → Auth). É a prova, por sistema, de que o que ele pediu aconteceu — estado do pedido dele, não controle de envio. Entraria calada por R1 sem este veredito."
+  solicitacoes_dados.postgres_concluido_em:
+    export: true
+    razao: "BD-13 (iv) — autoria: OPERADOR, option-a (2026-10-06). Idem `storage_concluido_em`, para os dados do titular no banco."
+  solicitacoes_dados.auth_concluido_em:
+    export: true
+    razao: "BD-13 (iv) — autoria: OPERADOR, option-a (2026-10-06). Idem `storage_concluido_em`, para a conta de acesso do titular."
+  solicitacoes_dados.recibo_enviado_em:
+    export: false
+    razao: "BD-13 (iv) — autoria: OPERADOR, option-a («… recibo fora», 2026-10-06). telemetria_interna — carimbo de CONTROLE do envio do e-mail de recibo da exclusão (idempotência). É a MESMA família de `aviso_pedido_enviado_em` e `aviso_cancelamento_enviado_em`, que o 48-17 deixou fora pela mesma razão: controle de entrega de e-mail não é estado do pedido. O conteúdo do recibo está na caixa do titular; o fato de o pedido ter sido executado sai pelos três `*_concluido_em`. Entraria calada por R1 sem este veredito."
+
+  # --- retencao_hold · o fato e a base, não o raciocínio (BD-10) -----------
+  retencao_hold.motivo:
+    export: true
+    razao: "BD-10 — autoria: OPERADOR (2026-10-06). A BASE da retenção dos dados dela além do prazo — vocabulário FECHADO pelo CHECK `ck_retencao_hold_motivo` (`obrigacao_legal`, `litigio`, `fiscal`, `trabalhista`, `outro`), sem texto livre e sem terceiro. É `text` no DDL e reprovaria o fecho sem veredito (critério (ii): estado de processo tipado `text` por acidente)."
+  retencao_hold.criado_em:
+    export: true
+    razao: "BD-10 — autoria: OPERADOR (2026-10-06). QUANDO a retenção começou: metade do fato que o titular tem direito de saber. Entraria calada por R1 sem este veredito."
+  retencao_hold.liberado_em:
+    export: true
+    razao: "BD-10 — autoria: OPERADOR (2026-10-06). QUANDO a retenção terminou (nulo enquanto vigora). A outra metade do fato. Entraria calada por R1 sem este veredito."
+  retencao_hold.detalhe:
+    export: false
+    razao: "BD-10 — autoria: OPERADOR (2026-10-06). TEXTO LIVRE do RH sobre a retenção — pode conter estratégia de litígio, e o titular tem direito ao fato e à base (`motivo`, `criado_em`, `liberado_em`), não ao raciocínio interno de quem retém. ⚠ Não é exclusão profilática: medido em PROD em 2026-10-06, a única linha de `retencao_hold` (motivo `obrigacao_legal`) tem `detalhe` PREENCHIDO — este veredito protege um dado que existe hoje."
+
+  # --- cognitivo_liberacao · o acesso à avaliação cognitiva (BD-9) ---------
+  cognitivo_liberacao.liberado_em:
+    export: true
+    razao: "BD-9 — autoria: OPERADOR (2026-10-06). QUANDO o RH liberou a avaliação cognitiva para a candidatura do titular — o ato que abriu para ele uma etapa do processo. Entraria calada por R1 sem este veredito."
+  cognitivo_liberacao.revogado_em:
+    export: true
+    razao: "BD-9 — autoria: OPERADOR (2026-10-06). QUANDO a liberação foi revogada (revogar em vez de apagar, migration 20260826000007: «a liberação é um ato sobre uma pessoa e precisa sobreviver ao arrependimento»). Sem ele, uma liberação revogada chegaria à cópia como se valesse. Entraria calada por R1 sem este veredito."
+  cognitivo_liberacao.motivo:
+    export: true
+    razao: "BD-9 — autoria: OPERADOR (2026-10-06). POR QUE a liberação foi dada ou revogada — se o RH escreve sobre o acesso da pessoa a uma etapa do processo dela, entra (critério (iii)). `text` nulável; medido em 2026-10-06: 0 de 4 linhas preenchidas, então o veredito é de PRINCÍPIO, decidido antes de haver conteúdo."
 
 # ---------------------------------------------------------------------------
 # 6b · PONTEIROS DE INFRAESTRUTURA — o que sai do ARQUIVO LEGÍVEL
