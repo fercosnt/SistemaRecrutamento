@@ -17,7 +17,8 @@
  *              (M1..M6 tracer; M7..M11 rodada de conserto do 50-REVIEW-TRACER-1; M12..M23 do 50-07,
  *              uma por cláusula nova (g)..(l) e pela extensão de (e) — extraídas de 0002..0004 ou,
  *              para objeto que a fase não reescreve, do `pg_get_functiondef` VIVO lido só-leitura
- *              no início; N = MUTACOES.length, ids sem buraco)
+ *              no início; M24 da rodada de conserto do 50-REVIEW-ACESSO-1 — WR-08 o recrutador
+ *              em `save_entrevista_guia_edits`; N = MUTACOES.length, ids sem buraco)
  *              ⇒ tem de reprovar na letra declarada e NÃO chegar ao sentinela. A mutação entra
  *                DEPOIS da migration, para que o pré e o pós-portão passem e quem morda seja o
  *                SMOKE (o portão recorrente). Cada uma declara `requer`: se a versão exigida não
@@ -398,6 +399,20 @@ const MUTACOES = [
     rotulos: ['admin_disjunto:historico_candidatura.rh_le_historico'],
     requer: ['20261005000002'],
     sql: trocar(pol2('rh_le_historico', 'historico_candidatura'), "= 'administrador')", "= ANY (ARRAY['administrador']))", 'M23'),
+  },
+
+  // ── Rodada de conserto do 50-REVIEW-ACESSO-1 (WR-08).
+  {
+    // WR-08: `save_entrevista_guia_edits` lê o PAPEL de usuarios_rh (ENTREV-08), não do claim. Uma
+    // regressão que bloqueie todo RECRUTADOR ali — sem posse, então (j) não a vê — tem de morder
+    // em (i) pelo positivo `ativo`, que desde o WR-08 roda com a linha de a_ativo como
+    // `recrutador`. Antes do conserto, o positivo era o ramo do administrador e M24 passava.
+    id: 'M24',
+    desc: "save_entrevista_guia_edits recusa todo rh (IF v_role = 'rh' THEN 42501, sem o helper)",
+    letra: 'i',
+    rotulos: ['ativo.save_entrevista_guia_edits/3'],
+    requer: ['20261005000004'],
+    sql: trocar(fn(mig4, 'save_entrevista_guia_edits'), LINHA_H, "IF v_role = 'rh' THEN", 'M24'),
   },
 ];
 

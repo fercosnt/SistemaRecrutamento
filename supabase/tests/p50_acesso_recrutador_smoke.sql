@@ -59,7 +59,9 @@
 --           candidato que não é a_cand — a semente de `v_analises_presas` (população 0 em PROD);
 --           sem trigger na tabela (medido 2026-10-05).
 --   (i)     `UPDATE vagas SET status = 'rascunho'` na vaga de UMA pergunta (outra vaga que não a
---           da candidatura sondada) e as 18 RPCs chamadas por 6 atores — cada chamada no SEU bloco,
+--           da candidatura sondada), `UPDATE usuarios_rh SET role = 'recrutador'` na linha de
+--           a_ativo (WR-08 do 50-REVIEW-ACESSO-1: o caminho real do recrutador nas RPCs que leem
+--           o papel do banco) e as 18 RPCs chamadas por 6 atores — cada chamada no SEU bloco,
 --           desfeito por `P50C2` mesmo quando aceita (registrar/rejeitar/liberar/revogar/
 --           reprocessar/salvar… gravam e enfileiram `net.http_post`, tudo transacional).
 --   (j)     TEMP TABLE + policy + função em `pg_temp` (a mordida), desfeitas por `P5099`.
@@ -141,7 +143,9 @@
 --       execução + tipo `leitura`/`escrita` + se tem guarda de papel; uma função do conjunto sem
 --       entrada ⇒ [sem_sonda:<f>]; uma entrada que saiu do conjunto — perdeu o helper — continua
 --       sondada). Por função (rótulo `<proname>/<nargs>`), 6 atores, cada chamada desfeita:
---       ativo (rh + a_ativo) ≠ 42501, e no funil KPIs cheios [ativo.<f>] — o CONTROLE;
+--       ativo (rh + a_ativo, com a linha de a_ativo como `recrutador` dentro do envelope — WR-08:
+--       `save_entrevista_guia_edits` lê o papel de usuarios_rh, e sem a troca o controle rodava o
+--       ramo do administrador) ≠ 42501, e no funil KPIs cheios [ativo.<f>] — o CONTROLE;
 --       velho/velho_mp ⇒ 42501, leitura admite vazio (n:0, i:0, KPIs vazios), nunca ≥ 1;
 --       sem_papel ⇒ 42501 onde há guarda de papel, KPIs vazios no funil (sem guarda);
 --       candidato (args de candidatura ALHEIA) ⇒ escrita só 42501, leitura 42501 ou vazio;
@@ -258,6 +262,13 @@
 --   cobertura de policies não tem mutação DDL possível em `storage.objects` (ver (j)) — o lado
 --   storage se prova pela igualdade lidas = total na execução, e `cobertura_antiga` mostra os 28
 --   que a lista antiga deixaria de ler.
+--
+--   Rodada de conserto do 50-REVIEW-ACESSO-1 (2026-10-06), com 0002..0004 PREFIXADAS:
+--   | Mutação | Inversão                                                        | Reprova (rótulos exigidos)                    | Medido (2026-10-06)                                     |
+--   |---------|-----------------------------------------------------------------|-----------------------------------------------|---------------------------------------------------------|
+--   | M24     | `save_entrevista_guia_edits` recusa todo rh (`IF v_role = 'rh' THEN`), WR-08 | (i) ativo.save_entrevista_guia_edits/3 | (i) [ativo.save_entrevista_guia_edits/3], 1210 ms |
+--   M24 contra o smoke de ANTES do WR-08 (a_ativo administrador rodando o ramo do administrador
+--   nessa RPC) saiu `ENSAIO VERDE … smoke50=13/13`: era o buraco que a troca de papel em (i) fecha.
 --
 -- Varredura (forma) — 2026-10-05, padrão do CLAUDE.md §«Portões» sobre `supabase/tests/*.sql`
 -- (`grep -rnE '(<>|!=|IS DISTINCT FROM) *[0-9]+|= ANY \(ARRAY\[.|\b(proname|jobname|relname|tgname|conname|typname) +IN +\(.'`).
@@ -1463,6 +1474,17 @@ BEGIN
     UPDATE public.vagas SET status = 'rascunho' WHERE id = v_vperg;
     GET DIAGNOSTICS v_rc = ROW_COUNT;
     IF v_rc <> 1 THEN RAISE EXCEPTION 'vaga da pergunta para rascunho atingiu % linha(s), esperado 1', v_rc; END IF;
+    -- WR-08 (50-REVIEW-ACESSO-1): o positivo `ativo` tem de rodar o caminho REAL do recrutador
+    -- também nas RPCs que leem o PAPEL de usuarios_rh, não do claim (`save_entrevista_guia_edits`,
+    -- ENTREV-08). PROD não tem recrutador ativo e a_ativo é administrador: sem esta troca, ali o
+    -- controle exercitava o ramo do ADMINISTRADOR e a linha `IF v_role = 'rh' AND NOT
+    -- public.is_active_rh_user()` nunca era alcançada pelo positivo. Como em (b)/(c): a linha de
+    -- a_ativo vira `recrutador` como postgres, revertida pelo P50C1 abaixo (e a baseline já
+    -- recusou a_ativo como ÚNICO administrador ativo — o `trg_usuarios_rh_anti_lockout` não
+    -- dispara aqui). Nas 17 RPCs que leem o papel do claim forjado `rh`, nada muda.
+    UPDATE public.usuarios_rh SET role = 'recrutador' WHERE user_id = v_ativo;
+    GET DIAGNOSTICS v_rc = ROW_COUNT;
+    IF v_rc <> 1 THEN RAISE EXCEPTION 'troca de papel de a_ativo para recrutador atingiu % linha(s), esperado 1', v_rc; END IF;
 
     FOR e IN SELECT * FROM jsonb_array_elements(v_set) LOOP
       CONTINUE WHEN NOT v_map ? (e ->> 'k');
