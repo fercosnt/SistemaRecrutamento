@@ -343,6 +343,10 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
     //      todo rh ativo obteria o breakdown de scores de candidatura excluída ou de
     //      rascunho pelo id. Ausente/morta/rascunho → 403 genérico, o idioma do cross-check
     //      do gerar-guia (nada distingue «não existe» de «não pode»).
+    //      WR-07 (50-REVIEW-ACESSO-1, deferred-items): e ela pertence a `body.vaga_id` —
+    //      os PESOS vêm da vaga do body e os SCORES da candidatura do body; sem o cross-check
+    //      um pedido forjado consolidava os scores de uma candidatura com os pesos de outra
+    //      vaga. Mesma resposta da ausente (403 genérico), como no gerar-guia (D-09).
     const { data: candRow, error: candErr } = await supabaseAdmin
       .from("candidaturas")
       .select("id, vaga_id")
@@ -353,7 +357,7 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
     if (candErr) {
       return errorResponse("SERVER_ERROR", "Falha ao verificar a candidatura.", 500);
     }
-    if (!candRow) {
+    if (!candRow || candRow.vaga_id !== body.vaga_id) {
       return errorResponse("FORBIDDEN", "Acesso negado.", 403);
     }
 

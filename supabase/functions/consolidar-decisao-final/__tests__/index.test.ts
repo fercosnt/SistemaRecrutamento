@@ -725,3 +725,19 @@ Deno.test("WR-06 — candidatura inexistente → 403 (o mesmo da morta)", async 
   assertEquals(res.status, 403);
   assertEquals(leuScores(supabaseAdmin.calledTables), false);
 });
+
+// ── WR-07 (50-REVIEW-ACESSO-1) — a candidatura pertence à vaga do pedido ──────────
+// Pesos de `body.vaga_id`, scores de `body.candidatura_id`: sem o cross-check, um pedido forjado
+// consolidava os scores de uma candidatura com os pesos de OUTRA vaga. 403 genérico (o idioma do
+// gerar-guia), ANTES de qualquer leitura de score/análise.
+Deno.test("WR-07 — candidatura VIVA de OUTRA vaga → 403, nenhum score/análise lido", async () => {
+  const { res, supabaseAdmin } = await comCand([candViva({ vaga_id: "33333333-3333-4333-8333-333333333333" })]);
+  assertEquals(res.status, 403);
+  assertEquals((await res.json()).error_code, "FORBIDDEN");
+  assertEquals(leuScores(supabaseAdmin.calledTables), false);
+});
+
+Deno.test("WR-07 controle — a mesma candidatura com a vaga do pedido → 200", async () => {
+  const { res } = await comCand([candViva({ vaga_id: BODY.vaga_id })]);
+  assertEquals(res.status, 200);
+});
