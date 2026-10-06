@@ -127,8 +127,9 @@ async function enriquecerVaga(
   //
   // Plan 25-09: driven by `includeCounts` (not candidatoId) so RH/administrador
   // sessions get real per-vaga tiles. RLS still scopes the visible rows — a
-  // candidate sees only their own candidaturas; an RH session sees candidaturas
-  // of the vagas they own (administrador reads all). Anon never reaches here.
+  // candidate sees only their own candidaturas; an active RH session (RLS via
+  // public.is_active_rh_user(), Phase 50 / D-01) reads the candidaturas of every
+  // vaga, as the administrador does. Anon never reaches here.
   if (includeCounts) {
     const { data: statusRows } = await supabase
       .from('candidaturas')

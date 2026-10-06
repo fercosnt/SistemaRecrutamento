@@ -361,8 +361,9 @@ const RECUSA_COMPARATIVO_COPY: Record<string, string> = {
     'Ainda não há análise de IA para todos os selecionados. Aguarde a análise ou reprocesse.',
   // O teto vem da constante que a EF usa para recusar — nunca de um literal paralelo.
   VALIDATION: `Selecione entre 2 e ${COMPARATIVO_MAX_CANDIDATOS} candidatos para comparar.`,
-  // Genérica DE PROPÓSITO: a EF responde o MESMO 403 para «não existe» e «não é sua»
-  // (49-08 / T-49-08-02). Uma mensagem que os distinguisse viraria oráculo de existência.
+  // Genérica DE PROPÓSITO: a EF responde o MESMO 403 para «não existe» e «é de outra vaga»
+  // (49-08 / T-49-08-02; desde a Phase 50 / D-01 a posse da vaga não é mais autorização —
+  // resta a integridade). Uma mensagem que os distinguisse viraria oráculo de existência.
   FORBIDDEN: 'Você não tem acesso a uma das candidaturas selecionadas.',
   /*
    * 49-27 → WINDOWS 78, fechada pelo 49-22. A EF recusa com 503 quando NENHUM provedor de IA

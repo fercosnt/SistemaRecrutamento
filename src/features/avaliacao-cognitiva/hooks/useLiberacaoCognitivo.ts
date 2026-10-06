@@ -89,10 +89,10 @@ export function useLiberarCognitivo(candidaturaId: string) {
       void qc.invalidateQueries({ queryKey: ['cognitivo', 'liberacao-rh', candidaturaId] })
     },
     onError: (e: { code?: string; message?: string }) => {
-      // 42501 vem das duas guardas da RPC — papel insuficiente OU vaga de outro
-      // recrutador. A mensagem cobre as duas sem revelar qual, que é o certo: dizer
-      // "esta vaga não é sua" a quem não deveria nem saber que ela existe vaza
-      // informação de escopo.
+      // 42501 vem da guarda de papel da RPC — sem papel RH, ou recrutador inativo
+      // (Phase 50 / D-01: a posse da vaga deixou de ser autorização; todo rh ativo
+      // pode liberar). A mensagem é genérica de propósito: não revela qual condição
+      // falhou, para não vazar informação de escopo.
       toast.error(
         e?.code === '42501'
           ? 'Você não tem permissão para liberar esta avaliação.'

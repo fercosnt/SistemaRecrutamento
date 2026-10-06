@@ -181,10 +181,11 @@ export async function uploadCV(
  *
  * Phase 32 / SEG-01: the client NO LONGER signs the private `curriculos` bucket
  * itself. The Edge Function (service_role) is the SINGLE privileged signer — it
- * authenticates the RH JWT, authorizes role + vaga ownership (vagas.created_by;
- * administrador bypasses), resolves `curriculo_url` server-side from the
- * `candidatura_id`, and mints a 60s signed URL. Migration A drops the role-only
- * Storage read branch so no RH can read a CV outside their owned vagas, and the
+ * authenticates the RH JWT, authorizes the role from a live active `usuarios_rh`
+ * row (recrutador or administrador; vaga ownership was removed as authorization in
+ * Phase 50 / D-01), resolves `curriculo_url` server-side from the `candidatura_id`
+ * (soft-deleted candidaturas → 404), and mints a 60s signed URL. Migration A drops
+ * the role-only Storage read branch so the EF stays the only signer, and the
  * `candidatura_id` input can never be a forged storage path.
  *
  * SECURITY NOTE: NEVER log the returned signed URL — Pitfall 7 forbids this.
