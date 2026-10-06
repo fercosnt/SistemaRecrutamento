@@ -195,6 +195,8 @@ export const COPY_ARQUIVO = {
     analise_candidato_vaga: 'Análises da sua candidatura',
     avaliacoes_rh: 'Avaliações feitas pela equipe de recrutamento',
     candidate_ai_decisions: 'Resultado e explicação da avaliação automatizada',
+    // G5 (44-11, allowlist 1.4.0): as duas tabelas que entraram em escopo.
+    cognitivo_liberacao: 'Liberação da avaliação cognitiva',
     cognitivo_respostas: 'Suas respostas na avaliação cognitiva',
     decisao_final: 'Decisão final de cada candidatura',
     decisao_final_historico: 'Histórico das decisões finais',
@@ -213,6 +215,7 @@ export const COPY_ARQUIVO = {
     respostas_disc: 'Suas respostas no questionário de perfil comportamental',
     respostas_formulario: 'Suas respostas no formulário',
     respostas_raven: 'Suas respostas na avaliação de raciocínio',
+    retencao_hold: 'Conservação dos seus dados além do prazo',
     scores_bigfive: 'Resultados da avaliação comportamental',
     scores_candidato: 'Resultados das suas respostas',
     scores_disc: 'Resultados do perfil comportamental',
@@ -261,6 +264,16 @@ export const COPY_ARQUIVO = {
     score_extraversion: 'Pontuação — extroversão',
     score_neuroticism: 'Pontuação — estabilidade emocional',
     score_openness: 'Pontuação — abertura ao novo',
+    // G5 (44-11, allowlist 1.4.0): colunas novas cujo nome é técnico. As demais
+    // (`motivo`, `criado_em`, `liberado_em`, `revogado_em`, `cancelado_em`) o
+    // humanizador já resolve. `recibo_enviado_em` ficou FORA da cópia e por isso
+    // não tem rótulo — rótulo de coluna que nunca chega é promessa sem executor.
+    faixa_etaria_materializada: 'Faixa etária registrada',
+    encerrada_a_pedido_em: 'Encerrada a seu pedido em',
+    executar_em: 'Data prevista para a execução do pedido',
+    storage_concluido_em: 'Etapa dos arquivos concluída em',
+    postgres_concluido_em: 'Etapa do cadastro concluída em',
+    auth_concluido_em: 'Etapa da conta de acesso concluída em',
   } as Record<string, string>,
 } as const
 

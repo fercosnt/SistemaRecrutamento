@@ -553,6 +553,85 @@ describe('gerarHtmlExport', () => {
     expect(html).toContain('MARCA-LEGIVEL')
   })
 
+  it('(p5) as tabelas e colunas do G5 (44-11) aparecem com rótulo legível, nunca com o nome técnico', () => {
+    // As duas tabelas que a allowlist 1.4.0 pôs em escopo — a sonda confere que
+    // elas existem no artefato, para não testar um rótulo de tabela que nunca chega.
+    for (const t of ['retencao_hold', 'cognitivo_liberacao']) {
+      expect(Object.keys(EXPORT_ALLOWLIST.tabelas), `G5 (p5): ${t} não está no artefato`).toContain(t)
+    }
+
+    const html = gerarHtmlExport(
+      resposta({
+        versao_allowlist: '1.4.0',
+        payload: {
+          candidatos: [{ id: 'cand-1', faixa_etaria_materializada: '25-34' }],
+          candidaturas: [{ id: 'cndt-1', encerrada_a_pedido_em: ISO }],
+          solicitacoes_dados: [
+            {
+              id: 'sol-1',
+              executar_em: ISO,
+              cancelado_em: null,
+              storage_concluido_em: ISO,
+              postgres_concluido_em: ISO,
+              auth_concluido_em: ISO,
+            },
+          ],
+          retencao_hold: [
+            { id: 'rh-1', candidatura_id: 'cndt-1', motivo: 'MARCA-MOTIVO', criado_em: ISO, liberado_em: null },
+          ],
+          cognitivo_liberacao: [
+            { id: 'cl-1', candidatura_id: 'cndt-1', liberado_em: ISO, revogado_em: null, motivo: 'MARCA-LIB' },
+          ],
+        },
+      }),
+    )
+
+    // Títulos de seção em português de produto…
+    expect(html).toContain('<h2>Conservação dos seus dados além do prazo</h2>')
+    expect(html).toContain('<h2>Liberação da avaliação cognitiva</h2>')
+    // …e nunca o nome técnico humanizado pelo fallback.
+    expect(html).not.toContain('Retencao hold')
+    expect(html).not.toContain('Cognitivo liberacao')
+
+    // As seis colunas novas com rótulo explícito.
+    const esperados: Record<string, string> = {
+      faixa_etaria_materializada: 'Faixa etária registrada',
+      executar_em: 'Data prevista para a execução do pedido',
+      encerrada_a_pedido_em: 'Encerrada a seu pedido em',
+      storage_concluido_em: 'Etapa dos arquivos concluída em',
+      postgres_concluido_em: 'Etapa do cadastro concluída em',
+      auth_concluido_em: 'Etapa da conta de acesso concluída em',
+    }
+    for (const [coluna, rotulo] of Object.entries(esperados)) {
+      expect(COPY_ARQUIVO.rotuloColuna[coluna], `G5 (p5): ${coluna} sem rótulo explícito`).toBe(rotulo)
+      expect(html).toContain(`<dt>${rotulo}</dt>`)
+      // O fallback do humanizador (nome técnico) não aparece.
+      const tecnico = coluna.replace(/_/g, ' ')
+      expect(html).not.toContain(`<dt>${tecnico.charAt(0).toUpperCase()}${tecnico.slice(1)}</dt>`)
+    }
+
+    // Nenhum rótulo novo nomeia infraestrutura (Invariante 2 / proibição do 44-13).
+    const novos = [
+      COPY_ARQUIVO.rotuloTabela.retencao_hold,
+      COPY_ARQUIVO.rotuloTabela.cognitivo_liberacao,
+      ...Object.values(esperados),
+    ]
+    for (const r of novos) {
+      expect(r, `G5 (p5): rótulo ausente`).toBeTruthy()
+      expect(r).not.toMatch(/storage|postgres|auth\b|supabase|bucket/i)
+    }
+
+    // `recibo_enviado_em` ficou FORA da cópia (44-11): rótulo para coluna que
+    // nunca chega seria promessa sem executor.
+    expect(COPY_ARQUIVO.rotuloColuna).not.toHaveProperty('recibo_enviado_em')
+    expect(EXPORT_ALLOWLIST.tabelas.solicitacoes_dados.colunas).not.toContain('recibo_enviado_em')
+
+    // Os nomes de coluna que o humanizador já resolve continuam legíveis.
+    expect(html).toContain('<dt>Liberado em</dt>')
+    expect(html).toContain('MARCA-MOTIVO')
+    expect(html).toContain('MARCA-LIB')
+  })
+
   it('(q) texto livre atravessa ÍNTEGRO; ausência vira travessão, nunca `null`', () => {
     const longo = 'a'.repeat(5000)
     const html = gerarHtmlExport(
