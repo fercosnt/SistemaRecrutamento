@@ -267,8 +267,13 @@
 --   | Mutação | Inversão                                                        | Reprova (rótulos exigidos)                    | Medido (2026-10-06)                                     |
 --   |---------|-----------------------------------------------------------------|-----------------------------------------------|---------------------------------------------------------|
 --   | M24     | `save_entrevista_guia_edits` recusa todo rh (`IF v_role = 'rh' THEN`), WR-08 | (i) ativo.save_entrevista_guia_edits/3 | (i) [ativo.save_entrevista_guia_edits/3], 1210 ms |
+--   | M25     | `registrar_decisao`: bloco D-23 `IF false AND (…)`, literal `d.por_usuario = v_uid` mantido, WR-09 | (l) d23 | (l) [d23], 2307 ms |
 --   M24 contra o smoke de ANTES do WR-08 (a_ativo administrador rodando o ramo do administrador
 --   nessa RPC) saiu `ENSAIO VERDE … smoke50=13/13`: era o buraco que a troca de papel em (i) fecha.
+--   M25 é a forma que a prova SÓ ESTRUTURAL do D-23 deixaria passar (o literal fica): ela morde pela
+--   sonda comportamental. Por isso `07:d23=estrutural` é PARADA no 50-10 (o verify exige
+--   `07:d23=comportamental>e:42501`). CONTROLE 13/13 (1564 ms); «controle verde; 25/25 mutacoes
+--   mordem; nada persistiu».
 --
 -- Varredura (forma) — 2026-10-05, padrão do CLAUDE.md §«Portões» sobre `supabase/tests/*.sql`
 -- (`grep -rnE '(<>|!=|IS DISTINCT FROM) *[0-9]+|= ANY \(ARRAY\[.|\b(proname|jobname|relname|tgname|conname|typname) +IN +\(.'`).

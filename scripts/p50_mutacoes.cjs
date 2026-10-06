@@ -17,8 +17,9 @@
  *              (M1..M6 tracer; M7..M11 rodada de conserto do 50-REVIEW-TRACER-1; M12..M23 do 50-07,
  *              uma por cláusula nova (g)..(l) e pela extensão de (e) — extraídas de 0002..0004 ou,
  *              para objeto que a fase não reescreve, do `pg_get_functiondef` VIVO lido só-leitura
- *              no início; M24 da rodada de conserto do 50-REVIEW-ACESSO-1 — WR-08 o recrutador
- *              em `save_entrevista_guia_edits`; N = MUTACOES.length, ids sem buraco)
+ *              no início; M24..M25 da rodada de conserto do 50-REVIEW-ACESSO-1 — WR-08 o recrutador
+ *              em `save_entrevista_guia_edits`, WR-09 o D-23 comportamental; N = MUTACOES.length,
+ *              ids sem buraco)
  *              ⇒ tem de reprovar na letra declarada e NÃO chegar ao sentinela. A mutação entra
  *                DEPOIS da migration, para que o pré e o pós-portão passem e quem morda seja o
  *                SMOKE (o portão recorrente). Cada uma declara `requer`: se a versão exigida não
@@ -401,7 +402,7 @@ const MUTACOES = [
     sql: trocar(pol2('rh_le_historico', 'historico_candidatura'), "= 'administrador')", "= ANY (ARRAY['administrador']))", 'M23'),
   },
 
-  // ── Rodada de conserto do 50-REVIEW-ACESSO-1 (WR-08).
+  // ── Rodada de conserto do 50-REVIEW-ACESSO-1 (WR-08, WR-09).
   {
     // WR-08: `save_entrevista_guia_edits` lê o PAPEL de usuarios_rh (ENTREV-08), não do claim. Uma
     // regressão que bloqueie todo RECRUTADOR ali — sem posse, então (j) não a vê — tem de morder
@@ -413,6 +414,27 @@ const MUTACOES = [
     rotulos: ['ativo.save_entrevista_guia_edits/3'],
     requer: ['20261005000004'],
     sql: trocar(fn(mig4, 'save_entrevista_guia_edits'), LINHA_H, "IF v_role = 'rh' THEN", 'M24'),
+  },
+  {
+    // WR-09: o D-23 neutralizado no corpo, com o LITERAL `d.por_usuario = v_uid` mantido — a
+    // forma que a prova estrutural (só o literal) deixaria passar. Tem de morder em (l) pela
+    // sonda COMPORTAMENTAL [d23] (o decisor revertido registra a nova decisão).
+    id: 'M25',
+    desc: 'registrar_decisao com o bloco D-23 neutralizado (IF false AND (…)), literal mantido',
+    letra: 'l',
+    rotulos: ['d23'],
+    requer: ['20261005000004'],
+    sql: trocar(
+      trocar(
+        fn(mig4, 'registrar_decisao'),
+        '  IF EXISTS (SELECT 1 FROM public.decisao_final d\n',
+        '  IF false AND (EXISTS (SELECT 1 FROM public.decisao_final d\n',
+        'M25'
+      ),
+      'AND h.por_usuario = v_uid) THEN',
+      'AND h.por_usuario = v_uid)) THEN',
+      'M25'
+    ),
   },
 ];
 
