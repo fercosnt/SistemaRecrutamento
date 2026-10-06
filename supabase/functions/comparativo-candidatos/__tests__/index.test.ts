@@ -81,11 +81,12 @@ function makeMockOpenAI() {
 }
 
 // Mock Supabase: anon client returns a valid RH user; admin client returns the
-// analise rows + the vaga ownership row + captures the comparativo_solicitado INSERT.
+// analise rows + a vaga row + captures the comparativo_solicitado INSERT.
 //
-// `vagaOwner` is the `vagas.created_by` returned for the ownership guard (C1). The
-// happy-path RH user (RH_USER.id === 'rh-1') OWNS the vaga by default; an rh who does
-// NOT own it is exercised by passing a different vagaOwner.
+// `vagaOwner` is the vaga author the mock returns if anything reads `vagas`. Since
+// Phase 50 / D-01 the EF no longer reads it for authorization, so the knob is inert;
+// it is kept so the existing call sites stay unchanged. The C1 test passes a different
+// author ('rh-other') to prove that an active rh still gets 200.
 // AI-01 (23-02): row ativa de prompt_versions que loadPrompt resolve (schema
 // '1.0.0' casa SCHEMA_VERSIONS) — o stub silencioso 0.0.0 foi removido do EF.
 const PROMPT_ROW_FIXTURE = {
@@ -205,7 +206,7 @@ function makeMockSupabaseAdmin(
             reads.push(table);
             return Promise.resolve({ data: analiseRows, error: null });
           },
-          // vagas ownership read (`.eq(...).maybeSingle()`) — C1 guard
+          // vagas read (`.eq(...).maybeSingle()`) — inert since Phase 50 / D-01
           eq: () => ({
             maybeSingle: () =>
               Promise.resolve({
@@ -276,7 +277,7 @@ function rowsForVaga(vagaId: string, ids: string[]): Record<string, unknown>[] {
   }));
 }
 
-// ── C1: authorization (role + ownership) — IDOR/PII guard ───────────────────
+// ── C1: authorization (live active usuarios_rh role) — IDOR/PII guard ──
 Deno.test("C1 — candidato-role caller → 403 FORBIDDEN (never reaches analise data)", async () => {
   const { handler } = await loadHandler();
   const deps = {
@@ -292,19 +293,25 @@ Deno.test("C1 — candidato-role caller → 403 FORBIDDEN (never reaches analise
   assertEquals(json.error_code, "FORBIDDEN");
 });
 
-Deno.test("C1 — rh who does NOT own the vaga → 403 FORBIDDEN", async () => {
+// Phase 50 / D-01: este teste assertava 403 para um rh que não criou a vaga. A autoria
+// deixou de ser autorização — todo rh ATIVO compara candidatos de qualquer vaga. O
+// negativo que fica é o de cima (sem linha ativa em usuarios_rh ⇒ 403) e a integridade
+// JORN-32 (candidatura de outra vaga / inexistente ⇒ 403), mais abaixo.
+Deno.test("C1 — rh ativo que não criou a vaga → 200 (Phase 50 / D-01)", async () => {
   const { handler } = await loadHandler();
+  const anthropic = makeMockAnthropic();
   const deps = {
-    anthropic: makeMockAnthropic(),
+    anthropic,
     openai: makeMockOpenAI(),
-    // vaga owned by a DIFFERENT rh ('rh-other'), not RH_USER ('rh-1').
+    // vaga criada por OUTRO rh ('rh-other'), não por RH_USER ('rh-1'); RH_USER é recrutador ativo.
     supabaseAdmin: makeMockSupabaseAdmin(rowsForVaga("v1", ["c1", "c2"]), "rh-other"),
     supabaseUser: makeMockSupabaseUser(RH_USER),
   };
   const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
-  assertEquals(res.status, 403);
+  assertEquals(res.status, 200);
   const json = await res.json();
-  assertEquals(json.error_code, "FORBIDDEN");
+  assertExists(json.ranking, "rh ativo recebe o ranking em vaga criada por outro");
+  assertEquals(anthropic.calls.length > 0, true, "a IA foi chamada");
 });
 
 // ── TRIAGEM-03: validação de contagem (2 .. COMPARATIVO_MAX_CANDIDATOS) ─────
@@ -617,7 +624,7 @@ Deno.test(
   async () => {
     const { handler } = await loadHandler();
     const anthropic = makeMockAnthropic();
-    // O RH é dono de v1 (a posse de `body.vaga_id` PASSA). c2 é de v2. Antes deste plano,
+    // O RH é rh ativo e pede v1 (`body.vaga_id`). c2 é de v2. Antes deste plano,
     // a EF só conferia que as ANÁLISES eram da mesma vaga entre si — então bastava pedir
     // dois candidatos da MESMA vaga alheia para ler score, gaps e resumo de CV deles.
     const supabaseAdmin = makeMockSupabaseAdmin(

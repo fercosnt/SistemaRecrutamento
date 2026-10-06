@@ -4,30 +4,34 @@
  * Phase 32 / Plan 32-02 — SEG-01. The single privileged RH path to a candidate
  * CV. Invoked by an authenticated RH (via `supabase.functions.invoke` from
  * `cvUploadService.getSignedUrl`). Mints a SHORT-LIVED (60s) signed URL over the
- * PRIVATE `curriculos` bucket AFTER verifying role + vaga ownership — replacing
- * the role-only `curriculos_select_own_or_rh` Storage read branch (dropped in
- * Migration A, applied in 32-04).
+ * PRIVATE `curriculos` bucket AFTER verifying the role from a live active
+ * `usuarios_rh` row — replacing the role-only `curriculos_select_own_or_rh`
+ * Storage read branch (dropped in Migration A, applied in 32-04). Phase 50 / D-01:
+ * vaga ownership is no longer authorization; every ACTIVE rh reads any CV, as the
+ * administrador does.
  *
  * Architecture (D-23 two-client, authenticate-THEN-authorize — cloned verbatim
  * from `comparativo-candidatos/index.ts`):
  *   1. AUTHENTICATE: supabaseUser (anon + Authorization) → auth.getUser() (401 if none).
- *   2. AUTHORIZE role: read `usuarios_rh.role` via supabaseAdmin (service_role);
- *      map recrutador→rh / administrador→administrador; role ∉ {rh, administrador} → 403.
- *      role is NOT read from getUser().app_metadata — the custom_access_token_hook
- *      injects role ONLY into signed JWT claims; the DB raw_app_meta_data is null.
+ *   2. AUTHORIZE role: read `usuarios_rh.role` via supabaseAdmin (service_role), ONLY
+ *      a live row (`ativo = true`, `deleted_at IS NULL`); map recrutador→rh /
+ *      administrador→administrador; role ∉ {rh, administrador} → 403. This is the
+ *      ONLY authorization (Phase 50 / D-01, D-02 — the EF equivalent of
+ *      `is_active_rh_user()`). role is NOT read from getUser().app_metadata — the
+ *      custom_access_token_hook injects role ONLY into signed JWT claims; the DB
+ *      raw_app_meta_data is null.
  *   3. INPUT: `{ candidatura_id }` ONLY — NEVER a client-supplied storage path
  *      (forgeable — Tampering T-32-03). The path is resolved server-side.
- *   4. RESOLVE: `candidaturas.select('curriculo_url, vaga_id')` (allowlist projection,
- *      NEVER select('*') — [[reference_select_star_leaks_pii]]); missing row or
- *      NULL curriculo_url → 404.
- *   5. AUTHORIZE ownership: role='rh' MUST own the vaga (vagas.created_by === user.id)
- *      else 403; 'administrador' bypasses (never reads vagas).
+ *   4. RESOLVE: `candidaturas.select('curriculo_url')` (allowlist projection, NEVER
+ *      select('*') — [[reference_select_star_leaks_pii]]), soft-deleted rows excluded;
+ *      missing row → 404.
+ *   5. NULL curriculo_url → 404.
  *   6. MINT: supabaseAdmin.storage.from('curriculos').createSignedUrl(path, 60) → 200.
  *
  * ── authenticate ≠ authorize (P10/P11 landmine) ──────────────────────────────
- *   An authenticate-ONLY EF (getUser then service_role read WITHOUT the role +
- *   ownership check) lets any authenticated candidate read any CV. Both guards
- *   (steps 2 + 5) run BEFORE any privileged read. See [[reference_ef_authenticate_vs_authorize]].
+ *   An authenticate-ONLY EF (getUser then service_role read WITHOUT the role
+ *   check) lets any authenticated candidate read any CV. The role guard (step 2)
+ *   runs BEFORE any privileged read. See [[reference_ef_authenticate_vs_authorize]].
  *
  * Two-client (D-23): supabaseUser (anon + Authorization) SÓ for auth.getUser();
  *   supabaseAdmin (service_role) SÓ for privileged reads/storage. NEVER
@@ -86,7 +90,6 @@ export interface Deps {
 /** Allowlist projection of `candidaturas` consumed by this EF (never select('*')). */
 interface CandidaturaRow {
   curriculo_url: string | null;
-  vaga_id: string;
 }
 
 /**
@@ -160,7 +163,7 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     //      NULL → 404.
     const { data: candRaw, error: candErr } = await supabaseAdmin
       .from("candidaturas")
-      .select("curriculo_url, vaga_id")
+      .select("curriculo_url")
       .eq("id", candidaturaId)
       .is("deleted_at", null) // WR-03: NEVER mint a URL for a soft-deleted candidatura's CV
       .maybeSingle();
@@ -172,28 +175,10 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
       return errorResponse("NOT_FOUND", "Candidatura não encontrada.", 404);
     }
 
-    // ── 5. AUTHORIZE ownership FIRST (C1 — espelha comparativo/reprocessar_analise):
-    //      role='rh' DEVE ser o dono da vaga (vagas.created_by === user.id);
-    //      'administrador' bypassa (nunca lê `vagas`). Sem isso, um RH de OUTRA
-    //      vaga leria o CV de candidatos alheios (cross-recruiter T-32-01).
-    //      WR-01: a checagem de posse vem ANTES do 404-sem-CV — assim um NÃO-dono recebe
-    //      sempre 403 e nunca descobre se a candidatura tem (ou não) currículo (oráculo
-    //      de existência de CV cross-recruiter).
-    if (role === "rh") {
-      const { data: vagaRow, error: vagaErr } = await supabaseAdmin
-        .from("vagas")
-        .select("created_by")
-        .eq("id", cand.vaga_id)
-        .maybeSingle();
-      if (vagaErr) {
-        return errorResponse("SERVER_ERROR", "Falha ao verificar a vaga.", 500);
-      }
-      if (!vagaRow || vagaRow.created_by !== user.id) {
-        return errorResponse("FORBIDDEN", "Acesso negado.", 403);
-      }
-    }
-
-    // ── 5b. Só APÓS a posse: currículo ausente (NULL) → 404.
+    // ── 5. Currículo ausente (NULL) → 404. (Phase 50 / D-01: a autoria da vaga
+    //      deixou de ser autorização — todo rh ATIVO lê o CV de qualquer candidatura,
+    //      como o administrador. A autorização é só a linha viva de usuarios_rh do
+    //      passo 2; nenhuma leitura de `vagas` acontece.)
     if (!cand.curriculo_url) {
       return errorResponse("NOT_FOUND", "Currículo não encontrado.", 404);
     }

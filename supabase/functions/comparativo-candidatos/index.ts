@@ -6,8 +6,8 @@
  * Arquitetura (CONTEXT §Comparativo on-demand — two-client D-23, JWT verify ON):
  *   Recebe `{ vaga_id, candidatura_ids[] }`, verifica o JWT do RH (supabaseUser
  *   anon + Authorization → auth.getUser()), valida a contagem contra
- *   `COMPARATIVO_MIN/MAX_CANDIDATOS` + que TODAS as candidaturas são da vaga cuja
- *   posse foi checada, roda o prompt `comparative_ranking` (Sonnet, single-eval V1)
+ *   `COMPARATIVO_MIN/MAX_CANDIDATOS` + que TODAS as candidaturas são da vaga do
+ *   pedido (`body.vaga_id`), roda o prompt `comparative_ranking` (Sonnet, single-eval V1)
  *   sobre as análises PRÉ-COMPUTADAS e INSERTa UMA linha de auditoria em
  *   `comparativo_solicitado` (candidatura_ids + ranking + latencia_ms +
  *   provedor_ia/modelo_ia).
@@ -17,8 +17,9 @@
  *     contra a saída real) e passa a vir de `_shared/comparativo-config.ts`: 4, o
  *     maior n que cabe nos 3600 tok que os 110 s de timeout permitem. Um pedido
  *     maior é recusado ANTES da chamada de IA, com a mensagem montada DA constante.
- *   · JORN-32 (IDOR): a EF confere a posse de CADA candidatura contra
- *     `body.vaga_id` — a vaga cuja posse foi verificada. Antes ela só conferia que
+ *   · JORN-32 (IDOR): a EF confere CADA candidatura contra `body.vaga_id` — a vaga
+ *     do pedido (Phase 50 / D-01: a autoria da vaga não é mais autorização; esta
+ *     conferência é integridade e fica, D-09). Antes ela só conferia que
  *     as ANÁLISES eram da mesma vaga ENTRE SI, o que não impedia um RH de comparar
  *     candidatos de uma vaga alheia informando o `vaga_id` dela.
  *   · D-34: candidatura encerrada ⇒ 400 `ENCERRADA`; análise ausente ⇒ 400
@@ -172,7 +173,7 @@ export interface ComparativoDeps {
 }
 
 /**
- * Linha allowlist de `candidaturas` consumida pela conferência de posse e estado (49-08).
+ * Linha allowlist de `candidaturas` consumida pela conferência de integridade e estado (49-08).
  * Quatro colunas e nada mais: `vaga_id` para o IDOR (JORN-32), `etapa_atual`+`status` para o
  * predicado canônico de encerrada (D-34). `encerrada_a_pedido_em` NÃO entra — retirada a
  * pedido segue comparável, e ler o campo convidaria a usá-lo no critério.
@@ -213,8 +214,8 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
   const user = userRes.user;
 
   // ── 1b. AUTORIZAÇÃO (C1 — IDOR/PII): autenticar NÃO basta. As análises são lidas
-  //      via service_role (bypassa RLS), então a EF DEVE verificar o papel + posse
-  //      ANTES de tocar `analise_candidato_vaga`. Espelha o guard da RPC
+  //      via service_role (bypassa RLS), então a EF DEVE verificar o papel (linha
+  //      viva e ativa de usuarios_rh) ANTES de tocar `analise_candidato_vaga`. Espelha o guard da RPC
   //      reprocessar_analise (migration 20260610000003) + o cross-check IDOR de
   //      submit-candidatura. role NÃO em ('rh','administrador') → 403; um candidato/
   //      anon NUNCA alcança os dados de análise (score/CV/gaps = PII).
@@ -271,29 +272,18 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
   const start = Date.now();
 
   try {
-    // ── 3b. Posse da vaga (C1 — espelha reprocessar_analise): role='rh' DEVE ser
-    //      o dono da vaga (vagas.created_by === user.id); 'administrador' bypassa.
-    //      Sem isso, um RH de OUTRA vaga leria score/CV/gaps de candidatos alheios.
-    if (role === "rh") {
-      const { data: vagaRow, error: vagaErr } = await supabaseAdmin
-        .from("vagas")
-        .select("created_by")
-        .eq("id", body.vaga_id)
-        .maybeSingle();
-      if (vagaErr) {
-        return errorResponse("SERVER_ERROR", "Falha ao verificar a vaga.", 500);
-      }
-      if (!vagaRow || vagaRow.created_by !== user.id) {
-        return errorResponse("FORBIDDEN", "Acesso negado.", 403);
-      }
-    }
+    // ── 3b. (removido na Phase 50 / D-01) A autoria da vaga deixou de ser
+    //      autorização: todo rh ATIVO opera qualquer vaga, como o administrador. A
+    //      autorização é só a linha viva de usuarios_rh do passo 1b. O que segue (3c)
+    //      é INTEGRIDADE e fica (D-09): toda candidatura pedida tem de ser de
+    //      `body.vaga_id`.
 
-    // ── 3c. POSSE E ESTADO DE CADA CANDIDATURA (JORN-32 / D-34) ─────────────
+    // ── 3c. INTEGRIDADE E ESTADO DE CADA CANDIDATURA (JORN-32 / D-34) ───────
     //
     // ⚠ Isto é o conserto do IDOR, e ele tem de vir ANTES de qualquer leitura de
     // análise. O que existia era um cross-check entre as ANÁLISES: «todas da mesma
     // vaga ENTRE SI» (`vagas.size === 1`). Isso nunca amarrou nada a `body.vaga_id`
-    // — a vaga cuja posse acabou de ser verificada. Bastava a um RH pedir dois
+    // — a vaga do pedido. Bastava a um RH pedir dois
     // candidatos da MESMA vaga alheia para ler `score_match`, `gaps` e `resumo_cv`
     // deles: os dois eram da mesma vaga, o cross-check passava, e a EF lê com
     // service_role (RLS não protege aqui). Medido em `index.ts:182-220` no kickoff.
@@ -317,10 +307,11 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
     }
     const cands = (candsRaw ?? []) as CandidaturaRow[];
 
-    // JORN-32: a posse de `body.vaga_id` foi verificada acima, então TODA candidatura
-    // pedida tem de ser DELA. Ausente e alheia recebem o MESMO 403 genérico, DE
-    // PROPÓSITO (T-49-08-02): uma mensagem que diferenciasse «não existe» de «não é
-    // sua» seria um oráculo de existência — por tentativa, um RH enumeraria ids de
+    // JORN-32: `body.vaga_id` é a âncora de integridade — TODA candidatura pedida tem
+    // de ser DELA. Uma vaga inexistente faz toda candidatura ser forasteira, e cai no
+    // mesmo 403. Ausente e de outra vaga recebem o MESMO 403 genérico, DE PROPÓSITO
+    // (T-49-08-02): uma mensagem que diferenciasse «não existe» de «é de outra vaga»
+    // seria um oráculo de existência — por tentativa, enumerar-se-iam ids de
     // candidatura do sistema inteiro. O 403 aqui não diz nada além de «não».
     const forasteira = cands.length !== ids.length ||
       cands.some((c) => c.vaga_id !== body.vaga_id);
@@ -360,8 +351,9 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
     const semAnalise = ids.filter((id) => !idsComAnalise.has(id));
     if (semAnalise.length > 0) {
       // Os ids vão no corpo para a tela poder NOMEAR quem falta (o RH decide se espera
-      // a análise ou tira a pessoa da seleção). São ids de candidatura da vaga dele —
-      // a posse já foi conferida acima —, não PII de terceiro.
+      // a análise ou tira a pessoa da seleção). São ids de candidatura que ele mesmo
+      // pediu, da vaga do pedido — a integridade já foi conferida acima —, não PII de
+      // terceiro.
       return errorResponse(
         "SEM_ANALISE",
         `Ainda não há análise para ${semAnalise.length} candidato(s) selecionado(s).`,

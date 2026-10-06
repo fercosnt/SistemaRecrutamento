@@ -19,12 +19,12 @@
  * ASSERTIONS — the authorize-THEN-authenticate contract this EF must encode (SEG-01):
  *   (1) no session (getUser null)                       → 401 UNAUTHORIZED
  *   (2) authed candidato (no usuarios_rh row → role null)→ 403 FORBIDDEN
- *   (3) authed rh NOT owning the vaga (created_by ≠ uid) → 403 FORBIDDEN  ← the AUTHORITATIVE
- *       cross-recruiter deny gate (RESEARCH Pitfall 6: 0 role='recrutador' PROD accounts, so
- *       no live curl can prove this — the deno test is the gate).
+ *   (3) authed ACTIVE rh on a vaga authored by someone else → 200 { signedUrl }, 0 `vagas`
+ *       reads. Until Phase 50 this was a 403 (cross-recruiter deny); Phase 50 / D-01 removed
+ *       vaga authorship as authorization — the live active usuarios_rh row is the only gate.
  *   (4) candidatura missing / curriculo_url NULL         → 404 NOT_FOUND
- *   (5a) owner rh (created_by == uid)                    → 200 { signedUrl }
- *   (5b) administrador (ownership bypass)                → 200 { signedUrl } AND never reads `vagas`
+ *   (5a) rh on a vaga they authored                      → 200 { signedUrl }
+ *   (5b) administrador                                   → 200 { signedUrl } AND never reads `vagas`
  *
  * Run: deno test --allow-env --allow-read --config supabase/functions/deno.json \
  *        supabase/functions/get-curriculo-url
@@ -74,7 +74,7 @@ interface AdminOpts {
   role?: string | null;
   /** candidaturas row projection {curriculo_url, vaga_id}; `null` = no row (404). */
   cand?: { curriculo_url: string | null; vaga_id: string } | null;
-  /** vagas row projection {created_by}; drives the ownership check for role='rh'. */
+  /** vagas row projection {created_by}; inert since Phase 50 / D-01 (the EF no longer reads vagas). */
   vaga?: { created_by: string } | null;
   signedUrl?: string;
   signError?: unknown;
@@ -180,19 +180,24 @@ Deno.test("authed candidato (no usuarios_rh row → role null) → 403 FORBIDDEN
   assertEquals(json.error_code, "FORBIDDEN");
 });
 
-// ── (3) ownership gate — authed rh NOT owning the vaga → 403 (cross-recruiter) ─
-Deno.test("authed rh NOT owning the vaga (created_by ≠ uid) → 403 FORBIDDEN", async () => {
+// ── (3) Phase 50 / D-01 — active rh on a vaga authored by someone else → 200 ───
+// Until Phase 50 this asserted 403 (cross-recruiter deny). Vaga authorship is no longer
+// authorization: every ACTIVE rh reads any CV, as the administrador does. The negative that
+// stays is (2): no live active usuarios_rh row → 403.
+Deno.test("authed active rh on a vaga authored by someone else → 200 with signedUrl, 0 vagas reads", async () => {
   const { handler } = await loadHandler();
   const admin = makeMockSupabaseAdmin({
     role: "recrutador",
     cand: { curriculo_url: CV_PATH, vaga_id: VAGA_ID },
-    vaga: { created_by: OTHER_UID }, // a DIFFERENT recruiter owns the vaga
+    vaga: { created_by: OTHER_UID }, // a DIFFERENT recruiter authored the vaga
   });
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
   const res = await handler(makeRequest(VALID_BODY), deps);
-  assertEquals(res.status, 403);
+  assertEquals(res.status, 200);
   const json = await res.json();
-  assertEquals(json.error_code, "FORBIDDEN");
+  assertEquals(json.ok, true);
+  assertEquals(json.signedUrl, SIGNED_URL);
+  assertEquals(admin.reads.vagas, 0, "active rh must NOT read vagas (no ownership lookup)");
 });
 
 // ── (4) not-found — candidatura curriculo_url NULL → 404 NOT_FOUND ────────────
