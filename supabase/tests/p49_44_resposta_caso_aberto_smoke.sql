@@ -3,9 +3,10 @@
 --                          (WR-07 do 49-REVIEW-GAPS-4 / JORN-41)
 -- =============================================================================
 -- O QUE ELE VIGIA (migration 20261003000001).
---   · `public.ler_resposta_caso_aberto_sjt(uuid)`: o RH dono da vaga e o administrador leem o
---     texto que o candidato gravou na resposta do caso aberto da SJT; RH de outra vaga, chamada
---     sem claims e o próprio candidato recebem 42501; `anon` não tem EXECUTE. Estados de borda
+--   · `public.ler_resposta_caso_aberto_sjt(uuid)`: o RH ATIVO (desde a Phase 50, qualquer vaga —
+--     até a 49 era o RH dono da vaga) e o administrador leem o texto que o candidato gravou na
+--     resposta do caso aberto da SJT; o token de recrutador INATIVO, o rh sem linha em
+--     `usuarios_rh`, chamada sem claims e o próprio candidato recebem 42501; `anon` não tem EXECUTE. Estados de borda
 --     distintos, sem causa inventada; o rascunho de um caso aberto não enviado nunca sai.
 --   · `public.caso_aberto_sjt_enviado(uuid)` + `cand_congela_caso_aberto_{ins,upd,del}`
 --     (RESTRICTIVE, TO authenticated): depois que a linha `scores_candidato` `sjt`/`caso_aberto`
@@ -24,6 +25,10 @@
 -- `status = 'rejeitado'` (desarma `trg_notif_confirmacao`) e vão a `em_analise` por UPDATE só de
 -- status (exceto E), numa vaga VIVA com `created_by` não nulo LIDA NA EXECUÇÃO; o administrador é
 -- REAL e ATIVO, lido de `usuarios_rh` na execução. Todas na MESMA subtransação.
+--   Phase 50 (D-01, D-02): o ator `rh` de (b), (d), (e), (f) e (h) é uma linha ATIVA de
+--   `usuarios_rh` lida na execução, com `user_id` DIFERENTE do `created_by` da vaga (recrutador
+--   primeiro) — nenhuma impersonação tira o `sub` de `vagas.created_by`. O token velho de (d) é
+--   `role = 'recrutador' AND NOT ativo`, também lido na execução.
 --   A  decisao_final, enviada (score sjt/caso_aberto `sucesso` com motivos_revisao =
 --      ["instrucao_ao_modelo"]), autosave com texto conhecido (quebra de linha e acento).
 --   B  avaliacao_assincrona, NÃO enviada (sem score), rascunho salvo.
@@ -46,22 +51,27 @@
 --   (a) ACL da RPC e do helper: `anon` sem EXECUTE, `authenticated` com. Sob `SET LOCAL ROLE anon`
 --       as duas chamadas falham com `permission denied for function`, e NÃO com `forbidden`: o ACL e
 --       a guarda dão o mesmo SQLSTATE (42501), e só a mensagem os distingue.
---   (b) claims `rh` com `sub` = `created_by` da vaga ⇒ A `disponivel`, md5(texto) = md5 da fixture.
+--   (b) claims `rh` com `sub` de uma linha ATIVA de `usuarios_rh` que NÃO é o autor da vaga ⇒ A
+--       `disponivel`, md5(texto) = md5 da fixture. (Até a Phase 49: `sub` = `created_by` da vaga;
+--       a D-01 tirou a posse da regra — o rh ativo lê em qualquer vaga.)
 --   (c) administrador ATIVO real ⇒ A `disponivel`, mesmo md5.
---   (d) sobre a fixture POVOADA: `rh` com `sub` aleatório ⇒ 42501; sem claims ⇒ 42501; claims
---       `candidato` com `sub` = o titular de A ⇒ 42501; `sub` VÁLIDO (o dono da vaga) SEM
---       `app_metadata.role` ⇒ 42501 (a metade «papel nulo» da guarda fail-closed: com `sub`
+--   (d) sobre a fixture POVOADA: `rh` com `sub` aleatório (rh SEM LINHA ATIVA em `usuarios_rh`) ⇒
+--       42501; TOKEN VELHO (claim `rh` + recrutador INATIVO, Phase 50 / D-02) ⇒ 42501; sem claims ⇒
+--       42501; claims `candidato` com `sub` = o titular de A ⇒ 42501; `sub` VÁLIDO (o do rh ativo)
+--       SEM `app_metadata.role` ⇒ 42501 (a metade «papel nulo» da guarda fail-closed: com `sub`
 --       presente, só o `coalesce` recusa — WR-02 do 49-REVIEW-GAPS-8); candidatura inexistente com
---       claims `rh` do dono ⇒ 42501 (inexistente e alheia indistinguíveis); inexistente com
---       administrador ⇒ P0002. A sonda nova foi posta DENTRO de (d), e não numa cláusula própria:
+--       claims `rh` do rh ATIVO ⇒ P0002 (Phase 50: o rh ativo passa a autorização como o
+--       administrador; até a 49 era 42501, «inexistente e alheia indistinguíveis» para o dono);
+--       inexistente com o rh SEM LINHA ATIVA ⇒ 42501 (para quem não é rh ativo, inexistente e
+--       existente continuam indistinguíveis); inexistente com administrador ⇒ P0002. A sonda nova foi posta DENTRO de (d), e não numa cláusula própria:
 --       ela é mais uma negativa da guarda sobre a mesma fixture, e assim o esperado segue 9 e o
 --       contrato `esperado === 9` que o 49-45 consome não muda.
 --   (e) B ⇒ `sem_resposta_enviada`, `texto` nulo, e nem o rascunho nem o md5 dele aparecem no
 --       retorno; C ⇒ `indisponivel`; D ⇒ `removida`; E (encerrada) ⇒ `disponivel` para
---       o dono, com o texto de E. `removida` é neutro: o marcador `redigido` sai do motor de
+--       o rh ativo, com o texto de E. `removida` é neutro: o marcador `redigido` sai do motor de
 --       exclusão tanto no direito do titular quanto na purga de retenção, e não prova quem pediu.
 --   (f) Sob `SET LOCAL ROLE authenticated`, `count(*)` direto de `respostas_avaliacao` da
---       candidatura A = 0 para o RH dono, o administrador e o titular de F; como `postgres` = 1
+--       candidatura A = 0 para o RH ativo, o administrador e o titular de F; como `postgres` = 1
 --       (população). Sob `SET LOCAL ROLE anon`, nem contagem ≥ 1 nem leitura: o retorno registra
 --       qual dos dois aconteceu.
 --   (g) Titular de F (`SET LOCAL ROLE authenticated` + claims `candidato`). Cada sonda negativa usa a
@@ -77,7 +87,7 @@
 --       VÁCUA (o controle não passou), não «portão aberto».
 --   (h) Como `postgres` (o papel do motor `anonimizar_candidato`, SECURITY DEFINER, dono da tabela,
 --       sem FORCE RLS), o UPDATE de F para o marcador `redigido` afeta 1 linha, e a RPC com claims
---       do dono devolve `removida`. No catálogo: `relforcerowsecurity` falso; toda
+--       do rh ativo devolve `removida`. No catálogo: `relforcerowsecurity` falso; toda
 --       sobrecarga de `anonimizar_candidato` é `prosecdef` com dono = dono de `respostas_avaliacao`
 --       (população: ≥ 1 sobrecarga).
 --   (z) nada das fixtures sobrevive; contagens globais = baseline capturada NA execução.
@@ -92,6 +102,11 @@
 --   | Mutação | Inversão                                                        | Reprova | Rótulo (g) |
 --   |---------|-----------------------------------------------------------------|---------|------------|
 --   | M1      | RPC sem a condição de posse do `rh`                              | (d)     | —          |
+--   ⚠ Phase 50: M1 (posse) deixou de existir — o 20261005000003 trocou a posse pelo helper; o runner
+--   p49_44 é prova histórica PRÉ-apply do 20261003000001 e não roda mais (o pré-portão dele recusa
+--   reaplicar). `scripts/p49_44_mutacoes.cjs` NÃO é re-rodado nem editado: é registro, e registro
+--   não se reescreve (espírito da D-08). A inversão que M1 cobria hoje é «RPC sem a linha do helper»,
+--   mordida pelo token velho e pelo rh sem linha de (d) (mordidas do 50-09, fora do repositório).
 --   | M2      | RPC sem a guarda de papel inteira                                | (d)     | —          |
 --   | M3      | RPC sem a condição de envio (devolve o rascunho)                 | (e)     | —          |
 --   | M4      | helper `caso_aberto_sjt_enviado` sempre falso                    | (g)     | upsert     |
@@ -123,9 +138,11 @@
 --   ESCOPO das fixtures que ele mesmo cria, não fotografia do banco; as contagens globais de (z)
 --   são baseline capturada na execução.
 --
--- COMO RODAR: `node p46apply.cjs run supabase/tests/p49_44_resposta_caso_aberto_smoke.sql` —
--- UMA requisição, UMA sessão (depois do apply da migration, no 49-45; antes dele, só dentro do
--- ensaio que aborta). O `SELECT` final devolve `{smoke, pass, esperado, ...}`; qualquer FAIL é
+-- COMO RODAR (Phase 50): SÓ pelo envelope que aborta — `node scripts/p50_ensaio.cjs
+-- supabase/tests/p49_44_resposta_caso_aberto_smoke.sql` (antes do apply do 50-10 ele prefixa
+-- 20261005000002..4; depois, `--sem-migracoes`). VERMELHO sem o 20261005000003 (o rh ativo
+-- não-autor recebe 42501 em (b)), VERDE com ele. (Até a Phase 49: `node p46apply.cjs run …`, UMA
+-- requisição, UMA sessão — via que COMMITA o que não estiver numa subtransação revertida.) O `SELECT` final devolve `{smoke, pass, esperado, ...}`; qualquer FAIL é
 -- `RAISE EXCEPTION` e o `p46apply` sai com código ≠ 0.
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
@@ -145,16 +162,36 @@ SELECT set_config('smoke4944.fixtures', '', false);
 DO $baseline$
 DECLARE
   v_vaga  uuid;
-  v_dono  uuid;
+  v_autor uuid;
+  v_ativo uuid;
+  v_velho uuid;
   v_admin uuid;
 BEGIN
-  SELECT v.id, v.created_by INTO v_vaga, v_dono
+  SELECT v.id, v.created_by INTO v_vaga, v_autor
     FROM public.vagas v
    WHERE v.created_by IS NOT NULL AND v.deleted_at IS NULL
    ORDER BY v.created_at, v.id
    LIMIT 1;
   IF v_vaga IS NULL THEN
-    RAISE EXCEPTION 'P49C FAIL (baseline): nenhuma vaga viva com created_by — sem dono nao ha RH que leia pela posse';
+    RAISE EXCEPTION 'P49C FAIL (baseline): nenhuma vaga viva com created_by — a fixture precisa de uma vaga com autor para provar que o rh ativo NAO-autor le';
+  END IF;
+
+  -- Phase 50 / D-01: o rh de (b)/(d)/(e)/(f)/(h) é uma linha ATIVA de usuarios_rh que NÃO é o
+  -- autor da vaga (recrutador primeiro) — nunca o sub de vagas.created_by.
+  SELECT u.user_id INTO v_ativo
+    FROM public.usuarios_rh u
+   WHERE u.user_id IS NOT NULL AND u.ativo AND u.deleted_at IS NULL
+     AND u.user_id IS DISTINCT FROM v_autor
+   ORDER BY (u.role = 'recrutador') DESC, u.created_at, u.user_id
+   LIMIT 1;
+  -- Phase 50 / D-02: o token velho de (d) — claim rh + recrutador INATIVO.
+  SELECT u.user_id INTO v_velho
+    FROM public.usuarios_rh u
+   WHERE u.user_id IS NOT NULL AND u.role = 'recrutador' AND NOT u.ativo
+   ORDER BY u.created_at, u.user_id
+   LIMIT 1;
+  IF v_ativo IS NULL OR v_velho IS NULL THEN
+    RAISE EXCEPTION 'P49C FAIL (baseline): falta ator do par (rh ativo nao-autor = %, recrutador inativo = %) — ausencia de ator REPROVA, nunca pula', v_ativo IS NOT NULL, v_velho IS NOT NULL;
   END IF;
 
   SELECT u.user_id INTO v_admin
@@ -167,7 +204,8 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke4944.vaga',  v_vaga::text,  false);
-  PERFORM set_config('smoke4944.dono',  v_dono::text,  false);
+  PERFORM set_config('smoke4944.ativo', v_ativo::text, false);
+  PERFORM set_config('smoke4944.velho', v_velho::text, false);
   PERFORM set_config('smoke4944.admin', v_admin::text, false);
 
   PERFORM set_config('smoke4944.n_users', (SELECT count(*) FROM auth.users)::text, false);
@@ -189,7 +227,8 @@ RESET ROLE;
 DO $p1$
 DECLARE
   v_vaga   uuid := current_setting('smoke4944.vaga')::uuid;
-  v_dono   uuid := current_setting('smoke4944.dono')::uuid;
+  v_ativo  uuid := current_setting('smoke4944.ativo')::uuid;
+  v_velho  uuid := current_setting('smoke4944.velho')::uuid;
   v_admin  uuid := current_setting('smoke4944.admin')::uuid;
   v_ids    text := '';
   v_ran    boolean := false;
@@ -234,6 +273,7 @@ DECLARE
   -- (d)
   d_alheio text := '<nao rodou>';  d_sem text := '<nao rodou>';  d_cand text := '<nao rodou>';
   d_inex_rh text := '<nao rodou>';  d_inex_adm text := '<nao rodou>';  d_sem_papel text := '<nao rodou>';
+  d_velho text := '<nao rodou>';  d_inex_sem_linha text := '<nao rodou>';
   -- (e)
   e_b_state text := '<nao rodou>';  e_b_ret jsonb;
   e_c_state text := '<nao rodou>';  e_c_ret jsonb;
@@ -307,9 +347,9 @@ BEGIN
     END;
     RESET ROLE;
 
-    -- ── (b) · RH dono da vaga lê A ─────────────────────────────────────────────
+    -- ── (b) · RH ATIVO, NÃO autor da vaga, lê A (Phase 50 / D-01) ─────────────
     SET LOCAL ROLE authenticated;
-    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dono::text, 'role', 'authenticated',
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
               'app_metadata', json_build_object('role', 'rh'))::text, true);
     BEGIN
       v_ret := public.ler_resposta_caso_aberto_sjt(v_cids[c_a]);
@@ -347,23 +387,40 @@ BEGIN
       d_cand := 'ACEITO:' || coalesce(v_ret ->> 'situacao', '?');
     EXCEPTION WHEN OTHERS THEN d_cand := SQLSTATE || ':' || SQLERRM;
     END;
-    -- papel AUSENTE com `sub` VÁLIDO (o próprio dono da vaga): só o `coalesce(v_role, '')` recusa.
+    -- TOKEN VELHO (Phase 50 / D-02): claim rh + recrutador INATIVO ⇒ 42501 pelo helper vivo.
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_velho::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    BEGIN
+      v_ret := public.ler_resposta_caso_aberto_sjt(v_cids[c_a]);
+      d_velho := 'ACEITO:' || coalesce(v_ret ->> 'situacao', '?');
+    EXCEPTION WHEN OTHERS THEN d_velho := SQLSTATE || ':' || SQLERRM;
+    END;
+    -- papel AUSENTE com `sub` VÁLIDO (o do rh ativo): só o `coalesce(v_role, '')` recusa.
     -- Sem ele, `v_uid IS NULL OR v_role NOT IN (…)` dá `false OR NULL` = NULL e o IF não dispara;
     -- `v_role = 'rh'` também é NULL, e a função devolveria o texto (M9). A sonda «sem claims» não
     -- vê isso, porque nela `auth.uid()` também é nulo e a guarda recusa pelo `v_uid IS NULL`.
-    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dono::text, 'role', 'authenticated',
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
               'app_metadata', json_build_object())::text, true);
     BEGIN
       v_ret := public.ler_resposta_caso_aberto_sjt(v_cids[c_a]);
       d_sem_papel := 'ACEITO:' || coalesce(v_ret ->> 'situacao', '?');
     EXCEPTION WHEN OTHERS THEN d_sem_papel := SQLSTATE || ':' || SQLERRM;
     END;
-    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dono::text, 'role', 'authenticated',
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
               'app_metadata', json_build_object('role', 'rh'))::text, true);
     BEGIN
       v_ret := public.ler_resposta_caso_aberto_sjt(gen_random_uuid());
       d_inex_rh := 'ACEITO:' || coalesce(v_ret ->> 'situacao', '?');
     EXCEPTION WHEN OTHERS THEN d_inex_rh := SQLSTATE || ':' || SQLERRM;
+    END;
+    -- inexistente com o rh SEM LINHA ATIVA (sub sorteado): continua 42501 — para quem não é rh
+    -- ativo, inexistente e existente seguem indistinguíveis.
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', gen_random_uuid()::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    BEGIN
+      v_ret := public.ler_resposta_caso_aberto_sjt(gen_random_uuid());
+      d_inex_sem_linha := 'ACEITO:' || coalesce(v_ret ->> 'situacao', '?');
+    EXCEPTION WHEN OTHERS THEN d_inex_sem_linha := SQLSTATE || ':' || SQLERRM;
     END;
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated',
               'app_metadata', json_build_object('role', 'administrador'))::text, true);
@@ -373,8 +430,8 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN d_inex_adm := SQLSTATE || ':' || SQLERRM;
     END;
 
-    -- ── (e) · estados de borda, lidos pelo dono ────────────────────────────────
-    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dono::text, 'role', 'authenticated',
+    -- ── (e) · estados de borda, lidos pelo rh ativo ────────────────────────────
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
               'app_metadata', json_build_object('role', 'rh'))::text, true);
     BEGIN
       e_b_ret := public.ler_resposta_caso_aberto_sjt(v_cids[c_b]);  e_b_state := 'ACEITO';
@@ -399,7 +456,7 @@ BEGIN
     -- ── (f) · nenhum caminho novo de leitura direta da tabela ──────────────────
     SELECT count(*) INTO f_pg FROM public.respostas_avaliacao ra WHERE ra.candidatura_id = v_cids[c_a];
     SET LOCAL ROLE authenticated;
-    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dono::text, 'role', 'authenticated',
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
               'app_metadata', json_build_object('role', 'rh'))::text, true);
     BEGIN
       SELECT count(*) INTO v_n FROM public.respostas_avaliacao ra WHERE ra.candidatura_id = v_cids[c_a];
@@ -496,13 +553,13 @@ BEGIN
     SELECT md5(ra.respostas ->> 'texto') INTO g_md5
       FROM public.respostas_avaliacao ra WHERE ra.candidatura_id = v_cids[c_f] AND ra.teste = c_teste;
 
-    -- ── (h) · o motor (dono da tabela) redige a linha congelada ────────────────
+    -- ── (h) · o motor (dono da tabela) redige a linha congelada; o rh ativo lê ──
     UPDATE public.respostas_avaliacao
        SET respostas = '{"redigido":"anonimizacao_p49"}'::jsonb
      WHERE candidatura_id = v_cids[c_f] AND teste = c_teste;
     GET DIAGNOSTICS h_upd = ROW_COUNT;
     SET LOCAL ROLE authenticated;
-    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_dono::text, 'role', 'authenticated',
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ativo::text, 'role', 'authenticated',
               'app_metadata', json_build_object('role', 'rh'))::text, true);
     BEGIN
       v_ret := public.ler_resposta_caso_aberto_sjt(v_cids[c_f]);  h_sit := v_ret ->> 'situacao';  h_state := 'ACEITO';
@@ -559,8 +616,8 @@ BEGIN
 
   -- (b)
   IF b_state IS DISTINCT FROM 'ACEITO' OR b_sit IS DISTINCT FROM 'disponivel' OR b_md5 IS DISTINCT FROM md5(c_texto) THEN
-    RAISE EXCEPTION 'P49C FAIL (b): o RH dono da vaga (%) leu A com estado «%», situacao=% e md5(texto)=% (esperado ACEITO, disponivel, %) — o dono tem de ler o texto byte a byte',
-      v_dono, b_state, b_sit, b_md5, md5(c_texto);
+    RAISE EXCEPTION 'P49C FAIL (b): o RH ATIVO nao-autor da vaga (%) leu A com estado «%», situacao=% e md5(texto)=% (esperado ACEITO, disponivel, %) — desde a D-01 o rh ativo le o texto byte a byte em qualquer vaga',
+      v_ativo, b_state, b_sit, b_md5, md5(c_texto);
   END IF;
   PERFORM set_config('smoke4944.pass', (current_setting('smoke4944.pass')::int + 1)::text, false);
 
@@ -572,16 +629,16 @@ BEGIN
   PERFORM set_config('smoke4944.pass', (current_setting('smoke4944.pass')::int + 1)::text, false);
 
   -- (d)
-  IF d_alheio NOT LIKE '42501:%' OR d_sem NOT LIKE '42501:%' OR d_cand NOT LIKE '42501:%' THEN
-    RAISE EXCEPTION 'P49C FAIL (d): sobre a fixture POVOADA, rh de outra vaga=«%», sem claims=«%», candidato titular=«%» (esperado 42501 nos tres) — alguem fora do predicado WR-04 leu o texto',
-      d_alheio, d_sem, d_cand;
+  IF d_alheio NOT LIKE '42501:%' OR d_velho NOT LIKE '42501:%' OR d_sem NOT LIKE '42501:%' OR d_cand NOT LIKE '42501:%' THEN
+    RAISE EXCEPTION 'P49C FAIL (d): sobre a fixture POVOADA, rh sem linha ativa=«%», token velho (recrutador INATIVO)=«%», sem claims=«%», candidato titular=«%» (esperado 42501 nos quatro) — alguem fora de «rh ATIVO ou administrador» (D-01, D-02) leu o texto',
+      d_alheio, d_velho, d_sem, d_cand;
   END IF;
-  IF d_inex_rh NOT LIKE '42501:%' OR d_inex_adm NOT LIKE 'P0002:%' THEN
-    RAISE EXCEPTION 'P49C FAIL (d): candidatura inexistente — rh=«%» (esperado 42501: inexistente e alheia indistinguiveis para o rh), administrador=«%» (esperado P0002)',
-      d_inex_rh, d_inex_adm;
+  IF d_inex_rh NOT LIKE 'P0002:%' OR d_inex_sem_linha NOT LIKE '42501:%' OR d_inex_adm NOT LIKE 'P0002:%' THEN
+    RAISE EXCEPTION 'P49C FAIL (d): candidatura inexistente — rh ATIVO=«%» (esperado P0002: desde a D-01 ele passa a autorizacao como o administrador), rh sem linha ativa=«%» (esperado 42501: para quem nao e rh ativo, inexistente e existente seguem indistinguiveis), administrador=«%» (esperado P0002)',
+      d_inex_rh, d_inex_sem_linha, d_inex_adm;
   END IF;
   IF d_sem_papel NOT LIKE '42501:%' THEN
-    RAISE EXCEPTION 'P49C FAIL (d): sub VALIDO (o dono da vaga) SEM app_metadata.role devolveu «%» (esperado 42501) — a guarda deixou de ser fail-closed para papel nulo (o coalesce(v_role, '''') saiu?)',
+    RAISE EXCEPTION 'P49C FAIL (d): sub VALIDO (o do rh ativo) SEM app_metadata.role devolveu «%» (esperado 42501) — a guarda deixou de ser fail-closed para papel nulo (o coalesce(v_role, '''') saiu?)',
       d_sem_papel;
   END IF;
   PERFORM set_config('smoke4944.pass', (current_setting('smoke4944.pass')::int + 1)::text, false);
@@ -604,7 +661,7 @@ BEGIN
   END IF;
   IF e_e_state IS DISTINCT FROM 'ACEITO' OR e_e_ret ->> 'situacao' IS DISTINCT FROM 'disponivel'
      OR md5(e_e_ret ->> 'texto') IS DISTINCT FROM md5(c_texto_e) THEN
-    RAISE EXCEPTION 'P49C FAIL (e): E (encerrada, enviada) devolveu estado «%» e situacao=% (esperado disponivel com o texto de E) — o dono da vaga le a nota e a redacao da candidatura encerrada, e le o texto tambem',
+    RAISE EXCEPTION 'P49C FAIL (e): E (encerrada, enviada) devolveu estado «%» e situacao=% (esperado disponivel com o texto de E) — o rh ativo le a nota e a redacao da candidatura encerrada, e le o texto tambem',
       e_e_state, e_e_ret ->> 'situacao';
   END IF;
   PERFORM set_config('smoke4944.pass', (current_setting('smoke4944.pass')::int + 1)::text, false);
@@ -614,7 +671,7 @@ BEGIN
     RAISE EXCEPTION 'P49C FAIL (f): como postgres, A tem % linha(s) em respostas_avaliacao (esperado 1) — sem populacao, os zeros abaixo seriam vacuos', f_pg;
   END IF;
   IF f_rh IS DISTINCT FROM '0' OR f_adm IS DISTINCT FROM '0' OR f_titf IS DISTINCT FROM '0' THEN
-    RAISE EXCEPTION 'P49C FAIL (f): sob SET LOCAL ROLE authenticated, count(*) direto de A: rh dono=%, administrador=%, titular de F=% (esperado 0 nos tres) — um caminho NOVO de leitura da tabela apareceu',
+    RAISE EXCEPTION 'P49C FAIL (f): sob SET LOCAL ROLE authenticated, count(*) direto de A: rh ativo=%, administrador=%, titular de F=% (esperado 0 nos tres) — um caminho NOVO de leitura da tabela apareceu',
       f_rh, f_adm, f_titf;
   END IF;
   IF f_anon IS DISTINCT FROM 'contagem=0' AND f_anon NOT LIKE 'leitura recusada=%' THEN
@@ -644,7 +701,7 @@ BEGIN
 
   -- (h)
   IF h_upd IS DISTINCT FROM 1 OR h_state IS DISTINCT FROM 'ACEITO' OR h_sit IS DISTINCT FROM 'removida' THEN
-    RAISE EXCEPTION 'P49C FAIL (h): como postgres, o UPDATE de F para o marcador redigido afetou % linha(s) (esperado 1) e a RPC do dono devolveu estado «%» situacao=% (esperado removida) — o congelamento nao pode impedir o motor de exclusao',
+    RAISE EXCEPTION 'P49C FAIL (h): como postgres, o UPDATE de F para o marcador redigido afetou % linha(s) (esperado 1) e a RPC do rh ativo devolveu estado «%» situacao=% (esperado removida) — o congelamento nao pode impedir o motor de exclusao',
       h_upd, h_state, h_sit;
   END IF;
   IF h_force IS DISTINCT FROM false OR h_n_anon < 1 OR h_n_ok IS DISTINCT FROM h_n_anon THEN

@@ -72,12 +72,28 @@
 --       funções. É a asserção que o idioma `NOT IN` reprovaria: com `v_role` NULL o
 --       `IF` não é tomado e o guard falha ABERTO.
 --   (j) ⊖ NEGATIVA — papel `candidato` impersonado é recusado com 42501 nas duas.
---   (k) ESCOPO DO BD-8, positivo E negativo, por impersonação real.
---   (l) ÓRFÃO — pedido de candidato SEM candidatura nenhuma: invisível ao
---       recrutador, VISÍVEL ao administrador. É o pedido que queima o relógio do
---       Art. 19, II sem dono natural, e o admin é esse dono.
+--   (k) ESCOPO DO BD-8 (Phase 50 / D-03), positivo E negativo, por impersonação real:
+--       um `rh` ATIVO (linha viva de `usuarios_rh`, lida em execução) recebe
+--       EXATAMENTE a fila do administrador (md5 da lista inteira, na ordem) e vê os
+--       dois pedidos semeados; o `rh` sem linha ativa em `usuarios_rh` (sub sorteado)
+--       e o TOKEN VELHO (claim `rh` + recrutador INATIVO) veem 0.
+--   (l) ÓRFÃO — pedido de candidato SEM candidatura nenhuma: VISÍVEL ao `rh` ATIVO e
+--       ao administrador (Phase 50 / D-03). Até a Phase 49 ele era invisível ao
+--       recrutador (escopo por vaga) e só o admin era o «dono»; o operador decidiu
+--       que as filas do recrutador ativo são EXATAMENTE as do administrador, órfãos
+--       inclusive — o pedido que queima o relógio do Art. 19, II passa a ter os dois
+--       como donos, e nenhum deles trabalha às cegas.
 --   (m) FILA ≡ CONTADOR (BD-8) em DOIS papéis. Um badge que conta o que a tela não
 --       mostra manda o operador caçar trabalho invisível num prazo de 15 dias.
+--       Phase 50: o cenário prova escopos DISTINTOS pelo token velho (fila 0 =
+--       contador 0, com a do administrador ≥ 2 semeadas), não mais por rh < admin.
+--
+-- PHASE 50 (D-01, D-02, D-03 — operador, 2026-10-04/05). Nenhum ator `rh` é tirado de
+-- `vagas.created_by`: o positivo é uma linha ATIVA de `usuarios_rh` lida em execução;
+-- os negativos são uma linha INATIVA de recrutador e um sub sem linha. Rodar SÓ pelo
+-- envelope que aborta: `node scripts/p50_ensaio.cjs supabase/tests/p44_pedidos_dados_smoke.sql`
+-- (antes do apply do 50-10 ele prefixa 20261005000002..4; depois, `--sem-migracoes`).
+-- VERMELHO sem o 20261005000003 (o rh ativo não-autor não vê a fila do admin), VERDE com ele.
 --   (n) ORDENAÇÃO COMPOSTA por `WITH ORDINALITY`: pendente-antigo, pendente-novo,
 --       atendido-novo, atendido-antigo. É esta asserção que torna VERDADEIRA a copy
 --       "todos os não atendidos aparecem".
@@ -121,6 +137,7 @@ DO $$
 DECLARE
   v_admin_auth  uuid;
   v_rec_auth    uuid;
+  v_velho_auth  uuid;
   v_cand_com    uuid;
   v_cand_orfao  uuid;
   v_solic_antes bigint;
@@ -141,20 +158,33 @@ BEGIN
     RAISE EXCEPTION 'P44 FAIL (fixture): nenhum administrador VIVO em usuarios_rh — as asseracoes (l) e (m) nao podem provar que o admin ve a fila inteira, inclusive os orfaos, sem um ator real';
   END IF;
 
-  -- (2) Um DONO DE VAGA com candidatura viva, e o candidato dessa candidatura.
-  --     Esse par é o cenário POSITIVO do BD-8: o recrutador tem de ver este pedido.
-  SELECT vg.created_by, cd.candidato_id
-    INTO v_rec_auth, v_cand_com
+  -- (2) Phase 50 / D-03 — o recrutador do cenário POSITIVO é uma linha ATIVA de
+  --     usuarios_rh lida em execução (recrutador primeiro), NUNCA o autor de uma vaga:
+  --     a regra deixou de ser a posse. O candidato COM candidatura é o de qualquer
+  --     candidatura viva.
+  SELECT u.user_id INTO v_rec_auth
+    FROM public.usuarios_rh u
+   WHERE u.user_id IS NOT NULL AND u.ativo AND u.deleted_at IS NULL
+   ORDER BY (u.role = 'recrutador') DESC, u.created_at, u.user_id
+   LIMIT 1;
+
+  --     O TOKEN VELHO dos negativos: claim `rh` + recrutador INATIVO (D-02).
+  SELECT u.user_id INTO v_velho_auth
+    FROM public.usuarios_rh u
+   WHERE u.user_id IS NOT NULL AND u.role = 'recrutador' AND NOT u.ativo
+   ORDER BY u.created_at, u.user_id
+   LIMIT 1;
+
+  SELECT cd.candidato_id INTO v_cand_com
     FROM public.candidaturas cd
-    JOIN public.vagas vg ON vg.id = cd.vaga_id
    WHERE cd.deleted_at IS NULL
      AND cd.is_rascunho = false
-     AND vg.created_by IS NOT NULL
    ORDER BY cd.created_at
    LIMIT 1;
 
-  IF v_rec_auth IS NULL THEN
-    RAISE EXCEPTION 'P44 FAIL (fixture): nenhuma candidatura viva (nao-rascunho, nao-deletada) em vaga com created_by preenchido — a metade POSITIVA do escopo do BD-8 nao tem cenario, e um escopo provado so pela negativa passaria verde com uma RPC que nao devolve nada a ninguem';
+  IF v_rec_auth IS NULL OR v_velho_auth IS NULL OR v_cand_com IS NULL THEN
+    RAISE EXCEPTION 'P44 FAIL (fixture): falta ator ou cenario do BD-8 (rh ativo = %, recrutador inativo = %, candidatura viva = %) — a metade POSITIVA do escopo nao tem cenario, e um escopo provado so pela negativa passaria verde com uma RPC que nao devolve nada a ninguem',
+      v_rec_auth IS NOT NULL, v_velho_auth IS NOT NULL, v_cand_com IS NOT NULL;
   END IF;
 
   -- (3) Um candidato ÓRFÃO — zero candidaturas, de qualquer espécie.
@@ -176,6 +206,7 @@ BEGIN
 
   PERFORM set_config('smoke44.admin_auth', v_admin_auth::text,  false);
   PERFORM set_config('smoke44.rec_auth',   v_rec_auth::text,    false);
+  PERFORM set_config('smoke44.velho_auth', v_velho_auth::text,  false);
   PERFORM set_config('smoke44.cand_com',   v_cand_com::text,    false);
   PERFORM set_config('smoke44.cand_orfao', v_cand_orfao::text,  false);
   PERFORM set_config('smoke44.solic',      v_solic_antes::text, false);
@@ -183,7 +214,7 @@ BEGIN
   PERFORM set_config('smoke44.cands',      v_cands::text,       false);
   PERFORM set_config('smoke44.vagas',      v_vagas::text,       false);
 
-  RAISE NOTICE 'FIXTURE ok: admin, dono-de-vaga, candidato-com-candidatura e candidato-orfao resolvidos; baseline = % pedidos / % candidatos / % candidaturas / % vagas',
+  RAISE NOTICE 'FIXTURE ok: admin, rh ativo, recrutador inativo, candidato-com-candidatura e candidato-orfao resolvidos; baseline = % pedidos / % candidatos / % candidaturas / % vagas',
     v_solic_antes, v_candos, v_cands, v_vagas;
 END $$;
 
@@ -585,19 +616,21 @@ END $$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (k) ESCOPO DO BD-8 — POSITIVO E NEGATIVO, POR IMPERSONAÇÃO REAL.
+-- (k) ESCOPO DO BD-8 — POSITIVO E NEGATIVO, POR IMPERSONAÇÃO REAL (Phase 50 / D-03).
 --
---     Dois pedidos de fixture: um do candidato COM candidatura em vaga do
---     recrutador resolvido, outro do candidato ÓRFÃO.
+--     Dois pedidos de fixture: um do candidato COM candidatura, outro do candidato
+--     ÓRFÃO.
 --
---       · o recrutador dono da vaga VÊ o primeiro   (positivo)
---       · o mesmo recrutador NÃO vê o segundo       (negativo, no MESMO cenário)
---       · um recrutador que não possui vaga nenhuma não vê NENHUM dos dois
+--       · o rh ATIVO recebe EXATAMENTE a fila do administrador — mesma lista, mesma
+--         ordem (md5 de cada linha inteira, na ordem de saída) — e vê os DOIS pedidos
+--       · o rh sem linha ativa em `usuarios_rh` (sub SORTEADO) não vê NENHUM dos dois
+--       · o TOKEN VELHO (claim `rh` + recrutador INATIVO, lido em execução) não vê
+--         NENHUM dos dois
 --
---     O terceiro papel é impersonado com um uuid SINTÉTICO e papel `rh`: a função só
---     usa `v_uid` para casar com `vagas.created_by`, então um dono-de-nada é o
---     cenário negativo mais forte disponível — e não exige fabricar identidade
---     nenhuma em PROD.
+--     Até a Phase 49 esta asserção provava o escopo POR VAGA: o dono via o pedido do
+--     seu candidato e não via o órfão. A D-03 (operador) trocou a regra: as filas do
+--     recrutador ativo são as do administrador, órfãos inclusive. O que continua
+--     recusado é quem não é rh ATIVO — o helper vivo `public.is_active_rh_user()`.
 --
 --     ⚠ Esta asserção também é o CAMINHO FELIZ de `listar_pedidos_dados`. A lição da
 --     P43 (k): uma função cujo único teste é a recusa está, para efeito de corpo, sem
@@ -606,14 +639,21 @@ END $$;
 RESET ROLE;
 DO $$
 DECLARE
+  v_admin_auth uuid := current_setting('smoke44.admin_auth')::uuid;
   v_rec_auth   uuid := current_setting('smoke44.rec_auth')::uuid;
+  v_velho_auth uuid := current_setting('smoke44.velho_auth')::uuid;
   v_cand_com   uuid := current_setting('smoke44.cand_com')::uuid;
   v_cand_orfao uuid := current_setting('smoke44.cand_orfao')::uuid;
   v_id_com     uuid;
   v_id_orfao   uuid;
+  v_md5_admin  text;
+  v_md5_rec    text;
+  v_n_admin    int     := -1;
+  v_n_rec      int     := -2;
   v_ve_com     boolean := NULL;
   v_ve_orfao   boolean := NULL;
   v_nada       int     := -1;
+  v_velho      int     := -1;
 BEGIN
   BEGIN
     INSERT INTO public.solicitacoes_dados (candidato_id, tipo, situacao, causa)
@@ -624,21 +664,42 @@ BEGIN
     VALUES (v_cand_orfao, 'acesso', 'pendente', 'falha_geracao')
     RETURNING id INTO v_id_orfao;
 
-    -- Papel do DONO DA VAGA.
+    -- Referência: o ADMINISTRADOR, na mesma execução.
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_admin_auth::text,
+                        'app_metadata', json_build_object('role', 'administrador'))::text, false);
+    SELECT count(*), md5(coalesce(string_agg(to_jsonb(t)::text, '|' ORDER BY t.ord), ''))
+      INTO v_n_admin, v_md5_admin
+      FROM public.listar_pedidos_dados(true)
+             WITH ORDINALITY AS t(id, candidato_id, candidato_nome, situacao, causa,
+                                  solicitado_em, atendido_em, ord);
+
+    -- Papel do rh ATIVO (linha viva de usuarios_rh, não autor de nada por exigência).
     PERFORM set_config('request.jwt.claims',
       json_build_object('sub', v_rec_auth::text,
                         'app_metadata', json_build_object('role', 'rh'))::text, false);
-
+    SELECT count(*), md5(coalesce(string_agg(to_jsonb(t)::text, '|' ORDER BY t.ord), ''))
+      INTO v_n_rec, v_md5_rec
+      FROM public.listar_pedidos_dados(true)
+             WITH ORDINALITY AS t(id, candidato_id, candidato_nome, situacao, causa,
+                                  solicitado_em, atendido_em, ord);
     SELECT EXISTS (SELECT 1 FROM public.listar_pedidos_dados(true) p WHERE p.id = v_id_com),
            EXISTS (SELECT 1 FROM public.listar_pedidos_dados(true) p WHERE p.id = v_id_orfao)
       INTO v_ve_com, v_ve_orfao;
 
-    -- Papel de um recrutador que NÃO possui vaga nenhuma (uuid sintético).
+    -- Papel de um rh SEM LINHA ATIVA em usuarios_rh (uuid sorteado).
     PERFORM set_config('request.jwt.claims',
       json_build_object('sub', gen_random_uuid()::text,
                         'app_metadata', json_build_object('role', 'rh'))::text, false);
-
     SELECT count(*) INTO v_nada
+      FROM public.listar_pedidos_dados(true) p
+     WHERE p.id IN (v_id_com, v_id_orfao);
+
+    -- Papel do TOKEN VELHO (claim rh + recrutador INATIVO).
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_velho_auth::text,
+                        'app_metadata', json_build_object('role', 'rh'))::text, false);
+    SELECT count(*) INTO v_velho
       FROM public.listar_pedidos_dados(true) p
      WHERE p.id IN (v_id_com, v_id_orfao);
 
@@ -650,29 +711,39 @@ BEGIN
 
   PERFORM set_config('request.jwt.claims', '', false);
 
-  IF v_ve_com IS DISTINCT FROM true THEN
-    RAISE EXCEPTION 'P44 FAIL (k): o recrutador DONO da vaga NAO ve o pedido de um candidato com candidatura nela — a metade positiva do BD-8 esta quebrada e a fila estaria vazia para quem tem trabalho a fazer';
+  IF v_n_admin < 2 THEN
+    RAISE EXCEPTION 'P44 FAIL (k): o administrador viu % linha(s) com os 2 pedidos semeados — a referencia do par nao tem populacao', v_n_admin;
   END IF;
-  IF v_ve_orfao IS DISTINCT FROM false THEN
-    RAISE EXCEPTION 'P44 FAIL (k): o recrutador VE o pedido de um candidato SEM candidatura em vaga sua — o invariante horizontal que a P32 fechou como BLOCKING acabou de ser furado';
+  IF v_ve_com IS DISTINCT FROM true OR v_ve_orfao IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'P44 FAIL (k): o rh ATIVO nao ve os pedidos semeados (com candidatura = %, orfao = %) — a D-03 nao vale e a fila do recrutador estaria vazia para quem tem trabalho a fazer', v_ve_com, v_ve_orfao;
+  END IF;
+  IF v_n_rec IS DISTINCT FROM v_n_admin OR v_md5_rec IS DISTINCT FROM v_md5_admin THEN
+    RAISE EXCEPTION 'P44 FAIL (k): a fila do rh ATIVO (% linhas) NAO e a do administrador (% linhas) — a D-03 exige EXATAMENTE a mesma lista, na mesma ordem', v_n_rec, v_n_admin;
   END IF;
   IF v_nada <> 0 THEN
-    RAISE EXCEPTION 'P44 FAIL (k): um recrutador que nao possui vaga nenhuma viu % pedido(s) de fixture — o predicado de escopo nao esta filtrando por created_by', v_nada;
+    RAISE EXCEPTION 'P44 FAIL (k): um rh SEM LINHA ATIVA em usuarios_rh viu % pedido(s) de fixture — o predicado de escopo nao esta exigindo o helper vivo (D-02)', v_nada;
+  END IF;
+  IF v_velho <> 0 THEN
+    RAISE EXCEPTION 'P44 FAIL (k): o TOKEN VELHO (recrutador INATIVO) viu % pedido(s) de fixture — o helper vivo (D-02) nao esta no predicado da fila', v_velho;
   END IF;
 
   PERFORM set_config('smoke44.pass', (coalesce(nullif(current_setting('smoke44.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (k): escopo do BD-8 — dono da vaga ve o seu, nao ve o alheio, e dono-de-nada nao ve nada (fixture revertida)';
+  RAISE NOTICE 'PASS (k): escopo do BD-8 (D-03) — rh ativo recebe a fila do admin (% linhas, md5 igual), sem linha e token velho nao veem nada (fixture revertida)', v_n_rec;
 END $$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (l) O ÓRFÃO — invisível ao recrutador, VISÍVEL ao administrador.
+-- (l) O ÓRFÃO — VISÍVEL ao rh ATIVO e ao administrador (Phase 50 / D-03).
 --
---     Um pedido de candidato SEM candidatura nenhuma não tem dono natural: nenhum
---     recrutador o "possui" por vaga. Ele é, precisamente, o pedido que queima o
---     relógio do Art. 19, II sem que ninguém seja responsável por ele — e por isso o
---     BD-8 dá o administrador como dono. Se o admin também não o visse, o pedido
---     existiria sem nenhuma tela capaz de mostrá-lo, e o prazo correria no escuro.
+--     Um pedido de candidato SEM candidatura nenhuma não tem dono por vaga. Ele é,
+--     precisamente, o pedido que queima o relógio do Art. 19, II sem que ninguém
+--     seja responsável por ele. Até a Phase 49 só o administrador o via (o BD-8 dava
+--     o admin como dono) e esta asserção exigia que ele fosse INVISÍVEL ao
+--     recrutador. A D-03 (operador, 2026-10-04/05) INVERTEU essa metade: as filas do
+--     recrutador ativo são exatamente as do administrador, órfãos inclusive — o
+--     pedido sem vaga passa a ter quem o atenda no dia a dia, e o admin continua a
+--     vê-lo. Se o admin também não o visse, o pedido existiria sem nenhuma tela
+--     capaz de mostrá-lo, e o prazo correria no escuro.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
@@ -709,15 +780,15 @@ BEGIN
 
   PERFORM set_config('request.jwt.claims', '', false);
 
-  IF v_ve_rec IS DISTINCT FROM false THEN
-    RAISE EXCEPTION 'P44 FAIL (l): o recrutador VE o pedido de um candidato orfao — o escopo por vaga nao esta sendo aplicado ao caso sem vaga nenhuma';
+  IF v_ve_rec IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'P44 FAIL (l): o rh ATIVO NAO ve o pedido de um candidato orfao — a D-03 exige as filas do administrador, orfaos inclusive; o pedido que queima o prazo do Art. 19, II ficaria fora da tela de quem trabalha a fila';
   END IF;
   IF v_ve_admin IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'P44 FAIL (l): o ADMINISTRADOR NAO ve o pedido orfao — este e o pedido que consome prazo legal sem dono natural, e o BD-8 da o admin como dono. Sem esta visao o pedido existe e nenhuma tela o mostra, com o relogio do Art. 19, II correndo no escuro';
   END IF;
 
   PERFORM set_config('smoke44.pass', (coalesce(nullif(current_setting('smoke44.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (l): pedido orfao invisivel ao recrutador e VISIVEL ao administrador (fixture revertida)';
+  RAISE NOTICE 'PASS (l): pedido orfao VISIVEL ao rh ativo e ao administrador (D-03, fixture revertida)';
 END $$;
 
 
@@ -748,6 +819,9 @@ DECLARE
   v_cont_admin  int := -2;
   v_fila_rec    int := -1;
   v_cont_rec    int := -2;
+  v_velho_auth  uuid := current_setting('smoke44.velho_auth')::uuid;
+  v_fila_velho  int := -1;
+  v_cont_velho  int := -2;
 BEGIN
   BEGIN
     -- Mistura deliberada: pendentes e atendidos, com e sem candidatura, para que a
@@ -772,6 +846,14 @@ BEGIN
       FROM public.listar_pedidos_dados(true) p WHERE p.situacao = 'pendente';
     v_cont_rec := public.contar_pedidos_dados_pendentes();
 
+    -- Phase 50: o TOKEN VELHO é o escopo DISTINTO que torna a igualdade não-trivial.
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_velho_auth::text,
+                        'app_metadata', json_build_object('role', 'rh'))::text, false);
+    SELECT count(*) INTO v_fila_velho
+      FROM public.listar_pedidos_dados(true) p WHERE p.situacao = 'pendente';
+    v_cont_velho := public.contar_pedidos_dados_pendentes();
+
     RAISE EXCEPTION 'rollback_smoke44' USING ERRCODE = 'P4407';
   EXCEPTION
     WHEN sqlstate 'P4407' THEN
@@ -786,14 +868,26 @@ BEGIN
   IF v_fila_rec <> v_cont_rec THEN
     RAISE EXCEPTION 'P44 FAIL (m/rh): a fila mostra % pendentes e o contador diz % — os dois predicados de escopo do BD-8 DIVERGIRAM', v_fila_rec, v_cont_rec;
   END IF;
-  -- Sanidade do próprio cenário: se o admin não vê MAIS que o recrutador, a fixture
-  -- não exercitou a diferença de escopo e a igualdade acima seria trivial.
-  IF v_fila_admin <= v_fila_rec THEN
-    RAISE EXCEPTION 'P44 FAIL (m): o administrador viu % pendentes e o recrutador %, sem diferenca — o cenario nao exercitou o escopo (o orfao deveria ser visivel so ao admin) e a igualdade fila≡contador passaria trivialmente', v_fila_admin, v_fila_rec;
+  IF v_fila_velho <> v_cont_velho THEN
+    RAISE EXCEPTION 'P44 FAIL (m/token velho): a fila mostra % pendentes e o contador diz % — os dois predicados DIVERGIRAM para quem foi desativado', v_fila_velho, v_cont_velho;
+  END IF;
+  -- Sanidade do próprio cenário (Phase 50 / D-03). Até a Phase 49 a diferença de escopo
+  -- exercitada era admin > rh (o órfão só do admin); a D-03 a eliminou — o rh ATIVO tem
+  -- a fila do admin. A igualdade fila≡contador só não é trivial se (1) a fila do admin
+  -- carrega os 2 pendentes semeados, (2) a do rh ativo é a MESMA, e (3) existe um
+  -- escopo comprovadamente DISTINTO no mesmo cenário: o token velho, com 0 = 0.
+  IF v_fila_admin < 2 THEN
+    RAISE EXCEPTION 'P44 FAIL (m): o administrador viu % pendentes com 2 semeados — o cenario nao tem populacao e a igualdade fila≡contador passaria trivialmente', v_fila_admin;
+  END IF;
+  IF v_fila_rec IS DISTINCT FROM v_fila_admin THEN
+    RAISE EXCEPTION 'P44 FAIL (m): o rh ATIVO viu % pendentes e o administrador % — a D-03 exige a mesma fila', v_fila_rec, v_fila_admin;
+  END IF;
+  IF v_fila_velho <> 0 OR v_cont_velho <> 0 THEN
+    RAISE EXCEPTION 'P44 FAIL (m): o TOKEN VELHO viu % pendentes (contador %) — o cenario nao exercitou um escopo distinto e o helper vivo (D-02) nao filtra', v_fila_velho, v_cont_velho;
   END IF;
 
   PERFORM set_config('smoke44.pass', (coalesce(nullif(current_setting('smoke44.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (m): fila ≡ contador em 2 papeis (admin %=%, rh %=%), com escopos comprovadamente distintos', v_fila_admin, v_cont_admin, v_fila_rec, v_cont_rec;
+  RAISE NOTICE 'PASS (m): fila ≡ contador em 2 papeis (admin %=%, rh ativo %=%) + token velho %=% — escopo distinto comprovado pelo token velho (D-03)', v_fila_admin, v_cont_admin, v_fila_rec, v_cont_rec, v_fila_velho, v_cont_velho;
 END $$;
 
 
