@@ -92,18 +92,22 @@
 -- REGRA DE HONESTIDADE DE NÚMERO (herdada de 04-invent05-blast-radius.sql:30-40)
 -- ------------------------------------------------------------------------------
 -- Os TRÊS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS** (contagens
--- medidas com `wc -l` sobre a saída de cada comando em 2026-10-06, allowlist 1.3.0):
+-- medidas com `wc -l` sobre a saída de cada comando em 2026-10-06, allowlist 1.4.0,
+-- plano 44-11):
 --
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 378 pares
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 49  pares
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-tabelas     ⇒ 69  pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 395 pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 56  pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-tabelas     ⇒ 75  pares
 --
--- Soma das duas primeiras: **427 colunas com veredito**, sobre 30 tabelas. A
--- terceira é a disposição de TODA tabela que o artefato conhece: 30 em escopo do
--- titular + 39 excluídas com razão nomeada = 69. O artefato de origem é o
+-- Soma das duas primeiras: **451 colunas com veredito**, sobre 32 tabelas. A
+-- terceira é a disposição de TODA tabela que o artefato conhece: 32 em escopo do
+-- titular + 43 excluídas com razão nomeada = 75. O artefato de origem é o
 -- `export-allowlist.json` derivado do catálogo medido em **2026-08-04T01:34:27Z**
--- (69 tabelas base / 1025 colunas / 105 FKs em `public`), com os `meta.acrescimos`
--- das Phases 48 e 49.
+-- (69 tabelas base / 1025 colunas / 105 FKs em `public` — a fotografia do topo,
+-- que não é reescrita), com os `meta.acrescimos` das Phases 48, 49 e 44 (44-11).
+-- ⚠ 69 × 75 não é erro: `meta.totais_medidos_em_public` do artefato é COPIADO
+-- daquela fotografia; `meta.totais.tabelas_catalogadas` é CALCULADO com os
+-- acréscimos. Nota datada no `export-scope-rules.yaml`, `fecho_executado`.
 --
 -- ⚠ ESTES NÚMEROS MUDARAM NO PLANO 44-04, e a mudança é o caso de uso deste
 -- arquivo, não uma manutenção dele. A geração anterior media 358 + 34 = 392 sobre
@@ -147,6 +151,25 @@
 -- nível de TABELA, e colunas só são varridas em tabela em escopo. 12 + 4 = as 16
 -- da fase. (Uma tabela NOVA, porém, aparece — ver «O UNIVERSO DE TABELAS É O
 -- BANCO», abaixo.)
+--
+-- ⚠ E MUDARAM DE NOVO NA PHASE 44 (44-11, 2026-10-06, G5), quarta vez pelo mesmo
+-- caso de uso — e a primeira em que o conjunto de TABELAS também se move:
+-- 378 + 49 = 427 pares sobre 30 tabelas e 69 disposições → **395 + 56 = 451 pares
+-- sobre 32 tabelas e 75 disposições** (números impressos pelo gerador nesta
+-- execução). Esta consulta, rodada contra PROD na mesma execução e ANTES da
+-- edição (2026-10-06, depois do 44-10), devolveu as **15 linhas** do G5 e nenhuma
+-- outra. Os vereditos (BD-9..BD-13, `44-CONTEXT.md`) as resolvem assim:
+--   · 6 TABELAS: 2 entram no escopo (`cognitivo_liberacao`, `retencao_hold`), 4
+--     ficam fora com razão (`purga_execucao_itens` e `purga_execucoes` como
+--     `telemetria_interna`; `config_purga` e `config_janela_exclusao` pela FE1);
+--   · 24 COLUNAS com veredito novo (as 15 das duas tabelas novas + as 9 de drift
+--     pré-existente que as Phases 48 e 49 deixaram de fora): **17 entram** na cópia
+--     e **7 ficam fora** com razão (`retencao_hold.detalhe/criado_por/liberado_por`,
+--     `cognitivo_liberacao.liberado_por/revogado_por`, `solicitacoes_dados.plano` e
+--     `.recibo_enviado_em`).
+-- Depois disto a baseline esperada contra PROD é ZERO linhas — mas ESPERADA não é
+-- MEDIDA: a prova contra o banco (esta consulta devolvendo `[]` e o smoke
+-- aprovando pela primeira vez) é do plano 44-12, e a publicação, do 44-13.
 --
 -- ⚠ Toda regeração da allowlist obriga a regerar os TRÊS blocos. Essa obrigação
 -- deixou de ser promessa em prosa: a asserção (k) de `exportAllowlist.test.ts`
@@ -280,6 +303,7 @@ WITH allowlist(tabela, coluna) AS (
     ('candidatos','email'),
     ('candidatos','email_verificado'),
     ('candidatos','estado'),
+    ('candidatos','faixa_etaria_materializada'),
     ('candidatos','genero'),
     ('candidatos','id'),
     ('candidatos','instagram'),
@@ -313,6 +337,7 @@ WITH allowlist(tabela, coluna) AS (
     ('candidaturas','data_formulario_enviado'),
     ('candidaturas','data_raven_enviado'),
     ('candidaturas','deleted_at'),
+    ('candidaturas','encerrada_a_pedido_em'),
     ('candidaturas','etapa_atual'),
     ('candidaturas','etapa_justificativa'),
     ('candidaturas','feedback_rejeicao'),
@@ -328,6 +353,11 @@ WITH allowlist(tabela, coluna) AS (
     ('candidaturas','tempo_preenchimento_segundos'),
     ('candidaturas','updated_at'),
     ('candidaturas','vaga_id'),
+    ('cognitivo_liberacao','candidatura_id'),
+    ('cognitivo_liberacao','id'),
+    ('cognitivo_liberacao','liberado_em'),
+    ('cognitivo_liberacao','motivo'),
+    ('cognitivo_liberacao','revogado_em'),
     ('cognitivo_respostas','candidatura_id'),
     ('cognitivo_respostas','completion_time_seconds'),
     ('cognitivo_respostas','created_at'),
@@ -513,6 +543,11 @@ WITH allowlist(tabela, coluna) AS (
     ('respostas_raven','questao_id'),
     ('respostas_raven','resposta'),
     ('respostas_raven','tempo_resposta_segundos'),
+    ('retencao_hold','candidatura_id'),
+    ('retencao_hold','criado_em'),
+    ('retencao_hold','id'),
+    ('retencao_hold','liberado_em'),
+    ('retencao_hold','motivo'),
     ('scores_bigfive','analise_ia'),
     ('scores_bigfive','candidatura_id'),
     ('scores_bigfive','created_at'),
@@ -558,11 +593,16 @@ WITH allowlist(tabela, coluna) AS (
     ('scores_raven','total_acertos'),
     ('scores_raven','updated_at'),
     ('solicitacoes_dados','atendido_em'),
+    ('solicitacoes_dados','auth_concluido_em'),
+    ('solicitacoes_dados','cancelado_em'),
     ('solicitacoes_dados','candidato_id'),
     ('solicitacoes_dados','causa'),
+    ('solicitacoes_dados','executar_em'),
     ('solicitacoes_dados','id'),
+    ('solicitacoes_dados','postgres_concluido_em'),
     ('solicitacoes_dados','situacao'),
     ('solicitacoes_dados','solicitado_em'),
+    ('solicitacoes_dados','storage_concluido_em'),
     ('solicitacoes_dados','tipo')
 ),
 excluidas(tabela, coluna) AS (
@@ -584,6 +624,8 @@ excluidas(tabela, coluna) AS (
     ('candidatos','updated_by'),
     ('candidaturas','created_by'),
     ('candidaturas','updated_by'),
+    ('cognitivo_liberacao','liberado_por'),
+    ('cognitivo_liberacao','revogado_por'),
     ('decisao_final','alerta_prazo_enviado_em'),
     ('decisao_final','justificativa'),
     ('decisao_final','por_usuario'),
@@ -617,8 +659,13 @@ excluidas(tabela, coluna) AS (
     ('redacoes_candidato','referencia_match'),
     ('redacoes_candidato','revisada_por'),
     ('redacoes_candidato','rubrica_versao'),
+    ('retencao_hold','criado_por'),
+    ('retencao_hold','detalhe'),
+    ('retencao_hold','liberado_por'),
     ('solicitacoes_dados','aviso_cancelamento_enviado_em'),
-    ('solicitacoes_dados','aviso_pedido_enviado_em')
+    ('solicitacoes_dados','aviso_pedido_enviado_em'),
+    ('solicitacoes_dados','plano'),
+    ('solicitacoes_dados','recibo_enviado_em')
 ),
 disposicao_tabelas(tabela, destino) AS (
   -- A disposição de TODA tabela que o artefato conhece: `escopo_titular` ou a
@@ -640,8 +687,11 @@ disposicao_tabelas(tabela, destino) AS (
     ('candidaturas','escopo_titular'),
     ('classe_evento_notificacao','vocabulario_do_sistema'),
     ('cognitivo_itens','configuracao_do_produto'),
+    ('cognitivo_liberacao','escopo_titular'),
     ('cognitivo_respostas','escopo_titular'),
     ('comparativo_solicitado','pii_de_terceiro'),
+    ('config_janela_exclusao','configuracao_do_produto'),
+    ('config_purga','configuracao_do_produto'),
     ('config_retencao_etapa','configuracao_do_produto'),
     ('config_sla_dados','configuracao_do_produto'),
     ('config_sla_etapa','configuracao_do_produto'),
@@ -670,6 +720,8 @@ disposicao_tabelas(tabela, destino) AS (
     ('perguntas_vaga_origem','configuracao_do_produto'),
     ('preferencias_notificacoes','pii_de_terceiro'),
     ('prompt_versions','configuracao_do_produto'),
+    ('purga_execucao_itens','telemetria_interna'),
+    ('purga_execucoes','telemetria_interna'),
     ('questoes_bigfive','configuracao_do_produto'),
     ('questoes_disc','configuracao_do_produto'),
     ('questoes_raven','configuracao_do_produto'),
@@ -683,6 +735,7 @@ disposicao_tabelas(tabela, destino) AS (
     ('respostas_disc','escopo_titular'),
     ('respostas_formulario','escopo_titular'),
     ('respostas_raven','escopo_titular'),
+    ('retencao_hold','escopo_titular'),
     ('scores_bigfive','escopo_titular'),
     ('scores_candidato','escopo_titular'),
     ('scores_disc','escopo_titular'),

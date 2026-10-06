@@ -193,6 +193,7 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "candidate_ai_decisions",
         "candidatos",
         "candidaturas",
+        "cognitivo_liberacao",
         "cognitivo_respostas",
         "decisao_final",
         "decisao_final_historico",
@@ -211,6 +212,7 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "respostas_disc",
         "respostas_formulario",
         "respostas_raven",
+        "retencao_hold",
         "scores_bigfive",
         "scores_candidato",
         "scores_disc",
@@ -226,6 +228,15 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     // com veredito `export: true`. As outras cinco da mesma tabela foram para o
     // snapshot (j). Nenhuma outra linha se moveu, e o diff de um par de commits é a
     // prova disso: um snapshot atualizado sem diff auditável é o mesmo que nenhum.
+    //
+    // ⚠ Phase 44 (44-11, 2026-10-06, G5 — BD-9..BD-13): cresceu DE PROPÓSITO em
+    // DEZESSETE chaves, zero removidas — 5 de `cognitivo_liberacao` (`id`,
+    // `candidatura_id`, `liberado_em`, `revogado_em`, `motivo`; BD-9), 5 de
+    // `retencao_hold` (`id`, `candidatura_id`, `motivo`, `criado_em`,
+    // `liberado_em`; BD-10), `candidatos.faixa_etaria_materializada` (BD-13 iii),
+    // `candidaturas.encerrada_a_pedido_em` e `solicitacoes_dados.executar_em`/
+    // `.cancelado_em` (BD-13 i) e os três `solicitacoes_dados.*_concluido_em`
+    // (BD-13 iv, operador). As outras sete do G5 foram para o snapshot (j).
     expect(chavesAchatadas()).toMatchInlineSnapshot(`
       [
         "agendamentos_entrevista.candidatura_id",
@@ -322,6 +333,7 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "candidatos.email",
         "candidatos.email_verificado",
         "candidatos.estado",
+        "candidatos.faixa_etaria_materializada",
         "candidatos.genero",
         "candidatos.id",
         "candidatos.instagram",
@@ -355,6 +367,7 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "candidaturas.data_formulario_enviado",
         "candidaturas.data_raven_enviado",
         "candidaturas.deleted_at",
+        "candidaturas.encerrada_a_pedido_em",
         "candidaturas.etapa_atual",
         "candidaturas.etapa_justificativa",
         "candidaturas.feedback_rejeicao",
@@ -370,6 +383,11 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "candidaturas.tempo_preenchimento_segundos",
         "candidaturas.updated_at",
         "candidaturas.vaga_id",
+        "cognitivo_liberacao.candidatura_id",
+        "cognitivo_liberacao.id",
+        "cognitivo_liberacao.liberado_em",
+        "cognitivo_liberacao.motivo",
+        "cognitivo_liberacao.revogado_em",
         "cognitivo_respostas.candidatura_id",
         "cognitivo_respostas.completion_time_seconds",
         "cognitivo_respostas.created_at",
@@ -555,6 +573,11 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "respostas_raven.questao_id",
         "respostas_raven.resposta",
         "respostas_raven.tempo_resposta_segundos",
+        "retencao_hold.candidatura_id",
+        "retencao_hold.criado_em",
+        "retencao_hold.id",
+        "retencao_hold.liberado_em",
+        "retencao_hold.motivo",
         "scores_bigfive.analise_ia",
         "scores_bigfive.candidatura_id",
         "scores_bigfive.created_at",
@@ -600,11 +623,16 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "scores_raven.total_acertos",
         "scores_raven.updated_at",
         "solicitacoes_dados.atendido_em",
+        "solicitacoes_dados.auth_concluido_em",
+        "solicitacoes_dados.cancelado_em",
         "solicitacoes_dados.candidato_id",
         "solicitacoes_dados.causa",
+        "solicitacoes_dados.executar_em",
         "solicitacoes_dados.id",
+        "solicitacoes_dados.postgres_concluido_em",
         "solicitacoes_dados.situacao",
         "solicitacoes_dados.solicitado_em",
+        "solicitacoes_dados.storage_concluido_em",
         "solicitacoes_dados.tipo",
       ]
     `)
@@ -726,6 +754,13 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     // lado da exclusão» que o parágrafo acima descreve: nenhuma delas jamais
     // apareceu no snapshot (b), e sem este terceiro snapshot a entrada delas não
     // moveria um byte de teste nenhum.
+    //
+    // ⚠ Phase 44 (44-11, 2026-10-06, G5 — BD-9..BD-13): cresceu DE PROPÓSITO em
+    // SETE chaves, zero removidas — `retencao_hold.detalhe` (BD-10, por
+    // `decisoes_por_coluna`), `retencao_hold.criado_por`/`.liberado_por` e
+    // `cognitivo_liberacao.liberado_por`/`.revogado_por` (pela R2 de
+    // `ponteiros.de_terceiro`, sem veredito próprio), `solicitacoes_dados.plano`
+    // (BD-13 ii) e `solicitacoes_dados.recibo_enviado_em` (BD-13 iv, operador).
     expect(excluidasAchatadas()).toMatchInlineSnapshot(`
       [
         "agendamentos_entrevista.agendado_por",
@@ -742,6 +777,8 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "candidatos.updated_by",
         "candidaturas.created_by",
         "candidaturas.updated_by",
+        "cognitivo_liberacao.liberado_por",
+        "cognitivo_liberacao.revogado_por",
         "decisao_final.alerta_prazo_enviado_em",
         "decisao_final.justificativa",
         "decisao_final.por_usuario",
@@ -775,8 +812,13 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "redacoes_candidato.referencia_match",
         "redacoes_candidato.revisada_por",
         "redacoes_candidato.rubrica_versao",
+        "retencao_hold.criado_por",
+        "retencao_hold.detalhe",
+        "retencao_hold.liberado_por",
         "solicitacoes_dados.aviso_cancelamento_enviado_em",
         "solicitacoes_dados.aviso_pedido_enviado_em",
+        "solicitacoes_dados.plano",
+        "solicitacoes_dados.recibo_enviado_em",
       ]
     `)
 
