@@ -288,3 +288,98 @@ invisível — e aqui esse trabalho tem prazo de 15 dias.
 imediatamente após a migration e antes de qualquer asserção de RLS ser declarada satisfeita — o
 idioma "o arquivo não é o objeto vivo" que a P42 (42-07) e a P43 (A1) já pagaram duas vezes para
 aprender.
+
+---
+
+## Adendo 2026-10-06 — G5 (drift do export vivo): decisões
+
+A reverificação de 2026-10-06 (`44-VERIFICATION.md`, gap G5) mediu 9 colunas sem veredito em
+tabelas em escopo e 6 tabelas base de `public` que nem a allowlist nem o catálogo versionado
+conhecem. As decisões abaixo fecham o G5. **A autoria de cada uma está marcada, e não se mistura:**
+
+- **OPERADOR** — respostas do operador (Fernando) a perguntas do orquestrador por AskUserQuestion
+  em 2026-10-06;
+- **ORQUESTRADOR** — inclinação padrão escrita no prompt de planejamento, **não perguntada ao
+  operador**;
+- **PLANEJADOR** — decisão tomada no planejamento, com a razão escrita aqui.
+
+### BD-9 · `cognitivo_liberacao` ENTRA na cópia
+
+- **Autoria:** OPERADOR (2026-10-06).
+- **Decisão:** é dado do titular sob o Art. 18, II — a liberação/revogação da avaliação cognitiva
+  da candidatura dele.
+- **Efeito na cópia:** entram `liberado_em`, `revogado_em`, `motivo`; ficam fora, com razão nomeada
+  (PII de terceiro), `liberado_por` e `revogado_por` (ids de usuário RH). Chave do titular
+  `candidatura_id`, ligação via `candidaturas`.
+- **Implementa:** 44-11.
+
+### BD-10 · `retencao_hold` ENTRA só com o fato e a base
+
+- **Autoria:** OPERADOR (2026-10-06).
+- **Decisão:** o titular tem direito de saber QUE há retenção e sob qual base; não ao raciocínio
+  interno do RH.
+- **Efeito na cópia:** entram `motivo` (vocabulário fixo do CHECK `ck_retencao_hold_motivo`),
+  `criado_em`, `liberado_em`; ficam fora, com razão nomeada, `detalhe` (texto livre do RH, pode
+  conter estratégia de litígio), `criado_por` e `liberado_por`. Chave `candidatura_id`.
+- **Implementa:** 44-11.
+
+### BD-11 · `purga_execucao_itens` FICA FORA
+
+- **Autoria:** OPERADOR (2026-10-06).
+- **Decisão:** telemetria operacional da purga. O titular purgado não existe mais para pedir
+  cópia, e para titular vivo só há linhas de ensaio.
+- **Efeito na cópia:** tabela excluída com razão nomeada.
+- **Implementa:** 44-11.
+
+### BD-12 · `purga_execucoes`, `config_purga`, `config_janela_exclusao` FICAM FORA — condicionado
+
+- **Autoria:** OPERADOR (2026-10-06).
+- **Decisão:** fora com razão nomeada, **CONDICIONADO à medição** de que nenhuma das três carrega
+  chave do titular. Se alguma carregar, o executor PARA e devolve checkpoint, sem decidir.
+- **Efeito na cópia:** três tabelas excluídas com razão nomeada (se a condição se confirmar).
+- **Implementa:** 44-11.
+
+### BD-13 · as 9 colunas — autoria MISTA, item a item
+
+- **(i) Autoria: ORQUESTRADOR** (inclinação padrão do prompt de planejamento, não perguntada ao
+  operador). Fatos do próprio pedido do titular ENTRAM: `solicitacoes_dados.cancelado_em`,
+  `solicitacoes_dados.executar_em`, `candidaturas.encerrada_a_pedido_em` — os três que a
+  verificação de 2026-10-06 apontou como omitidos da cópia.
+- **(ii) Autoria: ORQUESTRADOR** (idem, apoiado na dica do `deferred-items.md` da Phase 48).
+  `solicitacoes_dados.plano` FICA FORA: jsonb interno do motor da Phase 45.
+- **(iii) Autoria: PLANEJADOR.** `candidatos.faixa_etaria_materializada` ENTRA. Razão: é dado
+  DERIVADO da pessoa (faixa calculada de `data_nascimento`, que já está na cópia), mantido pelo
+  sistema inclusive depois da anonimização para a auditoria de viés — e dado derivado do titular é
+  dado do titular sob o Art. 18, II quando nenhuma razão nomeada o exclui.
+- **(iv) Autoria: OPERADOR**, respondido em 2026-10-06 por AskUserQuestion do orquestrador DEPOIS
+  do planejamento, porque (i) e o precedente do 48-17 puxavam para lados opostos. Resposta
+  verbatim: **«3 carimbos entram; recibo fora (Recommended)»** = option-a.
+  `solicitacoes_dados.storage_concluido_em`, `postgres_concluido_em` e `auth_concluido_em` ENTRAM;
+  `solicitacoes_dados.recibo_enviado_em` FICA FORA (mesma família de `aviso_*_enviado_em`, 48-17).
+- **Implementa:** 44-11.
+
+### BD-14 · portão «Universo do banco + smoke»
+
+- **Autoria:** OPERADOR (2026-10-06).
+- **Decisão:** o universo de TABELAS do drift do export é o banco vivo
+  (`information_schema.tables`, `public`, `BASE TABLE`, medido na execução), e o mesmo predicado
+  existe como smoke que falha alto (`supabase/tests/p44_export_drift_smoke.sql`,
+  `RAISE EXCEPTION 'P44-DRIFT FAIL …'`). **Cadência MANUAL aceita** — e escrita como override,
+  abaixo, não como limitação silenciosa.
+- **Efeito na cópia:** nenhum direto; é o portão que impede a próxima tabela/coluna de ficar fora
+  da cópia em silêncio.
+- **Implementa:** 44-10 (relatório `05-export-allowlist-drift.sql` reescrito, smoke novo, lembrete
+  no `p46apply.cjs migrate`).
+
+### Override pronto para o verificador (cadência manual do portão do SC#3)
+
+```yaml
+overrides:
+  - must_have: "O portão do SC#3 que vê o banco (drift do export: universo de tabelas e colunas = catálogo vivo de public) roda de forma recorrente/automática"
+    reason: "O operador escolheu cadência MANUAL (BD-14, 2026-10-06). O que a torna aceitável: o universo de tabelas agora é o banco medido na execução (não o artefato nem o snapshot de 2026-08-04), e o smoke supabase/tests/p44_export_drift_smoke.sql FALHA ALTO (RAISE EXCEPTION 'P44-DRIFT FAIL …', inclusive em população vazia) — foi visto reprovando contra o drift real de PROD em 2026-10-06 (44-10). Obrigação de execução: rodar `node p46apply.cjs run supabase/tests/p44_export_drift_smoke.sql` depois de todo apply que crie, renomeie ou remova tabela ou coluna em public, e antes de toda regeração da allowlist; o `p46apply.cjs migrate` imprime esse lembrete sempre que a migration contém CREATE/ALTER/DROP TABLE."
+    accepted_by: "operador (Fernando) — via pergunta do orquestrador (AskUserQuestion) em 2026-10-06, opção «Universo do banco + smoke»"
+    accepted_at: "2026-10-06"
+```
+
+O mesmo bloco está, verbatim, em `44-10-SUMMARY.md` §«Override para o re-verificador (BD-14)»; o
+44-13 o lista de novo entre as pendências do verificador.

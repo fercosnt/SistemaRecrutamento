@@ -158,7 +158,7 @@ Plans:
   2. O currículo é entregue por **signed URL de TTL curto** a partir do bucket privado — nunca inline no JSON, nunca base64.
   3. Adicionar uma coluna nova ao banco **quebra o teste de snapshot** das chaves do export: nenhuma coluna entra no export por acidente e nenhuma sai dele em silêncio.
   4. O prazo do **Art. 19, II (15 dias corridos)** é medido a partir do registro do pedido e está visível ao RH — um pedido que se aproxima do prazo é distinguível de um recém-chegado.
-  5. O inventário que o export projeta é um artefato **nomeado e versionado** que a Phase 45 consome como plano de exclusão — a fase irreversível não refaz o levantamento.
+  5. O inventário que o export projeta é um artefato **nomeado e versionado** (`docs/compliance/export-allowlist.json`), a projeção do direito de acesso (Art. 18, II), consumido só por `exportar-meus-dados` e `exportacaoService`; o plano de exclusão do motor da Phase 45 vem do `pii-inventory.yaml`, por decisão medida da própria Phase 45 (`gen-recibo-exclusao.cjs:12-25`). *Reescrito em 2026-10-06 para casar com o EXPORT-06 aprovado pelo operador em 2026-10-04. Redação original: «O inventário que o export projeta é um artefato **nomeado e versionado** que a Phase 45 consome como plano de exclusão — a fase irreversível não refaz o levantamento.»*
 
 **Plans**: 13 plans (5 waves — o tracer é a wave 3, e as duas expansões do candidato ficam em série porque ambas tocam `exportacaoService.ts` e `PrivacidadeCandidatoPage.tsx`. Os dois planos do lado RH correm em paralelo com os do candidato: arquivos disjuntos, zero conflito de wave) · **+4 de fechamento do G5** (2026-10-06, `--gaps`): 44-10 → 44-11 → 44-12 → 44-13 em série, waves 1-4 da rodada de gap — compartilham os arquivos do portão e da allowlist
 

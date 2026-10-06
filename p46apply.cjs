@@ -29,6 +29,9 @@
  *
  *   --dry-run   imprime o que faria e sai sem tocar em nada
  *
+ *   ⚠ BD-14: depois de todo `migrate` que crie, renomeie ou remova tabela/coluna em `public`,
+ *     rode `node p46apply.cjs run supabase/tests/p44_export_drift_smoke.sql` (o migrate avisa).
+ *
  * Token: Keychain do macOS, serviço "Supabase CLI", conta "supabase".
  *        Ou a env SUPABASE_ACCESS_TOKEN, que tem precedência.
  * ⚠ Não é necessária a senha do banco — ela não é recuperável no painel.
@@ -115,6 +118,17 @@ async function migrate(files, dryRun) {
     console.log(`   name    : ${name}`);
     console.log(`   octetos : ${Buffer.byteLength(body, 'utf8')}`);
     console.log(`   md5     : ${md5File}`);
+
+    /* BD-14 (Phase 44 / 44-10): o portão do drift do export tem cadência MANUAL,
+     * aceita pelo operador em 2026-10-06. Este é o lugar por onde todo apply passa —
+     * a obrigação de rodar o smoke deixa de depender de alguém lembrar de ler um
+     * documento. Antes do ramo `--dry-run`, para que o ensaio também avise. */
+    if (/\b(CREATE|DROP)\s+TABLE\b|\bALTER\s+TABLE\b/i.test(body)) {
+      console.log(
+        '   ⚠ BD-14: esta migration mexe em tabela — depois do apply, rode `node p46apply.cjs run ' +
+          'supabase/tests/p44_export_drift_smoke.sql` (cadência manual aceita em 2026-10-06; ver 44-CONTEXT)'
+      );
+    }
 
     if (dryRun) {
       console.log('   DRY-RUN — nada enviado.');
