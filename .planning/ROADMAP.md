@@ -174,7 +174,7 @@ Plans:
 - [x] 44-08-PLAN.md — EXPORT-05, camada de dados do RH: o classificador de faixa reusado por alias (identidade de referência asserida), o serviço que lê as duas RPCs do BD-8 por allowlist sem filtro de cliente, e os três hooks com fábrica de chaves única
 - [ ] 44-09-PLAN.md — EXPORT-05, a TELA: `/rh/pedidos-dados` com badge de Situação âmbar, faixa de acompanhamento vermelha (eixos distintos), fila sem ação, e os três sítios do menu com contador — o SC#4 deixa de ser inalcançável · ⚠ **código completo e verde (3 tasks, 3 commits, 117 testes na feature+sidebar, suíte 1559, tsc 97); o `<human-check>` da Task 3 — UAT ao vivo medindo fila ≡ contador nos DOIS papéis do BD-8 — NÃO rodou** (exige login real de recrutador e de administrador). O `[x]` fica reservado para depois da observação: o `<done>` da Task 3 exige, com estas palavras, "um RH real e um administrador real abriram a fila ao vivo" · ⚠ **CORRIGIDO 2026-09-26: a UAT rodou nos DOIS papéis, e o resultado foi o defeito.** E12 abriu `/rh/pedidos-dados` como **administrador** com linha real na fila (a igualdade fila ≡ contador deixou de ser vazia) e §7.6 abriu como **recrutador** — que viu «Nenhum pedido» **havendo pedidos**. Ou seja: a observação aconteceu e **reprovou**. Remedido hoje: **0** vagas de recrutador · **1** recrutador, **`ativo=false`** · **9** órfãs. É o gap G3 / EXPORT-05, e depende de decisão sobre o modelo de papéis (BD-8) que **varra pela FORMA** todos os consumidores de `vagas.created_by = auth.uid()` — a Phase 49 reforçou o mesmo predicado no 49-08. Caixa `[ ]` **correta**, e não por falta de UAT
 - [x] 44-10-PLAN.md — **G5 · TRACER do portão**: o drift do export passa a ver o BANCO (universo de tabelas = `public` vivo), vira smoke `supabase/tests/p44_export_drift_smoke.sql` que falha alto e é visto mordendo no drift real de PROD; (e) testa a negação do EXPORT-06; SC#5 reescrito; BD-9..BD-14 no CONTEXT com autoria (cadência manual como override) e lembrete no `p46apply.cjs`
-- [ ] 44-11-PLAN.md — **G5 · vereditos**: as 6 tabelas e as 9 colunas medidas e decididas (os 4 carimbos pela resposta do operador, option-a); allowlist **1.4.0**; VALUES e snapshots acompanham, portões locais verdes
+- [x] 44-11-PLAN.md — **G5 · vereditos**: as 6 tabelas e as 9 colunas medidas e decididas (os 4 carimbos pela resposta do operador, option-a); allowlist **1.4.0**; VALUES e snapshots acompanham, portões locais verdes
 - [ ] 44-12-PLAN.md — **G5 · portões nomeados + prova contra PROD**: (l) e Deno (19) vistos mordendo por mutação; smoke aprova e relatório `[]` contra PROD; item da 48 fechado
 - [ ] 44-13-PLAN.md — **G5 · publicação**: rótulos legíveis primeiro; portões sobre a árvore exata (re-revisão contra `origin/main`, suíte, mordida sem resíduo possível); push só de commits autorizados, front antes da EF, marcador conferido no publicado
 
@@ -653,7 +653,7 @@ Plans:
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | Complete    | 2026-10-04 |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | Complete    | 2026-10-04 |
-| 44. Exportação & Acesso | v8.0 | 7/13 | In Progress|  |
+| 44. Exportação & Acesso | v8.0 | 8/13 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 7/7 | Complete    | 2026-10-05 |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |

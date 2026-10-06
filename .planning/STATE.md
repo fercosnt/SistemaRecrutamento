@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 44 --gaps-only em execucao — 44-10 concluido (portao do SC#3 ve o banco); proximo 44-11 (G5), sequencial"
-last_updated: "2026-10-06T20:49:16.046Z"
+stopped_at: "Phase 44 --gaps-only em execucao — 44-11 concluido (G5 decidido no artefato, allowlist 1.4.0); proximo 44-12 (prova contra PROD), sequencial"
+last_updated: "2026-10-06T21:00:25.344Z"
 last_activity: 2026-10-06
-state_head: bc60205e1f0cdc777b43d53348c82779d1ec9770
+state_head: 35246a188cb4d0a25822ee8f9e117aa9d9c3a57a
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 138
-  completed_plans: 133
-  percent: 96
+  completed_plans: 134
+  percent: 97
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: 44-10 concluido — relatorio e smoke do drift do export veem o banco; P44-DRIFT FAIL com as 15 linhas do G5 em PROD (proximo 44-11)
+last_activity_desc: 44-11 concluido — 6 tabelas e 9 colunas do G5 medidas e decididas (BD-9..BD-13); allowlist 1.4.0 (75 = 32 + 43; 451 = 395 + 56); portoes locais verdes (proximo 44-12)
 ---
 
 # Project State
@@ -980,6 +980,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 50 P10 | ~7min (continuação); ~1h32 desde o ACESSO-1 | 3 tasks | 21 files |
 | Phase 50 P11 | ~11h (espera do operador + conserto da gerenciar-usuario-rh) | 3 tasks | 1 files (+2 do conserto 4ccc4dd1) |
 | Phase 44 P10 | 10min | 3 tasks | 8 files |
+| Phase 44 P11 | 8min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -1358,6 +1359,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 50]: 50-11: defeito pre-existente desde a Phase 28 — senha temporaria da gerenciar-usuario-rh violava a politica do GoTrue (createUser 400); conserto 4ccc4dd1 (orquestrador, escolha «1» do operador), v6 ACTIVE; push 743c4fca..4ccc4dd1 com excecao estreita aceita pelo operador (sha + patch-id)
 - [Phase 44]: 44-10 (BD-14): drift do export compara o catalogo VIVO de public (tabelas e colunas) com a disposicao gerada; smoke p44_export_drift falha alto; cadencia manual aceita como override escrito (CONTEXT + 44-10-SUMMARY)
 - [Phase 44]: 44-10: vereditos do G5 nao decididos aqui — o portao ve as 15 linhas (6 tabelas + 9 colunas) em PROD; resolucao e do 44-11 (BD-9..BD-13, autoria registrada no 44-CONTEXT)
+- [Phase 44]: 44-11: G5 fechado no artefato — cognitivo_liberacao (BD-9) e retencao_hold (BD-10) em escopo; purga_execucao_itens/purga_execucoes telemetria_interna (BD-11/12); config_purga/config_janela_exclusao pela FE1 (BD-12 medido: zero chave do titular); 9 colunas com veredito e autoria (BD-13 i/ii/iii/iv); allowlist 1.4.0 (75 = 32 + 43; 451 = 395 + 56)
+- [Phase 44]: 44-11: criado_por/liberado_por em ponteiros.de_terceiro (veto estrutural); retencao_hold.detalhe, solicitacoes_dados.plano e recibo_enviado_em fora por veredito; prova contra PROD e do 44-12
 
 ### Roadmap Evolution
 
@@ -1690,8 +1693,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T20:49:15.815Z
-Stopped at: Completed 44-10-PLAN.md
+Last session: 2026-10-06T21:00:25.085Z
+Stopped at: Completed 44-11-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
