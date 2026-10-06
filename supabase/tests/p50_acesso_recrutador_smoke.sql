@@ -1,8 +1,13 @@
 -- =============================================================================
 -- Phase 50 — smoke do ACESSO DO RECRUTADOR (EXPORT-05, metade «visível ao RH», gap G4-b)
 -- v1 (Plano 50-01, TRACER): helper `public.is_active_rh_user()` + `candidaturas.rh_le_candidaturas`
+-- v2 (Plano 50-07, PORTÃO DA FASE): SC1..SC5 sobre as 12 tabelas-filhas + a view, as 18 RPCs, a
+--     varredura por FORMA com mordida em pg_temp, as filas semeadas e as regras do decisor — 13
+--     cláusulas (a–l, z). Só a metade «sessão real» do SC1 fica fora (50-11).
 -- =============================================================================
--- O QUE ELE VIGIA (migration 20261005000001).
+-- O QUE ELE VIGIA — 20261005000001 (helper + rh_le_candidaturas) e, prefixadas pelo ensaio até o
+-- apply do 50-10, 20261005000002 (13 policies + v_analises_presas invoker), …0003 (7 RPCs de
+-- leitura/fila) e …0004 (11 RPCs de escrita). O que segue descreve o 0001; o resto está em (g)–(l).
 --   · `public.is_active_rh_user()`: plpgsql SECURITY DEFINER STABLE, `search_path=''`;
 --     verdadeiro sse o chamador tem linha ATIVA e não excluída em `usuarios_rh` (lida ao vivo);
 --     `anon` sem EXECUTE, `authenticated` com.
@@ -27,6 +32,13 @@
 --   Vagas: por status (`ativa`, `inativa`, `arquivada`, `deleted_at IS NULL`), a de MAIS
 --   candidaturas vivas; cada uma com ≥ 1. Dado de teste (`fixture-p46`, `[TESTE]`) entra como
 --   qualquer outro (D-07).
+--   v2 — a_visualizador = a MESMA linha de a_ativo com claim `visualizador` ((h)); «sem_papel» de
+--   (i) = o `sub` de a_cand SEM `app_metadata.role` (usuário real fora de `usuarios_rh`: a guarda de
+--   papel tem de recusar pelo `coalesce`; o sub de a_ativo não serve porque
+--   `save_entrevista_guia_edits` lê o papel de `usuarios_rh`, não do JWT — ENTREV-08 — e um RH
+--   ativo sem claim passaria ali COM RAZÃO); D = o decisor da revisão pendente de (l) (ativo; hoje
+--   a_ativo, semeado), F = OUTRO rh ativo (controle de (l)). Nenhum é recrutador de verdade: PROD
+--   não tem recrutador ativo (o RH2 real é o D-10 / 50-11); todos usam o claim `rh`.
 --
 -- ⚠ ESTE SMOKE ESCREVE — só dentro da subtransação PL/pgSQL encerrada por `RAISE EXCEPTION` com
 -- SQLSTATE próprio (`P50C1`), capturado logo acima: ROLLBACK de tudo (um erro no meio também
@@ -43,14 +55,30 @@
 --           conferidos: os que chamam `net.*` são AFTER INSERT ou `UPDATE OF
 --           encerrada_a_pedido_em`; `UPDATE OF status`/`etapa_atual` não disparam; sobra
 --           `update_candidaturas_updated_at`.
+--   (g)/(h) `UPDATE analise_candidato_vaga SET status = 'pendente'` numa análise antiga de
+--           candidato que não é a_cand — a semente de `v_analises_presas` (população 0 em PROD);
+--           sem trigger na tabela (medido 2026-10-05).
+--   (i)     `UPDATE vagas SET status = 'rascunho'` na vaga de UMA pergunta (outra vaga que não a
+--           da candidatura sondada) e as 18 RPCs chamadas por 6 atores — cada chamada no SEU bloco,
+--           desfeito por `P50C2` mesmo quando aceita (registrar/rejeitar/liberar/revogar/
+--           reprocessar/salvar… gravam e enfileiram `net.http_post`, tudo transacional).
+--   (j)     TEMP TABLE + policy + função em `pg_temp` (a mordida), desfeitas por `P5099`.
+--   (k)     2 `INSERT solicitacoes_dados` (pedido com candidatura viva + ÓRFÃO); se não houver
+--           revisão pendente viva, `UPDATE decisao_final SET revisao_solicitada_em`.
+--   (l)     `UPDATE decisao_final` — o decisor da revisão pendente vira D; a linha do D-23 vira a
+--           decisão `rejeitado` de D REVERTIDA (dispara `trg_decisao_final_snapshot` e
+--           `trg_notif_revisao_respondida`: histórico + `net.http_post` enfileirado, transacional);
+--           `responder_revisao_decisao`/`registrar_decisao` chamados, cada um desfeito por `P50C2`.
 --   Os runners (`p50_ensaio.cjs`, `p50_mutacoes.cjs`) conferem depois, por leitura só-leitura,
 --   que `role|ativo|deleted_at` de `usuarios_rh` e a borda de `candidaturas` ficaram iguais —
 --   por isso este arquivo SÓ roda por eles, antes E depois do apply (ver «COMO RODAR»).
 --
 -- ⚠ CADA sonda vai no SEU PRÓPRIO bloco `BEGIN … EXCEPTION WHEN OTHERS` que guarda
 -- `SQLSTATE:SQLERRM` (ou a contagem). O julgamento roda FORA da subtransação. Uma cláusula por
--- bloco `DO` (cada instrução fica sob o teto de 5 s do ensaio), na ordem a, b, c, d, e, f, z: a
--- PRIMEIRA cláusula quebrada reprova a requisição inteira.
+-- bloco `DO` (cada instrução fica sob o teto de 5 s do ensaio), na ordem a, b, c, d, e, f, g, h,
+-- i, j, k, l, z: a PRIMEIRA cláusula quebrada reprova a requisição inteira. Toda cláusula nova
+-- (g)–(l) é julgamento por LISTA DE RÓTULOS (`P50C FAIL (<letra>): [<rótulo>,…]`; rótulo `c_*` =
+-- controle vácuo, nunca portão aberto), e (e) passou a ser também.
 --
 -- CLÁUSULAS.
 --   (a) forma e ACL do helper: existe, `prosecdef`, STABLE, `search_path=""`; `anon` sem EXECUTE
@@ -78,6 +106,9 @@
 --       `(( SELECT (auth.jwt() #>> '{app_metadata,role}'::text[])) = 'administrador'::text)`.
 --       Esse literal é ESCOPO deliberado (D-02: «o ramo do administrador fica byte-idêntico»),
 --       não fotografia: mudar o disjunto É o defeito que a cláusula existe para pegar.
+--       v2: o mesmo literal em TODA policy da forma de igualdade `= 'rh'::text` (qualquer schema;
+--       14 no ensaio), no USING e no WITH CHECK. Rótulos: [admin_total],
+--       [admin_disjunto:<tabela>.<policy>], [admin_disjunto_check:…], [c_forma] (forma vazia).
 --   (f) forma da policy (escopo do tracer, nome literal deliberado): roles `{authenticated}`; o
 --       qual chama `is_active_rh_user` e não casa `created_by`. BORDA SEMEADA (WR-03): dentro do
 --       envelope P50C1, as duas primeiras candidaturas vivas (por id) viram uma rascunho e uma
@@ -86,7 +117,80 @@
 --       administrador vê as 2 semeadas e a borda inteira [c_admin_semeadas, c_admin_borda]; a
 --       semente pegou [c_populacao]. A população publicada no JSON é `f_borda_semeada`;
 --       `n_borda` segue sendo a borda REAL (0 em 2026-10-05).
---   (z) resíduo: contagens globais de `candidaturas`, `vagas` e `usuarios_rh` = baseline
+--   (g) SC1 nas relações-filhas (D-01). CONJUNTO POR FORMA, sem lista: toda tabela com policy cujo
+--       qual/with_check chama `is_active_rh_user` OU traz `= 'rh'::text` (a forma antiga de posse
+--       também a tem: uma policy revertida continua no conjunto), mais `v_analises_presas`
+--       (escopo deliberado, D-05). Forma por relação (qual das policies SELECT/ALL): B = cita
+--       `candidatura_id` → população = linhas de candidatura VIVA; A_viva = cita `deleted_at`/
+--       `is_rascunho` da própria linha (candidaturas) → linhas vivas; A = nenhum → todas. Medido
+--       no ensaio de 2026-10-05 (real>depois de semear): agendamentos_entrevista B 2, analise_
+--       candidato_vaga A 26, candidaturas A_viva 40, comparativo_solicitado A 6, decisao_final B 7,
+--       decisao_final_historico B 11, entrevista_analises B 14, entrevista_guias B 6,
+--       historico_candidatura B 79, notificacoes_enviadas B 73, redacoes_candidato B 3,
+--       scores_candidato B 19, v_analises_presas B 0>1 (SEMEADA). rh + a_ativo vê, em cada uma,
+--       exatamente a população. População 0 sem receita de semente → `vacuos` (com motivo, no JSON
+--       e na evidência), e a igualdade continua exigida. Rótulos: [<relação>].
+--   (h) SC2 nas mesmas relações e sementes (D-02, D-11): claim `rh` + a_inativo [velho.<rel>] e
+--       + a_inativo_mp [velho_mp.<rel>] ⇒ 0; claim `visualizador` + a linha ATIVA
+--       [visualizador.<rel>] ⇒ 0; candidato + a_cand ⇒ 0 linhas cuja candidatura NÃO é dele
+--       [candidato.<rel>]; controle na mesma execução: rh ativo = população [c_ativo.<rel>].
+--       Erro numa negativa também reprova (passar por erro é passar pelo motivo errado).
+--   (i) SC2 e D-04 em cada RPC (D-02, D-04). CONJUNTO POR FORMA: funções de `public` cujo prosrc
+--       chama o helper ou traz `v_role = 'rh'` (18 no ensaio), mais as entradas do MAPA de
+--       argumentos que existam (o mapa é escopo deliberado: chamada com ids reais lidos na
+--       execução + tipo `leitura`/`escrita` + se tem guarda de papel; uma função do conjunto sem
+--       entrada ⇒ [sem_sonda:<f>]; uma entrada que saiu do conjunto — perdeu o helper — continua
+--       sondada). Por função (rótulo `<proname>/<nargs>`), 6 atores, cada chamada desfeita:
+--       ativo (rh + a_ativo) ≠ 42501, e no funil KPIs cheios [ativo.<f>] — o CONTROLE;
+--       velho/velho_mp ⇒ 42501, leitura admite vazio (n:0, i:0, KPIs vazios), nunca ≥ 1;
+--       sem_papel ⇒ 42501 onde há guarda de papel, KPIs vazios no funil (sem guarda);
+--       candidato (args de candidatura ALHEIA) ⇒ escrita só 42501, leitura 42501 ou vazio;
+--       anon ⇒ sem EXECUTE no ACL E a chamada recusada com `permission denied for function`.
+--       Um 40001 numa sonda reprova como INESPERADO (40001: …) — tráfego, nunca veredito.
+--   (j) SC3 POR FORMA, sem allowlist. POLICIES: TODA linha de `pg_policies`, SEM filtro de schema
+--       (desvio deliberado do RESEARCH Pattern 5, que excluía `storage` & cia. das duas
+--       varreduras): policies de usuário vivem também em `storage` (26, em `storage.objects` —
+--       o bucket de CVs; o cabeçalho do `get-curriculo-url` registra uma policy RH antiga ali),
+--       `cron` tem 2 gerenciadas e `pg_temp` recebe a mordida. Cobertura provada na execução:
+--       lidas = `count(*)` de `pg_catalog.pg_policy` [cobertura:<lidas>/<total>]; a lista antiga
+--       leria só `cobertura_antiga` (155 de 183 — por isso a igualdade existe). Uma mordida DDL em
+--       `storage.objects` NÃO é possível (dono `supabase_storage_admin`; postgres não é membro nem
+--       age como ele) — a metade storage se prova pela cobertura. Ofensoras: qual/with_check casa
+--       `created_by` [pol:<s.t.p>]; metade positiva: toda policy com `= 'rh'::text` chama o helper
+--       [pol_rh_sem_helper:…]. FUNÇÕES (a exclusão de schemas de sistema do Pattern 5 FICA — só
+--       aqui; pg_temp DENTRO): `created_by` E `\mvagas\M` [fn:<s.f/n>]; forma indireta
+--       `v_role = 'rh' AND v_(vaga_)?(owner|dono)` [fn_indireta:…]; toda função com
+--       `v_role = 'rh'` chama o helper [fn_rh_sem_helper:…]. Escopo: as 14 policies reescritas
+--       (lista deliberada) estão na forma de igualdade [escopo:<t.p>]. MORDIDA em pg_temp,
+--       desfeita por P5099: temp table + `p50_bite_pol` (posse) + `pg_temp.p50_bite_fn()` (posse
+--       indireta) — fase 2 MENOS fase 1 tem de ser EXATAMENTE o plantado em cada detector
+--       [mordida_pol, mordida_fn, mordida_ind, mordida_fnrh]. Populações da forma (ensaio
+--       2026-10-05): 183 policies (cron 2, public 155, storage 26), 14 na forma de igualdade,
+--       18 funções com `v_role = 'rh'` — [c_pol_rh]/[c_fn_rh] se zerarem.
+--   (k) SC4 (D-03), semeado no envelope: pedido pendente de candidato COM candidatura viva + de
+--       candidato SEM candidatura (órfão; nenhum dos dois é a_cand) e as revisões pendentes vivas
+--       (2; semeia uma se 0). administrador × rh ativo: md5 de `listar_pedidos_dados(true)`,
+--       `contar_pedidos_dados_pendentes()`, md5 sem `pode_responder` de
+--       `listar_revisoes_decisao(true|false)`, `contar_revisoes_pendentes()` iguais
+--       [igual.<f>], contagens > 0 [c_pop.<f>], o rh vê os dois semeados [rh_ve_com,
+--       rh_ve_orfao]; token antigo e candidato ⇒ 42501 ou vazio, nunca ≥ 1 [velho.<f>,
+--       candidato.<f>].
+--   (l) SC5 (D-08), semeado: o decisor D da revisão pendente (sob `rh` + D) recebe 42501 com
+--       «decisor» de `responder_revisao_decisao` [decisor]; OUTRO rh ativo passa [c_outro]; na
+--       fila sob D, `pode_responder` é falso nas linhas dele [pode_responder] e ele vê ≥ 1
+--       [c_proprias]. D-23 COMPORTAMENTAL: uma decisão vira `rejeitado` de D `revertida`
+--       (o predicado 2b de `registrar_decisao`, espelhado) e `registrar_decisao(…,'rejeitado',…)`
+--       sob D dá 42501 «D-23» [d23]; outro rh não é travado [c_d23_outro]; e o literal
+--       `d.por_usuario = v_uid` está no corpo [d23_literal]. Se a semente for impossível,
+--       `d23=estrutural` (só o literal) — o ÚNICO rebaixamento permitido, e reportado.
+--   EVIDÊNCIA: a requisição aborta e não devolve linha; por isso (g), (i), (j), (k) e (l) ANEXAM
+--   à GUC `p50.evidencia` (nunca sobrescrevem — os PÓS-PORTÃO das migrations escrevem lá também)
+--   `07:pop=…`, `07:semeadas=…`, `07:vacuos=…`, `07:rpcs=…`, `07:i_ativo=…`, `07:i_cand=…`,
+--   `07:cobertura=…`, `07:pol_por_schema=…`, `07:formas=…`, `07:mordida_pg_temp=…`, `07:sc4=…`,
+--   `07:sc5=…`, `07:d23=…` — ids/contagens/md5/SQLSTATE, nada pessoal —, que o sentinela leva
+--   para fora como `evidencia=`.
+--   (z) resíduo: contagens globais de `candidaturas`, `vagas`, `usuarios_rh` (v2: e de
+--       `solicitacoes_dados` e `decisao_final`, onde (k)/(l) escrevem) = baseline
 --       capturada no início DESTA execução. Como o smoke só roda dentro do ensaio, que abre a
 --       requisição em REPEATABLE READ (um snapshot para tudo), commits de fora NÃO aparecem
 --       aqui: um delta em (z) é RESÍDUO DA PRÓPRIA requisição — uma escrita que escapou de um
@@ -149,6 +253,17 @@
 --   0 das negativas, o 1 de cada escrita do envelope, o 2 das semeadas de (f) e o literal do
 --   disjunto do administrador em (e) — escopo; as contagens de (c), (e), (f) e (z) são baseline
 --   capturada na execução.
+--   Re-varredura do 50-07 (2026-10-05): 346 linhas na base do plano (f0868738), 354 depois —
+--   as +8 são DESTE arquivo, todas ESCOPO: 6 `v_rc <> 1` (cada escrita das sementes de (g), (h),
+--   (i), (k), (l) atinge exatamente UMA linha), `v_ran <> 2` de (j) (as duas fases, base e
+--   mordida, têm de ter rodado) e o `<> 0` de (l) (nenhuma linha do próprio decisor com
+--   `pode_responder`). Achados que tocam os objetos que v2 passou a vigiar: `funil34_kpis_smokes.sql:160,177`
+--   (KPIs vazios / `v_a <> 0` do recrutador não-dono — a PREMISSA de posse que o 0003 inverte;
+--   disposição no 50-09), `p44_pedidos_dados_smoke.sql:357` (escopo: as duas RPCs do p44) e
+--   `p42_revisao_art20_smoke.sql:695,725` (deltas da própria fixture — escopo). Formas que o
+--   padrão NÃO vê e que este arquivo usa, todas escopo deliberado e comentadas no lugar: a lista
+--   das 14 policies de (j) (`c_escopo`), as chaves do MAPA de (i) (união com o conjunto por forma —
+--   nunca o restringe) e o esperado 13.
 --
 -- COMO RODAR:
 --   · antes do apply (50-01/50-02): só dentro do ensaio que aborta —
@@ -157,7 +272,11 @@
 --   · depois do apply: TAMBÉM só dentro do ensaio que aborta, contra os objetos VIVOS —
 --     `node scripts/p50_ensaio.cjs --sem-migracoes supabase/tests/p50_acesso_recrutador_smoke.sql`
 --     (aborta no sentinela, `lock_timeout`/`statement_timeout` do prefixo, leitura de
---     persistência antes e depois). Veredito: `ENSAIO VERDE: … smoke50=7/7 …`.
+--     persistência antes e depois). Veredito: `ENSAIO VERDE: … smoke50=13/13 …`.
+--   · v2 (50-07, antes do apply do 50-10): `node scripts/p50_ensaio.cjs --vistas
+--     supabase/tests/p50_acesso_recrutador_smoke.sql` — modo padrão: prefixa 20261005000002,
+--     …0003 e …0004 (as que estão no disco e fora do ledger); `vistas=igual` seguido OPCIONALMENTE
+--     de `+fechou[…]` (decisão «A» do operador, 50-03) e nada mais.
 --   · ⚠ PROIBIDO: `node p46apply.cjs run` DESTE arquivo (WR-01 do 50-REVIEW-TRACER-2). O `run`
 --     COMMITA: o que segura as escritas acima é só o envelope P50C1, escrito à mão em cada
 --     cláusula; uma escrita fora dele (ou um bloco que termine normalmente) gravaria em PROD —
@@ -170,7 +289,7 @@
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
 -- deliberado), não uma fotografia do banco. Vive num ÚNICO literal (`smoke50.esperado`, abaixo);
--- o bloco do gate e o JSON final LEEM a GUC. Hoje: 7 — a, b, c, d, e, f, z.
+-- o bloco do gate e o JSON final LEEM a GUC. Hoje: 13 — a, b, c, d, e, f, g, h, i, j, k, l, z.
 -- =============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -766,6 +885,10 @@ DECLARE
   v_cut    int;
   v_ch     text;
   i        int;
+  r        record;
+  v_parte  text;
+  e_npol   int := 0;
+  e_rot    text[] := '{}';
 BEGIN
   BEGIN
     SET LOCAL ROLE authenticated;
@@ -787,31 +910,48 @@ BEGIN
   END IF;
 
   IF n_total < 1 OR e_count IS DISTINCT FROM n_total::text THEN
-    RAISE EXCEPTION 'P50C FAIL (e): o administrador ativo (%) viu «%» candidaturas (esperado o total como postgres = %, > 0) — o administrador nao pode perder nada. Sob o snapshot unico do ensaio (REPEATABLE READ) baseline e (e) leem o MESMO banco: uma diferenca, mesmo pequena, e da POLICY, nao de trafego — repetir da o mesmo vermelho',
-      v_admin, e_count, n_total;
+    e_rot := e_rot || 'admin_total'::text;
   END IF;
 
-  SELECT p.qual INTO v_qual
-    FROM pg_catalog.pg_policies p
-   WHERE p.schemaname = 'public' AND p.tablename = 'candidaturas' AND p.policyname = 'rh_le_candidaturas';
-  FOR i IN 1 .. coalesce(length(v_qual), 0) LOOP
-    v_ch := substr(v_qual, i, 1);
-    IF v_ch = '''' THEN
-      v_inq := NOT v_inq;
-    ELSIF NOT v_inq AND v_ch = '(' THEN
-      v_depth := v_depth + 1;
-    ELSIF NOT v_inq AND v_ch = ')' THEN
-      v_depth := v_depth - 1;
-    ELSIF NOT v_inq AND v_depth = 1 AND substr(v_qual, i, 4) = ' OR ' THEN
-      v_cut := i;
-      EXIT;
-    END IF;
+  -- O disjunto do administrador em TODA policy da forma de igualdade `= 'rh'::text` (qualquer
+  -- schema; hoje as 14 que a fase reescreveu), no USING e no WITH CHECK: o primeiro termo de nível
+  -- superior do OR tem de ser EXATAMENTE c_admin (D-02: byte-idêntico ao de antes).
+  FOR r IN SELECT p.schemaname, p.tablename, p.policyname, p.qual, p.with_check
+             FROM pg_catalog.pg_policies p
+            WHERE (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) ~ '= ''rh''::text'
+            ORDER BY p.schemaname, p.tablename, p.policyname LOOP
+    e_npol := e_npol + 1;
+    FOREACH v_parte IN ARRAY ARRAY['q', 'c'] LOOP
+      v_qual := CASE v_parte WHEN 'q' THEN r.qual ELSE r.with_check END;
+      CONTINUE WHEN v_parte = 'c' AND v_qual IS NULL;
+      v_depth := 0;  v_inq := false;  v_cut := NULL;
+      FOR i IN 1 .. coalesce(length(v_qual), 0) LOOP
+        v_ch := substr(v_qual, i, 1);
+        IF v_ch = '''' THEN
+          v_inq := NOT v_inq;
+        ELSIF NOT v_inq AND v_ch = '(' THEN
+          v_depth := v_depth + 1;
+        ELSIF NOT v_inq AND v_ch = ')' THEN
+          v_depth := v_depth - 1;
+        ELSIF NOT v_inq AND v_depth = 1 AND substr(v_qual, i, 4) = ' OR ' THEN
+          v_cut := i;
+          EXIT;
+        END IF;
+      END LOOP;
+      v_disj := CASE WHEN v_cut IS NULL OR left(v_qual, 1) <> '(' THEN NULL ELSE substr(v_qual, 2, v_cut - 2) END;
+      IF v_disj IS DISTINCT FROM c_admin THEN
+        e_rot := e_rot || ('admin_disjunto' || CASE v_parte WHEN 'c' THEN '_check' ELSE '' END || ':'
+                           || CASE WHEN r.schemaname = 'public' THEN '' ELSE r.schemaname || '.' END || r.tablename || '.' || r.policyname);
+      END IF;
+    END LOOP;
   END LOOP;
-  v_disj := CASE WHEN v_cut IS NULL OR left(v_qual, 1) <> '(' THEN NULL ELSE substr(v_qual, 2, v_cut - 2) END;
-  IF v_disj IS DISTINCT FROM c_admin THEN
-    RAISE EXCEPTION 'P50C FAIL (e): o disjunto do administrador em rh_le_candidaturas e «%» (esperado «%» — D-02: byte-identico ao de antes)',
-      v_disj, c_admin;
+  IF e_npol < 1 THEN e_rot := e_rot || 'c_forma'::text; END IF;
+
+  IF cardinality(e_rot) > 0 THEN
+    RAISE EXCEPTION 'P50C FAIL (e): [%]: o administrador ativo (%) viu «%» candidaturas (esperado o total como postgres = %, > 0) ; % policy(ies) da forma de igualdade, disjunto do administrador esperado «%» (D-02: byte-identico ao de antes; rotulo c_* = populacao da forma vazia). Sob o snapshot unico do ensaio (REPEATABLE READ) baseline e (e) leem o MESMO banco: uma diferenca e da POLICY, nao de trafego',
+      array_to_string(e_rot, ','), v_admin, e_count, n_total, e_npol, c_admin;
   END IF;
+  PERFORM set_config('smoke50.e_npol', e_npol::text, false);
   PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
 END
 $e$;
@@ -1402,6 +1542,508 @@ $i$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- (j) SC3 POR FORMA — nenhuma policy (de QUALQUER schema) nem função carrega a posse da vaga como
+--     autorização; o portão MORDE em `pg_temp` (policy e função plantadas, desfeitas em P5099).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $j$
+DECLARE
+  -- ESCOPO deliberado (não fotografia): as 14 policies que a fase reescreveu (0001 + 0002). Cada uma
+  -- tem de estar no conjunto da forma de igualdade `= 'rh'::text` — que a metade positiva obriga
+  -- a chamar o helper.
+  c_escopo  constant text[] := ARRAY[
+    'candidaturas.rh_le_candidaturas', 'candidaturas.rh_avanca_etapa',
+    'analise_candidato_vaga.rh_le_analise', 'comparativo_solicitado.rh_le_comparativo',
+    'agendamentos_entrevista.rh_gerencia_agendamento', 'notificacoes_enviadas.rh_le_notificacoes',
+    'decisao_final.rh_le_decisao_final', 'decisao_final_historico.rh_le_decisao_final_historico',
+    'entrevista_analises.rh_le_entrevista_analises', 'entrevista_guias.rh_le_entrevista_guias',
+    'historico_candidatura.rh_le_historico', 'redacoes_candidato.redacao_rh_select',
+    'redacoes_candidato.redacao_rh_update', 'scores_candidato.rh_le_scores'];
+  -- Exclusão de schemas de sistema/gerenciados — SÓ na varredura de FUNÇÕES (RESEARCH Pattern 5;
+  -- pg_temp fica DENTRO). A de policies não tem filtro de schema (ver cabeçalho).
+  c_excl_fn constant text[] := ARRAY['pg_catalog', 'information_schema', 'storage', 'auth', 'realtime', 'cron', 'net',
+                                     'vault', 'extensions', 'graphql', 'graphql_public', 'pgsodium', 'supabase_functions', 'pgbouncer'];
+  -- A lista ANTIGA do Pattern 5 para policies — usada só para MEDIR o que ela deixaria de ler.
+  c_excl_pol_antiga constant text[] := ARRAY['pg_catalog', 'information_schema', 'storage', 'auth', 'realtime', 'cron', 'net', 'vault', 'extensions'];
+  v_fase    int;
+  v_det     jsonb := '{}';
+  d         jsonb;
+  v_lidas   bigint;
+  v_total   bigint;
+  v_antiga  bigint;
+  v_eqpol   bigint;
+  v_rhfn    bigint;
+  v_pol     jsonb;
+  v_polrh   jsonb;
+  v_fn      jsonb;
+  v_ind     jsonb;
+  v_fnrh    jsonb;
+  v_eqset   text[];
+  v_schemas text;
+  v_err     text;
+  v_ran     int := 0;
+  x         text;
+  b         jsonb;
+  j_rot     text[] := '{}';
+BEGIN
+  FOR v_fase IN 1 .. 2 LOOP
+    BEGIN
+      IF v_fase = 2 THEN
+        -- MORDIDA: o ofensor plantado em pg_temp (nada em tabela de PROD; desfeito pelo P5099).
+        CREATE TEMP TABLE p50_bite (vaga_id uuid);
+        ALTER TABLE p50_bite ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY p50_bite_pol ON p50_bite
+          USING (vaga_id IN (SELECT id FROM public.vagas WHERE created_by = (select auth.uid())));
+        EXECUTE $bite$
+          CREATE FUNCTION pg_temp.p50_bite_fn() RETURNS boolean LANGUAGE plpgsql AS $bfn$
+          DECLARE
+            v_role       text := (select auth.jwt() #>> '{app_metadata,role}');
+            v_vaga_owner uuid;
+          BEGIN
+            SELECT v.created_by INTO v_vaga_owner FROM public.vagas v LIMIT 1;
+            IF v_role = 'rh' AND v_vaga_owner IS DISTINCT FROM (select auth.uid()) THEN
+              RETURN false;
+            END IF;
+            RETURN true;
+          END
+          $bfn$
+        $bite$;
+      END IF;
+
+      -- POLICIES: TODA linha de pg_policies — SEM predicado de schema (public, storage, cron, pg_temp…).
+      WITH pol AS (
+        SELECT p.schemaname || '.' || p.tablename || '.' || p.policyname AS nome,
+               p.schemaname AS sch, p.tablename || '.' || p.policyname AS tp,
+               coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '') AS txt
+          FROM pg_catalog.pg_policies p
+      )
+      SELECT count(*),
+             count(*) FILTER (WHERE sch <> ALL (c_excl_pol_antiga)),
+             count(*) FILTER (WHERE txt ~ '= ''rh''::text'),
+             coalesce(jsonb_agg(nome ORDER BY nome) FILTER (WHERE txt ~* 'created_by'), '[]'),
+             coalesce(jsonb_agg(nome ORDER BY nome) FILTER (WHERE txt ~ '= ''rh''::text' AND txt !~ 'is_active_rh_user'), '[]'),
+             coalesce(array_agg(tp ORDER BY tp) FILTER (WHERE txt ~ '= ''rh''::text' AND sch = 'public'), '{}')
+        INTO v_lidas, v_antiga, v_eqpol, v_pol, v_polrh, v_eqset
+        FROM pol;
+      SELECT count(*) INTO v_total FROM pg_catalog.pg_policy;
+      SELECT string_agg(s || ':' || n, ',' ORDER BY s) INTO v_schemas
+        FROM (SELECT p.schemaname AS s, count(*) AS n FROM pg_catalog.pg_policies p GROUP BY p.schemaname) z;
+
+      -- FUNÇÕES: todo schema fora da exclusão (pg_temp DENTRO).
+      WITH fn AS (
+        SELECT n.nspname || '.' || p.proname || '/' || p.pronargs AS nome, p.prosrc AS src
+          FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+         WHERE n.nspname <> ALL (c_excl_fn)
+      )
+      SELECT count(*) FILTER (WHERE src ~ 'v_role\s*=\s*''rh'''),
+             coalesce(jsonb_agg(nome ORDER BY nome) FILTER (WHERE src ~* 'created_by' AND src ~* '\mvagas\M'), '[]'),
+             coalesce(jsonb_agg(nome ORDER BY nome) FILTER (WHERE src ~* 'v_role\s*=\s*''rh''\s+AND\s+v_(vaga_)?(owner|dono)'), '[]'),
+             coalesce(jsonb_agg(nome ORDER BY nome) FILTER (WHERE src ~ 'v_role\s*=\s*''rh''' AND src !~ 'is_active_rh_user'), '[]')
+        INTO v_rhfn, v_fn, v_ind, v_fnrh
+        FROM fn;
+
+      v_det := v_det || jsonb_build_object(v_fase::text, jsonb_build_object(
+        'lidas', v_lidas, 'total', v_total, 'antiga', v_antiga, 'eqpol', v_eqpol, 'rhfn', v_rhfn,
+        'schemas', v_schemas, 'pol', v_pol, 'polrh', v_polrh, 'fn', v_fn, 'ind', v_ind, 'fnrh', v_fnrh,
+        'eqset', to_jsonb(v_eqset)));
+      v_ran := v_ran + 1;
+      RAISE EXCEPTION 'desfazer a fase %', v_fase USING ERRCODE = 'P5099';
+    EXCEPTION
+      WHEN SQLSTATE 'P5099' THEN NULL;
+      WHEN OTHERS THEN v_err := format('fase %s — %s: %s', v_fase, SQLSTATE, SQLERRM);
+    END;
+    EXIT WHEN v_err IS NOT NULL;
+  END LOOP;
+  IF v_err IS NOT NULL OR v_ran <> 2 THEN
+    RAISE EXCEPTION 'P50C FAIL (j): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+
+  -- Base (fase 1): zero ofensor em cada detector; cobertura = tudo; escopo dentro da forma.
+  d := v_det -> '1';
+  IF (d ->> 'lidas')::bigint IS DISTINCT FROM (d ->> 'total')::bigint THEN
+    j_rot := j_rot || ('cobertura:' || (d ->> 'lidas') || '/' || (d ->> 'total'));
+  END IF;
+  FOR x IN SELECT jsonb_array_elements_text(d -> 'pol')   LOOP j_rot := j_rot || ('pol:' || x); END LOOP;
+  FOR x IN SELECT jsonb_array_elements_text(d -> 'polrh') LOOP j_rot := j_rot || ('pol_rh_sem_helper:' || x); END LOOP;
+  FOR x IN SELECT jsonb_array_elements_text(d -> 'fn')    LOOP j_rot := j_rot || ('fn:' || x); END LOOP;
+  FOR x IN SELECT jsonb_array_elements_text(d -> 'ind')   LOOP j_rot := j_rot || ('fn_indireta:' || x); END LOOP;
+  FOR x IN SELECT jsonb_array_elements_text(d -> 'fnrh')  LOOP j_rot := j_rot || ('fn_rh_sem_helper:' || x); END LOOP;
+  FOREACH x IN ARRAY c_escopo LOOP
+    IF NOT (d -> 'eqset') ? x THEN j_rot := j_rot || ('escopo:' || x); END IF;
+  END LOOP;
+
+  -- Mordida (fase 2 MENOS fase 1): cada detector acha EXATAMENTE o que foi plantado em pg_temp.
+  b := v_det -> '2';
+  IF (SELECT coalesce(jsonb_agg(e ORDER BY e), '[]') FROM jsonb_array_elements_text(b -> 'pol') e WHERE NOT (d -> 'pol') ? e)::text
+     !~ '^\["pg_temp_[0-9]+\.p50_bite\.p50_bite_pol"\]$' THEN j_rot := j_rot || 'mordida_pol'::text; END IF;
+  IF (SELECT coalesce(jsonb_agg(e ORDER BY e), '[]') FROM jsonb_array_elements_text(b -> 'fn') e WHERE NOT (d -> 'fn') ? e)::text
+     !~ '^\["pg_temp_[0-9]+\.p50_bite_fn/0"\]$' THEN j_rot := j_rot || 'mordida_fn'::text; END IF;
+  IF (SELECT coalesce(jsonb_agg(e ORDER BY e), '[]') FROM jsonb_array_elements_text(b -> 'ind') e WHERE NOT (d -> 'ind') ? e)::text
+     !~ '^\["pg_temp_[0-9]+\.p50_bite_fn/0"\]$' THEN j_rot := j_rot || 'mordida_ind'::text; END IF;
+  IF (SELECT coalesce(jsonb_agg(e ORDER BY e), '[]') FROM jsonb_array_elements_text(b -> 'fnrh') e WHERE NOT (d -> 'fnrh') ? e)::text
+     !~ '^\["pg_temp_[0-9]+\.p50_bite_fn/0"\]$' THEN j_rot := j_rot || 'mordida_fnrh'::text; END IF;
+  IF (b ->> 'lidas')::bigint IS DISTINCT FROM (b ->> 'total')::bigint THEN
+    j_rot := j_rot || ('mordida_cobertura:' || (b ->> 'lidas') || '/' || (b ->> 'total'));
+  END IF;
+  -- Populações das duas formas (controle: sem elas as metades positivas seriam vácuas).
+  IF (d ->> 'eqpol')::bigint < 1 THEN j_rot := j_rot || 'c_pol_rh'::text; END IF;
+  IF (d ->> 'rhfn')::bigint  < 1 THEN j_rot := j_rot || 'c_fn_rh'::text;  END IF;
+
+  PERFORM set_config('p50.evidencia', concat_ws(';', nullif(current_setting('p50.evidencia', true), ''),
+            '07:cobertura=' || (d ->> 'lidas') || '/' || (d ->> 'total') || ',antiga=' || (d ->> 'antiga') || '/' || (d ->> 'total')
+              || ',mordida=' || CASE WHEN (d ->> 'antiga')::bigint < (d ->> 'total')::bigint THEN 'real' ELSE 'vacua' END,
+            '07:pol_por_schema=' || coalesce(d ->> 'schemas', '-'),
+            '07:formas=pol_rh:' || (d ->> 'eqpol') || ',fn_rh:' || (d ->> 'rhfn'),
+            '07:mordida_pg_temp=' || CASE WHEN j_rot && ARRAY['mordida_pol', 'mordida_fn', 'mordida_ind', 'mordida_fnrh'] THEN 'FALHOU' ELSE 'exata' END), false);
+  PERFORM set_config('smoke50.j_det', v_det::text, false);
+  PERFORM set_config('smoke50.cobertura_policies', jsonb_build_object(
+            'lidas', (d ->> 'lidas')::bigint, 'total', (d ->> 'total')::bigint, 'por_schema', d ->> 'schemas',
+            'cobertura_antiga', (d ->> 'antiga')::bigint,
+            'cobertura_mordida', CASE WHEN (d ->> 'antiga')::bigint < (d ->> 'total')::bigint THEN 'real' ELSE 'vacua' END)::text, false);
+
+  IF cardinality(j_rot) > 0 THEN
+    RAISE EXCEPTION 'P50C FAIL (j): [%]: base % ; com a mordida plantada em pg_temp % (rotulo c_* = populacao da forma vazia)',
+      array_to_string(j_rot, ','), d, b;
+  END IF;
+  PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
+END
+$j$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (k) SC4 — as filas SEMEADAS (pedido com candidatura viva + pedido ÓRFÃO) são md5-iguais para o
+--     administrador e o rh ativo; token antigo e candidato não veem nada.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $k$
+DECLARE
+  v_admin   uuid   := current_setting('smoke50.a_admin')::uuid;
+  v_ativo   uuid   := current_setting('smoke50.a_ativo')::uuid;
+  v_inativo uuid   := current_setting('smoke50.a_inativo')::uuid;
+  v_cand    uuid   := current_setting('smoke50.a_cand')::uuid;
+  v_candid  uuid[] := string_to_array(current_setting('smoke50.cand_ids'), ',')::uuid[];
+  v_com     uuid;
+  v_orf     uuid;
+  v_id_com  uuid;
+  v_id_orf  uuid;
+  v_pend    bigint;
+  v_rev_sem text := 'nao';
+  v_rc      int;
+  a         text;
+  f         text;
+  v_tok     text;
+  v_ve      text;
+  v_res     jsonb  := '{}';
+  v_err     text;
+  v_ran     boolean := false;
+  k_rot     text[] := '{}';
+  v_vazio   text[] := ARRAY['n:0', 'i:0'];
+  x         text;
+BEGIN
+  -- Fixture lida na execução (idioma p44): um candidato COM candidatura viva e um SEM candidatura
+  -- nenhuma (o órfão) — nenhum dos dois é a_cand.
+  SELECT ca.id INTO v_com
+    FROM public.candidatos ca
+   WHERE NOT (ca.id = ANY (v_candid))
+     AND EXISTS (SELECT 1 FROM public.candidaturas c WHERE c.candidato_id = ca.id AND c.deleted_at IS NULL AND c.is_rascunho = false)
+   ORDER BY ca.id LIMIT 1;
+  SELECT ca.id INTO v_orf
+    FROM public.candidatos ca
+   WHERE NOT (ca.id = ANY (v_candid))
+     AND NOT EXISTS (SELECT 1 FROM public.candidaturas c WHERE c.candidato_id = ca.id)
+   ORDER BY ca.id LIMIT 1;
+  IF v_com IS NULL OR v_orf IS NULL THEN
+    RAISE EXCEPTION 'P50C FAIL (k): sem fixture — candidato com candidatura viva=% orfao=% (cada um tem de existir; semear um orfao exigiria escrever em auth.users)', v_com IS NOT NULL, v_orf IS NOT NULL;
+  END IF;
+
+  BEGIN
+    INSERT INTO public.solicitacoes_dados (candidato_id, tipo, situacao)
+    VALUES (v_com, 'acesso', 'pendente') RETURNING id INTO v_id_com;
+    INSERT INTO public.solicitacoes_dados (candidato_id, tipo, situacao)
+    VALUES (v_orf, 'acesso', 'pendente') RETURNING id INTO v_id_orf;
+
+    -- revisões pendentes vivas (lidas; semeia UMA se não houver).
+    SELECT count(*) INTO v_pend
+      FROM public.decisao_final d JOIN public.candidaturas c ON c.id = d.candidatura_id
+     WHERE d.revisao_solicitada_em IS NOT NULL AND d.revisao_respondida_em IS NULL
+       AND c.deleted_at IS NULL AND c.is_rascunho = false;
+    IF v_pend = 0 THEN
+      UPDATE public.decisao_final d SET revisao_solicitada_em = now()
+       WHERE d.id = (SELECT d2.id FROM public.decisao_final d2 JOIN public.candidaturas c ON c.id = d2.candidatura_id
+                      WHERE c.deleted_at IS NULL AND c.is_rascunho = false AND d2.revisao_solicitada_em IS NULL
+                      ORDER BY d2.id LIMIT 1);
+      GET DIAGNOSTICS v_rc = ROW_COUNT;
+      IF v_rc <> 1 THEN RAISE EXCEPTION 'semear revisao pendente atingiu % linha(s), esperado 1', v_rc; END IF;
+      v_rev_sem := 'sim';
+      v_pend := 1;
+    END IF;
+
+    FOREACH a IN ARRAY ARRAY['admin', 'ativo', 'velho', 'candidato'] LOOP
+      SET LOCAL ROLE authenticated;
+      PERFORM set_config('request.jwt.claims', json_build_object(
+                'sub', (CASE a WHEN 'admin' THEN v_admin WHEN 'ativo' THEN v_ativo WHEN 'velho' THEN v_inativo ELSE v_cand END)::text,
+                'role', 'authenticated',
+                'app_metadata', json_build_object('role', CASE a WHEN 'admin' THEN 'administrador' WHEN 'candidato' THEN 'candidato' ELSE 'rh' END))::text, true);
+      FOREACH f IN ARRAY ARRAY['listar_pedidos_dados', 'contar_pedidos_dados_pendentes', 'listar_revisoes_decisao_true',
+                               'listar_revisoes_decisao_false', 'contar_revisoes_pendentes'] LOOP
+        BEGIN
+          CASE f
+            WHEN 'listar_pedidos_dados' THEN
+              SELECT 'n:' || count(*) || ':' || md5(coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.id)::text, '[]')),
+                     coalesce(bool_or(t.id = v_id_com), false)::text || '/' || coalesce(bool_or(t.id = v_id_orf), false)::text
+                INTO v_tok, v_ve FROM public.listar_pedidos_dados(true) t;
+              IF a = 'ativo' THEN v_res := v_res || jsonb_build_object('ativo.ve', v_ve); END IF;
+            WHEN 'contar_pedidos_dados_pendentes' THEN
+              v_tok := 'i:' || public.contar_pedidos_dados_pendentes();
+            WHEN 'listar_revisoes_decisao_true' THEN
+              SELECT 'n:' || count(*) || ':' || md5(coalesce(jsonb_agg(to_jsonb(t) - 'pode_responder' ORDER BY t.candidatura_id)::text, '[]'))
+                INTO v_tok FROM public.listar_revisoes_decisao(true) t;
+            WHEN 'listar_revisoes_decisao_false' THEN
+              SELECT 'n:' || count(*) || ':' || md5(coalesce(jsonb_agg(to_jsonb(t) - 'pode_responder' ORDER BY t.candidatura_id)::text, '[]'))
+                INTO v_tok FROM public.listar_revisoes_decisao(false) t;
+            ELSE
+              v_tok := 'i:' || public.contar_revisoes_pendentes();
+          END CASE;
+        EXCEPTION WHEN OTHERS THEN v_tok := 'e:' || SQLSTATE || ':' || left(SQLERRM, 60);
+        END;
+        v_res := v_res || jsonb_build_object(a || '.' || f, v_tok);
+      END LOOP;
+      RESET ROLE;
+    END LOOP;
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P50C1';
+  EXCEPTION
+    WHEN SQLSTATE 'P50C1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P50C FAIL (k): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+
+  FOREACH f IN ARRAY ARRAY['listar_pedidos_dados', 'contar_pedidos_dados_pendentes', 'listar_revisoes_decisao_true',
+                           'listar_revisoes_decisao_false', 'contar_revisoes_pendentes'] LOOP
+    x := coalesce(v_res ->> ('admin.' || f), '<ausente>');
+    -- população: o administrador vê > 0 (senão a igualdade é vácua) — controle.
+    IF (CASE WHEN x ~ '^[ni]:[0-9]+' THEN split_part(x, ':', 2)::bigint < 1 ELSE true END) THEN k_rot := k_rot || ('c_pop.' || f); END IF;
+    IF (v_res ->> ('ativo.' || f)) IS DISTINCT FROM x THEN k_rot := k_rot || ('igual.' || f); END IF;
+    FOREACH a IN ARRAY ARRAY['velho', 'candidato'] LOOP
+      x := coalesce(v_res ->> (a || '.' || f), '<ausente>');
+      IF NOT (x LIKE 'e:42501:%' OR split_part(x, ':', 1) || ':' || split_part(x, ':', 2) = ANY (v_vazio)) THEN
+        k_rot := k_rot || (a || '.' || f);
+      END IF;
+    END LOOP;
+  END LOOP;
+  IF split_part(coalesce(v_res ->> 'ativo.ve', ''), '/', 1) IS DISTINCT FROM 'true' THEN k_rot := k_rot || 'rh_ve_com'::text; END IF;
+  IF split_part(coalesce(v_res ->> 'ativo.ve', ''), '/', 2) IS DISTINCT FROM 'true' THEN k_rot := k_rot || 'rh_ve_orfao'::text; END IF;
+
+  PERFORM set_config('p50.evidencia', concat_ws(';', nullif(current_setting('p50.evidencia', true), ''),
+            '07:sc4=' || (SELECT string_agg(key || '>' || CASE WHEN value LIKE 'e:%' THEN split_part(value, ':', 1) || ':' || split_part(value, ':', 2)
+                                                             WHEN value ~ '^n:' THEN split_part(value, ':', 1) || ':' || split_part(value, ':', 2) || ':' || left(split_part(value, ':', 3), 12)
+                                                             ELSE value END, ',' ORDER BY key)
+                            FROM jsonb_each_text(v_res)),
+            '07:sc4_semeados=2(orfao=1),revisao_semeada=' || v_rev_sem || ',revisoes_pendentes=' || v_pend), false);
+  PERFORM set_config('smoke50.k_res', v_res::text, false);
+  IF cardinality(k_rot) > 0 THEN
+    RAISE EXCEPTION 'P50C FAIL (k): [%]: filas por ator %. (esperado: admin = rh ativo em md5/contagem, contagens > 0, o rh ve os dois semeados — o orfao inclusive; velho e candidato: 42501 ou vazio. rotulo c_* = populacao vazia)',
+      array_to_string(k_rot, ','), v_res;
+  END IF;
+  PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
+END
+$k$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (l) SC5 — REVISAO-05 (o decisor não responde à própria revisão) e D-23 (quem teve a decisão
+--     revertida não registra a nova), comportamentais e semeados, com controle na mesma execução.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $l$
+DECLARE
+  v_ativo  uuid := current_setting('smoke50.a_ativo')::uuid;
+  c_just   constant text := 'Sonda de autorizacao do smoke p50 (ensaio que aborta): nada aqui persiste nem e decisao real.';
+  v_d      uuid;
+  v_f      uuid;
+  v_rev    uuid;
+  v_x      uuid;
+  v_rc     int;
+  v_semrev text := 'nao';
+  v_own    uuid[];
+  v_tok    text;
+  l_dec    text := '<nao rodou>';
+  l_outro  text := '<nao rodou>';
+  l_prop   text := '<nao rodou>';
+  l_d23    text := '<nao rodou>';
+  l_d23c   text := '<nao rodou>';
+  v_d23    text := 'comportamental';
+  v_d23why text;
+  v_lit    boolean;
+  v_err    text;
+  v_ran    boolean := false;
+  l_rot    text[] := '{}';
+BEGIN
+  -- D: o decisor; F: OUTRO rh ativo (controle). Ambos linhas usuarios_rh ATIVAS, impersonadas com o claim `rh`.
+  -- A revisão pendente viva: prefere uma cujo decisor já é ativo; senão a primeira pendente, cujo
+  -- decisor vira D DENTRO do envelope (hoje: as 2 pendentes têm decisor fora de usuarios_rh ou inativo).
+  SELECT d.candidatura_id, d.por_usuario INTO v_rev, v_d
+    FROM public.decisao_final d JOIN public.candidaturas c ON c.id = d.candidatura_id
+   WHERE d.revisao_solicitada_em IS NOT NULL AND d.revisao_respondida_em IS NULL
+     AND c.deleted_at IS NULL AND c.is_rascunho = false
+   ORDER BY EXISTS (SELECT 1 FROM public.usuarios_rh u WHERE u.user_id = d.por_usuario AND u.ativo AND u.deleted_at IS NULL) DESC,
+            d.candidatura_id
+   LIMIT 1;
+  IF v_rev IS NULL THEN
+    SELECT d.candidatura_id INTO v_rev
+      FROM public.decisao_final d JOIN public.candidaturas c ON c.id = d.candidatura_id
+     WHERE d.revisao_solicitada_em IS NULL AND d.revisao_veredito IS NULL AND c.deleted_at IS NULL AND c.is_rascunho = false
+     ORDER BY d.candidatura_id LIMIT 1;
+  END IF;
+  IF v_rev IS NULL THEN
+    RAISE EXCEPTION 'P50C FAIL (l): nenhuma decisao_final em candidatura viva — nem revisao pendente nem decisao para semear uma';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.usuarios_rh u WHERE u.user_id = v_d AND u.ativo AND u.deleted_at IS NULL) THEN
+    v_d := v_ativo;
+  END IF;
+  SELECT u.user_id INTO v_f
+    FROM public.usuarios_rh u
+   WHERE u.ativo AND u.deleted_at IS NULL AND u.user_id IS NOT NULL AND u.user_id IS DISTINCT FROM v_d
+   ORDER BY u.created_at, u.user_id LIMIT 1;
+  -- D-23: uma OUTRA candidatura viva com decisão (a linha vira «revertida» de E = D dentro do envelope).
+  SELECT d.candidatura_id INTO v_x
+    FROM public.decisao_final d JOIN public.candidaturas c ON c.id = d.candidatura_id
+   WHERE c.deleted_at IS NULL AND c.is_rascunho = false AND d.candidatura_id <> v_rev
+   ORDER BY d.candidatura_id LIMIT 1;
+  IF v_f IS NULL OR v_x IS NULL THEN
+    RAISE EXCEPTION 'P50C FAIL (l): sem fixture — outro rh ativo=% candidatura para o D-23=%', v_f IS NOT NULL, v_x IS NOT NULL;
+  END IF;
+  SELECT position('d.por_usuario = v_uid' IN p.prosrc) > 0 INTO v_lit
+    FROM pg_catalog.pg_proc p WHERE p.oid = to_regprocedure('public.registrar_decisao(uuid, public.decisao_final_resultado, text)');
+
+  BEGIN
+    -- REVISAO-05: a revisão pendente passa a ter D como decisor (se já não tinha).
+    IF NOT EXISTS (SELECT 1 FROM public.decisao_final d WHERE d.candidatura_id = v_rev AND d.por_usuario = v_d
+                      AND d.revisao_solicitada_em IS NOT NULL AND d.revisao_respondida_em IS NULL) THEN
+      UPDATE public.decisao_final
+         SET por_usuario = v_d, revisao_solicitada_em = coalesce(revisao_solicitada_em, now())
+       WHERE candidatura_id = v_rev;
+      GET DIAGNOSTICS v_rc = ROW_COUNT;
+      IF v_rc <> 1 THEN RAISE EXCEPTION 'semear decisor da revisao atingiu % linha(s), esperado 1', v_rc; END IF;
+      v_semrev := 'sim';
+    END IF;
+    SELECT coalesce(array_agg(d.candidatura_id), '{}') INTO v_own FROM public.decisao_final d WHERE d.por_usuario = v_d;
+
+    SET LOCAL ROLE authenticated;
+    -- o decisor tenta responder a própria revisão
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_d::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    BEGIN
+      PERFORM public.responder_revisao_decisao(v_rev, 'mantida', c_just);
+      RAISE EXCEPTION 'ok' USING ERRCODE = 'P50C2';
+    EXCEPTION WHEN SQLSTATE 'P50C2' THEN l_dec := 'ok';
+              WHEN OTHERS THEN l_dec := 'e:' || SQLSTATE || ':' || left(SQLERRM, 90);
+    END;
+    -- a fila sob D: pode_responder falso nas linhas dele (e ele vê >= 1 linha dele)
+    BEGIN
+      SELECT count(*) FILTER (WHERE t.candidatura_id = ANY (v_own)) || '/' ||
+             count(*) FILTER (WHERE t.candidatura_id = ANY (v_own) AND t.pode_responder)
+        INTO l_prop FROM public.listar_revisoes_decisao(true) t;
+    EXCEPTION WHEN OTHERS THEN l_prop := 'e:' || SQLSTATE || ':' || left(SQLERRM, 60);
+    END;
+    -- controle: OUTRO rh ativo passa da trava do decisor (a resposta é desfeita)
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_f::text, 'role', 'authenticated',
+              'app_metadata', json_build_object('role', 'rh'))::text, true);
+    BEGIN
+      PERFORM public.responder_revisao_decisao(v_rev, 'mantida', c_just);
+      RAISE EXCEPTION 'ok' USING ERRCODE = 'P50C2';
+    EXCEPTION WHEN SQLSTATE 'P50C2' THEN l_outro := 'ok';
+              WHEN OTHERS THEN l_outro := 'e:' || SQLSTATE || ':' || left(SQLERRM, 90);
+    END;
+    RESET ROLE;
+
+    -- D-23: a linha de v_x vira a decisão `rejeitado` de E (= D) REVERTIDA (o predicado 2b de
+    -- registrar_decisao, espelhado). Se a semente não for possível, d23=estrutural (só o literal).
+    BEGIN
+      UPDATE public.decisao_final
+         SET decisao = 'rejeitado', por_usuario = v_d,
+             revisao_solicitada_em = coalesce(revisao_solicitada_em, now()),
+             revisao_veredito = 'revertida', revisao_resultado = c_just,
+             revisao_por_usuario = v_f, revisao_respondida_em = now()
+       WHERE candidatura_id = v_x;
+      GET DIAGNOSTICS v_rc = ROW_COUNT;
+      IF v_rc <> 1 THEN RAISE EXCEPTION 'semear D-23 atingiu % linha(s), esperado 1', v_rc; END IF;
+    EXCEPTION WHEN OTHERS THEN
+      v_d23 := 'estrutural';
+      v_d23why := SQLSTATE || ':' || left(SQLERRM, 80);
+    END;
+    IF v_d23 = 'comportamental' THEN
+      SET LOCAL ROLE authenticated;
+      PERFORM set_config('request.jwt.claims', json_build_object('sub', v_d::text, 'role', 'authenticated',
+                'app_metadata', json_build_object('role', 'rh'))::text, true);
+      BEGIN
+        PERFORM public.registrar_decisao(v_x, 'rejeitado', c_just);
+        RAISE EXCEPTION 'ok' USING ERRCODE = 'P50C2';
+      EXCEPTION WHEN SQLSTATE 'P50C2' THEN l_d23 := 'ok';
+                WHEN OTHERS THEN l_d23 := 'e:' || SQLSTATE || ':' || left(SQLERRM, 90);
+      END;
+      -- controle: OUTRO rh ativo não é travado pelo D-23 (em_espera; desfeito)
+      PERFORM set_config('request.jwt.claims', json_build_object('sub', v_f::text, 'role', 'authenticated',
+                'app_metadata', json_build_object('role', 'rh'))::text, true);
+      BEGIN
+        PERFORM public.registrar_decisao(v_x, 'em_espera', c_just);
+        RAISE EXCEPTION 'ok' USING ERRCODE = 'P50C2';
+      EXCEPTION WHEN SQLSTATE 'P50C2' THEN l_d23c := 'ok';
+                WHEN OTHERS THEN l_d23c := 'e:' || SQLSTATE || ':' || left(SQLERRM, 90);
+      END;
+      RESET ROLE;
+    END IF;
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P50C1';
+  EXCEPTION
+    WHEN SQLSTATE 'P50C1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P50C FAIL (l): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF concat_ws(' ', l_dec, l_outro, l_prop, l_d23, l_d23c) ~ '\me:40001:' THEN
+    RAISE EXCEPTION 'P50C FAIL (l): a subtransacao abortou por erro INESPERADO (40001: could not serialize access numa sonda) — nada foi julgado';
+  END IF;
+
+  IF l_dec NOT LIKE 'e:42501:%decisor%' THEN l_rot := l_rot || 'decisor'::text; END IF;
+  IF l_outro IS DISTINCT FROM 'ok' THEN l_rot := l_rot || 'c_outro'::text; END IF;
+  IF (CASE WHEN l_prop ~ '^[0-9]+/[0-9]+$' THEN split_part(l_prop, '/', 1)::int < 1 ELSE true END) THEN l_rot := l_rot || 'c_proprias'::text;
+  ELSIF split_part(l_prop, '/', 2)::int <> 0 THEN l_rot := l_rot || 'pode_responder'::text;
+  END IF;
+  IF v_lit IS DISTINCT FROM true THEN l_rot := l_rot || 'd23_literal'::text; END IF;
+  IF v_d23 = 'comportamental' THEN
+    IF l_d23 NOT LIKE 'e:42501:%D-23%' THEN l_rot := l_rot || 'd23'::text; END IF;
+    IF l_d23c LIKE '%D-23%' OR l_d23c LIKE 'e:42501:%' THEN l_rot := l_rot || 'c_d23_outro'::text; END IF;
+  END IF;
+
+  PERFORM set_config('p50.evidencia', concat_ws(';', nullif(current_setting('p50.evidencia', true), ''),
+            '07:sc5=decisor>' || split_part(l_dec, ':', 1) || ':' || split_part(l_dec, ':', 2)
+              || ',outro>' || split_part(l_outro, ':', 1) || CASE WHEN l_outro LIKE 'e:%' THEN ':' || split_part(l_outro, ':', 2) ELSE '' END
+              || ',proprias_pode=' || l_prop || ',decisor_semeado=' || v_semrev,
+            '07:d23=' || v_d23 || CASE WHEN v_d23 = 'estrutural' THEN '(' || replace(coalesce(v_d23why, '?'), ';', ',') || ')'
+                                       ELSE '>' || split_part(l_d23, ':', 1) || ':' || split_part(l_d23, ':', 2)
+                                            || ',outro>' || split_part(l_d23c, ':', 1) || CASE WHEN l_d23c LIKE 'e:%' THEN ':' || split_part(l_d23c, ':', 2) ELSE '' END END
+              || ',literal=' || coalesce(v_lit::text, 'null')), false);
+  PERFORM set_config('smoke50.d23', v_d23, false);
+  PERFORM set_config('smoke50.l_res', json_build_object('decisor', l_dec, 'outro', l_outro, 'proprias_pode', l_prop,
+            'd23', l_d23, 'd23_outro', l_d23c, 'd23_modo', v_d23, 'literal', v_lit)::text, false);
+  IF cardinality(l_rot) > 0 THEN
+    RAISE EXCEPTION 'P50C FAIL (l): [%]: decisor=«%» outro_rh=«%» proprias/pode_responder=«%» ; D-23 (%): decisor_revertido=«%» outro_rh=«%» literal=% (esperado: 42501 decisor; ok; >=1/0; 42501 D-23; nao D-23; true. rotulo c_* = controle)',
+      array_to_string(l_rot, ','), l_dec, l_outro, l_prop, v_d23, l_d23, l_d23c, v_lit;
+  END IF;
+  PERFORM set_config('smoke50.pass', (current_setting('smoke50.pass')::int + 1)::text, false);
+END
+$l$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (z) resíduo — contagens globais iguais à baseline DESTA execução.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
@@ -1471,5 +2113,15 @@ SELECT json_build_object(
   'd_anon',         current_setting('smoke50.d_anon'),
   'n_borda',        current_setting('smoke50.n_borda')::int,
   'f_borda_rh',     current_setting('smoke50.f_borda_rh'),
-  'f_borda_semeada', current_setting('smoke50.f_borda_semeada')::int
+  'f_borda_semeada', current_setting('smoke50.f_borda_semeada')::int,
+  'e_policies_igualdade', current_setting('smoke50.e_npol')::int,
+  'populacoes',     current_setting('smoke50.g_pop')::jsonb,
+  'relacoes',       current_setting('smoke50.rels')::jsonb,
+  'semeadas',       current_setting('smoke50.semeadas')::jsonb,
+  'vacuos',         current_setting('smoke50.vacuos')::jsonb,
+  'rpcs_por_forma', current_setting('smoke50.i_rpcs')::int,
+  'cobertura_policies', current_setting('smoke50.cobertura_policies')::jsonb,
+  'sc4',            current_setting('smoke50.k_res')::jsonb,
+  'sc5',            current_setting('smoke50.l_res')::jsonb,
+  'd23',            current_setting('smoke50.d23')
 ) AS resultado;
