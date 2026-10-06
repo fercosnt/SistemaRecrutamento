@@ -56,7 +56,8 @@ key-decisions:
 patterns-established:
   - "Portão de EF por forma com piso por readdir (não constante) e mordida por fixture literal das linhas antigas, num arquivo fora da árvore varrida"
 
-requirements-completed: [EXPORT-05]
+requirements-completed: []
+requirements-addressed: [EXPORT-05]
 
 coverage:
   - id: D1
@@ -180,6 +181,7 @@ None — nenhum bug, bloqueio ou falta crítica precisou de conserto fora do pla
 
 - **O verificador de RED evidence (`gsd-tools check tdd-red-evidence`) não lê saída de Vitest.** O caminho TAP espera as linhas de resumo do node-test (`# tests/# pass/# fail`). O caminho junit pega `name=` de dentro de `classname=` (o regex `/name="…"/` casa primeiro o atributo `classname`), então o nome do teste vira o caminho do arquivo e o veredito é `no_target_test_failure`. A prova do RED usada foi o próprio `<verify>` do plano: `Tests 1 failed | 2 passed`, com `comparativo-candidatos/index.ts` no texto da falha. O teste que falhou foi o B, numa asserção sobre o comportamento planejado, e não por erro de carga. O plano é `type: execute`, não `type: tdd`, então o portão de nível de plano não se aplica. É defeito da ferramenta, fora do repositório.
 - **Baseline preservado.** O lint (`tsc`) segue com 89 erros, igual ao baseline. A suíte Vitest completa dá `2 failed | 2411 passed`, e as 2 falhas são as pré-existentes de `src/__tests__/promessasComExecutor.test.ts`.
+- **`requirements-completed: []`, com EXPORT-05 em `requirements-addressed`.** Segue o padrão do 50-01 ao 50-05: nenhum plano da fase marca EXPORT-05, quem decide é o verificador. `requirements.mark-complete` não foi rodado.
 
 ## User Setup Required
 
@@ -196,3 +198,9 @@ None.
 ---
 *Phase: 50-acesso-do-recrutador*
 *Completed: 2026-10-05*
+
+## Self-Check: PASSED
+
+- FOUND: src/__tests__/guards/ef-sem-posse-de-vaga.grep.test.ts, deferred-items.md, 50-06-SUMMARY.md
+- FOUND commits: 0e29d18b, 89ffb670, acc7b0c0, 80d3bd40
+- Re-run: sonda 3/3; Deno 30 + 72 passed, 0 failed; deno check 5 EFs exit 0; tsc 89; `_shared` sem diff
