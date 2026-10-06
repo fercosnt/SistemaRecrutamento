@@ -527,8 +527,32 @@ export const COPY_PEDIR_COPIA = {
   oQueEsta:
     'Seu cadastro, suas candidaturas, o que você autorizou, suas entrevistas agendadas, o histórico de cada candidatura, e o resultado e a explicação das avaliações que você fez. Entram também as anotações que a equipe de recrutamento escreveu ao mover ou encerrar a sua candidatura e as notas que o sistema calculou sobre ela — são dados a seu respeito, e por isso a lei garante que você os receba.',
   oQueNaoEstaTitulo: 'O que não está na cópia',
-  oQueNaoEsta:
-    'Não entram os registros internos de funcionamento do sistema — por exemplo, o tempo e o custo de processamento das nossas ferramentas de tecnologia. Eles descrevem o sistema, não você.',
+  /**
+   * A FRONTEIRA DITA AO TITULAR — a única frase sobre o que ficou de fora da cópia, e
+   * a MESMA nos três lugares onde ele a lê: a tela (`PedirCopiaBloco`), a seção «O que
+   * não está nesta cópia» do `.html` e a chave `o_que_nao_esta_nesta_copia` do `.json`.
+   *
+   * Ela nomeia TODA categoria que a allowlist vigente retém — inclusive a que depende
+   * de política ainda em aberto (BD-17): calar sobre algo que ficou de fora é dizer que
+   * ele veio. Os parênteses («o motivo e as datas entram», «a decisão em si entra»)
+   * existem porque o titular vê na cópia as seções de onde esses textos foram
+   * retirados; dizer o que delas entra evita que a ausência do resto pareça perda.
+   *
+   * ── O PORTÃO ──────────────────────────────────────────────────────────────────
+   * O caso (cr1) de `exportacaoService.test.ts` deriva do ARTEFATO a família de razão
+   * de toda coluna e tabela retida e exige que cada família tenha a sua cláusula aqui.
+   * Um veto novo com família nova de razão não sobe sem esta frase mudar — e ela muda
+   * pela 44-UI-SPEC (linha «O que não está na cópia»), nunca direto neste arquivo.
+   *
+   * ⚠ Até 2026-10-06 a frase nomeava só a telemetria das ferramentas e afirmava que o
+   * retido dizia respeito apenas ao sistema, e não à pessoa. Sob a allowlist 1.4.0 isso
+   * era falso: ficavam de fora também a identificação de quem da equipe agiu, as
+   * anotações da equipe sobre conservar os dados dela além do prazo e a ficha técnica
+   * do motor de exclusão sobre o pedido dela (44-REVIEW §CR-01). Uma cópia menos
+   * generosa que a promessa, e que diz o contrário, é pior que a mais generosa (ver o
+   * docblock de `oQueEsta`).
+   */
+  oQueNaoEsta: `Não entram os registros técnicos de funcionamento do sistema — por exemplo, o tempo e o custo de processamento das nossas ferramentas de tecnologia, os registros de acesso e o controle de envio de mensagens — nem a configuração do próprio sistema, como o texto das vagas e das perguntas, que é o mesmo para todos os candidatos. Também não entram: os dados que identificam outras pessoas, como quem da equipe agiu no seu processo; as anotações internas da equipe sobre a conservação dos seus dados além do prazo (o motivo e as datas entram); a ficha técnica que o sistema monta ao atender um pedido de exclusão dos seus dados (o andamento e as datas do pedido entram); e o texto em que a equipe justificou a decisão final sobre a sua candidatura (a decisão em si entra). Se quiser saber mais sobre algum desses itens, ou pedir algum deles, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
   /**
    * ⚠ NÃO RENDERIZADA NESTA FASE, e a ausência é a decisão. Ela nomeia "o botão
    * abaixo" — o `CurriculosBloco` do 44-07, que ainda não existe. Renderizá-la

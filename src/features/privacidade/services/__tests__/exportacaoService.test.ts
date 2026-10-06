@@ -74,6 +74,7 @@ import {
 // artefato (em vez de repetir nomes de coluna aqui) é o que impede esta sonda de
 // ficar para trás quando a allowlist crescer por geração.
 import { EXPORT_ALLOWLIST } from '../../../../../supabase/functions/_shared/exportAllowlist'
+import { CANAL_PRIVACIDADE_EMAIL } from '../../constants/canalPrivacidade'
 
 const ISO = '2026-08-04T13:45:00.000Z'
 
@@ -712,6 +713,215 @@ describe('os DOIS arquivos', () => {
       expect(nome.toLowerCase()).not.toContain('fulana')
       expect(nome).not.toContain('@')
     }
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Plano 44-14 — CR-01: a fronteira dita ao titular (casos (cr1)–(cr3)).
+//
+// `COPY_PEDIR_COPIA.oQueNaoEsta` é a ÚNICA frase que o titular lê sobre o que
+// ficou de fora da cópia — na tela, no `.html` e no `.json`. Sob a allowlist 1.4.0
+// ela afirmava que o retido era só telemetria, e não era (44-REVIEW §CR-01). O
+// portão abaixo prende a frase ao ARTEFATO: as famílias de razão são DERIVADAS de
+// `colunas_excluidas`/`excluidas` na execução, nunca escritas aqui — um veto novo
+// com família nova reprova o (cr1) até a frase mudar pela 44-UI-SPEC.
+// (CLAUDE.md §Portões: iteração sobre lista literal não reprova nada.)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Família de razão → marcador (substring que TEM de estar na frase).
+ *
+ * ⚠ ESCOPO DELIBERADO, não fotografia: cada entrada é uma decisão de copy. Mudar uma
+ * entrada é mudar a frase pela 44-UI-SPEC (linha «O que não está na cópia») — nunca o
+ * contrário. As CHAVES são conferidas por IGUALDADE DE CONJUNTOS com as famílias que o
+ * artefato produz; um conjunto escrito aqui que não batesse com o artefato reprova o
+ * (cr1) pelos dois lados (`familiaSemClausula` e `clausulaOrfa`).
+ */
+const CLAUSULA_POR_FAMILIA: Readonly<Record<string, string>> = {
+  telemetria_interna: 'os registros técnicos de funcionamento do sistema',
+  'BD-13 (iv)': 'o controle de envio de mensagens',
+  configuracao_do_produto: 'a configuração do próprio sistema',
+  vocabulario_do_sistema: 'a configuração do próprio sistema',
+  segredo: 'a configuração do próprio sistema',
+  pii_de_terceiro: 'os dados que identificam outras pessoas',
+  'BD-10': 'as anotações internas da equipe sobre a conservação dos seus dados além do prazo',
+  'BD-13 (ii)': 'a ficha técnica que o sistema monta ao atender um pedido de exclusão',
+  'BD-9': 'o texto em que a equipe justificou a decisão final',
+}
+
+/**
+ * Forma ESTRUTURAL do artefato — aceita `EXPORT_ALLOWLIST` (o espelho `.ts`, `as const`)
+ * e as cópias sintéticas dos controles negativos do (cr3).
+ */
+type ArtefatoFronteira = {
+  tabelas: Record<string, { colunas_excluidas?: Record<string, string> }>
+  excluidas: Record<string, string>
+}
+
+/** `BD-<n>` opcionalmente seguido de espaço e `(<romano minúsculo>)`. */
+const ID_DECISAO = /BD-\d+(?:\s*\([ivxlcdm]+\))?/
+/** Citação de coluna entre crases: `tabela.coluna`. */
+const CITACAO_COLUNA = /`([a-z0-9_]+)\.([a-z0-9_]+)`/g
+
+function razaoDaColuna(artefato: ArtefatoFronteira, tabela: string, coluna: string): string | undefined {
+  return artefato.tabelas[tabela]?.colunas_excluidas?.[coluna]
+}
+
+/**
+ * A REGRA DE FAMÍLIA do 44-14 (`<interfaces>`), em sete passos e nesta ordem. Pura:
+ * só lê `artefato`. Devolve `null` quando o item não tem família — e é isso que o
+ * (cr1) reprova, nomeando o item. `visitados` protege os passos 2 e 6 de ciclo.
+ */
+function familiaDaRazao(
+  item: string,
+  razao: string,
+  artefato: ArtefatoFronteira,
+  visitados: ReadonlySet<string> = new Set(),
+): string | null {
+  if (visitados.has(item)) return null
+  const vistos = new Set(visitados).add(item)
+  const seguir = (ref: string): string | null => {
+    const [tabela, coluna] = ref.split('.')
+    const r = razaoDaColuna(artefato, tabela, coluna)
+    return r === undefined ? null : familiaDaRazao(ref, r, artefato, vistos)
+  }
+
+  // 1. sem o prefixo `decisoes_por_coluna:` e, depois, sem um `(i)` inicial.
+  const texto = razao.replace(/^decisoes_por_coluna:/, '').trim().replace(/^\(i\)/, '').trim()
+
+  // 2. «Herda `tabela.coluna`» → a família do item referido, no MESMO artefato.
+  const herda = texto.match(/^Herda\s+`([a-z0-9_]+)\.([a-z0-9_]+)`/)
+  if (herda) return seguir(`${herda[1]}.${herda[2]}`)
+
+  // 3. a cabeça: até o primeiro « — » ou a primeira quebra de linha.
+  const cabeca = texto.split(/ — |\n/)[0]
+
+  // 4. id de decisão na cabeça, com espaço único.
+  const id = cabeca.match(ID_DECISAO)
+  if (id) return id[0].replace(/\s*\(/, ' (')
+
+  // 5. token do VOCABULÁRIO — os valores de `excluidas`, derivados aqui, nunca escritos.
+  const vocabulario = [...new Set(Object.values(artefato.excluidas))]
+  const achados = vocabulario
+    .map((token) => [token, cabeca.indexOf(token)] as const)
+    .filter(([, i]) => i >= 0)
+    .sort((a, b) => a[1] - b[1])
+  if (achados.length > 0) return achados[0][0]
+
+  // 6. a razão inteira cita entre crases exatamente UMA outra coluna retida.
+  const citadas = new Set(
+    [...razao.matchAll(CITACAO_COLUNA)]
+      .map((m) => `${m[1]}.${m[2]}`)
+      .filter((ref) => ref !== item && razaoDaColuna(artefato, ...(ref.split('.') as [string, string])) !== undefined),
+  )
+  if (citadas.size === 1) return seguir([...citadas][0])
+
+  // 7. sem família.
+  return null
+}
+
+type LacunasDaFronteira = {
+  /** famílias que o artefato produz (para a sanidade do (cr1) e para o SUMMARY) */
+  familias: string[]
+  /** itens retidos que receberam família — `tabela.coluna` ou `tabela` → família */
+  itens: Record<string, string>
+  semFamilia: string[]
+  familiaSemClausula: string[]
+  clausulaOrfa: string[]
+  marcadorAusente: string[]
+  semCanal: boolean
+}
+
+/**
+ * Tudo o que separa a frase do artefato, em listas ORDENADAS (o output do vermelho
+ * nomeia o item ou a família). Pura; `mapa` é parâmetro para os controles do (cr3).
+ */
+function lacunasDaFronteira(
+  frase: string,
+  artefato: ArtefatoFronteira,
+  mapa: Readonly<Record<string, string>> = CLAUSULA_POR_FAMILIA,
+): LacunasDaFronteira {
+  const itens: Record<string, string> = {}
+  const semFamilia: string[] = []
+  const classificar = (item: string, razao: string) => {
+    const familia = familiaDaRazao(item, razao, artefato)
+    if (familia === null) semFamilia.push(item)
+    else itens[item] = familia
+  }
+  for (const [tabela, def] of Object.entries(artefato.tabelas)) {
+    for (const [coluna, razao] of Object.entries(def.colunas_excluidas ?? {})) {
+      classificar(`${tabela}.${coluna}`, razao)
+    }
+  }
+  for (const [tabela, razao] of Object.entries(artefato.excluidas)) classificar(tabela, razao)
+
+  const familias = [...new Set(Object.values(itens))].sort()
+  const temClausula = (f: string) => Object.prototype.hasOwnProperty.call(mapa, f)
+  return {
+    familias,
+    itens,
+    semFamilia: semFamilia.sort(),
+    familiaSemClausula: familias.filter((f) => !temClausula(f)),
+    clausulaOrfa: Object.keys(mapa).filter((f) => !familias.includes(f)).sort(),
+    marcadorAusente: familias.filter((f) => temClausula(f) && !frase.includes(mapa[f])),
+    semCanal: !frase.includes(CANAL_PRIVACIDADE_EMAIL),
+  }
+}
+
+describe('a fronteira dita ao titular (CR-01)', () => {
+  it('(cr1) CR-01 · toda família de razão do artefato tem cláusula na frase', () => {
+    const l = lacunasDaFronteira(COPY_PEDIR_COPIA.oQueNaoEsta, EXPORT_ALLOWLIST)
+
+    // Sanidade: um artefato que não produzisse família nenhuma deixaria as quatro
+    // listas abaixo vazias pelo motivo errado (população vazia mente).
+    expect(l.familias.length, 'o artefato não produziu família nenhuma — a regra não está lendo o artefato').toBeGreaterThan(0)
+
+    expect(
+      l.semFamilia,
+      'item retido sem família de razão — escreva a razão no artefato com uma família reconhecível (id BD-<n> ou token de `excluidas`)',
+    ).toEqual([])
+    expect(
+      l.familiaSemClausula,
+      'família sem cláusula — nomeie a categoria na frase pela 44-UI-SPEC e acrescente-a ao CLAUSULA_POR_FAMILIA',
+    ).toEqual([])
+    expect(
+      l.clausulaOrfa,
+      'cláusula órfã — a família saiu do artefato; a frase passaria a negar a entrega de algo que agora vem: tire a cláusula pela 44-UI-SPEC',
+    ).toEqual([])
+    expect(
+      l.marcadorAusente,
+      'família sem marcador na frase — a frase não nomeia esta categoria retida; reescreva-a pela 44-UI-SPEC',
+    ).toEqual([])
+    expect(l.semCanal, 'a frase não traz o canal de privacidade para pedir o que não veio').toBe(false)
+  })
+
+  it('(cr2) CR-01 · a frase é a mesma na tela, no .html e no .json', () => {
+    const frase = COPY_PEDIR_COPIA.oQueNaoEsta
+    const r = resposta()
+
+    // .json — a chave de metadado carrega a MESMA string.
+    expect(JSON.parse(gerarJsonExport(r)).o_que_nao_esta_nesta_copia).toBe(frase)
+
+    // .html — o escape não muda nada, então o texto do arquivo é literalmente a frase,
+    // e o parágrafo vem IMEDIATAMENTE depois do título da seção de fronteira.
+    expect(escapeHtml(frase)).toBe(frase)
+    expect(gerarHtmlExport(r)).toContain(
+      `<section><h2>${escapeHtml(COPY_ARQUIVO.naoEstaTitulo)}</h2>\n<p>${frase}</p></section>`,
+    )
+
+    // tela — o bloco renderiza a constante, não uma cópia dela. (Caminho por
+    // VARIÁVEL: com literal o Vite reescreve `new URL` para `http:` — ver o (af).)
+    const relativo = '../../components/PedirCopiaBloco.tsx'
+    const bloco = readFileSync(fileURLToPath(new URL(relativo, import.meta.url)), 'utf8')
+    expect(bloco).toContain('{COPY_PEDIR_COPIA.oQueNaoEsta}')
+
+    // Nenhum nome técnico de tabela ou coluna (T-44-86).
+    expect(frase).not.toMatch(/\b[a-z0-9]+_[a-z0-9_]+\b/)
+    // A afirmação antiga (o retido «descreve o sistema») não volta — literal montado
+    // em runtime, idioma do (t): o trecho não é plantado neste arquivo.
+    const afirmacaoAntiga = ['descrevem', 'o', 'sistema'].join(' ')
+    expect(frase).not.toContain(afirmacaoAntiga)
+    expect(`x ${afirmacaoAntiga} y`).toContain(afirmacaoAntiga)
   })
 })
 
