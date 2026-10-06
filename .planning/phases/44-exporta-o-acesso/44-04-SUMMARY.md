@@ -425,11 +425,11 @@ medidas contra o **catálogo vivo**, não contra arquivo:
 
 | Threat | Mitigação | Prova |
 |---|---|---|
-| T-44-16 | privilégio residual de `anon` nas RPCs | `has_function_privilege` = **false** nas duas |
+| T-44-48 | privilégio residual de `anon` nas RPCs · camada deste plano de T-44-16 (registrada no 44-02) | `has_function_privilege` = **false** nas duas |
 | T-44-21 | afirmação de RLS baseada no arquivo | M3 colado bruto acima, com timestamp, citável nominalmente |
 | T-44-22 | migration truncada no transporte | md5 batendo + `obj_description` lido |
-| T-44-17 | policy de escrita inesperada | `pg_policies`: **zero** INSERT/UPDATE/DELETE |
-| T-44-10 | `config_sla_dados` legível por `public` | `roles = {authenticated}`, nunca `{public}` |
+| T-44-49 | policy de escrita inesperada · camada deste plano de T-44-17 (registrada no 44-02) | `pg_policies`: **zero** INSERT/UPDATE/DELETE |
+| T-44-47 | `config_sla_dados` legível por `public` · camada deste plano de T-44-10 (registrada no 44-02) | `roles = {authenticated}`, nunca `{public}` |
 | T-44-23 | `database.types.ts` editado à mão | **não foi tocado** — bloqueio registrado em vez de contornado |
 
 ## Commits

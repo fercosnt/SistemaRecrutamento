@@ -326,9 +326,9 @@ foram implementadas, cada uma com asserção executável:
 | Threat | Mitigação | Asserção |
 |---|---|---|
 | T-44-42 | acesso horizontal | a tela consome só os hooks do 44-08; zero leitura própria, zero parâmetro de escopo, zero id de rota |
-| T-44-09 | contador × fila (BD-8) | mesmo par de RPCs nos dois lados; **a medição ponta a ponta é o §Checkpoint — ABERTA** |
-| T-44-12 | superfície da fila | **(bz)** zero controle/link/`[download]` na tabela + gate `<button\|onClick=` = 0 |
-| T-44-37 | identificador interno na tela | **(bw)** causa nula → "Motivo não registrado."; **(bu)** mensagem crua ausente |
+| T-44-55 | contador × fila (BD-8) · camada deste plano de T-44-09 (registrada no 44-02) | mesmo par de RPCs nos dois lados; **a medição ponta a ponta é o §Checkpoint — ABERTA** |
+| T-44-56 | superfície da fila · camada deste plano de T-44-12 (registrada no 44-02) | **(bz)** zero controle/link/`[download]` na tabela + gate `<button\|onClick=` = 0 |
+| T-44-57 | identificador interno na tela · camada deste plano de T-44-37 (registrada no 44-08) | **(bw)** causa nula → "Motivo não registrado."; **(bu)** mensagem crua ausente |
 | T-44-39 | acompanhamento vazando ao candidato | docblock emendado nomeia os dois consumidores **mantendo a invariante escrita**; `grep -rn "pedidos-dados" src/features/privacidade/` → 0 |
 | T-44-40 | copy que afirma fato jurídico falso | **(cd)** sonda de texto-fonte nas duas direções + o teto na tela |
 | T-44-41 | fila que mente por omissão no corte | **(ca1)/(ca2)** 199 sem aviso, 200 com aviso |

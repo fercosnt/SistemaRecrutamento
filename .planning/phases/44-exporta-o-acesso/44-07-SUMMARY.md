@@ -310,7 +310,7 @@ Nenhuma superfície nova além do `<threat_model>` do plano. As sete mitigaçõe
 |---|---|---|
 | T-44-29 (EoP horizontal) | caminho SÓ de `listarMeusCurriculos`, own-row; RLS do bucket é o controle real | (ad) argumento exato · (al) o caminho daquela linha · (ac) filtro own-row |
 | T-44-30 (projeção) | `CURRICULOS_ALLOWLIST` nomeada, embed também por allowlist | (aa) igualdade com a constante · (ab) ausência de projeção total |
-| T-44-03 (URL persistida) | cunhada no clique, direto para a aba; só flags booleanas em estado | (ap) varredura do HTML renderizado, tokens em runtime |
+| T-44-52 (URL persistida) | cunhada no clique, direto para a aba; só flags booleanas em estado · camada deste plano de T-44-03 (registrada no 44-05) | (ap) varredura do HTML renderizado, tokens em runtime |
 | T-44-32 (URL em log) | módulo inteiro livre de chamada de log | (af) sonda de texto-fonte, escopo de módulo |
 | T-44-31 (erro cru na tela) | `ExportacaoError` com copy fixa; transporte não atravessa | (ae) Storage · (ae2) PostgREST · (am) o erro cru não aparece na tela |
 | T-44-33 (falha derrubando o bloco) | estado por linha; popup barrado vira erro visível | (am) **verificada por mutação** · (ao) aba nula · (an) voo por linha |

@@ -295,9 +295,9 @@ Nenhuma superfície nova além do `<threat_model>` do plano. As seis mitigaçõe
 | Threat | Mitigação | Prova |
 |---|---|---|
 | T-44-06 | `escapeHtml` em todo valor, sem lista de campos seguros | (l) ordem das entidades · (m) `DOMParser`, zero nós |
-| T-44-03 | nenhum signed URL, caminho de Storage ou base64 nos arquivos | (p), 4 sondas montadas em runtime + META-TEST |
+| T-44-50 | nenhum signed URL, caminho de Storage ou base64 nos arquivos · camada deste plano de T-44-03 (registrada no 44-05) | (p), 4 sondas montadas em runtime + META-TEST |
 | T-44-26 | nome de arquivo sem PII | (s), os dois nomes, sem UUID/`@`/nome |
-| T-44-04 | cooldown decidido pelo SERVIDOR | (z2) CTA renderiza com o hook em erro · (z4) mesma copy nos dois caminhos |
+| T-44-51 | cooldown decidido pelo SERVIDOR · camada deste plano de T-44-04 (registrada no 44-05) | (z2) CTA renderiza com o hook em erro · (z4) mesma copy nos dois caminhos |
 | T-44-27 | proveniência da cópia | (n) carimbo no topo · (o) versão no rodapé |
 | T-44-28 | copy que afirmasse exclusão inexistente | (t) sonda de texto-fonte, escopo declarado por linha |
 

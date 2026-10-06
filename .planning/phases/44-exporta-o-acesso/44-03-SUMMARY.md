@@ -279,7 +279,7 @@ os compara ao artefato. **Provada mordendo:** removida uma linha ⇒ falha nomea
 | `grep -c 'toMatchInlineSnapshot(\`'` | **3** |
 | Tokens proibidos literais no teste | **0** — todos montados em runtime |
 | Smoke READ-ONLY | **0** statements de escrita fora de comentário |
-| `meta.medido_em` = `catalogo.meta.medido_em` | ✓ (T-44-13) |
+| `meta.medido_em` = `catalogo.meta.medido_em` | ✓ (T-44-45) |
 
 **D1 sozinha não bastaria**, e o ponto é do operador: ela provaria apenas que o smoke lê a
 allowlist — o que era verdade *antes* da correção também. **É D2 que prova que o universo é a
@@ -375,12 +375,12 @@ implementadas e testadas:
 
 | Threat | Mitigação | Prova |
 |---|---|---|
-| T-44-08 | drift PROD→artefato | smoke contra PROD **0 linhas** + mordida nas duas direções (evidência `19d3da2`) |
-| T-44-07 | segredo atravessando a allowlist | asserção (c) + META-TEST; **mordeu de verdade** em `ai_call_log_ids` |
+| T-44-44 | drift PROD→artefato · camada deste plano de T-44-08 (registrada no 44-01) | smoke contra PROD **0 linhas** + mordida nas duas direções (evidência `19d3da2`) |
+| T-44-43 | segredo atravessando a allowlist · camada deste plano de T-44-07 (registrada no 44-01) | asserção (c) + META-TEST; **mordeu de verdade** em `ai_call_log_ids` |
 | T-44-19 | snapshot aprovado sem leitura | checkpoint bloqueante, quatro perguntas respondidas por escrito pelo operador |
-| T-44-13 | artefato gerado de catálogo diferente | asserção (f): `medido_em` idêntico ao do catálogo commitado |
+| T-44-45 | artefato gerado de catálogo diferente · camada deste plano de T-44-13 (registrada no 44-01) | asserção (f): `medido_em` idêntico ao do catálogo commitado |
 | T-44-20 | omissão da dependência Phase 43 | asserção (d), uma por coluna do BD-6; as quatro presentes no catálogo e na cópia |
-| T-44-14 | espelho `.ts` fora de sincronia | asserção (h) + `--check` cobrindo os dois artefatos |
+| T-44-46 | espelho `.ts` fora de sincronia · camada deste plano de T-44-14 (registrada no 44-01) | asserção (h) + `--check` cobrindo os dois artefatos |
 
 ## Commits
 

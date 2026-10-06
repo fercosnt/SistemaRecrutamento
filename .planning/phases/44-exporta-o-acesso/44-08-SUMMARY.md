@@ -272,8 +272,8 @@ implementadas, e cada uma tem asserção executável:
 
 | Threat | Mitigação | Asserção |
 |---|---|---|
-| T-44-09 | duas RPCs, zero predicado de cliente | **(bd)** — nenhuma tabela chegou a `from()`; gate de `filter/sort/slice` = 0 |
-| T-44-12 | allowlist de 7 colunas + projeção na fronteira | **(ba)** coluna extra não atravessa · **(bf)** ausência da projeção total |
+| T-44-53 | duas RPCs, zero predicado de cliente · camada deste plano de T-44-09 (registrada no 44-02) | **(bd)** — nenhuma tabela chegou a `from()`; gate de `filter/sort/slice` = 0 |
+| T-44-54 | allowlist de 7 colunas + projeção na fronteira · camada deste plano de T-44-12 (registrada no 44-02) | **(ba)** coluna extra não atravessa · **(bf)** ausência da projeção total |
 | T-44-35 | limiares fora da superfície do candidato | `grep -rn "pedidos-dados" src/features/privacidade/` → **0** (o controle real é a policy RH-only do M3) |
 | T-44-36 | erro cru do banco na tela | **(bh)** — texto do transporte, SQLSTATE e nome de função ausentes da mensagem |
 | T-44-37 | token de `causa` cru na coluna | **(bi)** — token desconhecido não aparece no retorno |
