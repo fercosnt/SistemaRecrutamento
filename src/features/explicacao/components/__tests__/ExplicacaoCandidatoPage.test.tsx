@@ -432,8 +432,10 @@ describe('ExplicacaoCandidatoPage — a rejeição automática (§7.18)', () => 
     carregadaAutomatica()
     render(<ExplicacaoCandidatoPage />)
     expect(screen.getByText(/não há uma revisão a pedir por aqui/i)).toBeInTheDocument()
-    const canal = screen.getByRole('link', { name: /lgpd@beautysmile\.com\.br/i })
-    expect(canal).toHaveAttribute('href', 'mailto:lgpd@beautysmile.com.br')
+    // Pela constante (2026-10-06): a intenção é «dá o canal humano», não «este
+    // endereço». O valor literal é preso uma vez só, em canalPrivacidade.test.ts.
+    const canal = screen.getByRole('link', { name: CANAL_PRIVACIDADE_EMAIL })
+    expect(canal).toHaveAttribute('href', `mailto:${CANAL_PRIVACIDADE_EMAIL}`)
   })
 
   it('o caminho HUMANO não perdeu o CTA de revisão (não-regressão)', () => {

@@ -36,6 +36,7 @@ import { AutorizacoesStep } from '../AutorizacoesStep'
 import { CADASTRO_DEFAULT_VALUES } from '../../CadastroMultiStepForm'
 import { POLICY_VERSION, CONSENT_TEXT_VERSION } from '../../../constants'
 import corpus from '../../../../../../supabase/functions/_shared/consent-text.json'
+import { CANAL_PRIVACIDADE_EMAIL } from '@/features/privacidade/constants/canalPrivacidade'
 
 // Identificador APOSENTADO, montado em runtime — ver ⚠ no cabeçalho.
 const CHAVE_VIDEO = ['autorizacao', 'analise', 'video'].join('_')
@@ -239,4 +240,19 @@ describe('(f) backstop E1 — a descrição não é truncada a 320px', () => {
       }
     }
   )
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (g) O canal de privacidade vem da constante — e não de um endereço digitado
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('(g) o canal de privacidade do passo é o canal do sistema', () => {
+  // 2026-10-06 (operador): este passo tinha o endereço do canal digitado à mão, e
+  // por isso trocar a constante não o alcançava. Asserir pela constante é a
+  // intenção certa aqui; o VALOR literal é preso uma vez só, em canalPrivacidade.test.ts.
+  it('o link de correção e portabilidade aponta para CANAL_PRIVACIDADE_EMAIL', () => {
+    renderStep()
+    const canal = screen.getByRole('link', { name: CANAL_PRIVACIDADE_EMAIL })
+    expect(canal).toHaveAttribute('href', `mailto:${CANAL_PRIVACIDADE_EMAIL}`)
+  })
 })
