@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 44-17-PLAN.md (2026-10-07): CR-01-bis fechado no codigo — frase nomeia o roteiro da entrevista (BD-18), convite so oferece saber mais (BD-19), portao (cr5) por tabela visto vermelho com a frase antiga e mordendo a frase real; (cr3) desacoplado (IN-01). Nada publicado. Proximo: 44-18"
-last_updated: "2026-10-07T12:12:00.000Z"
+stopped_at: "Completed 44-18-PLAN.md (2026-10-07): portao de classe CR-01-bis ve a classe inteira — 43 excluidas medidas so leitura em PROD (534 colunas, bloco colunas_fora_do_escopo do catalogo, que o gerador nao le), naoMedidas fail-closed, razao por tabela no YAML (BD-18, so comentario); (cr5b) com sete controles. Artefato 1.4.0 intocado, nada publicado. Proximo: 44-19"
+last_updated: "2026-10-07T12:22:00.000Z"
 last_activity: 2026-10-07
 state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 147
-  completed_plans: 140
+  completed_plans: 141
   percent: 95
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "execute-phase 44 --gaps-only — 44-17 concluido (commits 6562031e, c1c42fa0): frase CR-01-bis + (cr5) + IN-01; docs/compliance e supabase intocados desde dedca1fb"
+last_activity_desc: "execute-phase 44 --gaps-only — 44-18 concluido (commits 09f9d60d, fde8b4eb): colunas_fora_do_escopo medido so leitura + naoMedidas/semRazaoNoYaml + (cr5b); export-allowlist, gerador, relatorio 05 e supabase intocados desde dedca1fb"
 ---
 
 # Project State
@@ -1379,6 +1379,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-16: conjunto autorizado do push emendado de forma explicita (5 arquivos de codigo do ajuste do canal) por decisao do operador; push 0fde284f..31d24652 publicado com «publicar»; WR-06 decided por BD-16 (plano fica fora e a frase nomeia a categoria)
 - [Phase 44]: 44-17: CR-01-bis — `entrevista_guias` NOMEADA e RETIDA (BD-18, operador): a frase tira a igualdade entre candidatos da clausula da configuracao e nomeia «o roteiro que a equipe monta para conduzir a sua entrevista»; o convite final so oferece saber mais (BD-19, operador, fecha WR-01); allowlist 1.4.0, EF e banco intocados
 - [Phase 44]: 44-17: portao por TABELA (BD-21) — (cr5) deriva familias genericas do mapa, colunas de vinculo de chave_titular (menos a raiz candidatos) e compara por igualdade de conjuntos com VEREDITO_POR_TABELA; hoje {entrevista_guias}, medido na execucao; (cr3) controles 2 e 4 escolhidos pelos dados derivados (IN-01)
+- [Phase 44]: 44-18: cobertura FAIL-CLOSED do portao de classe — as 43 tabelas de `excluidas` medidas so leitura em PROD (2026-10-07T12:18:09Z, 534 colunas) no bloco `colunas_fora_do_escopo` do catalogo (o gerador nao le); tabela generica sem coluna medida reprova (`naoMedidas`); na classe generica so `entrevista_guias` tem candidatura_id/candidato_id
+- [Phase 44]: 44-18: a razao por tabela mora no YAML onde a classificacao mora — comentario acima de `  entrevista_guias:` cita BD-18, conferido por `semRazaoNoYaml`; token `configuracao_do_produto` NAO muda (vocabulario fechado, BD-21); (cr5b) prova a mordida em sete direcoes, alvo pelos dados (IN-01)
 
 ### Roadmap Evolution
 
@@ -1711,8 +1713,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-07T12:12:00.000Z
-Stopped at: Completed 44-17-PLAN.md
+Last session: 2026-10-07T12:22:00.000Z
+Stopped at: Completed 44-18-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
