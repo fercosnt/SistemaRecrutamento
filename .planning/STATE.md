@@ -2,11 +2,11 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: ready_to_execute
+status: executing
 stopped_at: "Phase 44 gap closure planejada (2026-10-07): 44-17..44-22 em serie (waves 1-6), checker PASSED na iteracao 3 — CR-01-bis (frase pela UI-SPEC, BD-18 nomear e reter entrevista_guias; BD-19 convite estreitado), portao de classe (BD-21), WR-02..WR-06, IN-01/02, revisao adversarial independente (44-21) antes da porta, publicacao so do front com checkpoint do operador e U1 (44-22). Proximo: /gsd-execute-phase 44 --gaps-only"
-last_updated: "2026-10-07T12:00:00.000Z"
+last_updated: "2026-10-07T12:03:51.621Z"
 last_activity: 2026-10-07
-state_head: 31d24652b11b1d10422549a0a50a35dd56c28772
+state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a
 progress:
   total_phases: 9
   completed_phases: 9
@@ -712,7 +712,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Ready to execute
+Status: Executing Phase 44
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -747,7 +747,7 @@ Status: Ready to execute
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-10-06
+Last activity: 2026-10-07
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
