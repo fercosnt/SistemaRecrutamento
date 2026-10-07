@@ -2,9 +2,9 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: "Phase 44 --gaps-only (CR-01) — 44-16 concluido (operador: canal rh@ no sistema inteiro, depois «publicar»; push 0fde284f..31d24652, Vercel success, frase nova e rh@ em index-DTxaEkc3.js, lgpd@ e frase antiga fora de todo JS; EF v6; disposicao: 5 fixed, WR-06 decided BD-16); proximo: re-verificacao da Phase 44"
-last_updated: "2026-10-07T01:20:00.000Z"
+status: gaps_found
+stopped_at: "Phase 44 re-verificada pos-publicacao (2026-10-07): gaps_found 6/7 — CR-01-bis: a frase publicada diz que a configuracao retida «e o mesmo para todos os candidatos», falso para entrevista_guias (por candidatura). 0 pedidos de acesso desde a publicacao. Revisao pos-CR-01: 1 critical, 6 warnings, 2 infos (44-REVIEW-DISPOSITION.md, todos open). Proximo: decisao do operador sobre a clausula (e WR-01 «ou pedir algum deles») → /gsd-plan-phase 44 --gaps"
+last_updated: "2026-10-07T01:50:00.000Z"
 last_activity: 2026-10-07
 state_head: 31d24652b11b1d10422549a0a50a35dd56c28772
 progress:
