@@ -2,8 +2,8 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: "Completed 44-22-PLAN.md (2026-10-07): CR-01-bis publicado (push dddf7ac9, T0 20:51:34Z) e U1 ok — pedido acesso real da conta de teste (gerado_em 21:17:52Z), o .json e o .html baixados batem com a frase de HEAD por igualdade exata, versao 1.4.0, sem frase neutra, sem trecho antigo; PROD so leitura: 1 pedido acesso desde T0, 1 atendido. Proximo: re-verificacao da Phase 44 (a caixa da Phase 44 e do verificador)"
+status: complete
+stopped_at: "Phase 44 verificada (passed, 7/7, 2026-10-07): CR-01-bis fechado e publicado (index-7NrDustL.js), U1 ok; achados da revisao pos-CR01bis (WR-01..WR-06, IN-01..IN-04) ficam open — WR-01 (fronteira compara string de versao, nao conteudo) recomendado antes da proxima mudanca de allowlist; erratum pendente no 44-20-SUMMARY (WR-06). Proximo: Phase 45 (11/13) ou blocos 2-4 do M8"
 last_updated: "2026-10-07T21:25:00.000Z"
 last_activity: 2026-10-07
 state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a

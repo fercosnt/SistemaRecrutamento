@@ -25,7 +25,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 
 - [x] **Phase 42: Inventário, Gates & Fila Art. 20** - O RH passa a ver e responder os pedidos de revisão que hoje caem no vazio; o mapa do que existe (PII, backup, crons, drift) fica em cima da mesa antes de qualquer linha destrutiva (completed 2026-10-04)
 - [x] **Phase 43: Consentimentos Honestos & Política de Retenção** - Cada checkbox que o candidato marca ganha consequência real, e o prazo de validade do dado passa a existir como configuração alterável sem deploy — zero ação destrutiva (completed 2026-10-04)
-- [ ] **Phase 44: Exportação & Acesso** - O candidato recebe uma cópia honesta dos próprios dados, e o inventário de PII que a fase irreversível vai consumir nasce exercitado em produção
+- [x] **Phase 44: Exportação & Acesso** - O candidato recebe uma cópia honesta dos próprios dados, e o inventário de PII que a fase irreversível vai consumir nasce exercitado em produção (completed 2026-10-07)
 - [ ] **Phase 45: Motor de Exclusão & Anonimização** ⚠️ **FASE DE MAIOR RISCO** - O pedido de exclusão executa de verdade — Storage → Postgres → Auth, irreversível, sem levar junto a trilha de decisão humana
 - [x] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada (completed 2026-10-05)
 - [x] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute (completed 2026-10-04)
@@ -662,7 +662,7 @@ Plans:
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | Complete    | 2026-10-04 |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | Complete    | 2026-10-04 |
-| 44. Exportação & Acesso | v8.0 | 22/22 | In Progress|  |
+| 44. Exportação & Acesso | v8.0 | 22/22 | Complete    | 2026-10-07 |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 7/7 | Complete    | 2026-10-05 |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
