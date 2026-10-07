@@ -47,6 +47,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Info, Shield } from 'lucide-react'
 import type { CandidatoFormData } from '../../types'
 import { POLICY_VERSION, CONSENT_TEXT_VERSION } from '../../constants'
+import { CANAL_PRIVACIDADE_EMAIL } from '@/features/privacidade/constants/canalPrivacidade'
 import consentText from '../../../../../supabase/functions/_shared/consent-text.json'
 
 type ChaveAutorizacao = keyof CandidatoFormData['autorizacoes']
@@ -280,11 +281,15 @@ export function AutorizacoesStep() {
           Na página <strong>Seus dados e autorizações</strong> você mesmo(a) revoga as
           autorizações opcionais, baixa uma cópia dos seus dados e pede a eliminação deles.
           Para correção e portabilidade, escreva para o nosso canal de privacidade:{' '}
+          {/*
+            2026-10-06: o endereço era digitado aqui, e por isso a troca da constante
+            não o alcançava. Vem da fonte única (canalPrivacidade.ts, cp4).
+          */}
           <a
-            href="mailto:lgpd@beautysmile.com.br"
+            href={`mailto:${CANAL_PRIVACIDADE_EMAIL}`}
             className="text-blue-400 hover:text-blue-300 underline"
           >
-            lgpd@beautysmile.com.br
+            {CANAL_PRIVACIDADE_EMAIL}
           </a>{' '}
           — respondemos por e-mail.
         </p>
