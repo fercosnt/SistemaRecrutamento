@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 44-18-PLAN.md (2026-10-07): portao de classe CR-01-bis ve a classe inteira — 43 excluidas medidas so leitura em PROD (534 colunas, bloco colunas_fora_do_escopo do catalogo, que o gerador nao le), naoMedidas fail-closed, razao por tabela no YAML (BD-18, so comentario); (cr5b) com sete controles. Artefato 1.4.0 intocado, nada publicado. Proximo: 44-19"
-last_updated: "2026-10-07T12:22:00.000Z"
+stopped_at: "Completed 44-19-PLAN.md (2026-10-07): portoes do smoke e do canal — (k) prende o corpo das CTEs de VALUES a saida real do gerador (WR-04), o DO $gate$ a BLOCO_GATE_CANONICO de 712 caracteres (WR-05), M19-M24 vistas verdes com os checadores de HEAD e mordendo depois; cp3 com alcance src+supabase/functions+index.html+public, cp4 por fronteira, cp5 (WR-06); docblock do canal aponta DECISAO-ENCARREGADO.md (IN-02); templates_email 0 de 3 so leitura. Nada publicado. Proximo: 44-20"
+last_updated: "2026-10-07T12:33:00.000Z"
 last_activity: 2026-10-07
 state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 147
-  completed_plans: 141
-  percent: 95
+  completed_plans: 142
+  percent: 96
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "execute-phase 44 --gaps-only — 44-18 concluido (commits 09f9d60d, fde8b4eb): colunas_fora_do_escopo medido so leitura + naoMedidas/semRazaoNoYaml + (cr5b); export-allowlist, gerador, relatorio 05 e supabase intocados desde dedca1fb"
+last_activity_desc: "execute-phase 44 --gaps-only — 44-19 concluido (commits 085e3b44, 2bfdeb0c, 64139d5c): pino dos corpos de VALUES + BLOCO_GATE_CANONICO + M19-M24 + cp3/cp4/cp5 + IN-02; smoke, relatorio 05, gerador, allowlist e supabase intocados desde dedca1fb"
 ---
 
 # Project State
@@ -1381,6 +1381,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-17: portao por TABELA (BD-21) — (cr5) deriva familias genericas do mapa, colunas de vinculo de chave_titular (menos a raiz candidatos) e compara por igualdade de conjuntos com VEREDITO_POR_TABELA; hoje {entrevista_guias}, medido na execucao; (cr3) controles 2 e 4 escolhidos pelos dados derivados (IN-01)
 - [Phase 44]: 44-18: cobertura FAIL-CLOSED do portao de classe — as 43 tabelas de `excluidas` medidas so leitura em PROD (2026-10-07T12:18:09Z, 534 colunas) no bloco `colunas_fora_do_escopo` do catalogo (o gerador nao le); tabela generica sem coluna medida reprova (`naoMedidas`); na classe generica so `entrevista_guias` tem candidatura_id/candidato_id
 - [Phase 44]: 44-18: a razao por tabela mora no YAML onde a classificacao mora — comentario acima de `  entrevista_guias:` cita BD-18, conferido por `semRazaoNoYaml`; token `configuracao_do_produto` NAO muda (vocabulario fechado, BD-21); (cr5b) prova a mordida em sete direcoes, alvo pelos dados (IN-01)
+- [Phase 44]: 44-19: o smoke de drift e preso pelo TODO, nao por mais uma forma — corpo de cada CTE de VALUES = `colapsar('VALUES ' + saida do gerador EXECUTADO)` (WR-04) e bloco `DO $gate$` = `BLOCO_GATE_CANONICO` (712 caracteres, escopo deliberado; so os textos de mensagem normalizados) (WR-05); na (k4) o problema do pino nao conta para alvos de checagem nomeada (M4–M18), senao apagar uma checagem nomeada passaria coberto pelo pino
+- [Phase 44]: 44-19: canal vigiado onde pode voltar ao titular — cp3 em src + supabase/functions + index.html + public (ts|tsx|json|html, testes inclusive), cp4 na producao do front por fronteira `(^|[^a-z0-9._%+-])` com flags im; templates_email em PROD sem endereco nenhum (0 de 3 com o morto, 0 com `@`, controle do detector 3/3)
 
 ### Roadmap Evolution
 
@@ -1713,8 +1715,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-07T12:22:00.000Z
-Stopped at: Completed 44-18-PLAN.md
+Last session: 2026-10-07T12:33:00.000Z
+Stopped at: Completed 44-19-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

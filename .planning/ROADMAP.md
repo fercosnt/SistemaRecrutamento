@@ -182,7 +182,7 @@ Plans:
 - [x] 44-16-PLAN.md — **CR-01 · publicação**: portões sobre a árvore exata + build local com o marcador; **checkpoint do operador** (frase e push); só o front sobe, marcador conferido no publicado, disposição escriturada, `origin/main..HEAD` vazio
 - [x] 44-17-PLAN.md — **CR-01-bis · a frase e o núcleo do portão (TRACER)**: a frase deixa de afirmar igualdade entre candidatos e nomeia o roteiro da entrevista (BD-18), o convite só oferece saber mais (BD-19); portão (cr5) por TABELA derivado do artefato e do catálogo, visto vermelho com a frase antiga e mordendo a frase real; IN-01; BD-18..BD-21 no CONTEXT; nada fora do front
 - [x] 44-18-PLAN.md — **CR-01-bis · a classe inteira é vista**: as 43 excluídas medidas só leitura em PROD e versionadas no catálogo (bloco que o gerador não lê), cobertura fail-closed, razão por tabela no YAML (só comentário, BD-21); (cr5b) com sete controles; artefato 1.4.0 intocado
-- [ ] 44-19-PLAN.md — **portões do smoke e do canal**: (k) prende o corpo das CTEs de `VALUES` à saída do gerador (WR-04), o bloco `DO $gate$` a um texto canônico (WR-05), M19–M24 vistas verdes antes e vermelhas depois; cp3/cp4/cp5 com alcance e fronteira (WR-06); docblock do canal (IN-02); `templates_email` medido só leitura
+- [x] 44-19-PLAN.md — **portões do smoke e do canal**: (k) prende o corpo das CTEs de `VALUES` à saída do gerador (WR-04), o bloco `DO $gate$` a um texto canônico (WR-05), M19–M24 vistas verdes antes e vermelhas depois; cp3/cp4/cp5 com alcance e fronteira (WR-06); docblock do canal (IN-02); `templates_email` medido só leitura
 - [ ] 44-20-PLAN.md — **os arquivos não prometem o que não carregam**: fronteira falha fechada para frase neutra quando a versão da EF difere da do bundle (WR-03, BD-22); parênteses «… entra(m)» presos às colunas exportadas (WR-02); cada portão visto mordendo; guardas de fronteira por task (árvore contra HEAD antes do commit)
 - [ ] 44-21-PLAN.md — **revisão adversarial independente do diff da rodada, antes da porta**: escopo derivado do diff, sem ler as narrativas dos autores antes dos achados; quatro eixos (verdade da copy, portões caláveis, falha fechada, «só front»); sondas próprias contra os sete portões novos; arquivo NOVO `44-REVIEW-pos-CR01bis.md` (o `44-REVIEW.md` fica intocado)
 - [ ] 44-22-PLAN.md — **CR-01-bis · publicação + U1**: revisão do 44-21 sem crítico sobre a árvore exata; portões sobre essa árvore + build local com as duas frases; **checkpoint do operador** (frases, achados e push); só o front sobe, frases conferidas no publicado (chunks lazy inclusive), duas disposições escrituradas, REQUIREMENTS.md intocado, `origin/main..HEAD` vazio; U1 com a conta de teste conferido por script
@@ -662,7 +662,7 @@ Plans:
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | Complete    | 2026-10-04 |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | Complete    | 2026-10-04 |
-| 44. Exportação & Acesso | v8.0 | 18/22 | In Progress|  |
+| 44. Exportação & Acesso | v8.0 | 19/22 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 7/7 | Complete    | 2026-10-05 |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
