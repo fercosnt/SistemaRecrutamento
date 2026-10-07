@@ -97,3 +97,48 @@ segurança em silêncio (o erro é engolido de propósito).
 | `WINDOWS.md` 26, 30 | Revisão do Encarregado — fechados por esta decisão |
 | `WINDOWS.md` 29, 31 | Os dois destinos — fechados por eliminação |
 | `src/features/privacidade/constants/canalPrivacidade.ts` | O docblock aponta para cá |
+
+## Nota de 2026-10-06: o endereço do canal muda para `rh@beautysmile.com.br`
+
+**Decisão do operador.** Em 2026-10-06 o executor do `44-16` pediu a aprovação da frase do
+CR-01. A resposta foi «trocar o email para rh@beautysmile.com.br». Na pergunta seguinte, o
+operador decidiu duas coisas:
+
+- O escopo é **o sistema inteiro**. O canal de privacidade é **um** canal, e não muda só
+  naquela frase.
+- **`lgpd@beautysmile.com.br` não existe e não é lido por ninguém.**
+
+O que isso corrige no registro acima: a seção «O que a decisão OBRIGOU a mudar» diz que o
+endereço `lgpd@beautysmile.com.br` seguia «idêntico», e que só saiu o título. Isso era
+verdade sobre o **código**. Sobre o **mundo** era falso desde o começo. Todo titular que
+seguiu a instrução «escreva para o nosso canal de privacidade» escreveu para uma caixa que
+ninguém lê. É o mesmo defeito que este arquivo existiu para fechar: uma promessa de canal sem
+canal. O texto acima fica como está, porque é o registro do que se acreditava em 2026-08-13.
+Esta nota é a correção.
+
+**O que mudou:**
+
+- `CANAL_PRIVACIDADE_EMAIL` passa a `rh@beautysmile.com.br`. É a caixa real do RH, a mesma
+  que já era o `REPLY_TO` dos e-mails ao candidato (`supabase/functions/_shared/email-config.ts`).
+- O passo de autorizações do cadastro (`AutorizacoesStep.tsx`) tinha o endereço digitado à
+  mão, fora da constante. Trocar só a constante não o teria alcançado. Ele passa a usar a
+  constante.
+- `canalPrivacidade.test.ts` prende quatro coisas:
+  - o valor literal;
+  - a igualdade com o `REPLY_TO`;
+  - a ausência do endereço morto em `src/`;
+  - a fonte única (nenhum arquivo de produção escreve o endereço fora do módulo).
+
+**O que NÃO mudou:**
+
+- A obrigação de oferecer o canal.
+- A decisão de não designar Encarregado.
+- Nenhuma EF: nenhuma delas contém o endereço.
+
+**A correção só vale no ar depois do push.** Até lá, o site publicado continua mandando o
+titular para a caixa morta. O push é decisão do operador no checkpoint do `44-16`.
+
+| Onde | O quê |
+|---|---|
+| `98f9efb3` | Testes RED: canal preso a `rh@` e à fonte única |
+| `b1136807` | A constante muda para `rh@`, e o cadastro passa a usar a constante |
