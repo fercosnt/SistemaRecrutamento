@@ -15,9 +15,9 @@ files_reviewed_list:
   - src/features/privacidade/services/exportacaoService.ts
 findings:
   critical: 0
-  warning: 5
+  warning: 6
   info: 4
-  total: 9
+  total: 10
 status: issues_found
 ---
 
@@ -62,6 +62,10 @@ Mas há cinco fraquezas de portão ou de falha-fechada:
    forja `smoke44.r`, e a suíte segue 40/40 verde. Provado por execução, com restauração conferida.
 4. **O (cr4) prende «as datas» a um subconjunto escolhido à mão (WR-04).**
 5. **O (cr5) define vínculo só pelo nome da coluna (WR-05).**
+
+Depois das sondas (Task 2), cada um dos sete portões novos mordeu uma mutação própria do revisor. As
+sondas extras confirmaram WR-03, WR-04 e WR-05 por execução. No confronto com os SUMMARY dos autores,
+uma afirmação de manchete do 44-20 é contradita pelo WR-01: é o WR-06.
 
 ## Eixo 1 · Verdade da copy
 
@@ -303,6 +307,12 @@ Acrescentar à (k4) a M25 (`set_config` forjado) e a M26 (`SET smoke44.r = …`)
 
 A copy de hoje é verdadeira (Eixo 1).
 
+**Evidência por execução (Task 2, sonda extra).** No espelho que o teste importa, `cancelado_em` saiu de
+`colunas` e entrou em `colunas_excluidas`. O filtro `-t '\(cr4\) WR-02'` deu `Tests 1 passed, 57 skipped`:
+o portão não mordeu. O docblock que a rodada acrescentou (`exportacaoService.ts:554-557`, commit
+`6b51335d`) diz «um veto futuro de uma coluna prometida reprova o (cr4) nomeando `tabela.coluna`». Isso
+só vale para as colunas que o mapa lista, não para «as datas do pedido» que a frase promete.
+
 **Fix:** para entradas que afirmam «as datas», derivar a classe do catálogo:
 ```ts
 const datas = catalogo.colunas.filter((c) => c.tabela === tabela && /^(timestamp|date)/.test(c.tipo)).map((c) => c.coluna)
@@ -332,6 +342,28 @@ tabela que ganha coluna de vínculo depois. Este não está declarado.
 em que `<x>` (ou `<x>s`/`<x>es`) é tabela de `EXPORT_ALLOWLIST.tabelas` conta como vínculo. Ou, mais
 firme, medir as FKs de `public` (só leitura) para um bloco `fks` do catálogo e usar o alvo da FK.
 Controle no (cr5b): tabela genérica sonda com `agendamento_id`.
+
+**Evidência por execução (Task 2, sonda extra).** No catálogo, entrou a coluna
+`templates_email.agendamento_id` (uuid) no bloco `colunas_fora_do_escopo`. O filtro
+`-t '\(cr5\) CR-01-bis'` deu `Tests 1 passed, 57 skipped`: o portão não mordeu.
+
+### WR-06: o 44-20-SUMMARY afirma que «o `.html` e o `.json` deixam de carregar a fronteira de uma versão com o carimbo de outra», mas a revisão mostra uma rota em que carregam (mesma string de versão, conteúdo diferente)
+
+**File:** `.planning/phases/44-exporta-o-acesso/44-20-SUMMARY.md:91` (a frase de resumo) e `:54`
+(coverage D1). Código: `src/features/privacidade/services/exportacaoService.ts:761-765`.
+
+**Issue:** as duas evidências lado a lado.
+
+| O que o 44-20-SUMMARY afirma | O que a revisão viu |
+|---|---|
+| «O `.html` e o `.json` deixam de carregar a fronteira de uma versão com o carimbo de outra.» | Vale para STRING de versão divergente: as sondas própria e da suíte mordem. Não vale para conteúdo divergente sob a mesma string. No histórico do artefato, a 1.1.0 teve 4 conteúdos e a 1.2.0 teve 2, e nenhum portão obriga a subir `meta.versao` (WR-01) |
+
+A frase é lida pelo operador no checkpoint do 44-22, que é porta de mão única. Ela apresenta como
+fechado, sem ressalva, um defeito que está fechado só pela convenção de subir a versão a cada
+regeneração. O histórico mostra que essa convenção já falhou quatro vezes.
+
+**Fix:** consertar o WR-01. Ou, até lá, restringir a afirmação onde o operador a lê: «quando a STRING
+de versão diverge; conteúdo novo sob a mesma versão não é visto».
 
 ## Info
 
@@ -385,6 +417,80 @@ onde a frase é aprovada.
 
 **Fix:** nenhum obrigatório. Se o operador quiser precisão: «o roteiro que a equipe prepara, com
 ajuda do sistema, para conduzir a sua entrevista» (pela UI-SPEC).
+
+## Sondas do revisor
+
+Cada sonda segue o mesmo método:
+- uma mutação desenhada pelo revisor, fora dos controles que a suíte já carrega ((cr4b), (cr5b),
+  (k4) M1–M24, (cp5) e as mutações reais dos autores);
+- aplicada a um arquivo REAL que o portão vigia, nunca ao arquivo de teste;
+- backup em scratch fora do repositório, md5 antes, mutação, o filtro mais estreito (`npx vitest run
+  <arquivo> -t '<rótulo escapado>'`, com a contagem de testes conferida, ver IN-01);
+- restauração do backup, md5 depois e `cmp`.
+
+Uma sonda por vez. O roteiro (`sonda.sh`) recusava começar com a árvore suja em `src`, `supabase`,
+`docs/compliance` ou `index.html`, e imprimia o `git status --porcelain` desses caminhos depois de
+restaurar: vazio nas dez.
+
+| Portão | Mutação (arquivo · o que mudou) | Filtro rodado | Mordeu? | Nomeou o alvo? | Restaurado (md5 + cmp) |
+|---|---|---|---|---|---|
+| (cr4) | `exportacaoService.ts` · o parêntese «(o motivo e as datas entram)» virou «(o motivo, o detalhe e as datas entram)» (promessa nova de uma coluna vetada pelo BD-10) | `exportacaoService.test.ts -t '\(cr4\) WR-02'`: 1 failed, 57 skipped | sim | sim: `entradaOrfa = ['(o motivo e as datas entram)']` e `semEntrada` com o parêntese novo | sim |
+| (cr5) | `supabase/functions/_shared/exportAllowlist.ts` (o espelho que o teste importa) · `historico_acoes` reclassificada de `telemetria_interna` para `configuracao_do_produto` (reclassificação, não tabela nova) | `exportacaoService.test.ts -t '\(cr5\) CR-01-bis'`: 1 failed, 57 skipped | sim | sim: `semVeredito = ['historico_acoes']` | sim |
+| (cr6) | `exportacaoService.ts` · `fronteiraDaCopia` ganhou um default: `(versaoAllowlist ?? EXPORT_ALLOWLIST.meta.versao) === …` (versão ausente passa por «igual») | `exportacaoService.test.ts -t '\(cr6\) WR-03'`: 1 failed, 57 skipped | sim | sim: «versão ausente: o .json tem de carregar a frase neutra» | sim |
+| problemasDosValues | `supabase/tests/p44_export_drift_smoke.sql` · linha `(lower('CANDIDATOS'),'coluna_sonda_revisor'),` no VALUES da CTE `excluidas` (expressão em vez de literal, noutra CTE que M19/M20) | `exportAllowlist.test.ts -t '\(k\) os três'`: 1 failed, 39 skipped | sim | sim: `excluidas: o corpo da CTE … diverge da saída do gerador (--sql-values-excluidas) a partir do caractere 8` | sim |
+| BLOCO_GATE_CANONICO | smoke · `IF current_setting('smoke44.r') <> '' THEN RETURN; END IF;` antes da guarda de drift (saída antecipada CONDICIONAL e sem `r->>`, diferente da M21) | `exportAllowlist.test.ts -t '\(k3\) o smoke falha alto'`: 1 failed, 39 skipped | sim | sim: único problema da lista, `DO $gate$: o corpo do bloco difere do canônico (WR-05) — … caractere 449`. Nenhuma checagem nomeada viu | sim |
+| (cp3) | `index.html` · `<meta name="contact" content="<endereço morto>">` logo depois de `<head>` (o endereço é montado em runtime pelo mutador) | `canalPrivacidade.test.ts -t '\(cp3\)'`: 1 failed, 4 skipped | sim | sim: `['index.html']` | sim |
+| (cp4) | `src/features/privacidade/components/PedirCopiaBloco.tsx` · linha `// Contato: RH@BeautySmile.com.br` (CAIXA ALTA, a rota da flag `i`, fora do cp5) | `canalPrivacidade.test.ts -t '\(cp4\)'`: 1 failed, 4 skipped | sim | sim: a lista recebida inclui `src/features/privacidade/components/PedirCopiaBloco.tsx` | sim |
+| (cr4) · extra WR-04 | espelho · `solicitacoes_dados.cancelado_em` saiu de `colunas` e entrou em `colunas_excluidas` (`BD-99 — sonda do revisor 44-21`) | `exportacaoService.test.ts -t '\(cr4\) WR-02'`: 1 passed, 57 skipped | não | não: é o WR-04 | sim |
+| (cr5) · extra WR-05 | `docs/compliance/catalogo-vivo-44.json` · coluna `templates_email.agendamento_id` (uuid) no bloco `colunas_fora_do_escopo` | `exportacaoService.test.ts -t '\(cr5\) CR-01-bis'`: 1 passed, 57 skipped | não | não: é o WR-05 | sim |
+| smoke · extra WR-03 | smoke · 2º `set_config('smoke44.r', '{… "n_drift":0}', false)` antes de `DO $gate$` | `exportAllowlist.test.ts` inteiro: 40 passed | não | não: é o WR-03 | sim |
+
+Os sete portões do escopo deliberado morderam e nomearam o alvo. As três sondas extras não morderam,
+e cada uma é a prova por execução de um `warning` já escrito (WR-03, WR-04, WR-05).
+
+## Sondas do revisor · md5
+
+Em todas as dez, antes = depois ≠ mutado, e o `cmp` contra o backup não acusou diferença:
+
+| Sonda | Arquivo | antes | mutado | depois |
+|---|---|---|---|---|
+| (cr4) | `exportacaoService.ts` | `8f66ff754ad6ce3b3ebdeba93990ad97` | `2793a6e029b0bc023435c1b2e4632619` | `8f66ff754ad6ce3b3ebdeba93990ad97` |
+| (cr5) | `_shared/exportAllowlist.ts` | `89d9f6636053a6d34cfda12ecfb78f69` | `48a11a80222cabc285b053f4edd98b8c` | `89d9f6636053a6d34cfda12ecfb78f69` |
+| (cr6) | `exportacaoService.ts` | `8f66ff754ad6ce3b3ebdeba93990ad97` | `27bec3626b7552c8a50d94dc60604a03` | `8f66ff754ad6ce3b3ebdeba93990ad97` |
+| problemasDosValues | `p44_export_drift_smoke.sql` | `53fbfd452cf9c87e18eb740fe7b9f428` | `f639ed95fa5143738e4edacdc643633f` | `53fbfd452cf9c87e18eb740fe7b9f428` |
+| BLOCO_GATE_CANONICO | `p44_export_drift_smoke.sql` | `53fbfd452cf9c87e18eb740fe7b9f428` | `0c9698632147a1168a1c8c0d08533354` | `53fbfd452cf9c87e18eb740fe7b9f428` |
+| (cp3) | `index.html` | `1b310556d3a9f523104a68bc91edc55c` | `e7976ba0aaaceb229def193419502bbc` | `1b310556d3a9f523104a68bc91edc55c` |
+| (cp4) | `PedirCopiaBloco.tsx` | `bd65848ec736eb419aaefaf5369660f5` | `ba26e53ddaeef38cc95cf2f43a4cafe1` | `bd65848ec736eb419aaefaf5369660f5` |
+| extra WR-04 | `_shared/exportAllowlist.ts` | `89d9f6636053a6d34cfda12ecfb78f69` | `29e5dab07b8a21c0262bc953c5817996` | `89d9f6636053a6d34cfda12ecfb78f69` |
+| extra WR-05 | `catalogo-vivo-44.json` | `e1ca9b674b0a632b6d24841c9a79714a` | `271ede2d7ec3c769785ff9238b29fea3` | `e1ca9b674b0a632b6d24841c9a79714a` |
+| extra WR-03 | `p44_export_drift_smoke.sql` | `53fbfd452cf9c87e18eb740fe7b9f428` | `1cee7c733e84ff49fc3bd62f873e3beb` | `53fbfd452cf9c87e18eb740fe7b9f428` |
+
+## Confronto com os SUMMARY dos autores
+
+Os SUMMARY de 44-17..44-20 foram lidos só depois de o commit dos achados (`eacf659e`) existir. Cada
+afirmação abaixo foi conferida no git, no artefato ou por execução.
+
+| SUMMARY | Afirmação | Conferido | Resultado |
+|---|---|---|---|
+| 44-17 | md5 do serviço `5290f90e…` antes e depois da mutação | `git show 6562031e:…/exportacaoService.ts \| md5` = `5290f90e…` (igual em `514b35ce`) | confirma |
+| 44-17 | «os sete marcadores de `CLAUSULA_POR_FAMILIA` continuam nela» | 7 marcadores distintos no mapa, 7 na frase | confirma |
+| 44-17 | `comVinculo` é exatamente `{entrevista_guias}` | derivado do artefato e do catálogo ∪ bloco: `['entrevista_guias']` | confirma |
+| 44-17 | `docs/compliance` e `supabase` intocados | `git diff --quiet dedca1fb c1c42fa0 -- docs/compliance supabase`: 0 | confirma |
+| 44-18 | 534 colunas, 43 tabelas, igual às chaves de `excluidas` | medido por script sobre o bloco | confirma |
+| 44-18 | `naoMedidas` nomeou 20 tabelas genéricas sem coluna | 22 excluídas sem coluna em `colunas`, 20 genéricas, mais `purga_execucao_itens`/`purga_execucoes` (telemetria) | confirma |
+| 44-18 | com vínculo: `ai_call_logs`, `entrevista_guias`, `historico_acoes`, `notificacoes_enviadas`, `purga_execucao_itens`; na classe genérica só `entrevista_guias` | idem, por script | confirma |
+| 44-18 | «as chaves e bytes anteriores ficaram intactos» | o texto antigo sem o `}` final é prefixo byte a byte do novo; nenhum termina em quebra de linha | confirma |
+| 44-19 | `BLOCO_GATE_CANONICO` com 712 caracteres | avaliado da constante: 712 | confirma |
+| 44-19 | `docs/compliance/__tests__`: 5 arquivos, 97 testes verdes | reexecutado: `5 passed`, `97 passed` | confirma |
+| 44-19 | «O smoke … deixou de poder ser calado por uma linha de `VALUES` fora do formato ou por fluxo de controle no `DO $gate$`» | vale no escopo declarado: minhas sondas de `VALUES` e de bloco morderam. Fora dele, o `set_config` forjado cala (WR-03). O SUMMARY não afirma mais que isso | confirma no escopo (o resto é o WR-03, não contradição) |
+| 44-19 | `templates_email`: 0 de 3 linhas com o endereço morto | NÃO reexecutado: PROD só quando um achado depende da medição (proibição do plano), e nenhum achado depende desta | não conferido |
+| 44-20 | md5 do serviço `9b8b6af0…` na mutação do (cr6) | `git show 183dc181:…` = `9b8b6af0…` | confirma |
+| 44-20 | `grep -c fronteiraDaCopia` = 7; 265/265 em `src/features/privacidade` + `docs/compliance/__tests__` | reexecutado: 7; `16 passed`, `265 passed` | confirma |
+| 44-20 | o (o) passa `'1.1.0'` explícito e só olha o rodapé | `exportacaoService.test.ts:446-448` | confirma |
+| 44-20 | «O `.html` e o `.json` deixam de carregar a fronteira de uma versão com o carimbo de outra» | só para string de versão divergente; conteúdo novo sob a mesma versão passa (WR-01) | **contradita: WR-06** |
+| 44-20 | docblock de `6b51335d`: «um veto futuro de uma coluna prometida reprova o (cr4)» | uma data do pedido vetada (`cancelado_em`) deixa o (cr4) verde | **contradita no alcance: WR-04** |
+| 44-20 | rodapé «undefined» com versão ausente: «só alcançável por cast», fora do escopo | a EF sempre devolve `versao_allowlist` (`index.ts:342`); viola a E4 da UI-SPEC | confirma o fato; classificado como WR-02 |
+| 44-17..44-20 | as provas de mordida dos autores com `-t` | cada saída citada traz `Tests N failed` com N ≥ 1, então nenhuma foi um falso verde por filtro vazio (IN-01) | confirma |
 
 ---
 
