@@ -38,6 +38,7 @@
  * @see .planning/phases/44-exporta-o-acesso/44-03-PLAN.md Task 2
  */
 import { describe, it, expect } from 'vitest'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -279,6 +280,83 @@ function corpoDaCte(texto: string, cabecalho: string, nome: string): string {
   const fecha = fechamento(texto, abre)
   if (fecha === -1) throw new Error(`${nome}: cabeçalho de CTE \`${cabecalho}\` sem «)» que o feche`)
   return colapsar(texto.slice(abre + 1, fecha))
+}
+
+/*
+ * ─── 44-19 (WR-04) — o CORPO de cada CTE de `VALUES` é a saída do GERADOR ─────────────
+ *
+ * POR QUE O PINO É SOBRE O CORPO, E NÃO SOBRE TUPLAS. A (k) do 44-15 prova «toda tupla
+ * no formato `('x','y')` == extraída == artefato». Isso NÃO prova «toda linha que o SQL
+ * produz == extraída», e é a segunda frase que o smoke precisa: uma tupla com cast
+ * (`('candidatos'::text,'col'),`) ou um `UNION ALL SELECT 'candidatos','col'` dentro da
+ * CTE é SQL válido, acrescenta um par ao universo com veredito — e esconde uma coluna nova
+ * de PROD do relatório de drift — sem casar a extração canônica NEM a contagem permissiva.
+ * O revisor provou as duas rotas com tudo verde (WR-04). Contar mais uma forma deixaria a
+ * próxima de fora; o que fecha a classe é prender o TODO: o corpo da CTE, sem comentário e
+ * com espaço colapsado, tem de ser exatamente `VALUES ` + o que o gerador emite. Qualquer
+ * coisa que execute e o gerador não emitiu reprova, seja qual for a forma.
+ *
+ * POR QUE A SAÍDA DO GERADOR EXECUTADO, E NÃO UMA REIMPLEMENTAÇÃO DELE. O contrato do
+ * arquivo é «cole a saída de `--sql-values*` sem editar». Reconstruir a saída aqui (ordem,
+ * recuo, vírgula final) seria uma SEGUNDA definição do mesmo texto, e as duas podem
+ * divergir caladas — o teste passaria a vigiar a cópia dele, não o gerador. Executar o
+ * gerador custa ~0,05 s por flag, uma vez por flag (cache de módulo).
+ *
+ * A extração canônica e a contagem permissiva da (k) CONTINUAM: este pino é acrescentado,
+ * não as substitui (cada uma falha com um diagnóstico diferente).
+ */
+const GERADOR = resolve(REPO, 'docs/compliance/sql/gen-export-allowlist.cjs')
+
+/** Cabeçalho de CTE → flag do gerador que emite o corpo dela. Os três de `MARCADORES`. */
+const FLAG_DO_VALUES: Readonly<Record<(typeof MARCADORES)[number], string>> = {
+  'allowlist(tabela, coluna) AS (': '--sql-values',
+  'excluidas(tabela, coluna) AS (': '--sql-values-excluidas',
+  'disposicao_tabelas(tabela, destino) AS (': '--sql-values-tabelas',
+}
+
+let cacheDoGerador: Map<string, string> | null = null
+/** A saída REAL de `gen-export-allowlist.cjs` para cada flag `--sql-values*`, executada uma vez. */
+function saidasDoGerador(): Map<string, string> {
+  if (cacheDoGerador) return cacheDoGerador
+  const saidas = new Map<string, string>()
+  for (const flag of Object.values(FLAG_DO_VALUES)) {
+    saidas.set(flag, execFileSync(process.execPath, [GERADOR, flag], { cwd: REPO, encoding: 'utf8' }))
+  }
+  cacheDoGerador = saidas
+  return saidas
+}
+
+/**
+ * WR-04 · para cada CTE de `VALUES`, o corpo sem comentário e colapsado é IGUAL a
+ * `colapsar('VALUES ' + <saída do gerador>)`. Sobre TEXTO (a (k4) o roda sobre o smoke
+ * mutado em memória). Cada problema começa pelo nome da CTE (`allowlist:`, `excluidas:`,
+ * `disposicao_tabelas:`); cabeçalho ausente ou duplicado vira problema nomeado, não exceção.
+ */
+function problemasDosValues(nome: string, sql: string): string[] {
+  const texto = semComentarioSql(sql)
+  const saidas = saidasDoGerador()
+  const problemas: string[] = []
+  for (const cabecalho of MARCADORES) {
+    const cte = cabecalho.slice(0, cabecalho.indexOf('('))
+    const flag = FLAG_DO_VALUES[cabecalho]
+    let corpo: string
+    try {
+      corpo = corpoDaCte(texto, cabecalho, nome)
+    } catch (e) {
+      problemas.push(`${cte}: ${(e as Error).message}`)
+      continue
+    }
+    const esperado = colapsar('VALUES ' + (saidas.get(flag) ?? ''))
+    if (corpo !== esperado) {
+      let i = 0
+      while (i < corpo.length && corpo[i] === esperado[i]) i++
+      problemas.push(
+        `${cte}: o corpo da CTE em ${nome} diverge da saída do gerador (${flag}) a partir do caractere ${i} — ` +
+          `arquivo «${corpo.slice(Math.max(0, i - 20), i + 60)}» vs gerador «${esperado.slice(Math.max(0, i - 20), i + 60)}» (WR-04)`,
+      )
+    }
+  }
+  return problemas
 }
 
 /** Parte um corpo (já colapsado) em cada `UNION ALL` de profundidade 0, fora de aspas. */
@@ -1228,9 +1306,19 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     // e a (k) seguiu em 526 pares, verde, com 528 tuplas no SQL. Por isso a contagem
     // PERMISSIVA, por bloco e por arquivo, tem de IGUALAR a canônica: uma tupla fora do
     // formato deixa de passar calada. A (k4) prova que esta igualdade morde.
+    //
+    // ⚠ 44-19 (WR-04): e nem as duas juntas bastam. A permissiva só conta `('x','y')`; uma
+    // tupla com cast ou um `UNION ALL SELECT` dentro da CTE executa e não casa nenhuma das
+    // duas. Por isso o CORPO inteiro de cada CTE de `VALUES` é preso à saída REAL do gerador
+    // (`problemasDosValues`, ver o bloco acima de `GERADOR`). As duas leituras de cima ficam
+    // — cada uma reprova com o seu diagnóstico; o pino reprova o que elas não veem. M19/M20.
     for (const caminho of ARQUIVOS_DRIFT) {
       const arquivo = caminho.slice(REPO.length + 1)
       const doArquivo = paresDoArquivo(caminho)
+      expect(
+        problemasDosValues(arquivo, readFileSync(caminho, 'utf8')),
+        `${arquivo}: corpo de CTE de VALUES diverge da saída do gerador — cole a saída de --sql-values* sem editar (WR-04)`,
+      ).toEqual([])
       for (const [bloco, cte] of [
         ['allowlist', 'allowlist'],
         ['excluidas', 'excluidas'],
@@ -1311,6 +1399,7 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
   describe('(k4) os portões (k) e (k3) MORDEM — mutações em memória do smoke real', () => {
     type Alvo =
       | { checador: 'k' }
+      | { checador: 'values'; nomeia: string }
       | { checador: 'predicado'; nomeia: string }
       | { checador: 'estrutura'; nomeia: string }
     interface Mutacao {
@@ -1429,6 +1518,18 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         troca: () => '(SELECT 1)',
         alvo: { checador: 'estrutura', nomeia: 'agregador da chave n_tabelas_vivas' },
       },
+      {
+        rotulo: 'M19 · tupla com cast `::text` dentro do VALUES da allowlist (WR-04)',
+        ancora: NA_ALLOWLIST,
+        troca: (a) => `${a}    ('candidatos'::text,'coluna_nova_vazando'),\n`,
+        alvo: { checador: 'values', nomeia: 'allowlist:' },
+      },
+      {
+        rotulo: 'M20 · `UNION ALL SELECT` dentro da CTE `allowlist` (WR-04)',
+        ancora: /\n\),\nexcluidas\(tabela, coluna\) AS \(/g,
+        troca: (a) => `\n  UNION ALL SELECT 'candidatos','coluna_nova_vazando'${a}`,
+        alvo: { checador: 'values', nomeia: 'allowlist:' },
+      },
     ]
 
     const real = () => readFileSync(CAMINHO_DRIFT_SMOKE, 'utf8')
@@ -1443,9 +1544,12 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
       return mutado
     }
 
-    it('META: as rotas M1–M18 estão todas aqui, uma vez cada', () => {
+    // A numeração é conferida contra o TAMANHO da lista, não contra uma constante (44-19):
+    // uma rota nova não pode exigir lembrar de editar o META, e uma rota apagada, duplicada
+    // ou fora de ordem reprova aqui — os números têm de ser exatamente 1..N, contíguos.
+    it(`META: as rotas M1–M${MUTACOES.length} estão todas aqui, uma vez cada, numeradas 1..N sem buraco`, () => {
       const numeros = MUTACOES.map((m) => Number(/^M(\d+) ·/.exec(m.rotulo)?.[1]))
-      expect(numeros).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
+      expect(numeros).toEqual(Array.from({ length: MUTACOES.length }, (_, i) => i + 1))
     })
 
     for (const m of MUTACOES) {
@@ -1466,12 +1570,16 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
           return
         }
         const problemas =
-          m.alvo.checador === 'predicado' ? problemasDoPredicado(relatorio(), mutado) : problemasDaEstrutura(mutado)
+          m.alvo.checador === 'values'
+            ? problemasDosValues('smoke (mutado em memória)', mutado)
+            : m.alvo.checador === 'predicado'
+              ? problemasDoPredicado(relatorio(), mutado)
+              : problemasDaEstrutura(mutado)
         const nomeia = m.alvo.nomeia
         const acertou =
-          m.alvo.checador === 'predicado'
-            ? problemas.some((p) => p.startsWith(nomeia))
-            : problemas.some((p) => p.includes(nomeia))
+          m.alvo.checador === 'estrutura'
+            ? problemas.some((p) => p.includes(nomeia))
+            : problemas.some((p) => p.startsWith(nomeia))
         expect(
           acertou,
           `${m.rotulo}: o checador «${m.alvo.checador}» deveria reprovar NOMEANDO «${nomeia}»; devolveu ${JSON.stringify(problemas)}`,
