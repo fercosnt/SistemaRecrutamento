@@ -1,1 +1,1 @@
-No external API integration: gap rounds 44-10..44-22 change the project's own copy, tests, smoke and Edge Function, and review them (44-21, independent adversarial review written to a new file); the Supabase Management API is only an apply/read/deploy tool.
+No external API integration: gap rounds 44-10..44-22 change and review the project's own copy, tests, smoke and Edge Function; the Supabase Management API is only an apply/read/deploy tool.
