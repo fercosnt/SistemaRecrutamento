@@ -30,3 +30,18 @@
   qual caixa usar.
 - **Não consertado.** Pergunta ao operador: `suporte@beautysmile.com.br` existe e é lido? Se não,
   passa a `rh@` (o `REPLY_TO`) ou a outra caixa?
+
+## 2026-10-07 · 44-20 (WR-03) · `COPY_ARQUIVO.rodape` com `versao_allowlist` ausente
+
+- **Achado:** o (cr6) monta uma resposta SEM a chave `versao_allowlist` (por cast) para provar
+  que a fronteira falha fechada. Nesse caso a fronteira sai neutra, como deve, mas o rodapé do
+  `.html` imprime «Versão da lista de dados exportados: undefined.» e o `.json` omite a chave
+  (`JSON.stringify` descarta `undefined`).
+- **Por que importa pouco hoje:** a EF implantada sempre devolve `versao_allowlist`; o caso só
+  existe por cast ou por uma EF futura quebrada. Mesmo então, a cópia não afirma fronteira
+  errada (a neutra manda ao canal).
+- **Por que não é do 44-20:** o plano restringe a mudança à fronteira dos arquivos
+  (`fronteiraDaCopia`) e diz que o rodapé continua carimbando a versão que a resposta trouxe;
+  mudar o rodapé é copy nova sem linha na 44-UI-SPEC.
+- **Não consertado.** Se a revisão do 44-21 considerar relevante: o rodapé passaria a dizer
+  «versão não informada» (linha nova na 44-UI-SPEC) quando a versão vier vazia ou ausente.
