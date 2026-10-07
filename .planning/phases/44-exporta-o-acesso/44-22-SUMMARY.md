@@ -128,3 +128,63 @@ Este SUMMARY parcial entra como o 27º commit (`docs(44-22)`, só `.planning/`).
 - **Banco:** nenhuma escrita. O smoke foi só leitura.
 - **`supabase/`, `docs/compliance/sql/`, `pii-inventory.yaml`:** intocados (o script de conjunto os reprovaria).
 - **Mudanças alheias, não commitadas e fora de `origin/main..HEAD`:** `.planning/ui-reviews/.gitignore` (M), `docs/specs/DRAFT-banco-sjt-marketing.md` (M) e `docs/vagas/` (??). Elas não vão em push nenhum.
+
+## Aprovação (Task 2)
+
+Resposta do operador ao checkpoint:decision, verbatim (repassada pelo orquestrador):
+
+> publicar
+
+O operador **não deu disposição** para nenhum achado. Por isso valem os padrões do plano:
+
+- os 10 achados do `44-REVIEW-pos-CR01bis.md` (WR-01..WR-06, IN-01..IN-04) ficam `open`;
+- as 9 linhas do `44-REVIEW-DISPOSITION.md` recebem a disposição padrão do Task 3, item 3.
+
+Nenhuma outra decisão do operador foi inferida.
+
+## Publicação (Task 3) — BLOQUEADA no push: o GitHub recusa a atualização de `main` com «Internal Server Error»
+
+Nada subiu. `origin/main` segue em `b14559ea`, e o front publicado segue com `index-DTxaEkc3.js`, ou seja, com a frase do CR-01-bis. As disposições, o STATE e o ROADMAP **não** foram escriturados, porque o Task 3 os escritura depois do push e do verify do publicado.
+
+### Precondições do Task 3, todas verdes antes de cada tentativa
+
+- **(a)** A resposta do operador foi «publicar».
+- **(b)** `GATES_SHA..HEAD` (`8f3372fb..441d8867`) não toca nada fora de `.planning/`.
+- **(c)** Depois de `git fetch`, `HEAD..origin/main` = 0.
+- **(d)** `gh auth status` deu 0, e o token do Keychain está presente.
+- **(e)** `git diff --quiet dedca1fb -- .planning/REQUIREMENTS.md` deu 0.
+
+A conferência do conjunto (item 1) foi extraída LITERAL da linha 204 do plano, por script, sem transcrição. Rodou antes de cada tentativa e deu sempre `commits=27 fora=[]` e `REQUIREMENTS.md intocado`. O HEAD era `441d8867` em todas as tentativas, e fora de `.planning/` o diff contra `origin/main` tinha exatamente os sete arquivos autorizados.
+
+### Tentativas de push (todas recusadas no servidor, na atualização da ref)
+
+| # | Início (UTC) | Transporte | Resultado | Request ID |
+|---|---|---|---|---|
+| 1 | 2026-10-07T15:09:47Z | SSH `git push origin main` | `! [remote rejected] main -> main (Internal Server Error)` | `1B1C:2F4234:1A152:5EDB1:6AC660BB` |
+| 2 | 2026-10-07T15:10:04Z | SSH, idem | idem | `1B2D:204662:1A1E6:5F00B:6AC660CC` |
+| 3 | 2026-10-07T15:10:27Z | SSH, `--verbose` | idem | `1B4E:3C9AAE:1A032:5F05F:6AC660E3` |
+| 4 | 2026-10-07T15:10:56Z | HTTPS (`gh auth git-credential` só naquele comando, sem mudar config) | idem | `1B6E:370923:248DE5:2C78B1:6AC66101` |
+
+Depois de cada tentativa: `git fetch` e `git ls-remote` mostram `origin/main` = `b14559ea`. Nada foi aceito pela metade.
+
+### Diagnóstico feito (todo só leitura)
+
+- `githubstatus.com` → «All Systems Operational», nenhum incidente aberto.
+- `ssh -T git@github.com` → autenticado como `fercosnt`. `permissions.push` = true.
+- Repositório: não está arquivado nem desabilitado.
+  - Rulesets: `[]`.
+  - Branch protection em `main`: inexistente (404).
+  - Webhooks: 0.
+  - Secret scanning e push protection: desabilitados.
+- A carga é pequena:
+  - 27 commits;
+  - o maior corpo de commit tem 1983 octetos;
+  - o maior blob é o `STATE.md`, com cerca de 233 KB.
+
+A falha não depende do transporte e não vem de nenhuma regra configurada no repositório. Fica do lado do GitHub.
+
+### O que NÃO foi feito, de propósito
+
+Não houve push parcial de um prefixo do conjunto, nem push para outra branch, nem rebase, nem mudança de remote ou de config. O operador aprovou UM conjunto de 27 commits num push. Publicar um prefixo, ou abrir uma branch remota (a Vercel geraria um preview), muda a forma da publicação, e isso não foi aprovado. Com 4 tentativas, o limite de tentativas de conserto do Task 3 foi atingido: o task foi devolvido ao orquestrador como checkpoint.
+
+**Ao retomar:** o conjunto passa a ter **28** commits, porque este registro entra como `docs(44-22)`, só em `.planning/`, dentro do conjunto autorizado. Nesse momento, repetir as precondições (a)–(e) e a conferência do item 1 antes de empurrar. A hora UTC do push que der certo é o `T0` do U1.
