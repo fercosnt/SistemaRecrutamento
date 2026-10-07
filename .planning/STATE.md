@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 44-20-PLAN.md (2026-10-07): os arquivos nao prometem o que nao carregam — fronteiraDaCopia: o .html e o .json carregam oQueNaoEsta so quando a versao da resposta = EXPORT_ALLOWLIST.meta.versao, senao a frase neutra COPY_ARQUIVO.naoEstaVersaoDivergente (WR-03, BD-22), (cr6) vermelho com HEAD e mordendo a mutacao real; parenteses «… entra(m)» derivados da frase e presos as colunas exportadas por PARENTESES_QUE_ENTRAM (WR-02), (cr4) + (cr4b) com quatro controles. Nada publicado. Proximo: 44-21"
-last_updated: "2026-10-07T12:41:00.000Z"
+stopped_at: "Completed 44-21-PLAN.md (2026-10-07): revisao adversarial independente do diff dedca1fb..09168e22 em 44-REVIEW-pos-CR01bis.md — critical 0, warning 6, info 4; copy publicada verdadeira sob a 1.4.0; os sete portoes novos morderam a sonda propria do revisor (md5+cmp restaurados); WR-01 fronteiraDaCopia compara versao e nao conteudo, WR-03 smoke calado por set_config forjado (provado). Nada publicado. Proximo: 44-22 (checkpoint do operador)"
+last_updated: "2026-10-07T13:03:04.000Z"
 last_activity: 2026-10-07
 state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 147
-  completed_plans: 143
-  percent: 97
+  completed_plans: 144
+  percent: 98
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "execute-phase 44 --gaps-only — 44-20 concluido (commits 183dc181, 6b51335d): fronteiraDaCopia + frase neutra (WR-03, BD-22) + (cr6); PARENTESES_QUE_ENTRAM + (cr4)/(cr4b) (WR-02); allowlist, EF, gerador, smoke e supabase intocados desde dedca1fb"
+last_activity_desc: "execute-phase 44 --gaps-only — 44-21 concluido (commits eacf659e, 8501d8c3): revisao adversarial independente num arquivo NOVO (44-REVIEW-pos-CR01bis.md, 0/6/4), dez sondas restauradas byte a byte, confronto com os SUMMARY (WR-06); nenhum arquivo fora de .planning/ mudou"
 ---
 
 # Project State
@@ -1385,6 +1385,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-19: canal vigiado onde pode voltar ao titular — cp3 em src + supabase/functions + index.html + public (ts|tsx|json|html, testes inclusive), cp4 na producao do front por fronteira `(^|[^a-z0-9._%+-])` com flags im; templates_email em PROD sem endereco nenhum (0 de 3 com o morto, 0 com `@`, controle do detector 3/3)
 - [Phase 44]: 44-20: a fronteira dos ARQUIVOS falha fechada (BD-22) — `fronteiraDaCopia(resposta.versao_allowlist)` devolve `oQueNaoEsta` so quando a versao da EF = a do bundle; diferente, vazia ou ausente => frase neutra `COPY_ARQUIVO.naoEstaVersaoDivergente` que manda ao canal; o carimbo continua dizendo a versao recebida; a TELA segue com a frase do bundle (residual T-44-109, aceito)
 - [Phase 44]: 44-20: parenteses positivos da frase presos ao artefato (WR-02) — `PARENTESES_QUE_ENTRAM` (escopo deliberado) comparado por igualdade de conjuntos com os parenteses DERIVADOS da frase, cada coluna em `colunas` e fora de `colunas_excluidas`; alvos do (cr4b) pela ordem do mapa (IN-01), nunca por nome
+- [Phase 44]: 44-21: revisao adversarial independente da rodada CR-01-bis (44-REVIEW-pos-CR01bis.md, diff_head 09168e22) — critical 0 (copy publicada verdadeira sob a 1.4.0, frase = UI-SPEC caractere a caractere, rodada so front), warning 6, info 4; a porta do 44-22 pode abrir pelo criterio `critical = 0`, e os seis WR seguem para decisao do operador no checkpoint
+- [Phase 44]: 44-21: o item do 44-20 em deferred-items (rodape «undefined» com versao_allowlist ausente) classificado WR-02 — viola a E4 da UI-SPEC (nunca null cru), inalcancavel com a EF de hoje; conserto sugerido sem copy nova: `invocarExportMeusDados` recusa resposta sem versao (SERVER_ERROR)
 
 ### Roadmap Evolution
 
@@ -1717,8 +1719,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-07T12:41:00.000Z
-Stopped at: Completed 44-20-PLAN.md
+Last session: 2026-10-07T13:03:04.000Z
+Stopped at: Completed 44-21-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
