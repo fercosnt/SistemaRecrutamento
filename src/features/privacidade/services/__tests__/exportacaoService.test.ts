@@ -1219,6 +1219,100 @@ describe('a fronteira dita ao titular (CR-01)', () => {
       '`colunas_fora_do_escopo.tabelas` ausente ou vazio no catálogo — a classe excluída não foi medida',
     ).toBeGreaterThan(0)
   })
+
+  // Os controles negativos PERMANENTES do portão de classe (CLAUDE.md §Portões: «um portão
+  // que você tornou incapaz de falhar é pior que o quebrado»). Cada mutação parte do
+  // artefato, do catálogo, da frase, do YAML ou dos vereditos REAIS e, antes da mordida,
+  // prova que mudou algo. A tabela-alvo dos controles 3, 4, 6 e 7 é escolhida pelos DADOS
+  // (a primeira chave ordenada de VEREDITO_POR_TABELA), nunca por nome (44-REVIEW §IN-01).
+  it('(cr5b) CR-01-bis · o portão de classe morde: tabela genérica nova com vínculo, veredito retirado, marcador retirado, tabela entregue, tabela não medida, razão apagada do YAML e vínculo renomeado reprovam', () => {
+    type CatalogoMutavel = {
+      colunas: ColunaDoCatalogo[]
+      colunas_fora_do_escopo?: { tabelas: string[]; colunas: ColunaDoCatalogo[] }
+    }
+    const frase = COPY_PEDIR_COPIA.oQueNaoEsta
+    // Caminhos por VARIÁVEL (idioma do (cr2)/(af)): com literal o Vite reescreve `new URL`.
+    const relativoCatalogo = '../../../../../docs/compliance/catalogo-vivo-44.json'
+    const relativoYaml = '../../../../../docs/compliance/export-scope-rules.yaml'
+    const catalogoTexto = readFileSync(fileURLToPath(new URL(relativoCatalogo, import.meta.url)), 'utf8')
+    const yamlTexto = readFileSync(fileURLToPath(new URL(relativoYaml, import.meta.url)), 'utf8')
+    const catalogoReal = JSON.parse(catalogoTexto) as CatalogoMutavel
+
+    const clonarArtefato = (): ArtefatoPorTabela => structuredClone(EXPORT_ALLOWLIST) as ArtefatoPorTabela
+    const clonarCatalogo = (): CatalogoMutavel => structuredClone(catalogoReal)
+    const mudouOArtefato = (a: ArtefatoPorTabela) => JSON.stringify(a) !== JSON.stringify(EXPORT_ALLOWLIST)
+    const mudouOCatalogo = (c: CatalogoMutavel) => JSON.stringify(c) !== JSON.stringify(catalogoReal)
+
+    // Ponto de partida: o portão real está verde (senão as mordidas abaixo não distinguiriam nada).
+    const real = lacunasPorTabela(frase, EXPORT_ALLOWLIST, catalogoReal, yamlTexto)
+    expect(real.comVinculo.length, 'a classe com vínculo está vazia — os controles testariam o vazio').toBeGreaterThan(0)
+    expect(catalogoReal.colunas_fora_do_escopo, 'o catálogo não tem o bloco medido `colunas_fora_do_escopo`').toBeDefined()
+    const alvo = Object.keys(VEREDITO_POR_TABELA).sort()[0]
+    expect(alvo, 'VEREDITO_POR_TABELA vazio — os controles 2..7 não teriam alvo').toBeDefined()
+    const vinculo = colunasDeVinculo(EXPORT_ALLOWLIST)
+
+    // 1. tabela genérica NOVA com coluna de vínculo, medida no bloco, sem veredito
+    const novaArt = clonarArtefato()
+    novaArt.excluidas.sonda_por_titular = 'configuracao_do_produto'
+    const novaCat = clonarCatalogo()
+    novaCat.colunas_fora_do_escopo?.tabelas.push('sonda_por_titular')
+    novaCat.colunas_fora_do_escopo?.colunas.push({ tabela: 'sonda_por_titular', coluna: vinculo[0] })
+    expect(mudouOArtefato(novaArt), 'controle 1: a mutação não mudou o artefato').toBe(true)
+    expect(mudouOCatalogo(novaCat), 'controle 1: a mutação não mudou o catálogo').toBe(true)
+    expect(lacunasPorTabela(frase, novaArt, novaCat, yamlTexto).semVeredito).toEqual(['sonda_por_titular'])
+
+    // 2. vereditos retirados: toda tabela da classe com vínculo fica sem veredito
+    const semVereditos: Readonly<Record<string, { decisao: string; marcador: string }>> = {}
+    expect(Object.keys(VEREDITO_POR_TABELA), 'controle 2: retirar os vereditos não mudou nada').not.toEqual(Object.keys(semVereditos))
+    expect(lacunasPorTabela(frase, EXPORT_ALLOWLIST, catalogoReal, yamlTexto, semVereditos).semVeredito).toEqual(
+      Object.keys(VEREDITO_POR_TABELA).sort(),
+    )
+
+    // 3. a frase real sem o marcador do veredito-alvo (todas as ocorrências)
+    const semMarcador = frase.split(VEREDITO_POR_TABELA[alvo].marcador).join('')
+    expect(semMarcador, 'controle 3: a mutação não mudou a frase').not.toBe(frase)
+    expect(lacunasPorTabela(semMarcador, EXPORT_ALLOWLIST, catalogoReal, yamlTexto).marcadorAusente).toEqual([alvo])
+
+    // 4. a tabela-alvo ENTREGUE (saiu de `excluidas`): o veredito fica órfão
+    const entregue = clonarArtefato()
+    delete entregue.excluidas[alvo]
+    expect(mudouOArtefato(entregue), 'controle 4: a mutação não mudou o artefato').toBe(true)
+    expect(lacunasPorTabela(frase, entregue, catalogoReal, yamlTexto).vereditoOrfao).toEqual([alvo])
+
+    // 5. tabela genérica nova SEM NENHUMA coluna medida: a cobertura falha fechada
+    const naoMedida = clonarArtefato()
+    naoMedida.excluidas.sonda_sem_medida = 'vocabulario_do_sistema'
+    expect(mudouOArtefato(naoMedida), 'controle 5: a mutação não mudou o artefato').toBe(true)
+    expect(
+      [...catalogoReal.colunas, ...(catalogoReal.colunas_fora_do_escopo?.colunas ?? [])].some((c) => c.tabela === 'sonda_sem_medida'),
+      'controle 5: a sonda já tem coluna medida — o controle não testaria a ausência',
+    ).toBe(false)
+    expect(lacunasPorTabela(frase, naoMedida, catalogoReal, yamlTexto).naoMedidas).toEqual(['sonda_sem_medida'])
+
+    // 6. a razão do alvo apagada do YAML: as linhas de comentário contíguas acima de `  <alvo>:`
+    const linhas = yamlTexto.split('\n')
+    const entrada = linhas.findIndex((l) => l.startsWith(`  ${alvo}:`))
+    expect(entrada, 'controle 6: a entrada do alvo não está no YAML').toBeGreaterThan(0)
+    let topo = entrada
+    while (topo > 0 && /^\s*#/.test(linhas[topo - 1])) topo--
+    const semRazao = [...linhas.slice(0, topo), ...linhas.slice(entrada)].join('\n')
+    expect(semRazao, 'controle 6: a mutação não mudou o YAML').not.toBe(yamlTexto)
+    expect(lacunasPorTabela(frase, EXPORT_ALLOWLIST, catalogoReal, semRazao).semRazaoNoYaml).toEqual([alvo])
+
+    // 7. as colunas de vínculo do alvo RENOMEADAS no catálogo (em `colunas` e no bloco): o
+    // alvo sai da classe e o veredito fica órfão — o conjunto vem do catálogo, não de lista
+    const renomeado = clonarCatalogo()
+    let renomeadas = 0
+    for (const c of [...renomeado.colunas, ...(renomeado.colunas_fora_do_escopo?.colunas ?? [])]) {
+      if (c.tabela === alvo && vinculo.includes(c.coluna)) {
+        c.coluna = `${c.coluna}_renomeada`
+        renomeadas++
+      }
+    }
+    expect(renomeadas, 'controle 7: nenhuma coluna de vínculo do alvo foi renomeada').toBeGreaterThan(0)
+    expect(mudouOCatalogo(renomeado), 'controle 7: a mutação não mudou o catálogo').toBe(true)
+    expect(lacunasPorTabela(frase, EXPORT_ALLOWLIST, renomeado, yamlTexto).vereditoOrfao).toEqual([alvo])
+  })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
