@@ -26,9 +26,11 @@
  * abaixo. O destinatário e a obrigação continuam os mesmos; o endereço não.)
  *
  * ── 2026-10-06: O ENDEREÇO MUDA PARA `rh@` (decisão do operador) ─────────────
- * O endereço anterior (parte local `lgpd`, mesmo domínio) **nunca existiu como
- * caixa lida** — e não fica escrito aqui por extenso, para que a varredura
- * `grep -rn` pelo endereço morto saia vazia em `src/` (cp3). Medido pelo
+ * O endereço anterior **nunca existiu como caixa lida** — e não fica descrito
+ * aqui, nem por extenso nem pela forma, para que a varredura pelo endereço morto
+ * saia vazia (cp3) e para que este arquivo não sirva de receita a uma
+ * "restauração" descuidada: o registro está em `.planning/DECISAO-ENCARREGADO.md`
+ * (nota de 2026-10-06). Medido pelo
  * operador em 2026-10-06, ao aprovar a frase do CR-01 (44-16): a resposta foi
  * «trocar o email para rh@beautysmile.com.br», no sistema inteiro — o canal de
  * privacidade é UM canal. Até ali, toda superfície publicada que dizia «escreva
