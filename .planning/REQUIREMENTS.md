@@ -212,14 +212,14 @@
 
 ### Motor de Exclusão & Anonimização (ERASE)
 
-- [ ] **ERASE-01**: Snapshot do agregado de bias com faixa etária materializada no tombstone, executado **antes** de qualquer anonimização
+- [x] **ERASE-01**: Snapshot do agregado de bias com faixa etária materializada no tombstone, executado **antes** de qualquer anonimização
 - [x] **ERASE-02**: RPC `SECURITY DEFINER` de anonimização in-place (tombstone), uma transação para a metade Postgres — nunca hard-delete, nunca extensão `anon` (indisponível), nunca crypto-shredding
 - [x] **ERASE-03**: EF `executar-direito-titular` executa na ordem **Storage → Postgres → Auth**, idempotente em cada passo
 - [x] **ERASE-04**: Caminhos do Storage capturados no plano **antes** de qualquer mutação — uma falha parcial não pode perder os ponteiros permanentemente
 - [x] **ERASE-05**: "Retirar candidatura" (encerra o funil imediatamente) é distinto de "apagar meus dados" (enfileira e executa após o encerramento)
 - [x] **ERASE-06**: Pedido de exclusão tem janela de arrependimento cancelável pelo candidato no painel
 - [x] **ERASE-07**: Recibo honesto em duas colunas — o que foi apagado / o que foi mantido, anonimizado, sob qual artigo — sem superestimar o que foi feito
-- [ ] **ERASE-08**: Trilha de auditoria intacta — as 3 FKs `NO ACTION` (`historico_candidatura`, `decisao_final`, `decisao_final_historico`) **nunca** relaxadas para CASCADE
+- [x] **ERASE-08**: Trilha de auditoria intacta — as 3 FKs `NO ACTION` (`historico_candidatura`, `decisao_final`, `decisao_final_historico`) **nunca** relaxadas para CASCADE
 - [x] **ERASE-09**: As 5 tabelas com FK `SET NULL` (`ai_call_logs`, `candidate_ai_decisions`, `logs_acesso`, `recruiter_alerts`, `autorizacoes`) tratadas explicitamente — sobrevivem a qualquer CASCADE deixando linhas órfãs
 - [x] **ERASE-10**: Anonimização é irreversível de verdade — `user_id` apontando para linha viva do Auth é pseudonimização (Art. 12 §1º) e não desincumbe o titular
 
@@ -230,6 +230,13 @@
 > deployar e exercitar ponta a ponta é o **45-11**, atrás do portão destrutivo e do code review
 > bloqueante. Ler estes cinco como "o titular já consegue apagar seus dados" seria exatamente a
 > superestimação que o ERASE-07 proíbe.
+>
+> ✅ **Superado em 2026-08-22 (escriturado em 2026-10-07).** O `45-11` aplicou as migrations
+> (2026-08-12), passou o smoke 24/24 em PROD (2026-08-13) e executou o motor ponta a ponta pela EF
+> numa conta descartável (2026-08-22). `45-VERIFICATION.md` registra `passed` 5/5. ERASE-01 (faixa
+> `35-44` materializada antes, `excluidos_sem_data: 0`) e ERASE-08 (3 FKs `a, a, a`, histórico 7=7,
+> decisão 2=2) foram provados por essa execução e marcados agora. O aviso acima fica como registro
+> do que era verdade em 2026-08-06.
 
 ### Purga Automática (PURGA)
 
@@ -371,14 +378,14 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | EXPORT-04 | Phase 44 | Complete |
 | EXPORT-05 | Phase 44 + Phase 50 | Complete — G4-b fechado pela Phase 50 em 2026-10-06 (`50-VERIFICATION.md`). Histórico: **(marca da fase — rebaixada a PARCIAL pela `44-VERIFICATION.md`, e o rebaixamento CONFIRMADO por medição em 2026-09-26)**: a metade «visível ao RH» não vale para o papel `rh` — predicado `vagas.created_by = auth.uid()` inalterado, **0** vagas de recrutador, **1** recrutador e **0 ativos**, **9** vagas órfãs, `vagas_associadas_recrutadores` vazia e sem leitor. ⚠ transversal: o mesmo predicado é a espinha de `rh_le_candidaturas` e a Phase 49 o **reforçou** no 49-08 — decisão do operador, e varrer pela FORMA todos os consumidores |
 | EXPORT-06 | Phase 44 | Complete — requisito reescrito com aprovação do operador (2026-10-04); antes: Pending por redação errada (a Phase 45 recusou a fonte com medição) |
-| ERASE-01 | Phase 45 | Pending |
+| ERASE-01 | Phase 45 | Complete |
 | ERASE-02 | Phase 45 | Complete |
 | ERASE-03 | Phase 45 | Complete |
 | ERASE-04 | Phase 45 | Complete |
 | ERASE-05 | Phase 45 | Complete |
 | ERASE-06 | Phase 45 | Complete |
 | ERASE-07 | Phase 45 | Complete |
-| ERASE-08 | Phase 45 | Pending |
+| ERASE-08 | Phase 45 | Complete |
 | ERASE-09 | Phase 45 | Complete |
 | ERASE-10 | Phase 45 | Complete |
 | PURGA-01 | Phase 46 | Complete |

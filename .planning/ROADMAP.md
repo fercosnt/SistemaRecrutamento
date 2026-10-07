@@ -26,7 +26,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [x] **Phase 42: Inventário, Gates & Fila Art. 20** - O RH passa a ver e responder os pedidos de revisão que hoje caem no vazio; o mapa do que existe (PII, backup, crons, drift) fica em cima da mesa antes de qualquer linha destrutiva (completed 2026-10-04)
 - [x] **Phase 43: Consentimentos Honestos & Política de Retenção** - Cada checkbox que o candidato marca ganha consequência real, e o prazo de validade do dado passa a existir como configuração alterável sem deploy — zero ação destrutiva (completed 2026-10-04)
 - [x] **Phase 44: Exportação & Acesso** - O candidato recebe uma cópia honesta dos próprios dados, e o inventário de PII que a fase irreversível vai consumir nasce exercitado em produção (completed 2026-10-07)
-- [ ] **Phase 45: Motor de Exclusão & Anonimização** ⚠️ **FASE DE MAIOR RISCO** - O pedido de exclusão executa de verdade — Storage → Postgres → Auth, irreversível, sem levar junto a trilha de decisão humana
+- [x] **Phase 45: Motor de Exclusão & Anonimização** ⚠️ **FASE DE MAIOR RISCO** - O pedido de exclusão executa de verdade — Storage → Postgres → Auth, irreversível, sem levar junto a trilha de decisão humana (completed 2026-08-22 · escriturado 2026-10-07)
 - [x] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada (completed 2026-10-05)
 - [x] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute (completed 2026-10-04)
 - [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
@@ -222,7 +222,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 45-06-PLAN.md — **CHECKPOINT**: apply do tracer + deploy da EF + prova ponta a ponta em PROD, antes de qualquer linha destrutiva
+- [x] 45-06-PLAN.md — **CHECKPOINT**: apply do tracer + deploy da EF + prova ponta a ponta em PROD, antes de qualquer linha destrutiva · ✅ executado 2026-08-05 (T1, T3) e 2026-08-22 (T2); `45-06-SUMMARY.md` escriturado em 2026-10-07 — 320px e a redação «por extenso» seguem abertos
 - [x] 45-07-PLAN.md — Metade Postgres: severação de `candidatos.user_id` (D-45-11, `one-way`) + plano por expressão única + tombstone com `p_dry_run` no MESMO corpo
 - [x] 45-08-PLAN.md — Confirmação aninhada, recibo em duas colunas (um componente, dois tempos), painel da janela e Emenda B da Phase 43
 - [x] 45-09-PLAN.md — ERASE-05: retirar candidatura no card, 6º evento do vocabulário fechado, e a candidatura encerrada legível no RH
@@ -248,7 +248,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 45-11-PLAN.md — **PORTÃO DESTRUTIVO**: code review bloqueante → dry-run pela MESMA query → apply na ordem obrigatória → smokes verdes → execução real vigiada → `VERIFICATION.md` com veredito
+- [x] 45-11-PLAN.md — **PORTÃO DESTRUTIVO**: code review bloqueante → dry-run pela MESMA query → apply na ordem obrigatória → smokes verdes → execução real vigiada → `VERIFICATION.md` com veredito · ✅ executado 2026-08-11 → 08-22, portão 5/5; `45-11-SUMMARY.md` escriturado em 2026-10-07
   - ⚠ **A Task 1 RE-RODA.** O review de 2026-08-11 REPROVOU; um plano de correção declarando-se pronto não substitui um veredito de review. A re-rodada confere os seis blockers contra a § "Condição de reabertura do portão" **e** os 21 itens da § "Guards conferidos e CORRETOS", que a correção não pode ter quebrado em passagem
   - ⚠ **Herda QUATRO obrigações do `45-13-SUMMARY.md`**: (1) os `md5(prosrc)` de `plano_exclusao_titular` e `anonimizar_candidato` mudaram **de novo** e a referência passa a ser aquele documento — o `45-12-SUMMARY.md` e o `45-07-SUMMARY.md` estão invalidados; (2) `20260805000009` entra na ordem de apply **POR ÚLTIMO** (concede sobre funções que ainda não existem em PROD); (3) o **redeploy** de `executar-direito-titular` continua ABERTO — é a terceira entrega do `DI-45-10-01`; (4) o contador FIXO do cabeçalho do smoke mudou, porque o 45-13 acrescenta blocos de asserção
   - ⚠ **Lacuna declarada que o portão HERDA**: o export ponta a ponta rodou em PROD em 2026-08-11, **mas a conta não tinha currículo** — logo o **EXPORT-03 (CV por URL assinada) nunca foi exercitado**, e é o caminho de leitura de Storage do qual o passo 1 destrutivo depende
@@ -663,7 +663,7 @@ Plans:
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | Complete    | 2026-10-04 |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 44. Exportação & Acesso | v8.0 | 22/22 | Complete    | 2026-10-07 |
-| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
+| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 13/13 | Complete    | 2026-08-22 |
 | 46. Purga Automática (dry-run → live) | v8.0 | 7/7 | Complete    | 2026-10-05 |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | Complete    | 2026-10-04 |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |

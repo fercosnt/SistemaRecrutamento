@@ -3,7 +3,7 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: complete
-stopped_at: "Phase 44 verificada (passed, 7/7, 2026-10-07): CR-01-bis fechado e publicado (index-7NrDustL.js), U1 ok; achados da revisao pos-CR01bis (WR-01..WR-06, IN-01..IN-04) ficam open — WR-01 (fronteira compara string de versao, nao conteudo) recomendado antes da proxima mudanca de allowlist; erratum pendente no 44-20-SUMMARY (WR-06). Proximo: Phase 45 (11/13) ou blocos 2-4 do M8"
+stopped_at: "Phase 44 verificada (passed, 7/7, 2026-10-07): CR-01-bis fechado e publicado (index-7NrDustL.js), U1 ok; achados da revisao pos-CR01bis (WR-01..WR-06, IN-01..IN-04) ficam open — WR-01 (fronteira compara string de versao, nao conteudo) recomendado antes da proxima mudanca de allowlist; erratum pendente no 44-20-SUMMARY (WR-06). Phase 45 escriturada em 2026-10-07 (45-06/45-11 SUMMARY, ROADMAP [x], ERASE-01/08 [x]). Proximo: blocos 2-4 do M8 ou Phase 50"
 last_updated: "2026-10-07T21:25:00.000Z"
 last_activity: 2026-10-07
 state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a
@@ -11,8 +11,8 @@ progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 147
-  completed_plans: 145
-  percent: 99
+  completed_plans: 147
+  percent: 100
 current_phase_name: Exportação & Acesso
 current_phase: 44
 last_activity_desc: "execute-phase 44 --gaps-only — 44-22 concluido: U1 ok (json_frase, json_versao, html_frase, html_rodape, sem_neutra, sem_trecho_antigo, gerado_depois_do_push todos true; versao 1.4.0); push 2 (51797354, so .planning) conferido no publicado (commits publicados=29 fora=[]); 22/22 planos da Phase 44 com SUMMARY; aguardando a re-verificacao"
@@ -26,8 +26,10 @@ last_activity_desc: "execute-phase 44 --gaps-only — 44-22 concluido: U1 ok (js
 - **44** segue aberta: G4-b decidido (sai `vagas.created_by`; recrutador vê todas as vagas) — é uma
   **fase nova** (14 policies + ~14 funções + RPCs da fila + check do 49-08). Pergunta em aberto ao
   operador: respondido «todas» (2026-10-05) → **Phase 50 criada**. U2 sem resposta.
-- **45**: verificação `passed`, ROADMAP ainda `[ ]` — 45-06/45-11 sem SUMMARY canônico (evidência existe
-  com outro nome).
+- **45 ✓** — escriturada em 2026-10-07: `45-06-SUMMARY.md` e `45-11-SUMMARY.md` apontam para a
+  evidência que já existia (nenhuma medição nova), ROADMAP `[x]` 13/13, ERASE-01/08 `[x]`.
+  Seguem abertos e registrados nos SUMMARYs: 320px não testado, redação «por extenso» × `dd/mm/aaaa`
+  (o 45-08 define «por extenso» como numérico), e a asserção de `decisao_final_historico` 1→2.
 
 ### ☑ Checklist de fecho do M8 (não esquecer)
 
@@ -94,6 +96,10 @@ intocado pelo mesmo motivo registrado abaixo.
 > summaries (arquivos) : 108      summaries SEM plano: 45-14, 45-15, 45-16
 > pares casados        : 105
 > ```
+>
+> ✅ **2026-10-07: `completed_plans` = 147 de 147, REMEDIDO por casamento** nas 9 pastas do M8
+> (42–50; a 50 ainda sem planos). Os dois que faltavam eram `45-06` e `45-11`, agora com SUMMARY.
+> Os três SUMMARYs sem plano (`45-14/15/16`) continuam assim e não entram na conta.
 >
 > `completed_plans: 105` é o **casamento**, não a contagem de arquivos — já é o número certo.
 > Este parágrafo existe porque, em 2026-09-29, o campo foi apontado de novo como «conta
