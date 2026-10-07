@@ -431,3 +431,78 @@ sob a allowlist 1.4.0. Autoria marcada como no adendo anterior.
 - **Prova:** o teste do CR-01 deriva as famílias do ARTEFATO (não de lista literal), para que o
   próximo veto não suba sem atualizar a frase (CLAUDE.md §Portões — iteração sobre lista literal
   não reprova nada).
+
+## Adendo 2026-10-06 (madrugada) — fechamento do CR-01-bis: decisões
+
+A reverificação pós-CR-01 (`44-VERIFICATION.md`, 2026-10-07T01:45Z, gaps_found 6/7) reprovou a
+fase de novo por um único gap, da mesma classe do CR-01: a frase `COPY_PEDIR_COPIA.oQueNaoEsta`
+afirma ao titular que a configuração retida «é o mesmo para todos os candidatos», e a família
+`configuracao_do_produto` que essa cláusula cobre inclui `entrevista_guias`, que é por candidatura
+(44-REVIEW §CR-01; o (cr1) não vê isto por construção — casa por família). O mesmo relatório
+deixou o WR-01 como advisory para decisão do operador. Autoria marcada como nos adendos anteriores.
+
+### BD-18 · `entrevista_guias` — NOMEAR E RETER (fecha o CR-01-bis)
+
+- **Autoria:** OPERADOR (AskUserQuestion do orquestrador do `/gsd-plan-phase 44 --gaps`,
+  2026-10-06).
+- **Decisão:** a tabela segue FORA da cópia. A allowlist 1.4.0, a Edge Function e o banco NÃO
+  mudam. A frase tira da cláusula da configuração a afirmação de igualdade entre os candidatos e
+  passa a NOMEAR, como categoria retida, «o roteiro que a equipe monta para conduzir a sua
+  entrevista» (primeiro item da lista «Também não entram:»).
+- **Oração retirada, verbatim** (lida de
+  `git show dedca1fb:src/features/privacidade/services/exportacaoService.ts`, nunca digitada):
+  «, que é o mesmo para todos os candidatos.» — a cláusula passa a terminar em «perguntas.».
+- **Premissa, como medida** (verificador, relida pelo planejador): a EF `gerar-guia-entrevista` é
+  invocada por um RH autenticado e monta o roteiro STAR/PEI a partir do scorecard da candidatura
+  (`scores_candidato`, dimensões fracas: score < 3 online, < 4 presencial) e do perfil da vaga;
+  persiste em `entrevista_guias` (`candidatura_id NOT NULL` FK, UNIQUE (candidatura_id, tipo)); o
+  RH pode editar (2 de 6 guias em PROD com `updated_at > created_at`). O «derivado do currículo»
+  do `pii-inventory.yaml` NÃO foi medido — e por isso a frase não afirma derivação nenhuma.
+- **Política em aberto, por desenho:** entregar a tabela ao titular (o Art. 18, II cobre dado
+  derivado) é decisão que PODE seguir aberta, porque a frase a nomeia — mesma lógica do BD-16.
+
+### BD-19 · o convite final só oferece saber mais (fecha o WR-01)
+
+- **Autoria:** OPERADOR (mesma pergunta, 2026-10-06).
+- **Decisão:** o convite final da frase passa a ser só «Se quiser saber mais sobre algum desses
+  itens, escreva para o nosso canal de privacidade: …». O segundo ramo, verbatim do mesmo
+  `git show dedca1fb:…`, sai com a vírgula que o abria: «, ou pedir algum deles,» — ele oferecia
+  entregar itens que o controlador decidiu reter (BD-10, `pii_de_terceiro`, `segredo`, BD-9).
+- **Nenhum procedimento novo de resposta** do canal é criado nesta rodada.
+
+### BD-20 · escopo da rodada de fechamento do CR-01-bis
+
+- **Autoria:** OPERADOR (mesma pergunta, 2026-10-06); IN-01 e IN-02 por adjacência, autoria
+  PLANEJADOR (tocam os mesmos arquivos e custam uma edição cada).
+- **Entra:** CR-01-bis (BD-18) + WR-01 (BD-19) + **WR-02** (portão dos parênteses positivos da
+  frase), **WR-03** (a fronteira falha fechada quando a versão da allowlist do arquivo diverge da
+  do bundle), **WR-04/WR-05** (portões do smoke), **WR-06** (alcance do cp3/cp4 e casamento por
+  fronteira); **IN-01** e **IN-02** por adjacência.
+- **Publicação SÓ do front** (44-22), com checkpoint do operador antes do push e U1 depois.
+  Nenhuma escrita de banco em PROD nem redeploy de EF.
+
+### BD-21 · desenho do portão por TABELA e forma da rodada
+
+- **Autoria:** PLANEJADOR.
+- **Portão de classe:** as famílias GENÉRICAS são DERIVADAS do mapa `CLAUSULA_POR_FAMILIA` (as
+  que dividem o marcador «a configuração do próprio sistema»); as COLUNAS DE VÍNCULO são derivadas
+  dos `chave_titular` do artefato, menos a raiz `candidatos` (cuja chave é a PK da própria
+  pessoa); o conjunto de tabelas excluídas de família genérica com coluna de vínculo no catálogo
+  é comparado por IGUALDADE DE CONJUNTOS com as chaves de `VEREDITO_POR_TABELA` — escopo
+  deliberado: cada entrada é uma decisão de copy, citada também no comentário do YAML acima da
+  entrada da tabela (44-18). Hoje o conjunto é exatamente {entrevista_guias}, e isso é MEDIDO na
+  execução, nunca escrito como contagem.
+- **Cobertura fail-closed:** 22 das 43 tabelas excluídas não têm coluna em `colunas` do catálogo
+  versionado (medido). O 44-18 acrescenta ao catálogo o bloco medido `colunas_fora_do_escopo` (o
+  gerador não o lê) e o portão reprova tabela excluída que o catálogo nunca mediu.
+- **O token da família de `entrevista_guias` NÃO muda:** o vocabulário de exclusão é fechado no
+  gerador, e mudar o token muda `excluidas` do artefato e do espelho da EF — contra o «só front»
+  do operador (BD-20).
+- **Residual aceito (T-44-102):** uma tabela genérica já medida que GANHE coluna de vínculo
+  depois só é vista na próxima medição do catálogo.
+- **Forma da rodada** (revisão de plano de 2026-10-07): os seis planos 44-17..44-22 correm em
+  SÉRIE — a worktree é compartilhada, e mutação in-place do serviço e suítes inteiras não
+  convivem em paralelo. Antes da porta, uma revisão adversarial INDEPENDENTE do diff da rodada
+  (44-21) num arquivo NOVO (`44-REVIEW-pos-CR01bis.md`, nunca sobre o `44-REVIEW.md`); achado
+  crítico suspende a publicação (memória do projeto «re-revisar o conserto antes do apply»: a
+  rodada 44-14..44-16 publicou e precisou do CR-01-bis).

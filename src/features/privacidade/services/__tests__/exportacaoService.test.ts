@@ -966,6 +966,178 @@ describe('a fronteira dita ao titular (CR-01)', () => {
     expect(semCanal, 'controle do canal: a mutação não mudou a frase').not.toBe(frase)
     expect(lacunasDaFronteira(semCanal, EXPORT_ALLOWLIST).semCanal).toBe(true)
   })
+
+  // ── Plano 44-17 — CR-01-bis: o portão por TABELA (BD-21) ─────────────────────
+  // O (cr1) casa por FAMÍLIA, e uma família cujo rótulo é falso para uma das suas
+  // tabelas passa inteira: `entrevista_guias` estava em `configuracao_do_produto`,
+  // cuja cláusula afirmava que o retido era igual para todos — e o roteiro é por
+  // candidatura (44-REVIEW §CR-01-bis). O (cr5) prende cada tabela por titular retida
+  // numa família «da configuração do sistema» a um veredito PRÓPRIO na frase.
+  // Nada aqui é lista literal de tabelas nem contagem contra constante: a classe, as
+  // colunas de vínculo e o conjunto de tabelas vêm do artefato e do catálogo na
+  // execução (CLAUDE.md §Portões).
+
+  /**
+   * Tabela → veredito de copy. ⚠ ESCOPO DELIBERADO, não fotografia: cada entrada é uma
+   * decisão do operador sobre como a frase nomeia aquela tabela retida. Mudar uma
+   * entrada é mudar a frase pela 44-UI-SPEC (linha «O que não está na cópia») — nunca o
+   * contrário. As CHAVES são conferidas por IGUALDADE DE CONJUNTOS com a classe DERIVADA
+   * (`lacunasPorTabela().comVinculo`): uma tabela que entre na classe sem veredito
+   * reprova (`semVeredito`), e um veredito cuja tabela saiu da classe também
+   * (`vereditoOrfao`).
+   */
+  const VEREDITO_POR_TABELA: Readonly<Record<string, { decisao: string; marcador: string }>> = {
+    entrevista_guias: { decisao: 'BD-18', marcador: 'o roteiro que a equipe monta para conduzir a sua entrevista' },
+  }
+
+  /**
+   * A tabela-raiz do grafo do titular. A `chave_titular` dela é a PK da própria pessoa
+   * (`id`), não um vínculo — escopo deliberado (a raiz), não fotografia.
+   */
+  const RAIZ_DO_TITULAR = 'candidatos'
+
+  /** Forma ESTRUTURAL do artefato com a chave de vínculo — aceita `EXPORT_ALLOWLIST` e clones. */
+  type ArtefatoPorTabela = {
+    tabelas: Record<string, { chave_titular?: string; colunas_excluidas?: Record<string, string> }>
+    excluidas: Record<string, string>
+  }
+
+  type ColunaDoCatalogo = { tabela: string; coluna: string }
+
+  /**
+   * Forma do catálogo vivo que o portão lê. `colunas_fora_do_escopo` é o bloco medido que
+   * o 44-18 acrescenta (o gerador da allowlist não o lê); aqui ele já é aceito, opcional.
+   */
+  type CatalogoVinculo = {
+    colunas: ReadonlyArray<ColunaDoCatalogo>
+    colunas_fora_do_escopo?: { tabelas: ReadonlyArray<string>; colunas: ReadonlyArray<ColunaDoCatalogo> }
+  }
+
+  /**
+   * As famílias GENÉRICAS — as que dividem, no mapa, o marcador de
+   * `configuracao_do_produto` («a configuração do próprio sistema»). Derivadas do mapa,
+   * nunca escritas: uma família nova apontada para a mesma cláusula entra sozinha.
+   */
+  function familiasGenericas(mapa: Readonly<Record<string, string>>): string[] {
+    const marcador = mapa.configuracao_do_produto
+    if (marcador === undefined) return []
+    return Object.keys(mapa)
+      .filter((f) => mapa[f] === marcador)
+      .sort()
+  }
+
+  /** As colunas de VÍNCULO ao titular: os `chave_titular` do artefato, menos o da raiz. */
+  function colunasDeVinculo(artefato: ArtefatoPorTabela): string[] {
+    const chaves = Object.entries(artefato.tabelas)
+      .filter(([tabela]) => tabela !== RAIZ_DO_TITULAR)
+      .map(([, def]) => def.chave_titular)
+      .filter((c): c is string => typeof c === 'string' && c.length > 0)
+    return [...new Set(chaves)].sort()
+  }
+
+  type LacunasPorTabela = {
+    /** tabelas excluídas de família genérica com coluna de vínculo no catálogo */
+    comVinculo: string[]
+    semVeredito: string[]
+    vereditoOrfao: string[]
+    /** veredito cujo marcador não está na frase */
+    marcadorAusente: string[]
+    /** do 44-18 (cobertura fail-closed das tabelas que o catálogo nunca mediu) — aqui, `[]` */
+    naoMedidas: string[]
+    /** do 44-18 (razão por tabela no YAML) — aqui, `[]` */
+    semRazaoNoYaml: string[]
+  }
+
+  /**
+   * Tudo o que separa a frase do artefato e do catálogo, POR TABELA, em listas ORDENADAS
+   * (o output do vermelho nomeia a tabela). Pura; `vereditos` e `mapa` são parâmetros
+   * para os controles de mordida.
+   */
+  function lacunasPorTabela(
+    frase: string,
+    artefato: ArtefatoPorTabela,
+    catalogo: CatalogoVinculo,
+    vereditos: Readonly<Record<string, { decisao: string; marcador: string }>> = VEREDITO_POR_TABELA,
+    mapa: Readonly<Record<string, string>> = CLAUSULA_POR_FAMILIA,
+  ): LacunasPorTabela {
+    const genericas = new Set(familiasGenericas(mapa))
+    const vinculo = new Set(colunasDeVinculo(artefato))
+    const colunas = [...catalogo.colunas, ...(catalogo.colunas_fora_do_escopo?.colunas ?? [])]
+    const ligadas = new Set(colunas.filter((c) => vinculo.has(c.coluna)).map((c) => c.tabela))
+
+    const comVinculo = Object.entries(artefato.excluidas)
+      .filter(([tabela, razao]) => {
+        const familia = familiaDaRazao(tabela, razao, artefato)
+        return familia !== null && genericas.has(familia) && ligadas.has(tabela)
+      })
+      .map(([tabela]) => tabela)
+      .sort()
+    const chaves = Object.keys(vereditos).sort()
+
+    return {
+      comVinculo,
+      semVeredito: comVinculo.filter((t) => !chaves.includes(t)),
+      vereditoOrfao: chaves.filter((t) => !comVinculo.includes(t)),
+      marcadorAusente: chaves.filter((t) => !frase.includes(vereditos[t].marcador)),
+      naoMedidas: [],
+      semRazaoNoYaml: [],
+    }
+  }
+
+  it('(cr5) CR-01-bis · toda tabela retida com vínculo ao titular numa família da configuração do sistema tem veredito próprio na frase', () => {
+    const frase = COPY_PEDIR_COPIA.oQueNaoEsta
+    // Caminho por VARIÁVEL (idioma do (cr2)/(af)): com literal o Vite reescreve `new URL`.
+    const relativo = '../../../../../docs/compliance/catalogo-vivo-44.json'
+    const catalogo = JSON.parse(
+      readFileSync(fileURLToPath(new URL(relativo, import.meta.url)), 'utf8'),
+    ) as CatalogoVinculo
+
+    // Sanidade (população vazia mente): sem classe genérica ou sem coluna de vínculo,
+    // as listas abaixo ficariam vazias pelo motivo errado.
+    const genericas = familiasGenericas(CLAUSULA_POR_FAMILIA)
+    expect(genericas, 'a classe genérica não foi derivada do mapa').toContain('configuracao_do_produto')
+    expect(genericas, 'a classe genérica não foi derivada do mapa').toContain('vocabulario_do_sistema')
+    const vinculo = colunasDeVinculo(EXPORT_ALLOWLIST)
+    expect(vinculo.length, 'nenhuma coluna de vínculo derivada de `chave_titular` do artefato').toBeGreaterThan(0)
+    const nomesNoCatalogo = new Set(catalogo.colunas.map((c) => c.coluna))
+    expect(
+      vinculo.filter((c) => !nomesNoCatalogo.has(c)),
+      'coluna de vínculo que não existe no catálogo — o portão estaria procurando um nome que o catálogo não tem',
+    ).toEqual([])
+
+    const l = lacunasPorTabela(frase, EXPORT_ALLOWLIST, catalogo)
+
+    // `expect.soft`: o vermelho mostra TODAS as lacunas de uma vez, cada uma nomeando a tabela.
+    expect
+      .soft(
+        l.semVeredito,
+        'tabela por titular retida numa família da configuração do sistema sem veredito — nomeie-a na frase pela 44-UI-SPEC e registre a decisão em VEREDITO_POR_TABELA e no comentário do YAML',
+      )
+      .toEqual([])
+    expect
+      .soft(
+        l.vereditoOrfao,
+        'veredito órfão — a tabela saiu da classe (mudou de família, perdeu o vínculo ou passou a vir na cópia); revise a frase pela 44-UI-SPEC e tire a entrada de VEREDITO_POR_TABELA',
+      )
+      .toEqual([])
+    expect
+      .soft(
+        l.marcadorAusente,
+        'veredito sem marcador na frase — a frase não nomeia esta tabela retida; reescreva-a pela 44-UI-SPEC',
+      )
+      .toEqual([])
+
+    // Os dois trechos que saíram (BD-18, BD-19) não voltam — montados em runtime por
+    // junção de palavras (idioma do (t)): o trecho não é plantado neste arquivo.
+    const retirados = {
+      'igualdade entre candidatos (BD-18)': ['mesmo', 'para', 'todos', 'os', 'candidatos'].join(' '),
+      'oferta de entregar o retido (BD-19)': ['ou', 'pedir', 'algum', 'deles'].join(' '),
+    }
+    for (const [nome, trecho] of Object.entries(retirados)) {
+      expect.soft(frase.includes(trecho), `trecho retirado voltou à frase: ${nome}`).toBe(false)
+      expect(`x ${trecho} y`).toContain(trecho) // META-TEST: a sonda acha o trecho quando ele existe
+    }
+  })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════

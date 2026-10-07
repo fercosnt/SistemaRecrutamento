@@ -551,8 +551,18 @@ export const COPY_PEDIR_COPIA = {
    * do motor de exclusão sobre o pedido dela (44-REVIEW §CR-01). Uma cópia menos
    * generosa que a promessa, e que diz o contrário, é pior que a mais generosa (ver o
    * docblock de `oQueEsta`).
+   *
+   * ⚠ Até 2026-10-06 (madrugada) a cláusula da configuração do próprio sistema
+   * afirmava que o que ela retém é igual para todos os candidatos — falso para o
+   * roteiro de entrevista (`entrevista_guias`), que é montado por candidatura — e o
+   * convite final oferecia entregar ao titular itens que o controlador decidiu reter
+   * (44-REVIEW §CR-01-bis e §WR-01; 44-CONTEXT BD-18 e BD-19). A frase agora nomeia o
+   * roteiro como categoria retida e o convite só oferece saber mais. O (cr1) não via
+   * o primeiro defeito porque casa por FAMÍLIA; o caso (cr5) de
+   * `exportacaoService.test.ts` prende por TABELA toda tabela por titular retida numa
+   * família da configuração do sistema a um veredito próprio nesta frase.
    */
-  oQueNaoEsta: `Não entram os registros técnicos de funcionamento do sistema — por exemplo, o tempo e o custo de processamento das nossas ferramentas de tecnologia, os registros de acesso e o controle de envio de mensagens — nem a configuração do próprio sistema, como o texto das vagas e das perguntas, que é o mesmo para todos os candidatos. Também não entram: os dados que identificam outras pessoas, como quem da equipe agiu no seu processo; as anotações internas da equipe sobre a conservação dos seus dados além do prazo (o motivo e as datas entram); a ficha técnica que o sistema monta ao atender um pedido de exclusão dos seus dados (o andamento e as datas do pedido entram); e o texto em que a equipe justificou a decisão final sobre a sua candidatura (a decisão em si entra). Se quiser saber mais sobre algum desses itens, ou pedir algum deles, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
+  oQueNaoEsta: `Não entram os registros técnicos de funcionamento do sistema — por exemplo, o tempo e o custo de processamento das nossas ferramentas de tecnologia, os registros de acesso e o controle de envio de mensagens — nem a configuração do próprio sistema, como o texto das vagas e das perguntas. Também não entram: o roteiro que a equipe monta para conduzir a sua entrevista; os dados que identificam outras pessoas, como quem da equipe agiu no seu processo; as anotações internas da equipe sobre a conservação dos seus dados além do prazo (o motivo e as datas entram); a ficha técnica que o sistema monta ao atender um pedido de exclusão dos seus dados (o andamento e as datas do pedido entram); e o texto em que a equipe justificou a decisão final sobre a sua candidatura (a decisão em si entra). Se quiser saber mais sobre algum desses itens, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
   /**
    * ⚠ NÃO RENDERIZADA NESTA FASE, e a ausência é a decisão. Ela nomeia "o botão
    * abaixo" — o `CurriculosBloco` do 44-07, que ainda não existe. Renderizá-la
