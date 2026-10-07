@@ -942,10 +942,22 @@ describe('a fronteira dita ao titular (CR-01)', () => {
     expect(mudouOArtefato(vetoNovo), 'controle BD-99: a mutação não mudou o artefato').toBe(true)
     expect(lacunasDaFronteira(frase, vetoNovo).familiaSemClausula).toEqual(['BD-99'])
 
-    // 2. a frase real sem a cláusula do motor de exclusão
-    const semMotor = frase.replace(CLAUSULA_POR_FAMILIA['BD-13 (ii)'], '')
-    expect(semMotor, 'controle do motor: a mutação não mudou a frase').not.toBe(frase)
-    expect(lacunasDaFronteira(semMotor, EXPORT_ALLOWLIST).marcadorAusente).toEqual(['BD-13 (ii)'])
+    // Os alvos dos controles 2 e 4 são escolhidos pelos DADOS DERIVADOS, nunca por nome
+    // (44-REVIEW §IN-01): nomear uma família cuja decisão segue em aberto faria este caso
+    // reprovar trabalho correto no dia em que ela fosse decidida e a frase mudasse.
+    const real = lacunasDaFronteira(frase, EXPORT_ALLOWLIST)
+
+    // 2. a frase real sem a cláusula da PRIMEIRA família (ordenada) cujo marcador é só
+    // dela no mapa e aparece uma única vez na frase — retirá-lo não toca outra família.
+    const marcadorExclusivo = (f: string) =>
+      Object.values(CLAUSULA_POR_FAMILIA).filter((m) => m === CLAUSULA_POR_FAMILIA[f]).length === 1
+    const alvoDaFrase = real.familias.find(
+      (f) => CLAUSULA_POR_FAMILIA[f] !== undefined && marcadorExclusivo(f) && frase.split(CLAUSULA_POR_FAMILIA[f]).length === 2,
+    )
+    expect(alvoDaFrase, 'controle 2: nenhuma família com marcador exclusivo e único na frase — o controle não teria o que retirar').toBeDefined()
+    const semClausula = frase.replace(CLAUSULA_POR_FAMILIA[alvoDaFrase as string], '')
+    expect(semClausula, 'controle 2: a mutação não mudou a frase').not.toBe(frase)
+    expect(lacunasDaFronteira(semClausula, EXPORT_ALLOWLIST).marcadorAusente).toEqual([alvoDaFrase])
 
     // 3. uma razão que não pertence a família nenhuma
     const razaoSolta = clonar()
@@ -953,13 +965,20 @@ describe('a fronteira dita ao titular (CR-01)', () => {
     expect(mudouOArtefato(razaoSolta), 'controle sem família: a mutação não mudou o artefato').toBe(true)
     expect(lacunasDaFronteira(frase, razaoSolta).semFamilia).toEqual(['candidatos.sonda_sem_familia'])
 
-    // 4. uma família que SAIU do artefato (como se o BD-9 fosse decidido a favor da
-    // cópia): a frase passaria a negar a entrega de algo que agora vem.
-    const semJustificativa = clonar()
-    delete semJustificativa.tabelas.decisao_final.colunas_excluidas?.justificativa
-    delete semJustificativa.tabelas.decisao_final_historico.colunas_excluidas?.justificativa
-    expect(mudouOArtefato(semJustificativa), 'controle BD-9: a mutação não mudou o artefato').toBe(true)
-    expect(lacunasDaFronteira(frase, semJustificativa).clausulaOrfa).toEqual(['BD-9'])
+    // 4. uma família que SAIU do artefato (como se a decisão dela passasse o item para a
+    // cópia): a frase passaria a negar a entrega de algo que agora vem. O clone perde
+    // TODOS os itens — colunas e tabelas — que `real.itens` atribui à primeira família.
+    const alvoDoArtefato = real.familias[0]
+    expect(alvoDoArtefato, 'controle 4: o artefato não produziu família nenhuma').toBeDefined()
+    const semFamilia = clonar()
+    for (const [item, familia] of Object.entries(real.itens)) {
+      if (familia !== alvoDoArtefato) continue
+      const [tabela, coluna] = item.split('.')
+      if (coluna === undefined) delete semFamilia.excluidas[tabela]
+      else delete semFamilia.tabelas[tabela]?.colunas_excluidas?.[coluna]
+    }
+    expect(mudouOArtefato(semFamilia), 'controle 4: a mutação não mudou o artefato').toBe(true)
+    expect(lacunasDaFronteira(frase, semFamilia).clausulaOrfa).toEqual([alvoDoArtefato])
 
     // 5. a frase real sem o canal de privacidade
     const semCanal = frase.replace(CANAL_PRIVACIDADE_EMAIL, '')
