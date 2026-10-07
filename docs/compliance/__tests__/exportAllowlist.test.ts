@@ -466,6 +466,52 @@ function profundidades(texto: string): number[] {
 }
 
 /**
+ * WR-05 (44-19) · o texto CANÔNICO do bloco `DO $gate$ … $gate$;` do smoke: sem comentário,
+ * espaço colapsado, aparado, entre `DO $gate$` e `$gate$;`, com cada literal de mensagem
+ * `'P44-DRIFT FAIL…'` (de `'P44-DRIFT FAIL` até a aspa que o fecha) normalizado.
+ *
+ * POR QUE PRENDER O TEXTO INTEIRO. As checagens nomeadas abaixo provam que cada guarda
+ * EXISTE no bloco, contígua e bem formada — não que ela é ALCANÇADA nem que `r` chega a
+ * ela intacto. `RETURN;` antes da guarda de drift, um `IF false THEN` em volta dela,
+ * `r := r || '{"n_drift":0}'` ou um termo a menos na guarda de população calavam o smoke
+ * com todas elas verdes (o revisor provou três; o planejador, a quarta). Enumerar mais
+ * regras («dois IF», «sem RETURN», «sem :=») deixaria a próxima forma de fora.
+ *
+ * ESCOPO DELIBERADO, NÃO FOTOGRAFIA (CLAUDE.md §Portões). O bloco tem propósito FIXO — as
+ * duas guardas fail-closed do WR-03 — e não cresce com o banco: coluna nova, tabela nova
+ * ou allowlist nova não o tocam. Mudá-lo é DECISÃO, que passa pela (k3) e pela prova
+ * contra PROD do 44-15; quem muda o bloco atualiza esta constante no mesmo commit.
+ *
+ * Só os TEXTOS de mensagem são normalizados, e o prefixo de cada `RAISE` continua preso
+ * pelas checagens nomeadas (`'P44-DRIFT FAIL (população vazia)` e `'P44-DRIFT FAIL:`):
+ * reescrever a frase de diagnóstico não é mudar o portão.
+ *
+ * Derivado do smoke de HEAD (44-19): 712 caracteres.
+ */
+const BLOCO_GATE_CANONICO = [
+  "DECLARE r jsonb := current_setting('smoke44.r')::jsonb;",
+  'BEGIN',
+  "IF coalesce((r->>'n_tabelas_vivas')::int, 0) = 0",
+  "OR coalesce((r->>'n_tabelas_com_disposicao')::int, 0) = 0",
+  "OR coalesce((r->>'n_colunas_vivas_em_escopo')::int, 0) = 0",
+  "OR coalesce((r->>'n_pares_com_veredito')::int, 0) = 0 THEN",
+  "RAISE EXCEPTION 'P44-DRIFT FAIL…',",
+  "r->>'n_tabelas_vivas', r->>'n_tabelas_com_disposicao', r->>'n_colunas_vivas_em_escopo', r->>'n_pares_com_veredito';",
+  'END IF;',
+  "IF (r->>'n_drift')::int IS DISTINCT FROM 0 THEN",
+  "RAISE EXCEPTION 'P44-DRIFT FAIL…',",
+  "r->>'n_drift',",
+  "r->>'n_tabelas_vivas', r->>'n_tabelas_com_disposicao', r->>'n_tabelas_em_escopo',",
+  "r->>'n_colunas_vivas_em_escopo', r->>'n_pares_com_veredito',",
+  "r->>'linhas';",
+  'END IF;',
+  'END',
+].join(' ')
+
+/** O bloco (já sem comentário e colapsado) na forma de `BLOCO_GATE_CANONICO`. */
+const normalizarBlocoGate = (bloco: string) => bloco.trim().replace(/'P44-DRIFT FAIL[^']*'/g, "'P44-DRIFT FAIL…'")
+
+/**
  * WR-02/WR-03 · a estrutura que faz o smoke FALHAR ALTO e FALHAR FECHADO. Sobre o smoke
  * sem comentário e com espaço colapsado:
  *  · um `DO $gate$` e um `$gate$;`; nenhum `EXCEPTION WHEN` no arquivo;
@@ -478,10 +524,13 @@ function profundidades(texto: string): number[] {
  *    EXCEPTION 'P44-DRIFT FAIL:`;
  *  · agregador: toda chave lida numa condição de `IF` é construída como contagem NUA
  *    `(SELECT count(*) FROM <cte do arquivo>)`, e a da guarda de drift conta `drift`;
- *  · o `'pass'` do `SELECT` final vem depois de `$gate$;`.
+ *  · o `'pass'` do `SELECT` final vem depois de `$gate$;`;
+ *  · (44-19, WR-05) o bloco INTEIRO, normalizado, é igual a `BLOCO_GATE_CANONICO`.
  * Os conjuntos de chaves são DERIVADOS do texto. O único nome fixo é `drift`, e é escopo
  * deliberado: é a CTE cujos braços `problemasDoPredicado` prende ao relatório, e a contagem
  * dela é o «APROVADO = 0 linhas» do `05` (o relatório não tem agregador para comparar).
+ * As checagens nomeadas ficam mesmo com o pino do bloco: são o DIAGNÓSTICO (dizem qual
+ * guarda quebrou); o pino é a COBERTURA (vê o que nenhuma delas nomeia).
  */
 function problemasDaEstrutura(smoke: string): string[] {
   const s = colapsar(semComentarioSql(smoke))
@@ -524,6 +573,18 @@ function problemasDaEstrutura(smoke: string): string[] {
   const iFim = s.indexOf('$gate$;', iDo === -1 ? 0 : iDo + 'DO $gate$'.length)
   if (iDo !== -1 && iFim !== -1) {
     const bloco = s.slice(iDo + 'DO $gate$'.length, iFim)
+
+    // WR-05 (44-19): o bloco inteiro, normalizado, é o canônico — ver BLOCO_GATE_CANONICO.
+    const normalizado = normalizarBlocoGate(bloco)
+    if (normalizado !== BLOCO_GATE_CANONICO) {
+      let i = 0
+      while (i < normalizado.length && normalizado[i] === BLOCO_GATE_CANONICO[i]) i++
+      problemas.push(
+        `DO $gate$: o corpo do bloco difere do canônico (WR-05) — primeira divergência no caractere ${i}: ` +
+          `bloco «${normalizado.slice(Math.max(0, i - 30), i + 50)}» vs canônico «${BLOCO_GATE_CANONICO.slice(Math.max(0, i - 30), i + 50)}»; ` +
+          'mudar o bloco é decisão (atualize BLOCO_GATE_CANONICO no mesmo commit, com a prova contra PROD)',
+      )
+    }
 
     for (const m of bloco.matchAll(/\(r->>'([a-z0-9_]+)'\)::int\s*(<>|!=|>=|<=|=|>|<)/g)) {
       problemas.push(`chave ${m[1]}: comparação nua (r->>'${m[1]}')::int ${m[2]} — chave ausente vira NULL e o ramo é pulado (WR-03)`)
@@ -1530,6 +1591,30 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         troca: (a) => `\n  UNION ALL SELECT 'candidatos','coluna_nova_vazando'${a}`,
         alvo: { checador: 'values', nomeia: 'allowlist:' },
       },
+      {
+        rotulo: 'M21 · `RETURN;` antes da guarda de drift — saída antecipada do bloco (WR-05)',
+        ancora: /\n {2}IF \(r->>'n_drift'\)/g,
+        troca: (a) => `\n  RETURN;${a}`,
+        alvo: { checador: 'estrutura', nomeia: 'DO $gate$: o corpo do bloco difere do canônico' },
+      },
+      {
+        rotulo: 'M22 · guarda de drift embrulhada em `IF false THEN … END IF;` (WR-05)',
+        ancora: / {2}IF \(r->>'n_drift'\)[\s\S]*?END IF;\n/g,
+        troca: (a) => `  IF false THEN\n${a}  END IF;\n`,
+        alvo: { checador: 'estrutura', nomeia: 'DO $gate$: o corpo do bloco difere do canônico' },
+      },
+      {
+        rotulo: 'M23 · `r` reatribuído antes da guarda de drift (`r := r || …`) (WR-05)',
+        ancora: /\n {2}IF \(r->>'n_drift'\)/g,
+        troca: (a) => `\n  r := r || '{"n_drift":0}'::jsonb;${a}`,
+        alvo: { checador: 'estrutura', nomeia: 'DO $gate$: o corpo do bloco difere do canônico' },
+      },
+      {
+        rotulo: 'M24 · termo `n_colunas_vivas_em_escopo` retirado da guarda de população (WR-05)',
+        ancora: /^ {5}OR coalesce\(\(r->>'n_colunas_vivas_em_escopo'\)::int, 0\) = 0\n/gm,
+        troca: () => '',
+        alvo: { checador: 'estrutura', nomeia: 'DO $gate$: o corpo do bloco difere do canônico' },
+      },
     ]
 
     const real = () => readFileSync(CAMINHO_DRIFT_SMOKE, 'utf8')
@@ -1576,10 +1661,16 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
               ? problemasDoPredicado(relatorio(), mutado)
               : problemasDaEstrutura(mutado)
         const nomeia = m.alvo.nomeia
+        // 44-19: o problema do pino do bloco (WR-05) CITA um trecho do bloco mutado — o de
+        // M5, por exemplo, contém «EXCEPTION WHEN». Para as rotas cujo alvo é uma checagem
+        // NOMEADA (M4–M18), ele não conta: cada uma tem de ser vista pela própria checagem,
+        // senão apagar a checagem nomeada passaria calado, coberto pelo pino.
+        const PINO_DO_BLOCO = 'DO $gate$: o corpo do bloco difere do canônico'
+        const candidatos = nomeia.startsWith(PINO_DO_BLOCO) ? problemas : problemas.filter((p) => !p.startsWith(PINO_DO_BLOCO))
         const acertou =
           m.alvo.checador === 'estrutura'
-            ? problemas.some((p) => p.includes(nomeia))
-            : problemas.some((p) => p.startsWith(nomeia))
+            ? candidatos.some((p) => p.includes(nomeia))
+            : candidatos.some((p) => p.startsWith(nomeia))
         expect(
           acertou,
           `${m.rotulo}: o checador «${m.alvo.checador}» deveria reprovar NOMEANDO «${nomeia}»; devolveu ${JSON.stringify(problemas)}`,
