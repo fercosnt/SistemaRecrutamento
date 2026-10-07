@@ -1378,6 +1378,174 @@ describe('a fronteira dita ao titular (CR-01)', () => {
     expect(neutra).not.toMatch(/\b[a-z0-9]+_[a-z0-9_]+\b/)
     expect(neutra).toContain(CANAL_PRIVACIDADE_EMAIL)
   })
+
+  // ── Plano 44-20 — WR-02: os parênteses POSITIVOS da frase (BD-20) ──────────────
+  // Os parênteses «(… entra)»/«(… entram)» afirmam o que ENTRA na cópia. O (cr1) só
+  // confere que cada família retida tem marcador; um veto futuro de `retencao_hold.motivo`
+  // com razão BD-10 cairia numa família que já tem marcador, e a frase continuaria
+  // prometendo um campo que a cópia não traz — a «cópia mais generosa que a promessa» pelo
+  // outro lado (docblock de `oQueEsta`). O (cr4) DERIVA da frase todo parêntese positivo e o
+  // prende às colunas que o artefato exporta.
+
+  /**
+   * Parêntese positivo (com os parênteses) → a tabela e as colunas que ele afirma que entram.
+   *
+   * ⚠ ESCOPO DELIBERADO, não fotografia: cada entrada é uma afirmação da frase sobre o que
+   * ENTRA na cópia. Mudar uma entrada é mudar a frase pela 44-UI-SPEC (linha «O que não está
+   * na cópia») — nunca o contrário. As CHAVES são conferidas por IGUALDADE DE CONJUNTOS com
+   * os parênteses DERIVADOS da frase (`parentesesDaFrase`), nos dois sentidos: um parêntese
+   * novo sem entrada reprova (`semEntrada`), e uma entrada cujo parêntese saiu da frase
+   * também (`entradaOrfa`). Nunca um pulo silencioso quando um trecho some da frase — esse
+   * era o defeito do conserto sugerido na revisão (44-REVIEW §WR-02). Ordem das entradas: a
+   * da frase.
+   */
+  const PARENTESES_QUE_ENTRAM: Readonly<Record<string, { tabela: string; colunas: readonly string[] }>> = {
+    '(o motivo e as datas entram)': { tabela: 'retencao_hold', colunas: ['motivo', 'criado_em', 'liberado_em'] },
+    '(o andamento e as datas do pedido entram)': {
+      tabela: 'solicitacoes_dados',
+      colunas: ['situacao', 'solicitado_em', 'atendido_em'],
+    },
+    '(a decisão em si entra)': { tabela: 'decisao_final', colunas: ['decisao'] },
+  }
+
+  /** Forma ESTRUTURAL do artefato para os parênteses — aceita `EXPORT_ALLOWLIST` e clones. */
+  type ArtefatoEntregue = {
+    tabelas: Record<string, { colunas?: ReadonlyArray<string>; colunas_excluidas?: Record<string, string> }>
+  }
+
+  /**
+   * Todo trecho entre parênteses, SEM parêntese interno, que termina em « entra» ou
+   * « entram» — com os parênteses, sem repetição, ORDENADO. Pura.
+   */
+  function parentesesDaFrase(frase: string): string[] {
+    return [...new Set(frase.match(/\([^()]* entram?\)/g) ?? [])].sort()
+  }
+
+  type LacunasDosParenteses = {
+    /** os parênteses positivos derivados da frase (para a sanidade e para o SUMMARY) */
+    parenteses: string[]
+    /** parêntese da frase sem chave no mapa */
+    semEntrada: string[]
+    /** chave do mapa cujo parêntese não está na frase */
+    entradaOrfa: string[]
+    /** tabela de uma entrada que não está em `artefato.tabelas` */
+    tabelaAusente: string[]
+    /** `tabela.coluna` de uma entrada que não está em `colunas`, ou está em `colunas_excluidas` */
+    colunaNaoEntregue: string[]
+  }
+
+  /**
+   * Tudo o que separa os parênteses positivos da frase das colunas que o artefato exporta,
+   * em listas ORDENADAS (o vermelho nomeia o parêntese, a tabela ou `tabela.coluna`). Pura;
+   * `mapa` é parâmetro para os controles do (cr4b). Uma entrada cuja tabela saiu do artefato
+   * é nomeada só em `tabelaAusente` — as colunas dela não são listadas de novo.
+   */
+  function lacunasDosParenteses(
+    frase: string,
+    artefato: ArtefatoEntregue,
+    mapa: Readonly<Record<string, { tabela: string; colunas: readonly string[] }>> = PARENTESES_QUE_ENTRAM,
+  ): LacunasDosParenteses {
+    const parenteses = parentesesDaFrase(frase)
+    const chaves = Object.keys(mapa).sort()
+    const tabelaAusente = new Set<string>()
+    const colunaNaoEntregue = new Set<string>()
+    for (const { tabela, colunas } of Object.values(mapa)) {
+      const def = artefato.tabelas[tabela]
+      if (def === undefined) {
+        tabelaAusente.add(tabela)
+        continue
+      }
+      for (const coluna of colunas) {
+        const exportada = (def.colunas ?? []).includes(coluna)
+        const vetada = Object.prototype.hasOwnProperty.call(def.colunas_excluidas ?? {}, coluna)
+        if (!exportada || vetada) colunaNaoEntregue.add(`${tabela}.${coluna}`)
+      }
+    }
+    return {
+      parenteses,
+      semEntrada: parenteses.filter((p) => !chaves.includes(p)),
+      entradaOrfa: chaves.filter((p) => !parenteses.includes(p)),
+      tabelaAusente: [...tabelaAusente].sort(),
+      colunaNaoEntregue: [...colunaNaoEntregue].sort(),
+    }
+  }
+
+  it('(cr4) WR-02 · todo parêntese «… entra(m)» da frase está preso a colunas que o artefato exporta', () => {
+    const l = lacunasDosParenteses(COPY_PEDIR_COPIA.oQueNaoEsta, EXPORT_ALLOWLIST)
+
+    // Sanidade (população vazia mente): sem parêntese derivado, as listas abaixo ficariam
+    // vazias pelo motivo errado — a derivação não estaria lendo a frase.
+    expect(l.parenteses.length, 'nenhum parêntese «… entra(m)» derivado da frase — a derivação não está lendo a frase').toBeGreaterThan(0)
+
+    expect
+      .soft(
+        l.semEntrada,
+        'parêntese positivo da frase sem entrada em PARENTESES_QUE_ENTRAM — registre a tabela e as colunas que ele afirma que entram (a frase muda pela 44-UI-SPEC)',
+      )
+      .toEqual([])
+    expect
+      .soft(
+        l.entradaOrfa,
+        'entrada órfã em PARENTESES_QUE_ENTRAM — o parêntese saiu da frase; tire a entrada',
+      )
+      .toEqual([])
+    expect
+      .soft(
+        l.tabelaAusente,
+        'a frase promete que entra algo de uma tabela que não está no artefato — reescreva o parêntese pela 44-UI-SPEC',
+      )
+      .toEqual([])
+    expect
+      .soft(
+        l.colunaNaoEntregue,
+        'a frase promete uma coluna que a cópia não traz (fora de `colunas` ou vetada em `colunas_excluidas`) — reescreva o parêntese pela 44-UI-SPEC',
+      )
+      .toEqual([])
+  })
+
+  // Os controles negativos PERMANENTES do portão dos parênteses (CLAUDE.md §Portões). Cada
+  // mutação parte da frase ou do artefato REAIS e, antes da mordida, prova que mudou algo.
+  // Os alvos vêm do mapa (primeira e última entrada, na ordem da frase), nunca por nome.
+  it('(cr4b) WR-02 · o portão dos parênteses morde: coluna vetada, parêntese novo, entrada órfã e tabela que saiu do artefato reprovam', () => {
+    const frase = COPY_PEDIR_COPIA.oQueNaoEsta
+    const clonar = (): ArtefatoEntregue => structuredClone(EXPORT_ALLOWLIST) as ArtefatoEntregue
+    const mudouOArtefato = (a: ArtefatoEntregue) => JSON.stringify(a) !== JSON.stringify(EXPORT_ALLOWLIST)
+
+    // Ponto de partida: o portão real está verde (senão as mordidas não distinguiriam nada).
+    const real = lacunasDosParenteses(frase, EXPORT_ALLOWLIST)
+    expect(real.parenteses.length, 'nenhum parêntese derivado — os controles testariam o vazio').toBeGreaterThan(0)
+    expect([...real.semEntrada, ...real.entradaOrfa, ...real.tabelaAusente, ...real.colunaNaoEntregue]).toEqual([])
+    const entradas = Object.entries(PARENTESES_QUE_ENTRAM)
+    expect(entradas.length, 'PARENTESES_QUE_ENTRAM vazio — os controles não teriam alvo').toBeGreaterThan(0)
+    const [, primeira] = entradas[0]
+    const [ultimoParentese, ultima] = entradas[entradas.length - 1]
+
+    // 1. a primeira coluna da primeira entrada VETADA: sai de `colunas`, entra em `colunas_excluidas`
+    const coluna = primeira.colunas[0]
+    const vetada = clonar()
+    const def = vetada.tabelas[primeira.tabela]
+    def.colunas = (def.colunas ?? []).filter((c) => c !== coluna)
+    def.colunas_excluidas = { ...def.colunas_excluidas, [coluna]: 'decisoes_por_coluna: BD-99 — sonda' }
+    expect(mudouOArtefato(vetada), 'controle 1: a mutação não mudou o artefato').toBe(true)
+    expect(lacunasDosParenteses(frase, vetada).colunaNaoEntregue).toEqual([`${primeira.tabela}.${coluna}`])
+
+    // 2. um parêntese positivo NOVO na frase, sem entrada no mapa
+    const novo = '(o texto entra)'
+    const comNovo = `${frase} ${novo}`
+    expect(parentesesDaFrase(comNovo), 'controle 2: a derivação não viu o parêntese novo').toContain(novo)
+    expect(lacunasDosParenteses(comNovo, EXPORT_ALLOWLIST).semEntrada).toEqual([novo])
+
+    // 3. a frase sem o parêntese da última entrada: a entrada fica órfã
+    const semParentese = frase.split(ultimoParentese).join('')
+    expect(semParentese, 'controle 3: a mutação não mudou a frase').not.toBe(frase)
+    expect(lacunasDosParenteses(semParentese, EXPORT_ALLOWLIST).entradaOrfa).toEqual([ultimoParentese])
+
+    // 4. a tabela da última entrada SAIU do artefato
+    const semTabela = clonar()
+    delete semTabela.tabelas[ultima.tabela]
+    expect(mudouOArtefato(semTabela), 'controle 4: a mutação não mudou o artefato').toBe(true)
+    expect(lacunasDosParenteses(frase, semTabela).tabelaAusente).toEqual([ultima.tabela])
+  })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════

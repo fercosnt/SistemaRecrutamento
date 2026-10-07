@@ -551,7 +551,10 @@ export const COPY_PEDIR_COPIA = {
    * de política ainda em aberto (BD-17): calar sobre algo que ficou de fora é dizer que
    * ele veio. Os parênteses («o motivo e as datas entram», «a decisão em si entra»)
    * existem porque o titular vê na cópia as seções de onde esses textos foram
-   * retirados; dizer o que delas entra evita que a ausência do resto pareça perda.
+   * retirados; dizer o que delas entra evita que a ausência do resto pareça perda. Cada
+   * parêntese «(… entra)»/«(… entram)» é DERIVADO desta frase pelo caso (cr4) de
+   * `exportacaoService.test.ts` e preso às colunas que o artefato exporta: um veto futuro
+   * de uma coluna prometida reprova o (cr4) nomeando `tabela.coluna` (WR-02).
    *
    * ── O PORTÃO ──────────────────────────────────────────────────────────────────
    * O caso (cr1) de `exportacaoService.test.ts` deriva do ARTEFATO a família de razão
