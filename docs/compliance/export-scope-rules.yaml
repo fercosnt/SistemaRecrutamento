@@ -345,7 +345,7 @@ escopo_titular:
 #   telemetria_interna      — operação, segurança, entrega, custo, auditoria
 #   pii_de_terceiro         — dado pessoal de outra pessoa (funcionário ou outro candidato)
 #   segredo                 — credencial; um `select('*')` aqui vaza mais que PII (achado A-05)
-#   configuracao_do_produto — conteúdo do produto, não do candidato
+#   configuracao_do_produto — conteúdo do produto (vagas, perguntas, templates, prompts, limiares); tabela desta família COM coluna de vínculo ao titular (`candidatura_id`/`candidato_id`) só é aceita com razão POR TABELA no comentário imediatamente acima da entrada, citando a decisão (BD-<n>), e com cláusula própria na frase ao titular — o (cr5) de src/features/privacidade/services/__tests__/exportacaoService.test.ts reprova o contrário
 #   vocabulario_do_sistema  — tabela de domínio/enumeração
 fora_do_escopo:
   # decisão TRAVADA na 44-CONTEXT §Área 2 e §Deferred: prompt, custo e
@@ -369,6 +369,13 @@ fora_do_escopo:
   # Trocar a classificação junto com a prosa moveria a tabela de escopo sem
   # nenhum fato novo que o justificasse.
   data_deletion_log: telemetria_interna
+  # BD-18 (OPERADOR, 2026-10-06) — razão POR TABELA: o roteiro STAR/PEI é por
+  # candidatura (`candidatura_id`), montado a pedido do RH a partir do scorecard
+  # da candidatura e do perfil da vaga, e editável pelo RH. NÃO é «o mesmo para
+  # todos». Fica fora da cópia por decisão do operador, e a frase ao titular o
+  # NOMEIA (BD-18: «o roteiro que a equipe monta para conduzir a sua entrevista»).
+  # O token da família abaixo NÃO muda (BD-21): o vocabulário é fechado e mudá-lo
+  # alteraria `excluidas` do artefato 1.4.0 e o espelho da EF.
   entrevista_guias: configuracao_do_produto
   historico_acoes: telemetria_interna
   # telemetria de autenticação: IP, device, cidade, tentativas falhas

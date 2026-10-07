@@ -1061,21 +1061,54 @@ describe('a fronteira dita ao titular (CR-01)', () => {
     vereditoOrfao: string[]
     /** veredito cujo marcador não está na frase */
     marcadorAusente: string[]
-    /** do 44-18 (cobertura fail-closed das tabelas que o catálogo nunca mediu) — aqui, `[]` */
+    /**
+     * tabelas excluídas de família genérica SEM NENHUMA coluna medida (nem em `colunas` nem
+     * em `colunas_fora_do_escopo.colunas`): a cobertura falha FECHADA — ausência de coluna
+     * no catálogo não é ausência de vínculo (população vazia mente)
+     */
     naoMedidas: string[]
-    /** do 44-18 (razão por tabela no YAML) — aqui, `[]` */
+    /**
+     * vereditos cuja tabela não tem, no YAML, comentário imediatamente acima de
+     * `  <tabela>:` dentro de `fora_do_escopo:` citando a `decisao` — a razão mora onde a
+     * classificação mora
+     */
     semRazaoNoYaml: string[]
   }
 
   /**
-   * Tudo o que separa a frase do artefato e do catálogo, POR TABELA, em listas ORDENADAS
-   * (o output do vermelho nomeia a tabela). Pura; `vereditos` e `mapa` são parâmetros
-   * para os controles de mordida.
+   * As linhas de comentário CONTÍGUAS imediatamente acima de `  <tabela>:` dentro do bloco
+   * `fora_do_escopo:` do YAML, juntadas — ou `null` se a entrada não estiver lá. O bloco vai
+   * de `fora_do_escopo:` (coluna 0) até a próxima chave de topo.
+   */
+  function comentarioAcimaNoYaml(yamlTexto: string, tabela: string): string | null {
+    const linhas = yamlTexto.split('\n')
+    const ini = linhas.findIndex((l) => /^fora_do_escopo:\s*$/.test(l))
+    if (ini < 0) return null
+    const depois = linhas.findIndex((l, i) => i > ini && /^[^\s#]/.test(l))
+    const fim = depois < 0 ? linhas.length : depois
+    const alvo = linhas.findIndex((l, i) => i > ini && i < fim && l.startsWith(`  ${tabela}:`))
+    if (alvo < 0) return null
+    const comentario: string[] = []
+    for (let i = alvo - 1; i > ini && /^\s*#/.test(linhas[i]); i--) comentario.unshift(linhas[i])
+    return comentario.join('\n')
+  }
+
+  /** O texto cita o id de decisão como TOKEN (`BD-18` não casa `BD-181`). */
+  function citaDecisao(texto: string, decisao: string): boolean {
+    const id = decisao.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(^|[^A-Za-z0-9-])${id}(?![0-9])`).test(texto)
+  }
+
+  /**
+   * Tudo o que separa a frase do artefato, do catálogo e do YAML, POR TABELA, em listas
+   * ORDENADAS (o output do vermelho nomeia a tabela). Pura; `vereditos` e `mapa` são
+   * parâmetros para os controles de mordida.
    */
   function lacunasPorTabela(
     frase: string,
     artefato: ArtefatoPorTabela,
     catalogo: CatalogoVinculo,
+    yamlTexto: string,
     vereditos: Readonly<Record<string, { decisao: string; marcador: string }>> = VEREDITO_POR_TABELA,
     mapa: Readonly<Record<string, string>> = CLAUSULA_POR_FAMILIA,
   ): LacunasPorTabela {
@@ -1083,14 +1116,16 @@ describe('a fronteira dita ao titular (CR-01)', () => {
     const vinculo = new Set(colunasDeVinculo(artefato))
     const colunas = [...catalogo.colunas, ...(catalogo.colunas_fora_do_escopo?.colunas ?? [])]
     const ligadas = new Set(colunas.filter((c) => vinculo.has(c.coluna)).map((c) => c.tabela))
+    const medidas = new Set(colunas.map((c) => c.tabela))
 
-    const comVinculo = Object.entries(artefato.excluidas)
+    const daClasse = Object.entries(artefato.excluidas)
       .filter(([tabela, razao]) => {
         const familia = familiaDaRazao(tabela, razao, artefato)
-        return familia !== null && genericas.has(familia) && ligadas.has(tabela)
+        return familia !== null && genericas.has(familia)
       })
       .map(([tabela]) => tabela)
       .sort()
+    const comVinculo = daClasse.filter((t) => ligadas.has(t))
     const chaves = Object.keys(vereditos).sort()
 
     return {
@@ -1098,8 +1133,11 @@ describe('a fronteira dita ao titular (CR-01)', () => {
       semVeredito: comVinculo.filter((t) => !chaves.includes(t)),
       vereditoOrfao: chaves.filter((t) => !comVinculo.includes(t)),
       marcadorAusente: chaves.filter((t) => !frase.includes(vereditos[t].marcador)),
-      naoMedidas: [],
-      semRazaoNoYaml: [],
+      naoMedidas: daClasse.filter((t) => !medidas.has(t)),
+      semRazaoNoYaml: chaves.filter((t) => {
+        const comentario = comentarioAcimaNoYaml(yamlTexto, t)
+        return comentario === null || !citaDecisao(comentario, vereditos[t].decisao)
+      }),
     }
   }
 
@@ -1124,9 +1162,25 @@ describe('a fronteira dita ao titular (CR-01)', () => {
       'coluna de vínculo que não existe no catálogo — o portão estaria procurando um nome que o catálogo não tem',
     ).toEqual([])
 
-    const l = lacunasPorTabela(frase, EXPORT_ALLOWLIST, catalogo)
+    // O YAML onde a classificação mora — a razão por tabela é conferida no comentário dele.
+    const relativoYaml = '../../../../../docs/compliance/export-scope-rules.yaml'
+    const yamlTexto = readFileSync(fileURLToPath(new URL(relativoYaml, import.meta.url)), 'utf8')
+
+    const l = lacunasPorTabela(frase, EXPORT_ALLOWLIST, catalogo, yamlTexto)
 
     // `expect.soft`: o vermelho mostra TODAS as lacunas de uma vez, cada uma nomeando a tabela.
+    expect
+      .soft(
+        l.naoMedidas,
+        'tabela excluída numa família da configuração do sistema sem NENHUMA coluna medida — ausência de coluna não é ausência de vínculo: meça-a (só leitura) e acrescente as colunas a `colunas_fora_do_escopo` do catálogo',
+      )
+      .toEqual([])
+    expect
+      .soft(
+        l.semRazaoNoYaml,
+        'veredito sem razão no YAML — escreva, no comentário imediatamente acima de `  <tabela>:` em `fora_do_escopo:` de docs/compliance/export-scope-rules.yaml, a razão citando a decisão',
+      )
+      .toEqual([])
     expect
       .soft(
         l.semVeredito,
@@ -1156,6 +1210,14 @@ describe('a fronteira dita ao titular (CR-01)', () => {
       expect.soft(frase.includes(trecho), `trecho retirado voltou à frase: ${nome}`).toBe(false)
       expect(`x ${trecho} y`).toContain(trecho) // META-TEST: a sonda acha o trecho quando ele existe
     }
+
+    // Sanidade do bloco medido (população vazia mente): sem tabelas medidas fora do escopo,
+    // `naoMedidas` só estaria vazio se o catálogo antigo por acaso cobrisse a classe.
+    // No fim do caso, para o vermelho mostrar antes as listas acima.
+    expect(
+      catalogo.colunas_fora_do_escopo?.tabelas.length ?? 0,
+      '`colunas_fora_do_escopo.tabelas` ausente ou vazio no catálogo — a classe excluída não foi medida',
+    ).toBeGreaterThan(0)
   })
 })
 

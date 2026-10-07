@@ -5777,5 +5777,3797 @@
       "nullable": true,
       "ordem": 14
     }
-  ]
+  ],
+  "colunas_fora_do_escopo": {
+    "medido_em": "2026-10-07T12:18:09Z",
+    "projeto": "isljnozzlvckrgjjbjwp",
+    "fonte": "information_schema.columns via Management API (node p46apply.cjs run, arquivo de scratch fora do repositório cuja primeira linha é SET TRANSACTION READ ONLY;), projeto isljnozzlvckrgjjbjwp",
+    "query": "SELECT c.table_name AS tabela, c.column_name AS coluna, c.data_type AS tipo, (c.is_nullable = 'YES') AS nullable, c.ordinal_position::int AS ordem FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name AND t.table_type = 'BASE TABLE' WHERE c.table_schema = 'public' AND c.table_name IN ('ai_call_logs','ai_cost_daily','bias_audit_log','biblioteca_perguntas','bigfive_itens','classe_evento_notificacao','cognitivo_itens','comparativo_solicitado','config_janela_exclusao','config_purga','config_retencao_etapa','config_sla_dados','config_sla_etapa','config_sla_revisao','configuracoes_empresa','data_deletion_log','entrevista_guias','historico_acoes','logs_acesso','logs_auditoria','notificacoes_enviadas','pergunta_opcao_metadata','perguntas','perguntas_cultura','perguntas_formulario','perguntas_opcao_sjt','perguntas_redacao','perguntas_vaga_origem','preferencias_notificacoes','prompt_versions','purga_execucao_itens','purga_execucoes','questoes_bigfive','questoes_disc','questoes_raven','rate_limit_check_duplicate','sessoes_ativas','templates_email','usuarios_rh','vagas','vagas_associadas_recrutadores','webhooks_config','webhooks_logs') ORDER BY c.table_name, c.ordinal_position;",
+    "finalidade": "Portão de classe CR-01-bis (plano 44-18): o (cr5) de src/features/privacidade/services/__tests__/exportacaoService.test.ts lê estas colunas para ver o vínculo ao titular das tabelas EXCLUÍDAS do export (as chaves de `excluidas` de docs/compliance/export-allowlist.json) e reprova, nomeando-a, toda tabela da classe genérica sem coluna medida. O gerador docs/compliance/sql/gen-export-allowlist.cjs NÃO lê este bloco — `colunas` continua sendo o catálogo do fecho. Re-medir com a `query` acima (só leitura).",
+    "tabelas": [
+      "ai_call_logs",
+      "ai_cost_daily",
+      "bias_audit_log",
+      "biblioteca_perguntas",
+      "bigfive_itens",
+      "classe_evento_notificacao",
+      "cognitivo_itens",
+      "comparativo_solicitado",
+      "config_janela_exclusao",
+      "config_purga",
+      "config_retencao_etapa",
+      "config_sla_dados",
+      "config_sla_etapa",
+      "config_sla_revisao",
+      "configuracoes_empresa",
+      "data_deletion_log",
+      "entrevista_guias",
+      "historico_acoes",
+      "logs_acesso",
+      "logs_auditoria",
+      "notificacoes_enviadas",
+      "pergunta_opcao_metadata",
+      "perguntas",
+      "perguntas_cultura",
+      "perguntas_formulario",
+      "perguntas_opcao_sjt",
+      "perguntas_redacao",
+      "perguntas_vaga_origem",
+      "preferencias_notificacoes",
+      "prompt_versions",
+      "purga_execucao_itens",
+      "purga_execucoes",
+      "questoes_bigfive",
+      "questoes_disc",
+      "questoes_raven",
+      "rate_limit_check_duplicate",
+      "sessoes_ativas",
+      "templates_email",
+      "usuarios_rh",
+      "vagas",
+      "vagas_associadas_recrutadores",
+      "webhooks_config",
+      "webhooks_logs"
+    ],
+    "colunas": [
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "candidato_id",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 2
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "vaga_id",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 3
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "call_type",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "prompt_version_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "prompt_hash",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "provider",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "model_id",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "model_snapshot",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "system_prompt",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "user_prompt_template",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 11
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "input_token_count",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 12
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "raw_response",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 13
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "parsed_score",
+        "tipo": "numeric",
+        "nullable": true,
+        "ordem": 14
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "parsed_reasoning",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "output_token_count",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 16
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "latency_ms",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 17
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "attempt_number",
+        "tipo": "smallint",
+        "nullable": false,
+        "ordem": 18
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "cost_usd",
+        "tipo": "numeric",
+        "nullable": true,
+        "ordem": 19
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "success",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 20
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "error_code",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 21
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "error_message",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 22
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "idempotency_key",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 23
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 24
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "retain_until",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 25
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "triggered_by",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 26
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "prompt_version",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 27
+      },
+      {
+        "tabela": "ai_call_logs",
+        "coluna": "input_hash",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 28
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "date",
+        "tipo": "date",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "vaga_id",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 3
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "call_type",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "provider",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "call_count",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "total_input_tokens",
+        "tipo": "bigint",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "total_output_tokens",
+        "tipo": "bigint",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "total_cost_usd",
+        "tipo": "numeric",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "ai_cost_daily",
+        "coluna": "error_count",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "bias_audit_log",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "bias_audit_log",
+        "coluna": "snapshot_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "bias_audit_log",
+        "coluna": "periodo",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 3
+      },
+      {
+        "tabela": "bias_audit_log",
+        "coluna": "dados",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "bias_audit_log",
+        "coluna": "criado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "titulo",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "texto_pergunta",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "texto_ajuda",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "tipo_resposta",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "categoria",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "tags",
+        "tipo": "ARRAY",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "opcoes_resposta",
+        "tipo": "jsonb",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "permite_outros",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "obrigatoria",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "limite_caracteres",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "total_usos",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "ultima_utilizacao",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 13
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "is_publica",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 14
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "criado_por_usuario",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 15
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 17
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 18
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 19
+      },
+      {
+        "tabela": "biblioteca_perguntas",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 20
+      },
+      {
+        "tabela": "bigfive_itens",
+        "coluna": "item_id",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "bigfive_itens",
+        "coluna": "texto",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "bigfive_itens",
+        "coluna": "dimensao",
+        "tipo": "character",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "bigfive_itens",
+        "coluna": "faceta",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "bigfive_itens",
+        "coluna": "reverse_keyed",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "bigfive_itens",
+        "coluna": "ordem",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "bigfive_itens",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "bigfive_itens",
+        "coluna": "ativo",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "classe_evento_notificacao",
+        "coluna": "evento",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "classe_evento_notificacao",
+        "coluna": "classe",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "classe_evento_notificacao",
+        "coluna": "descricao",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "cognitivo_itens",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "cognitivo_itens",
+        "coluna": "secao",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "cognitivo_itens",
+        "coluna": "enunciado",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "cognitivo_itens",
+        "coluna": "alternativas",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "cognitivo_itens",
+        "coluna": "ordem",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "cognitivo_itens",
+        "coluna": "gabarito_idx",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "cognitivo_itens",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "comparativo_solicitado",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "comparativo_solicitado",
+        "coluna": "vaga_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "comparativo_solicitado",
+        "coluna": "candidatura_ids",
+        "tipo": "ARRAY",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "comparativo_solicitado",
+        "coluna": "ranking",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "comparativo_solicitado",
+        "coluna": "latencia_ms",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "comparativo_solicitado",
+        "coluna": "solicitado_por",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "comparativo_solicitado",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "comparativo_solicitado",
+        "coluna": "provedor_ia",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "comparativo_solicitado",
+        "coluna": "modelo_ia",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "config_janela_exclusao",
+        "coluna": "chave",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "config_janela_exclusao",
+        "coluna": "dias",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "config_janela_exclusao",
+        "coluna": "descricao",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 3
+      },
+      {
+        "tabela": "config_janela_exclusao",
+        "coluna": "atualizado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "config_purga",
+        "coluna": "id",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "config_purga",
+        "coluna": "modo",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "config_purga",
+        "coluna": "cap_titulares",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "config_purga",
+        "coluna": "janela_notificacoes_meses",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "config_purga",
+        "coluna": "alterado_por",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "config_purga",
+        "coluna": "atualizado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "config_retencao_etapa",
+        "coluna": "etapa",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "config_retencao_etapa",
+        "coluna": "janela_meses",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "config_retencao_etapa",
+        "coluna": "origem",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "config_retencao_etapa",
+        "coluna": "alterado_por",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "config_retencao_etapa",
+        "coluna": "atualizado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "config_retencao_etapa",
+        "coluna": "elegivel_purga",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "config_sla_dados",
+        "coluna": "chave",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "config_sla_dados",
+        "coluna": "dias_atencao",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "config_sla_dados",
+        "coluna": "dias_atraso",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "config_sla_dados",
+        "coluna": "descricao",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "config_sla_dados",
+        "coluna": "atualizado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "config_sla_etapa",
+        "coluna": "etapa",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "config_sla_etapa",
+        "coluna": "prazo_valor",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 2
+      },
+      {
+        "tabela": "config_sla_etapa",
+        "coluna": "prazo_unidade",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 3
+      },
+      {
+        "tabela": "config_sla_etapa",
+        "coluna": "rotulo_candidato",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "config_sla_etapa",
+        "coluna": "atualizado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "config_sla_revisao",
+        "coluna": "chave",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "config_sla_revisao",
+        "coluna": "dias_atencao",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "config_sla_revisao",
+        "coluna": "dias_atraso",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "config_sla_revisao",
+        "coluna": "descricao",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "config_sla_revisao",
+        "coluna": "atualizado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "empresa_id",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "nome_empresa",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "logo_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "favicon_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "cor_primaria",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "cor_secundaria",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "cor_accent",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "email_contato",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "telefone_contato",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "site_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "endereco_completo",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "smtp_host",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 13
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "smtp_port",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 14
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "smtp_usuario",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "smtp_senha_encrypted",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "smtp_from_email",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 17
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "smtp_from_nome",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 18
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "smtp_usar_tls",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 19
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_analise_formulario_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 20
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_analise_bigfive_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 21
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_analise_disc_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 22
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_analise_raven_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 23
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_analise_cultura_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 24
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_analise_entrevista_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 25
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_envio_emails_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 26
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_lembretes_url",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 27
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_timeout_segundos",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 28
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_retry_tentativas",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 29
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "webhook_secret",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 30
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "notificar_nova_candidatura",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 31
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "notificar_teste_concluido",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 32
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "email_notificacoes",
+        "tipo": "ARRAY",
+        "nullable": true,
+        "ordem": 33
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "timezone",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 34
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "idioma",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 35
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "max_tamanho_curriculo_mb",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 36
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "max_tamanho_gravacao_mb",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 37
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "dias_retencao_logs",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 38
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 39
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 40
+      },
+      {
+        "tabela": "configuracoes_empresa",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 41
+      },
+      {
+        "tabela": "data_deletion_log",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "data_deletion_log",
+        "coluna": "deletion_type",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "data_deletion_log",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "data_deletion_log",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "entrevista_guias",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "entrevista_guias",
+        "coluna": "candidatura_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "entrevista_guias",
+        "coluna": "tipo",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "entrevista_guias",
+        "coluna": "guia",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "entrevista_guias",
+        "coluna": "prompt_version",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "entrevista_guias",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "entrevista_guias",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "entrevista_guias",
+        "coluna": "provedor_ia",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "entrevista_guias",
+        "coluna": "modelo_ia",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "historico_acoes",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "historico_acoes",
+        "coluna": "candidatura_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "historico_acoes",
+        "coluna": "tipo_acao",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "historico_acoes",
+        "coluna": "descricao",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "historico_acoes",
+        "coluna": "metadata",
+        "tipo": "jsonb",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "historico_acoes",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "historico_acoes",
+        "coluna": "usuario_id",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "user_id",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 2
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "evento",
+        "tipo": "character varying",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "email_tentativa",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "ip_address",
+        "tipo": "inet",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "device_info",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "device_type",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "browser",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "operating_system",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "country",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "city",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "erro_mensagem",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "logs_acesso",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 13
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "usuario_id",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 2
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "usuario_tipo",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 3
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "acao",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "categoria",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "descricao",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "severidade",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "recurso_tipo",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "recurso_id",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "dados_antes",
+        "tipo": "jsonb",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "dados_depois",
+        "tipo": "jsonb",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "ip_address",
+        "tipo": "inet",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "user_agent",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 13
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "sessao_id",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 14
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "duracao_ms",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "sucesso",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "erro_mensagem",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 17
+      },
+      {
+        "tabela": "logs_auditoria",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 18
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "evento",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "candidatura_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "candidato_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "template",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "destinatario_email",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "status",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "provider_message_id",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "dedupe_key",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "tentativas",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "proxima_tentativa_em",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "ultimo_erro",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "criado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 13
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "atualizado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 14
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "enviado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "entregue_em",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "destinatario_original",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 17
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "modo",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 18
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "bounce_em",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 19
+      },
+      {
+        "tabela": "notificacoes_enviadas",
+        "coluna": "reclamado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 20
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "pergunta_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "opcao_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "opcao_texto",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "tag",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "peso",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "nota_ia",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "ordem",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "pergunta_opcao_metadata",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "tipo",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "cargo",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "dimensao_primaria",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "cenario",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "formato",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "tempo_est_min",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "rubric",
+        "tipo": "jsonb",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "content_hash",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "status",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "perguntas",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 11
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "vaga_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "ordem",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "texto_pergunta",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "texto_ajuda",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "obrigatoria",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "limite_caracteres",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "perguntas_cultura",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "vaga_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "bloco",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "ordem",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "texto_pergunta",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "texto_ajuda",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "tipo_resposta",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "opcoes_resposta",
+        "tipo": "jsonb",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "permite_outros",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "obrigatoria",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "limite_caracteres",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "valor_minimo",
+        "tipo": "numeric",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "valor_maximo",
+        "tipo": "numeric",
+        "nullable": true,
+        "ordem": 13
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 14
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 15
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 17
+      },
+      {
+        "tabela": "perguntas_formulario",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 18
+      },
+      {
+        "tabela": "perguntas_opcao_sjt",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "perguntas_opcao_sjt",
+        "coluna": "pergunta_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "perguntas_opcao_sjt",
+        "coluna": "opcao_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "perguntas_opcao_sjt",
+        "coluna": "opcao_texto",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "perguntas_opcao_sjt",
+        "coluna": "tag",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "perguntas_opcao_sjt",
+        "coluna": "peso",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "perguntas_opcao_sjt",
+        "coluna": "ordem",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "perguntas_opcao_sjt",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "codigo",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "texto",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "template_cargo",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "valor_primario",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "valor_secundario",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "is_padrao",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "default_on",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "ativa",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "versao",
+        "tipo": "smallint",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "perguntas_redacao",
+        "coluna": "criada_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 11
+      },
+      {
+        "tabela": "perguntas_vaga_origem",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "perguntas_vaga_origem",
+        "coluna": "pergunta_formulario_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "perguntas_vaga_origem",
+        "coluna": "biblioteca_pergunta_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "perguntas_vaga_origem",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "usuario_rh_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "email_novos_candidatos",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "email_testes_completos",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "email_entrevistas_agendadas",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "email_resumo_diario",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "email_resumo_semanal",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "whatsapp_enabled",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "whatsapp_numero",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "whatsapp_entrevistas",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "whatsapp_urgentes",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 11
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "notificacoes_app",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 12
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 13
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 14
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "preferencias_notificacoes",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 17
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "call_type",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "semver",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "content_hash",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "system_template",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "user_template",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "model_id",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "temperature",
+        "tipo": "numeric",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "max_tokens",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "is_active",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "is_canary",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 11
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "canary_pct",
+        "tipo": "smallint",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "schema_version_required",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 13
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "change_summary",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 14
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "changed_by",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 15
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "approved_by",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "previous_version_id",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 17
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "avg_score_delta",
+        "tipo": "numeric",
+        "nullable": true,
+        "ordem": 18
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "p95_latency_ms",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 19
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "error_rate_pct",
+        "tipo": "numeric",
+        "nullable": true,
+        "ordem": 20
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 21
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "deployed_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 22
+      },
+      {
+        "tabela": "prompt_versions",
+        "coluna": "deprecated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 23
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "execucao_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "candidato_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "etapa",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "janela_meses_aplicada",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "ancora_origem",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "ancora_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "desfecho_storage",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "desfecho_postgres",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "desfecho_auth",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "relato_dry_run",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "criado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 12
+      },
+      {
+        "tabela": "purga_execucao_itens",
+        "coluna": "concluido_em",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 13
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "modo_vigente",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "cap_vigente",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "elegiveis",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "processados",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "notificacoes_expurgadas",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "veredito",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "situacao",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "iniciada_em",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "purga_execucoes",
+        "coluna": "concluida_em",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "numero_questao",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "versao",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "texto_questao",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "dimensao",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "is_invertida",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "questoes_bigfive",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "questoes_disc",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "questoes_disc",
+        "coluna": "numero_questao",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "questoes_disc",
+        "coluna": "versao",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "questoes_disc",
+        "coluna": "opcoes",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "questoes_disc",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "questoes_disc",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "questoes_disc",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "questoes_disc",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "numero_questao",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "versao",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "serie",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "imagem_matriz_url",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "opcoes_imagens",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "resposta_correta",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "questoes_raven",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "rate_limit_check_duplicate",
+        "coluna": "id",
+        "tipo": "bigint",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "rate_limit_check_duplicate",
+        "coluna": "x_forwarded_for",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 2
+      },
+      {
+        "tabela": "rate_limit_check_duplicate",
+        "coluna": "hash_cpf_email",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "rate_limit_check_duplicate",
+        "coluna": "called_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "user_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "session_token",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 3
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "device_info",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "device_type",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "browser",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "operating_system",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "ip_address",
+        "tipo": "inet",
+        "nullable": false,
+        "ordem": 8
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "country",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "city",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "last_activity",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 11
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "expires_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 12
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "ativo",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 13
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "revogado",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 14
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "revogado_em",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "revogado_por",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "sessoes_ativas",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 17
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "tipo",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "versao",
+        "tipo": "integer",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "assunto",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "corpo_html",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "corpo_texto",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "variaveis_disponiveis",
+        "tipo": "ARRAY",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "descricao",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "ativo",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "is_padrao",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 13
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 14
+      },
+      {
+        "tabela": "templates_email",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "user_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "nome_completo",
+        "tipo": "character varying",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "email",
+        "tipo": "character varying",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "cargo",
+        "tipo": "character varying",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "telefone",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "role",
+        "tipo": "character varying",
+        "nullable": false,
+        "ordem": 7
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "avatar_url",
+        "tipo": "character varying",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "ativo",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 9
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "primeiro_acesso",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 10
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "data_ultimo_login",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 12
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 13
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 14
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "usuarios_rh",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "slug",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "titulo",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "subtitulo",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "descricao_curta",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "departamento",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "tipo_contrato",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "modelo_trabalho",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "nivel_senioridade",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "cidade",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "estado",
+        "tipo": "character",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "endereco_completo",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "faixa_salarial_min",
+        "tipo": "numeric",
+        "nullable": true,
+        "ordem": 13
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "faixa_salarial_max",
+        "tipo": "numeric",
+        "nullable": true,
+        "ordem": 14
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "exibir_salario",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "status",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 16
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "data_abertura",
+        "tipo": "date",
+        "nullable": true,
+        "ordem": 17
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "data_fechamento",
+        "tipo": "date",
+        "nullable": true,
+        "ordem": 18
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "total_vagas",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 19
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "sobre_empresa",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 20
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "sobre_cargo",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 21
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "responsabilidades",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 22
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "requisitos_formacao",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 23
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "requisitos_experiencia",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 24
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "requisitos_tecnicos",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 25
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "requisitos_habilidades",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 26
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "perfil_ideal",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 27
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "diferenciais",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 28
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "beneficios",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 29
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "jornada_trabalho",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 30
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "prompt_ia_descricao",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 31
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 32
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 33
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 34
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 35
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 36
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "testes_aplicaveis",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 37
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "pesos_avaliacao",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 38
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "qualificacao_etapa1",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 39
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "aplica_cognitivo",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 40
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "entrevista_agendada_em",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 41
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "secoes_extras",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 42
+      },
+      {
+        "tabela": "vagas",
+        "coluna": "rubrica_ia",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 43
+      },
+      {
+        "tabela": "vagas_associadas_recrutadores",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "vagas_associadas_recrutadores",
+        "coluna": "usuario_rh_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "vagas_associadas_recrutadores",
+        "coluna": "vaga_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "vagas_associadas_recrutadores",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "vagas_associadas_recrutadores",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": false,
+        "ordem": 5
+      },
+      {
+        "tabela": "vagas_associadas_recrutadores",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "vagas_associadas_recrutadores",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "vagas_associadas_recrutadores",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "nome",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "tipo",
+        "tipo": "USER-DEFINED",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "url",
+        "tipo": "text",
+        "nullable": false,
+        "ordem": 4
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "metodo",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "headers",
+        "tipo": "jsonb",
+        "nullable": true,
+        "ordem": 6
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "secret",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "usar_auth",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "timeout_segundos",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "retry_tentativas",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 10
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "retry_delay_segundos",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 11
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "ativo",
+        "tipo": "boolean",
+        "nullable": true,
+        "ordem": 12
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "ultima_chamada_sucesso",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 13
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "ultima_chamada_erro",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 14
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "total_chamadas",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 15
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "total_sucessos",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 16
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "total_erros",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 17
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 18
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "updated_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 19
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "deleted_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 20
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "created_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 21
+      },
+      {
+        "tabela": "webhooks_config",
+        "coluna": "updated_by",
+        "tipo": "uuid",
+        "nullable": true,
+        "ordem": 22
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 1
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "webhook_id",
+        "tipo": "uuid",
+        "nullable": false,
+        "ordem": 2
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "payload_enviado",
+        "tipo": "jsonb",
+        "nullable": false,
+        "ordem": 3
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "resposta_recebida",
+        "tipo": "jsonb",
+        "nullable": true,
+        "ordem": 4
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "status_code",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 5
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "sucesso",
+        "tipo": "boolean",
+        "nullable": false,
+        "ordem": 6
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "erro_mensagem",
+        "tipo": "text",
+        "nullable": true,
+        "ordem": 7
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "tempo_resposta_ms",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 8
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "tentativa_numero",
+        "tipo": "integer",
+        "nullable": true,
+        "ordem": 9
+      },
+      {
+        "tabela": "webhooks_logs",
+        "coluna": "created_at",
+        "tipo": "timestamp with time zone",
+        "nullable": true,
+        "ordem": 10
+      }
+    ]
+  }
 }
