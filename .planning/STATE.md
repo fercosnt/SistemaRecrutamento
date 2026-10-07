@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: gaps_found
-stopped_at: "Phase 44 re-verificada pos-publicacao (2026-10-07): gaps_found 6/7 — CR-01-bis: a frase publicada diz que a configuracao retida «e o mesmo para todos os candidatos», falso para entrevista_guias (por candidatura). 0 pedidos de acesso desde a publicacao. Revisao pos-CR-01: 1 critical, 6 warnings, 2 infos (44-REVIEW-DISPOSITION.md, todos open). Proximo: decisao do operador sobre a clausula (e WR-01 «ou pedir algum deles») → /gsd-plan-phase 44 --gaps"
-last_updated: "2026-10-07T01:50:00.000Z"
+status: ready_to_execute
+stopped_at: "Phase 44 gap closure planejada (2026-10-07): 44-17..44-22 em serie (waves 1-6), checker PASSED na iteracao 3 — CR-01-bis (frase pela UI-SPEC, BD-18 nomear e reter entrevista_guias; BD-19 convite estreitado), portao de classe (BD-21), WR-02..WR-06, IN-01/02, revisao adversarial independente (44-21) antes da porta, publicacao so do front com checkpoint do operador e U1 (44-22). Proximo: /gsd-execute-phase 44 --gaps-only"
+last_updated: "2026-10-07T12:00:00.000Z"
 last_activity: 2026-10-07
 state_head: 31d24652b11b1d10422549a0a50a35dd56c28772
 progress:
   total_phases: 9
   completed_phases: 9
-  total_plans: 141
+  total_plans: 147
   completed_plans: 139
-  percent: 99
+  percent: 95
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "44-16 concluido — CR-01 no ar: GATES_SHA 1031e409 (rodada 2, suite 2449 so com as 2 pre-existentes, tsc 89, smoke limpo PROD n_drift 0); operador: «trocar o email para rh@beautysmile.com.br» (sistema inteiro, lgpd@ nunca existiu) e depois «publicar»; push 0fde284f..31d24652 (21 commits, fora=[]); Vercel success; publicado index-DTxaEkc3.js com a frase nova e rh@, lgpd@ e «descrevem o sistema» ausentes dos 49 JS; EF v6 ACTIVE verify_jwt true; disposicao 15 linhas: CR-01/WR-01/02/03/07 fixed, WR-06 decided BD-16"
+last_activity_desc: "plan-phase 44 --gaps — 6 planos (44-17..44-22) commits de086abe, 21174271, c7ea7b21; decisoes do operador: nomear e reter entrevista_guias, estreitar o convite WR-01, escopo inclui WR-02..WR-06"
 ---
 
 # Project State
