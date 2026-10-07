@@ -5,7 +5,7 @@ status: in-progress
 plan_head_before: 8f3372fba00154dc6445a3e5293485f6a8249e9a
 ---
 
-# Phase 44 Plan 22: publicação do CR-01-bis — Summary (PARCIAL: Task 1; o Task 2 é o checkpoint do operador e a publicação é o Task 3)
+# Phase 44 Plan 22: publicação do CR-01-bis — Summary (PARCIAL: Tasks 1–3 feitos, CR-01-bis publicado; falta o Task 4, o U1 do operador)
 
 GATES_SHA: 8f3372fba00154dc6445a3e5293485f6a8249e9a
 
@@ -142,11 +142,15 @@ O operador **não deu disposição** para nenhum achado. Por isso valem os padr�
 
 Nenhuma outra decisão do operador foi inferida.
 
-## Publicação (Task 3) — BLOQUEADA no push: o GitHub recusa a atualização de `main` com «Internal Server Error»
+## Publicação (Task 3)
 
-Nada subiu. `origin/main` segue em `b14559ea`, e o front publicado segue com `index-DTxaEkc3.js`, ou seja, com a frase do CR-01-bis. As disposições, o STATE e o ROADMAP **não** foram escriturados, porque o Task 3 os escritura depois do push e do verify do publicado.
+**Resultado:** publicado. O push `b14559ea..dddf7ac9` foi aceito às 2026-10-07T20:51:34Z, na 6ª tentativa. Os detalhes estão na subseção «Retomada» abaixo. As subseções seguintes, até «O que NÃO foi feito, de propósito», são o registro histórico do bloqueio. Ficam como foram escritas às 15:11Z.
 
-### Precondições do Task 3, todas verdes antes de cada tentativa
+### Bloqueio no push (histórico, 15:09–15:11Z): o GitHub recusou a atualização de `main` com «Internal Server Error»
+
+Às 15:11Z, nada tinha subido. `origin/main` segue em `b14559ea`, e o front publicado segue com `index-DTxaEkc3.js`, ou seja, com a frase do CR-01-bis. As disposições, o STATE e o ROADMAP **não** foram escriturados, porque o Task 3 os escritura depois do push e do verify do publicado.
+
+#### Precondições do Task 3, todas verdes antes de cada tentativa
 
 - **(a)** A resposta do operador foi «publicar».
 - **(b)** `GATES_SHA..HEAD` (`8f3372fb..441d8867`) não toca nada fora de `.planning/`.
@@ -156,7 +160,7 @@ Nada subiu. `origin/main` segue em `b14559ea`, e o front publicado segue com `in
 
 A conferência do conjunto (item 1) foi extraída LITERAL da linha 204 do plano, por script, sem transcrição. Rodou antes de cada tentativa e deu sempre `commits=27 fora=[]` e `REQUIREMENTS.md intocado`. O HEAD era `441d8867` em todas as tentativas, e fora de `.planning/` o diff contra `origin/main` tinha exatamente os sete arquivos autorizados.
 
-### Tentativas de push (todas recusadas no servidor, na atualização da ref)
+#### Tentativas de push (todas recusadas no servidor, na atualização da ref)
 
 | # | Início (UTC) | Transporte | Resultado | Request ID |
 |---|---|---|---|---|
@@ -167,7 +171,7 @@ A conferência do conjunto (item 1) foi extraída LITERAL da linha 204 do plano,
 
 Depois de cada tentativa: `git fetch` e `git ls-remote` mostram `origin/main` = `b14559ea`. Nada foi aceito pela metade.
 
-### Diagnóstico feito (todo só leitura)
+#### Diagnóstico feito (todo só leitura)
 
 - `githubstatus.com` → «All Systems Operational», nenhum incidente aberto.
 - `ssh -T git@github.com` → autenticado como `fercosnt`. `permissions.push` = true.
@@ -183,8 +187,90 @@ Depois de cada tentativa: `git fetch` e `git ls-remote` mostram `origin/main` = 
 
 A falha não depende do transporte e não vem de nenhuma regra configurada no repositório. Fica do lado do GitHub.
 
-### O que NÃO foi feito, de propósito
+#### O que NÃO foi feito, de propósito
 
 Não houve push parcial de um prefixo do conjunto, nem push para outra branch, nem rebase, nem mudança de remote ou de config. O operador aprovou UM conjunto de 27 commits num push. Publicar um prefixo, ou abrir uma branch remota (a Vercel geraria um preview), muda a forma da publicação, e isso não foi aprovado. Com 4 tentativas, o limite de tentativas de conserto do Task 3 foi atingido: o task foi devolvido ao orquestrador como checkpoint.
 
 **Ao retomar:** o conjunto passa a ter **28** commits, porque este registro entra como `docs(44-22)`, só em `.planning/`, dentro do conjunto autorizado. Nesse momento, repetir as precondições (a)–(e) e a conferência do item 1 antes de empurrar. A hora UTC do push que der certo é o `T0` do U1.
+
+### Retomada: a 5ª recusa, a sonda de tag e o push que passou
+
+#### O que aconteceu entre o bloqueio e a retomada (relatado pelo orquestrador)
+
+| # | Hora (UTC) | Quem | O quê | Resultado |
+|---|---|---|---|---|
+| 5 | 2026-10-07T15:12:28Z | orquestrador | `git push origin main` (o mesmo conjunto) | `! [remote rejected] main -> main (Internal Server Error)`, Request ID `1A05:3C33FE:1A06B:5FC89:6AC6615A`. Nada aceito |
+| — | 2026-10-07T20:47Z | orquestrador, com autorização do operador | **sonda de diagnóstico**: push de uma tag descartável apontando para `b14559ea`, que não traz objeto novo | **aceita**. A tag foi apagada em seguida, e a ausência no remoto foi conferida. Conclusão: o repositório aceita escrita, e o 500 de mais de 5 h antes pode ter sido transitório do lado do GitHub |
+| — | logo depois | operador | resposta verbatim a «posso tentar o push?»: **«sim»** | autoriza UMA nova tentativa do push aprovado de `main` (os 27 commits aprovados + o `dddf7ac9`, só `.planning/`) |
+
+#### Precondições e conjunto, repetidos antes do push (2026-10-07T20:51:24Z, HEAD `dddf7ac958a97b737af659222e215fa198d9b6b8`)
+
+- **(a)** A resposta ao Task 2 foi «publicar», e a autorização desta tentativa foi «sim».
+- **(b)** Com `G` = `8f3372fb`, `git diff --name-only G..HEAD` fora de `.planning/` → vazio.
+- **(c)** `git fetch`, depois `HEAD..origin/main` = **0** (`origin/main` = `b14559ea`).
+- **(d)** `gh auth status` → 0; o token do Keychain está presente → 0.
+- **(e)** `git diff --quiet dedca1fb -- .planning/REQUIREMENTS.md` → 0.
+- Conferência do conjunto, re-extraída LITERAL da linha 204 do plano (byte a byte igual à extração anterior, conferido por `diff`): **`commits=28 fora=[]`**, `REQUIREMENTS.md intocado`.
+- Fora de `.planning/`, `git diff --name-only origin/main HEAD` → exatamente os sete arquivos autorizados.
+
+#### 6ª tentativa: aceita
+
+| # | Início (UTC) | Fim (UTC) | Transporte | Resultado |
+|---|---|---|---|---|
+| 6 | 2026-10-07T20:51:31Z | **2026-10-07T20:51:34Z** | SSH `git push origin main`, a forma aprovada, sem variação | `b14559ea..dddf7ac9  main -> main` (rc 0) |
+
+- **Sha empurrado:** `dddf7ac958a97b737af659222e215fa198d9b6b8`. Depois do push, `git fetch` e `git ls-remote` mostram `origin/main` = `dddf7ac9`.
+- **`T0` do U1 = `2026-10-07T20:51:34Z`**, o instante em que o push foi confirmado.
+
+#### Deploy da Vercel
+
+`gh api repos/fercosnt/SistemaRecrutamento/commits/dddf7ac9…/statuses`:
+
+- `pending` «Vercel is deploying your app» às 20:51:38Z;
+- **`success` «Deployment has completed» às 20:52:08Z**, cerca de 30 s depois (deployment `4B7CULNUtSgjo6LQzjfzYp4zYTsg`).
+
+#### Verify do Task 3 sobre o publicado (primeira passada, 20:52:26Z–20:52:40Z)
+
+O `<automated>` da linha 308 do plano foi extraído LITERAL por script. A única troca foi `D=$(mktemp -d)` → o scratch da sessão (`…/scratchpad/p4422/p1`), e ele rodou com `bash`. Na ordem em que o comando checa:
+
+- `git log --oneline origin/main..HEAD` → vazio.
+- REQUIREMENTS.md intocado.
+- **`commits publicados=28 fora=[]`**: todo commit de `b14559ea..origin/main` está dentro do conjunto autorizado.
+- EF `exportar-meus-dados` pela Management API: **`version` 6, `status` ACTIVE, `verify_jwt` true**. Nenhum redeploy.
+- Crawl de `https://rh.beautysmile.com.br/?cb=…` com `Cache-Control: no-cache`, índice e todo `assets/*.js` referenciado até ponto fixo: `index.html` + **49 JS**. O `index.html` agora referencia **`assets/index-7NrDustL.js`**, o mesmo hash do build local do Task 1. Antes do push era `index-DTxaEkc3.js`.
+- Script `P` sobre o publicado, chunks lazy inclusive:
+  **`oQueNaoEsta em index-7NrDustL.js · naoEstaVersaoDivergente em index-7NrDustL.js · 49 JS varridos; trechos antigos ausentes; canal presente`**
+
+  A oração da igualdade entre candidatos, o segundo ramo do convite, o trecho antigo do CR-01 e o endereço morto do canal não estão em nenhum JS publicado nem no `index.html`.
+- Em seguida, o script da disposição imprimiu `linhas=9 fora=["CR-01:nao-fixed",…,"IN-02:nao-fixed"]` e **`DISPOSICAO FORA DO DECIDIDO`** (exit 1). Era o esperado nesse instante: as 9 linhas ainda estavam `open`. O portão da escrituração foi visto mordendo antes de ela existir.
+
+#### Escrituração (Task 3, itens 3–6)
+
+- **`44-REVIEW-DISPOSITION.md`** (Edits de escopo mínimo): as 9 linhas passam a `fixed` com sha.
+  - CR-01 → `6562031e` (44-17 Task 1) · publicado em `index-7NrDustL.js` (push `dddf7ac9`)
+  - WR-01 → `6562031e` (44-17 Task 1, BD-19)
+  - WR-02 → `6b51335d` (44-20 Task 2)
+  - WR-03 → `183dc181` (44-20 Task 1)
+  - WR-04 → `085e3b44` (44-19 Task 1)
+  - WR-05 → `2bfdeb0c` (44-19 Task 2)
+  - WR-06 → `64139d5c` (44-19 Task 3; `templates_email` medido: 0)
+  - IN-01 → `c1c42fa0` (44-17 Task 2)
+  - IN-02 → `64139d5c` (44-19 Task 3)
+
+  Os shas são os dos SUMMARY de 44-17, 44-19 e 44-20, e cada um existe no repositório. Também entraram a linha «Atualizada em 2026-10-07 pelo 44-22» e, abaixo da tabela, uma nota de referência cruzada do WR-03 para os WR-01/WR-06 da revisão do 44-21. A nota NÃO muda o valor da célula.
+- **`44-REVIEW-DISPOSITION-pos-CR01bis.md`** (NOVO): 10 linhas, uma por cabeçalho `### (WR|IN)-NN:` do `44-REVIEW-pos-CR01bis.md`, na ordem do arquivo (WR-01..WR-06, IN-01..IN-04). Todas estão **`open`**, porque o operador não deu disposição. As linhas foram geradas por script a partir dos cabeçalhos, sem transcrição. A única alteração é `|` → `/` dentro da célula do WR-04 («entra/entram»), declarada no próprio arquivo.
+- **`STATE.md`**, à mão:
+  - mudaram `stopped_at`, `last_updated`, `last_activity_desc`, `Last session:` e `Stopped at:`;
+  - entrou uma linha de decisão `[Phase 44]: 44-22`;
+  - `progress` não mudou (144/147), porque o 44-22 só fica completo depois do U1;
+  - a conferência de corpo (forma «antes de commitar») não imprimiu nada.
+- **`ROADMAP.md`:** sem mudança neste commit. As caixas de 44-17..44-21 já estavam `[x]`. A do 44-22 e o `21/22` da linha de progresso da Phase 44 só viram depois do U1 (ver «Desvios»). A caixa `- [ ] **Phase 44` está intocada.
+
+#### Desvios deste task
+
+- **[Escopo — escrituração] A caixa do 44-22 e o 22/22 não foram marcados no Task 3.** O item 6 pede as caixas 44-17..44-22 «se ainda não estiverem». O 44-22 só termina com o U1 (Task 4), e o `STATE.md` segue com 144/147. Marcar a caixa agora deixaria o ROADMAP afirmando um plano completo que ainda depende do operador. O commit pós-U1 vira a caixa do 44-22 e o `21/22` → `22/22`, junto com o `progress` do STATE. A guarda «ROADMAP: só caixas desta rodada» aceita os dois estados.
+
+#### Pendente neste task (vai no segundo push, só `.planning/`)
+
+- Commit de escrituração `docs(44-22)`: as duas disposições, este SUMMARY e o STATE.
+- Repetir a conferência do item 1, fazer o segundo push e rodar o verify da linha 308 até a linha final. O resultado desse verify vai para o SUMMARY no commit pós-U1, que é o terceiro push, também só `.planning/` e coberto pela resposta «publicar».

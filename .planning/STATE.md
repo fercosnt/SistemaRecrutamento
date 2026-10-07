@@ -3,8 +3,8 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 44-21-PLAN.md (2026-10-07): revisao adversarial independente do diff dedca1fb..09168e22 em 44-REVIEW-pos-CR01bis.md — critical 0, warning 6, info 4; copy publicada verdadeira sob a 1.4.0; os sete portoes novos morderam a sonda propria do revisor (md5+cmp restaurados); WR-01 fronteiraDaCopia compara versao e nao conteudo, WR-03 smoke calado por set_config forjado (provado). Nada publicado. Proximo: 44-22 (checkpoint do operador)"
-last_updated: "2026-10-07T13:03:04.000Z"
+stopped_at: "44-22 Task 3 concluido (2026-10-07): CR-01-bis PUBLICADO — push b14559ea..dddf7ac9 as 20:51:34Z (6a tentativa; as 5 anteriores, 15:09-15:12Z, recusadas pelo GitHub com Internal Server Error), Vercel success 20:52:08Z, as duas frases de HEAD em index-7NrDustL.js no publicado (49 JS varridos), trechos antigos fora, EF v6; 44-REVIEW-DISPOSITION 9/9 fixed, 44-REVIEW-DISPOSITION-pos-CR01bis 10 open. Proximo: 44-22 Task 4 (U1, checkpoint do operador)"
+last_updated: "2026-10-07T20:54:03.000Z"
 last_activity: 2026-10-07
 state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a
 progress:
@@ -15,7 +15,7 @@ progress:
   percent: 98
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "execute-phase 44 --gaps-only — 44-21 concluido (commits eacf659e, 8501d8c3): revisao adversarial independente num arquivo NOVO (44-REVIEW-pos-CR01bis.md, 0/6/4), dez sondas restauradas byte a byte, confronto com os SUMMARY (WR-06); nenhum arquivo fora de .planning/ mudou"
+last_activity_desc: "execute-phase 44 --gaps-only — 44-22 Task 3: publicado o front do CR-01-bis (push dddf7ac9, 28 commits, commits publicados=28 fora=[]), frases conferidas no publicado, EF v6 intocada, disposicoes escrituradas; aguardando o U1 (pedido real da conta de teste) para fechar o 44-22"
 ---
 
 # Project State
@@ -1387,6 +1387,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-20: parenteses positivos da frase presos ao artefato (WR-02) — `PARENTESES_QUE_ENTRAM` (escopo deliberado) comparado por igualdade de conjuntos com os parenteses DERIVADOS da frase, cada coluna em `colunas` e fora de `colunas_excluidas`; alvos do (cr4b) pela ordem do mapa (IN-01), nunca por nome
 - [Phase 44]: 44-21: revisao adversarial independente da rodada CR-01-bis (44-REVIEW-pos-CR01bis.md, diff_head 09168e22) — critical 0 (copy publicada verdadeira sob a 1.4.0, frase = UI-SPEC caractere a caractere, rodada so front), warning 6, info 4; a porta do 44-22 pode abrir pelo criterio `critical = 0`, e os seis WR seguem para decisao do operador no checkpoint
 - [Phase 44]: 44-21: o item do 44-20 em deferred-items (rodape «undefined» com versao_allowlist ausente) classificado WR-02 — viola a E4 da UI-SPEC (nunca null cru), inalcancavel com a EF de hoje; conserto sugerido sem copy nova: `invocarExportMeusDados` recusa resposta sem versao (SERVER_ERROR)
+- [Phase 44]: 44-22: CR-01-bis publicado com «publicar» do operador (sem disposicao de achado => os 10 da revisao do 44-21 ficam open em 44-REVIEW-DISPOSITION-pos-CR01bis.md) — push dddf7ac9 em 2026-10-07T20:51:34Z apos 5 recusas 500 do GitHub (15:09-15:12Z) e sonda de tag descartavel (20:47Z, aceita e apagada); conferido no publicado (index-7NrDustL.js, 49 JS), EF v6; a caixa do 44-22 e o 22/22 da Phase 44 so viram depois do U1
 
 ### Roadmap Evolution
 
@@ -1719,8 +1720,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-07T13:03:04.000Z
-Stopped at: Completed 44-21-PLAN.md
+Last session: 2026-10-07T20:54:03.000Z
+Stopped at: 44-22 Task 3 concluido (publicado); aguardando Task 4 (U1)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
