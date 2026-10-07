@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 44 gap closure planejada (2026-10-07): 44-17..44-22 em serie (waves 1-6), checker PASSED na iteracao 3 — CR-01-bis (frase pela UI-SPEC, BD-18 nomear e reter entrevista_guias; BD-19 convite estreitado), portao de classe (BD-21), WR-02..WR-06, IN-01/02, revisao adversarial independente (44-21) antes da porta, publicacao so do front com checkpoint do operador e U1 (44-22). Proximo: /gsd-execute-phase 44 --gaps-only"
-last_updated: "2026-10-07T12:03:51.621Z"
+stopped_at: "Completed 44-17-PLAN.md (2026-10-07): CR-01-bis fechado no codigo — frase nomeia o roteiro da entrevista (BD-18), convite so oferece saber mais (BD-19), portao (cr5) por tabela visto vermelho com a frase antiga e mordendo a frase real; (cr3) desacoplado (IN-01). Nada publicado. Proximo: 44-18"
+last_updated: "2026-10-07T12:12:00.000Z"
 last_activity: 2026-10-07
 state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 147
-  completed_plans: 139
+  completed_plans: 140
   percent: 95
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "plan-phase 44 --gaps — 6 planos (44-17..44-22) commits de086abe, 21174271, c7ea7b21; decisoes do operador: nomear e reter entrevista_guias, estreitar o convite WR-01, escopo inclui WR-02..WR-06"
+last_activity_desc: "execute-phase 44 --gaps-only — 44-17 concluido (commits 6562031e, c1c42fa0): frase CR-01-bis + (cr5) + IN-01; docs/compliance e supabase intocados desde dedca1fb"
 ---
 
 # Project State
@@ -1377,6 +1377,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-15: (i)/(i2) ordenam com a chave do gerador (linha sem recuo e sem virgula final) e as fixtures LOCAIS carregam prefixo comum; (i3) prova a mordida; gerador, allowlist, YAML, relatorio 05 e EF intocados
 - [Phase 44]: 44-16: canal de privacidade passa a rh@beautysmile.com.br no sistema inteiro (operador, 2026-10-06: lgpd@ nunca existiu e nao e lido) — fonte unica CANAL_PRIVACIDADE_EMAIL, igual ao REPLY_TO das EFs; AutorizacoesStep deixa de digitar o endereco; (cp1..cp4) prendem valor, REPLY_TO, ausencia do endereco morto e fonte unica
 - [Phase 44]: 44-16: conjunto autorizado do push emendado de forma explicita (5 arquivos de codigo do ajuste do canal) por decisao do operador; push 0fde284f..31d24652 publicado com «publicar»; WR-06 decided por BD-16 (plano fica fora e a frase nomeia a categoria)
+- [Phase 44]: 44-17: CR-01-bis — `entrevista_guias` NOMEADA e RETIDA (BD-18, operador): a frase tira a igualdade entre candidatos da clausula da configuracao e nomeia «o roteiro que a equipe monta para conduzir a sua entrevista»; o convite final so oferece saber mais (BD-19, operador, fecha WR-01); allowlist 1.4.0, EF e banco intocados
+- [Phase 44]: 44-17: portao por TABELA (BD-21) — (cr5) deriva familias genericas do mapa, colunas de vinculo de chave_titular (menos a raiz candidatos) e compara por igualdade de conjuntos com VEREDITO_POR_TABELA; hoje {entrevista_guias}, medido na execucao; (cr3) controles 2 e 4 escolhidos pelos dados derivados (IN-01)
 
 ### Roadmap Evolution
 
@@ -1709,8 +1711,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-07T01:20:00.000Z
-Stopped at: Completed 44-16-PLAN.md
+Last session: 2026-10-07T12:12:00.000Z
+Stopped at: Completed 44-17-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
