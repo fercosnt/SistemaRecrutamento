@@ -1,10 +1,56 @@
 ---
 phase: 44-exporta-o-acesso
 plan: 16
-status: in-progress
+subsystem: privacidade / publicação do front
+tags: [lgpd, export, cr-01, publicacao, vercel, canal-privacidade]
+status: complete
+requires:
+  - 44-14 (frase oQueNaoEsta)
+  - 44-15 (portões WR-01/02/03/07)
+provides:
+  - "CR-01 fechado NO AR: frase nova em index-DTxaEkc3.js publicado, frase antiga fora dos 49 JS"
+  - "canal de privacidade rh@beautysmile.com.br em todo o front publicado; lgpd@ fora de todo JS e do index.html"
+  - "44-REVIEW-DISPOSITION.md: CR-01/WR-01/WR-02/WR-03/WR-07 fixed, WR-06 decided (BD-16), 9 open"
+affects: [rh.beautysmile.com.br, 44-REVIEW-DISPOSITION.md, STATE.md, ROADMAP.md]
+tech-stack:
+  added: []
+  patterns:
+    - "fonte única do canal (CANAL_PRIVACIDADE_EMAIL) presa por valor literal + igualdade com REPLY_TO + ausência do endereço morto + fonte única"
+    - "conferência pós-push no PUBLICADO (crawl até ponto fixo), nunca no disco"
+key-files:
+  created:
+    - src/features/privacidade/constants/__tests__/canalPrivacidade.test.ts
+  modified:
+    - src/features/privacidade/constants/canalPrivacidade.ts
+    - src/features/cadastro/components/steps/AutorizacoesStep.tsx
+    - src/features/cadastro/components/steps/__tests__/AutorizacoesStep.test.tsx
+    - src/features/explicacao/components/__tests__/ExplicacaoCandidatoPage.test.tsx
+    - .planning/phases/44-exporta-o-acesso/44-REVIEW-DISPOSITION.md
+    - .planning/phases/44-exporta-o-acesso/44-UI-SPEC.md
+    - .planning/DECISAO-ENCARREGADO.md
+    - .planning/phases/44-exporta-o-acesso/deferred-items.md
+    - .planning/STATE.md
+    - .planning/ROADMAP.md
+decisions:
+  - "Canal de privacidade = rh@beautysmile.com.br no sistema inteiro (operador, 2026-10-06): lgpd@ nunca existiu"
+  - "Conjunto autorizado do push emendado de forma explícita com os 5 arquivos do ajuste do canal"
+  - "WR-06 decided por BD-16 (plano fica fora, a frase nomeia a categoria; sem código)"
+metrics:
+  duration: "~80min (2026-10-07T00:00Z–01:20Z, inclui duas esperas do operador)"
+  completed: 2026-10-07
+actuals:
+  tokens: 13000
+  tasks: 3
+  commits: 5
+plan_head_before: 32eb9371dd54d818de79c90eb67291321ee58360
+plan_head_after: 31d24652b11b1d10422549a0a50a35dd56c28772
 ---
 
-# Phase 44 Plan 16: publicação do CR-01 — Summary (PARCIAL: Task 1, ajuste do operador no Task 2 e Task 1 de novo; a publicação é o Task 3)
+# Phase 44 Plan 16: publicação do CR-01 — Summary
+
+**CR-01 fechado no ar:** a frase verdadeira de «O que não está na cópia», com o canal de privacidade trocado para `rh@beautysmile.com.br` no sistema inteiro, foi publicada (push `0fde284f..31d24652`, Vercel `success`). Ela foi conferida no chunk publicado `index-DTxaEkc3.js`. A frase antiga e o `lgpd@` saíram de todo JS publicado. A EF segue na v6 e a disposição da re-revisão foi escriturada.
+
+> `commits: 5` conta os commits do plano até `plan_head_after` (`917701db`, `98f9efb3`, `b1136807`, `1031e409`, `31d24652`). O commit de escrituração final (`docs(44-16): complete …`), que carrega este SUMMARY, é o sexto e sobe no segundo push.
 
 GATES_SHA: 1031e409869d1b44054cd97c62958438dd02ffc2
 
@@ -291,3 +337,104 @@ Todas leem `CANAL_PRIVACIDADE_EMAIL`. O passo do cadastro passou a ler nesta rod
 - **Banco:** nenhuma escrita.
 - **Mudanças alheias:** `.planning/ui-reviews/.gitignore` (M), `docs/specs/DRAFT-banco-sjt-marketing.md` (M) e `docs/vagas/` (??).
 - **`ErrorBoundary`:** o `mailto:suporte@` continua como está (`deferred-items.md`).
+
+---
+
+## Aprovação (Task 2)
+
+O operador respondeu duas vezes, nesta ordem (verbatim):
+
+1. Primeira apresentação (frase com `lgpd@`): **«trocar o email para rh@beautysmile.com.br»**. Foi um ajuste, não uma autorização. Gerou a rodada 2 (seções A–J).
+2. Segunda apresentação (a frase da seção H, com `rh@beautysmile.com.br`, a lista de 21 commits e o conjunto emendado): **«publicar»**.
+
+Essa resposta autoriza o push do código e o push seguinte, só de `.planning/`. Não autoriza mais nada: nenhuma EF, nenhum banco, nenhuma allowlist.
+
+## Publicação (Task 3)
+
+### Antes do push de código (2026-10-07T01:14Z)
+
+- Precondições:
+  - `git fetch`: `HEAD..origin/main` = **0**, `origin/main` = `0fde284f`, `origin/main..HEAD` = 21;
+  - `git diff --name-only 1031e409..HEAD` = só `.planning/phases/44-exporta-o-acesso/44-16-SUMMARY.md`;
+  - `gh auth status` 0, token da Management API presente no Keychain.
+- Diff BD-15 de `origin/main..HEAD` (allowlist, YAML, catálogo, `docs/compliance/sql`, `supabase/functions`): **vazio**.
+- Conjunto, com a regex emendada (seção E): **`[emendado] commits=21 fora=[]`**.
+
+### Push de código
+
+- `git push origin main` às 2026-10-07T01:14:37Z → `0fde284f..31d24652  main -> main`. Sem force e sem rebase.
+- **Sha empurrado:** `31d24652b11b1d10422549a0a50a35dd56c28772`.
+- Status da Vercel (`gh api …/commits/31d24652…/statuses`):
+  - às 01:14:42Z, `pending` («Vercel is deploying your app»);
+  - às 01:15:04Z, **`success` «Deployment has completed»**.
+- Deployment: `EprRh4quLqnv8PSPnHtMLQKXiEFS` (`https://vercel.com/fercosnts-projects/sistema-recrutamento/EprRh4quLqnv8PSPnHtMLQKXiEFS`).
+
+### Conferência no PUBLICADO (crawl às ~01:15:20Z)
+
+O crawl de `https://rh.beautysmile.com.br/` (com `?cb=` e `Cache-Control: no-cache`) baixou o índice e todo `assets/*.js` referenciado, até ponto fixo: **49 JS**.
+
+- O `index.html` referencia **`assets/index-DTxaEkc3.js`**. O `index-BgK7K5Is.js` antigo **não** é mais referenciado, então é build novo e não render em cache. O hash é o mesmo do build local da rodada 2 (seção F), porque o build é determinístico sobre a mesma árvore.
+- Um GET simples, sem cache-buster, também serve `index-DTxaEkc3.js` (`x-vercel-cache: HIT`, `age: 19`). O cache da borda já é o novo.
+- Script `P` sobre o publicado: **`frase nova em index-DTxaEkc3.js (1 trecho(s) fixo(s), 49 JS varridos)`**.
+- `descrevem o sistema`: **ausente de todos os 49 JS**.
+- Checagem estendida (seção G):
+  - `lgpd@beautysmile.com.br` **ausente de todos os JS e do `index.html`**;
+  - `rh@beautysmile.com.br` **presente em `index-DTxaEkc3.js`**.
+
+  As duas checagens reprovavam o site às 01:05Z (seção F) e passam agora.
+
+### Depois do push: BD-15 e EF
+
+- `git diff --name-only 0fde284f origin/main` sobre allowlist, YAML, catálogo, `docs/compliance/sql` e `supabase/functions`: **vazio**.
+- EF `exportar-meus-dados`, pela Management API às 01:15:37Z: **`version` 6, `status` ACTIVE, `verify_jwt` true**. Não houve redeploy.
+
+### Escrituração
+
+- **`44-REVIEW-DISPOSITION.md`:** uma nota datada abaixo do parágrafo de abertura. As linhas mudaram assim:
+  - CR-01 → `fixed — d5402c1c (44-14) · publicado em index-DTxaEkc3.js (push 31d24652)`;
+  - WR-01 → `fixed — a38041ae (44-15 Task 2)`;
+  - WR-02 e WR-03 → `fixed — f2e357a8 (44-15 Task 1)`;
+  - WR-07 → `fixed — 813b191c (44-15 Task 3)`;
+  - WR-06 → `decided — BD-16 (operador, 2026-10-06) …; sem mudança de código`;
+  - WR-04, WR-05 e IN-01..IN-07 continuam `open`.
+
+  O script do verify imprime **`linhas=15 fora=[]`**.
+- **`STATE.md`, À MÃO:** frontmatter (`stopped_at`, `last_updated`, `last_activity`, `state_head`, 139/141 99%, `last_activity_desc`), uma linha de métrica P16, duas decisões e Session Continuity. A conferência de corpo antes de commitar saiu **vazia**.
+- **`ROADMAP.md`, À MÃO:** a caixa 44-16 foi marcada e o progresso da 44 foi para 13/16. A caixa **`- [ ] **Phase 44` ficou desmarcada** (`grep -c` = 1). Quem a vira é o verificador.
+- Não usei `phase.complete`, `update-plan-progress` nem os escritores `state.*` do gsd-tools.
+
+O segundo push (só `.planning/`) e o `origin/main..HEAD` vazio que vem depois dele estão registrados na mensagem de retorno do executor e no git. Não estão aqui porque este SUMMARY sobe nesse mesmo push.
+
+## Pendências do re-verificador
+
+- **CR-01:** reverificar pelo PUBLICADO (`index-DTxaEkc3.js` ou o que o suceder), não pelo disco.
+- **U1, recomendação do verificador e ato do operador:** fazer um pedido real de cópia pela conta de teste e ver a frase nova, com `rh@beautysmile.com.br`, no `.html` e no `.json` baixados.
+- **BD-14:** o override da cadência manual continua valendo.
+- **`ErrorBoundary`:** a caixa `suporte@beautysmile.com.br` (`deferred-items.md`) segue como pergunta ao operador.
+
+## Deviations from Plan
+
+### Desvio por decisão do operador
+
+**1. Conjunto autorizado emendado (rodada 2, seção E).** A resposta «trocar o email para rh@beautysmile.com.br» exigiu código fora dos cinco arquivos do plano: `canalPrivacidade.ts` e o teste dele, `AutorizacoesStep.tsx` e o teste dele, e `ExplicacaoCandidatoPage.test.tsx`. A emenda foi explícita, e as duas conferências de conjunto do Task 3 a usaram:
+- antes do push, sobre `origin/main..HEAD`;
+- no fim, sobre `0fde284f..origin/main`.
+
+A regex de assunto não mudou. O BD-15 também não: o diff de allowlist, EF e SQL ficou vazio.
+
+**2. Checagem pós-publicação estendida (seção G).** Além do que o plano pede, conferi `lgpd@` ausente de todo JS e do `index.html` e `rh@` presente. As duas passaram.
+
+### Auto-fixed Issues
+
+Nenhum.
+
+## Known Stubs
+
+Nenhum.
+
+## Self-Check: PASSED
+
+- Arquivos: `44-16-SUMMARY.md`, `44-REVIEW-DISPOSITION.md`, `canalPrivacidade.ts` e `canalPrivacidade.test.ts` estão todos presentes.
+- Commits: `917701db`, `98f9efb3`, `b1136807`, `1031e409` (o `GATES_SHA` completo) e `31d24652` existem.
+- Os shas citados na disposição também existem: `d5402c1c`, `a38041ae`, `f2e357a8` e `813b191c`.
+- `31d24652` está em `origin/main`.

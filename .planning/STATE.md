@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 44 --gaps-only (CR-01) — 44-15 concluido (smoke fail-closed provado contra PROD so leitura; (k) permissiva, (k3) estrutura+predicado+agregador, (k4) M1-M18, (i)/(i2)/(i3) WR-07 — cada portao visto mordendo); proximo 44-16 (publicacao com checkpoint do operador)"
-last_updated: "2026-10-06T23:58:00.000Z"
-last_activity: 2026-10-06
-state_head: 813b191cadcaecc45070bd81a608a659835769a1
+stopped_at: "Phase 44 --gaps-only (CR-01) — 44-16 concluido (operador: canal rh@ no sistema inteiro, depois «publicar»; push 0fde284f..31d24652, Vercel success, frase nova e rh@ em index-DTxaEkc3.js, lgpd@ e frase antiga fora de todo JS; EF v6; disposicao: 5 fixed, WR-06 decided BD-16); proximo: re-verificacao da Phase 44"
+last_updated: "2026-10-07T01:20:00.000Z"
+last_activity: 2026-10-07
+state_head: 31d24652b11b1d10422549a0a50a35dd56c28772
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 141
-  completed_plans: 138
-  percent: 98
+  completed_plans: 139
+  percent: 99
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "44-15 concluido — WR-03: DO $gate$ fail-closed (coalesce / IS DISTINCT FROM 0); PROD so leitura: A (arquivo anterior) aprovava com n_drift null, B/C/D reprovam, E limpo aprova n_drift 0; WR-01/02: (k) permissiva, (k3), (k4) M1-M18 (526/528); WR-07: (i)/(i2) com a chave do gerador + (i3); 91 testes verdes; nada publicado (proximo 44-16)"
+last_activity_desc: "44-16 concluido — CR-01 no ar: GATES_SHA 1031e409 (rodada 2, suite 2449 so com as 2 pre-existentes, tsc 89, smoke limpo PROD n_drift 0); operador: «trocar o email para rh@beautysmile.com.br» (sistema inteiro, lgpd@ nunca existiu) e depois «publicar»; push 0fde284f..31d24652 (21 commits, fora=[]); Vercel success; publicado index-DTxaEkc3.js com a frase nova e rh@, lgpd@ e «descrevem o sistema» ausentes dos 49 JS; EF v6 ACTIVE verify_jwt true; disposicao 15 linhas: CR-01/WR-01/02/03/07 fixed, WR-06 decided BD-16"
 ---
 
 # Project State
@@ -985,6 +985,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P13 | ~9min | 3 tasks | 3 files |
 | Phase 44 P14 | ~6min | 3 tasks | 3 files |
 | Phase 44 P15 | ~9min | 3 tasks | 3 files |
+| Phase 44 P16 | ~80min (inclui duas esperas do operador) | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -1374,6 +1375,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-15: smoke p44_export_drift falha FECHADO (WR-03) — coalesce((r->>'<k>')::int, 0) = 0 nas guardas de populacao e IS DISTINCT FROM 0 na de drift; provado contra PROD so leitura (o arquivo anterior aprovava com n_drift null e drift presente; o novo reprova)
 - [Phase 44]: 44-15: a (k3) prende o predicado do smoke ao relatorio 05 (com_veredito, tabelas_vivas, vivo, os dois bracos do drift) e a estrutura que falha alto (DO $gate$, sem EXCEPTION WHEN, guardas exatas, chave lida = construida, agregador = contagem nua de CTE; drift = escopo deliberado); a (k4) ve 18 mutacoes reprovarem nomeando o alvo; a (k) ganhou contagem permissiva sem afrouxar a canonica
 - [Phase 44]: 44-15: (i)/(i2) ordenam com a chave do gerador (linha sem recuo e sem virgula final) e as fixtures LOCAIS carregam prefixo comum; (i3) prova a mordida; gerador, allowlist, YAML, relatorio 05 e EF intocados
+- [Phase 44]: 44-16: canal de privacidade passa a rh@beautysmile.com.br no sistema inteiro (operador, 2026-10-06: lgpd@ nunca existiu e nao e lido) — fonte unica CANAL_PRIVACIDADE_EMAIL, igual ao REPLY_TO das EFs; AutorizacoesStep deixa de digitar o endereco; (cp1..cp4) prendem valor, REPLY_TO, ausencia do endereco morto e fonte unica
+- [Phase 44]: 44-16: conjunto autorizado do push emendado de forma explicita (5 arquivos de codigo do ajuste do canal) por decisao do operador; push 0fde284f..31d24652 publicado com «publicar»; WR-06 decided por BD-16 (plano fica fora e a frase nomeia a categoria)
 
 ### Roadmap Evolution
 
@@ -1706,8 +1709,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-06T23:58:00.000Z
-Stopped at: Completed 44-15-PLAN.md
+Last session: 2026-10-07T01:20:00.000Z
+Stopped at: Completed 44-16-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
