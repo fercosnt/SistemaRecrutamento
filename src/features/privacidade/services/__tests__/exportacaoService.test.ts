@@ -81,7 +81,10 @@ const ISO = '2026-08-04T13:45:00.000Z'
 function resposta(over: Partial<RespostaExport> = {}): RespostaExport {
   return {
     ok: true,
-    versao_allowlist: '1.1.0',
+    // A versão do BUNDLE, derivada — nunca um literal: com a lista da resposta igual à do
+    // site, os arquivos carregam a frase da tela; numa versão divergente, a neutra (WR-03,
+    // caso (cr6)). Um literal aqui envelheceria a cada regeneração da allowlist.
+    versao_allowlist: EXPORT_ALLOWLIST.meta.versao,
     gerado_em: ISO,
     payload: {
       candidatos: [{ id: 'cand-1', nome_completo: 'Fulana de Tal' }],
@@ -149,7 +152,7 @@ describe('gerarJsonExport', () => {
   it('(b) carrega o envelope de metadados e o payload', () => {
     const objeto = JSON.parse(gerarJsonExport(resposta()))
     expect(objeto.gerado_em).toBe(ISO)
-    expect(objeto.versao_allowlist).toBe('1.1.0')
+    expect(objeto.versao_allowlist).toBe(EXPORT_ALLOWLIST.meta.versao)
     expect(objeto.dados.candidatos[0].nome_completo).toBe('Fulana de Tal')
     // A fronteira do EXPORT-06 viaja DENTRO do arquivo: meses depois, o `.json`
     // sozinho tem de dizer o que não estava nele.
@@ -1312,6 +1315,68 @@ describe('a fronteira dita ao titular (CR-01)', () => {
     expect(renomeadas, 'controle 7: nenhuma coluna de vínculo do alvo foi renomeada').toBeGreaterThan(0)
     expect(mudouOCatalogo(renomeado), 'controle 7: a mutação não mudou o catálogo').toBe(true)
     expect(lacunasPorTabela(frase, EXPORT_ALLOWLIST, renomeado, yamlTexto).vereditoOrfao).toEqual([alvo])
+  })
+
+  // ── Plano 44-20 — WR-03: a fronteira dos ARQUIVOS falha fechada (BD-22) ─────────
+  // O (cr1)/(cr5) prendem a frase ao artefato DO REPOSITÓRIO — o compilado no bundle. O
+  // carimbo dos arquivos vem da Edge Function IMPLANTADA (`versao_allowlist` da resposta),
+  // e as duas saem por canais independentes (CLAUDE.md). Numa versão divergente, a cópia
+  // não pode afirmar a fronteira de uma versão com o carimbo de outra: carrega a frase
+  // neutra que manda ao canal. O rodapé e o `.json` continuam dizendo a versão recebida.
+  it('(cr6) WR-03 · versão da lista da resposta diferente da do site ⇒ fronteira neutra nos dois arquivos', () => {
+    const daTela = COPY_PEDIR_COPIA.oQueNaoEsta
+    const neutra = COPY_ARQUIVO.naoEstaVersaoDivergente
+    const secao = (texto: string) =>
+      `<section><h2>${escapeHtml(COPY_ARQUIVO.naoEstaTitulo)}</h2>\n<p>${escapeHtml(texto)}</p></section>`
+    const fronteiraDoJson = (r: RespostaExport) => JSON.parse(gerarJsonExport(r)).o_que_nao_esta_nesta_copia
+
+    // 1. versão IGUAL à do site: a frase da tela, nos dois arquivos, e nenhuma neutra.
+    const igual = resposta({ versao_allowlist: EXPORT_ALLOWLIST.meta.versao })
+    expect(fronteiraDoJson(igual), 'versão igual: o .json tem de carregar a frase da tela').toBe(daTela)
+    expect(gerarHtmlExport(igual), 'versão igual: o .html tem de carregar a frase da tela logo após o título da seção').toContain(secao(daTela))
+
+    // 2. versão DIFERENTE: a frase neutra no mesmo lugar, e a frase da tela em lugar nenhum.
+    const divergente = resposta({ versao_allowlist: '9.9.9' })
+    expect(EXPORT_ALLOWLIST.meta.versao, 'a sonda de versão divergente coincide com a do site').not.toBe('9.9.9')
+    expect(
+      fronteiraDoJson(divergente),
+      'versão divergente: o .json carrega a fronteira do bundle com o carimbo de outra versão — use fronteiraDaCopia(resposta.versao_allowlist)',
+    ).not.toBe(daTela)
+    expect(
+      gerarHtmlExport(divergente),
+      'versão divergente: o .html carrega a fronteira do bundle com o carimbo de outra versão — use fronteiraDaCopia(resposta.versao_allowlist)',
+    ).not.toContain(daTela)
+    expect(typeof neutra, 'COPY_ARQUIVO.naoEstaVersaoDivergente não existe').toBe('string')
+    expect(neutra).not.toBe(daTela)
+    expect(fronteiraDoJson(divergente)).toBe(neutra)
+    expect(gerarHtmlExport(divergente)).toContain(secao(neutra))
+    // O carimbo continua dizendo a versão que a resposta trouxe — nos dois arquivos.
+    expect(JSON.parse(gerarJsonExport(divergente)).versao_allowlist).toBe('9.9.9')
+    const htmlDivergente = gerarHtmlExport(divergente)
+    expect(htmlDivergente.slice(htmlDivergente.indexOf('<footer'))).toContain('9.9.9')
+
+    // A versão igual não carrega a neutra (o `neutra` só é conferido depois de existir).
+    expect(fronteiraDoJson(igual)).not.toBe(neutra)
+    expect(gerarHtmlExport(igual)).not.toContain(neutra)
+
+    // 3. versão VAZIA e versão AUSENTE (a chave nem veio): falha fechada também.
+    const vazia = resposta({ versao_allowlist: '' })
+    const semVersao: Partial<RespostaExport> = { ...resposta() }
+    delete semVersao.versao_allowlist
+    expect('versao_allowlist' in semVersao, 'controle: a chave não saiu do objeto').toBe(false)
+    for (const [nome, r] of [
+      ['vazia', vazia],
+      ['ausente', semVersao as RespostaExport],
+    ] as const) {
+      expect(fronteiraDoJson(r), `versão ${nome}: o .json tem de carregar a frase neutra`).toBe(neutra)
+      expect(gerarHtmlExport(r), `versão ${nome}: o .html tem de carregar a frase neutra`).toContain(secao(neutra))
+      expect(gerarHtmlExport(r), `versão ${nome}: o .html não pode carregar a frase da tela`).not.toContain(daTela)
+    }
+
+    // 4. a frase neutra em si: passa no escape sem mudar, sem nome técnico, com o canal.
+    expect(escapeHtml(neutra)).toBe(neutra)
+    expect(neutra).not.toMatch(/\b[a-z0-9]+_[a-z0-9_]+\b/)
+    expect(neutra).toContain(CANAL_PRIVACIDADE_EMAIL)
   })
 })
 

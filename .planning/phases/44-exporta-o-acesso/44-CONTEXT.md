@@ -506,3 +506,29 @@ deixou o WR-01 como advisory para decisão do operador. Autoria marcada como nos
   (44-21) num arquivo NOVO (`44-REVIEW-pos-CR01bis.md`, nunca sobre o `44-REVIEW.md`); achado
   crítico suspende a publicação (memória do projeto «re-revisar o conserto antes do apply»: a
   rodada 44-14..44-16 publicou e precisou do CR-01-bis).
+
+### BD-22 · a fronteira dos ARQUIVOS falha fechada quando a versão da lista diverge (fecha o WR-03)
+
+- **Autoria:** PLANEJADOR (dentro do escopo que o operador fixou no BD-20; a redação da frase neutra
+  é aprovada pelo operador no checkpoint do 44-22, junto com a frase do BD-18/BD-19).
+- **Defeito:** o `.html` e o `.json` são carimbados com a versão da lista que a Edge Function
+  IMPLANTADA devolve (`versao_allowlist` da resposta), mas carregavam a fronteira compilada no
+  BUNDLE (`COPY_PEDIR_COPIA.oQueNaoEsta`, presa pelo (cr1)/(cr5) ao artefato DO REPOSITÓRIO). A EF e
+  o front saem por canais independentes (CLAUDE.md: Management API × push na Vercel); na janela
+  entre um e outro, toda cópia afirmaria a fronteira de uma versão com o carimbo de outra.
+- **Decisão:** `fronteiraDaCopia(versao)` — pura e total — devolve `oQueNaoEsta` SÓ quando a versão
+  da resposta é IGUAL a `EXPORT_ALLOWLIST.meta.versao`; em qualquer outro caso (versão diferente,
+  vazia ou ausente) devolve a frase NEUTRA `COPY_ARQUIVO.naoEstaVersaoDivergente`:
+  «Esta cópia foi gerada durante uma atualização do sistema, e por isso não conseguimos descrever
+  aqui, com segurança, o que ficou de fora dela. Para saber o que não está nesta cópia, escreva para
+  o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.»
+  O rodapé do `.html` e o `versao_allowlist` do `.json` continuam carimbando a versão que a resposta
+  trouxe — o carimbo diz a verdade sobre o dado; a fronteira, quando não pode dizer a verdade, diz
+  que não sabe e manda ao canal. Vigiada pelo (cr6) de `exportacaoService.test.ts`.
+- **Onde vale:** SÓ nos dois arquivos. A TELA, antes do pedido, só conhece a versão do bundle e
+  continua mostrando `oQueNaoEsta`.
+- **Residual aceito (T-44-109):** a tela pode mostrar a fronteira do bundle enquanto a EF já serve
+  outra versão. É efêmero e o próprio deploy do front o corrige; o que a pessoa GUARDA é o arquivo,
+  e ele é o que falha fechado. A regra operacional de CLAUDE.md — EF e front saem por canais
+  independentes; depois de todo apply visível, `git log --oneline origin/main..HEAD` tem de sair
+  vazio — continua sendo a primeira defesa.

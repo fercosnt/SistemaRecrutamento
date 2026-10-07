@@ -172,6 +172,19 @@ export const COPY_ARQUIVO = {
   titulo: 'Seus dados na Beauty Smile',
   carimbo: (quando: string) => `Cópia gerada em ${quando}.`,
   naoEstaTitulo: 'O que não está nesta cópia',
+  /**
+   * A fronteira NEUTRA — a saída FECHADA de `fronteiraDaCopia` (WR-03, 44-CONTEXT BD-22).
+   *
+   * O carimbo dos arquivos (`versao_allowlist`) vem da Edge Function IMPLANTADA; a frase
+   * `COPY_PEDIR_COPIA.oQueNaoEsta` vem da allowlist COMPILADA NESTE BUNDLE. As duas saem
+   * por canais independentes (Management API × push na Vercel — CLAUDE.md), e na janela
+   * entre um e outro uma cópia carimbada com a versão da EF e carregando a fronteira do
+   * bundle afirmaria o que não sabe. Quando as versões não batem, o arquivo diz que não
+   * consegue descrever o que ficou de fora e manda ao canal — sem nomear categoria
+   * nenhuma, porque qualquer categoria nomeada aqui seria de uma versão que talvez não
+   * seja a desta cópia. Linha «Fronteira quando a versão diverge» da 44-UI-SPEC.
+   */
+  naoEstaVersaoDivergente: `Esta cópia foi gerada durante uma atualização do sistema, e por isso não conseguimos descrever aqui, com segurança, o que ficou de fora dela. Para saber o que não está nesta cópia, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
   naoFazTitulo: 'O que esta cópia não faz',
   naoFazCorpo:
     'Baixar esta cópia não altera nada nos seus dados. Ela é uma fotografia do que a Beauty Smile guardava sobre você na data acima.',
@@ -452,7 +465,9 @@ function renderizarSecao(tabela: string, linhas: unknown): string {
  *
  * ── AS DUAS SEÇÕES DE FRONTEIRA NÃO SÃO OPCIONAIS ────────────────────────────
  * "O que não está nesta cópia" carrega a MESMA razão nomeada que a tela mostra —
- * uma fronteira só, dita nos dois lugares. "O que esta cópia não faz" existe
+ * uma fronteira só, dita nos dois lugares — quando a versão da lista que a Edge
+ * Function devolveu é a deste bundle; numa versão diferente, a neutra
+ * (`fronteiraDaCopia`, WR-03). "O que esta cópia não faz" existe
  * porque baixar **não apaga**: o motor de exclusão é a Phase 45 e não existe hoje,
  * e um arquivo que sugerisse o contrário seria uma afirmação falsa sobre o
  * tratamento dos dados de uma pessoa.
@@ -478,7 +493,7 @@ export function gerarHtmlExport(resposta: RespostaExport): string {
     `<p>${escapeHtml(COPY_PEDIR_COPIA.abertura)}</p>`,
     ...ordenadas.map((tabela) => renderizarSecao(tabela, resposta.payload[tabela])),
     `<section><h2>${escapeHtml(COPY_ARQUIVO.naoEstaTitulo)}</h2>`,
-    `<p>${escapeHtml(COPY_PEDIR_COPIA.oQueNaoEsta)}</p></section>`,
+    `<p>${escapeHtml(fronteiraDaCopia(resposta.versao_allowlist))}</p></section>`,
     `<section><h2>${escapeHtml(COPY_ARQUIVO.naoFazTitulo)}</h2>`,
     `<p>${escapeHtml(COPY_ARQUIVO.naoFazCorpo)}</p></section>`,
     `<footer><p>${escapeHtml(COPY_ARQUIVO.rodape(resposta.versao_allowlist, quando))}</p></footer>`,
@@ -543,6 +558,10 @@ export const COPY_PEDIR_COPIA = {
    * de toda coluna e tabela retida e exige que cada família tenha a sua cláusula aqui.
    * Um veto novo com família nova de razão não sobe sem esta frase mudar — e ela muda
    * pela 44-UI-SPEC (linha «O que não está na cópia»), nunca direto neste arquivo.
+   * ⚠ O (cr1)/(cr5) prendem a frase ao artefato DO REPOSITÓRIO (o compilado no bundle).
+   * O arquivo entregue carrega esta frase só quando a versão da lista que a Edge Function
+   * devolveu é a mesma; numa versão diferente, carrega a neutra
+   * `COPY_ARQUIVO.naoEstaVersaoDivergente` (`fronteiraDaCopia`, WR-03, caso (cr6)).
    *
    * ⚠ Até 2026-10-06 a frase nomeava só a telemetria das ferramentas e afirmava que o
    * retido dizia respeito apenas ao sistema, e não à pessoa. Sob a allowlist 1.4.0 isso
@@ -725,6 +744,24 @@ export async function invocarExportMeusDados(): Promise<RespostaExport> {
 }
 
 /**
+ * A fronteira que os ARQUIVOS carregam — **pura e total**, e falha FECHADA (WR-03,
+ * 44-CONTEXT BD-22).
+ *
+ * `COPY_PEDIR_COPIA.oQueNaoEsta` é verdade sobre a allowlist compilada neste bundle
+ * (`EXPORT_ALLOWLIST.meta.versao`), e só sobre ela. Se a versão que a Edge Function
+ * devolveu é IGUAL, a cópia carrega essa frase — a mesma da tela. Em QUALQUER outro caso
+ * (versão diferente, vazia ou ausente), carrega `COPY_ARQUIVO.naoEstaVersaoDivergente`:
+ * o custo de errar para o lado fechado é uma frase menos específica; o de errar para o
+ * lado aberto é uma cópia que diz uma coisa com o carimbo de outra. Vigiada pelo (cr6) de
+ * `exportacaoService.test.ts`.
+ */
+export function fronteiraDaCopia(versaoAllowlist: string | null | undefined): string {
+  return versaoAllowlist === EXPORT_ALLOWLIST.meta.versao
+    ? COPY_PEDIR_COPIA.oQueNaoEsta
+    : COPY_ARQUIVO.naoEstaVersaoDivergente
+}
+
+/**
  * Monta a string do arquivo `.json` — **função pura**, sem DOM, sem relógio.
  *
  * O envelope carrega os metadados que tornam o arquivo interpretável meses depois:
@@ -737,7 +774,7 @@ export function gerarJsonExport(resposta: RespostaExport): string {
     {
       gerado_em: resposta.gerado_em,
       versao_allowlist: resposta.versao_allowlist,
-      o_que_nao_esta_nesta_copia: COPY_PEDIR_COPIA.oQueNaoEsta,
+      o_que_nao_esta_nesta_copia: fronteiraDaCopia(resposta.versao_allowlist),
       dados: resposta.payload,
     },
     null,
@@ -1090,6 +1127,7 @@ export const exportacaoService = {
   invocarExportMeusDados,
   gerarJsonExport,
   gerarHtmlExport,
+  fronteiraDaCopia,
   escapeHtml,
   formatarDataHoraPtBr,
   formatarDataPuraPtBr,
