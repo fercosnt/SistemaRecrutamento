@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "44-22 Task 3 concluido (2026-10-07): CR-01-bis PUBLICADO — push b14559ea..dddf7ac9 as 20:51:34Z (6a tentativa; as 5 anteriores, 15:09-15:12Z, recusadas pelo GitHub com Internal Server Error), Vercel success 20:52:08Z, as duas frases de HEAD em index-7NrDustL.js no publicado (49 JS varridos), trechos antigos fora, EF v6; 44-REVIEW-DISPOSITION 9/9 fixed, 44-REVIEW-DISPOSITION-pos-CR01bis 10 open. Proximo: 44-22 Task 4 (U1, checkpoint do operador)"
-last_updated: "2026-10-07T20:54:03.000Z"
+stopped_at: "Completed 44-22-PLAN.md (2026-10-07): CR-01-bis publicado (push dddf7ac9, T0 20:51:34Z) e U1 ok — pedido acesso real da conta de teste (gerado_em 21:17:52Z), o .json e o .html baixados batem com a frase de HEAD por igualdade exata, versao 1.4.0, sem frase neutra, sem trecho antigo; PROD so leitura: 1 pedido acesso desde T0, 1 atendido. Proximo: re-verificacao da Phase 44 (a caixa da Phase 44 e do verificador)"
+last_updated: "2026-10-07T21:25:00.000Z"
 last_activity: 2026-10-07
 state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a
 progress:
   total_phases: 9
   completed_phases: 9
   total_plans: 147
-  completed_plans: 144
-  percent: 98
+  completed_plans: 145
+  percent: 99
 current_phase_name: Exportação & Acesso
 current_phase: 44
-last_activity_desc: "execute-phase 44 --gaps-only — 44-22 Task 3: publicado o front do CR-01-bis (push dddf7ac9, 28 commits, commits publicados=28 fora=[]), frases conferidas no publicado, EF v6 intocada, disposicoes escrituradas; aguardando o U1 (pedido real da conta de teste) para fechar o 44-22"
+last_activity_desc: "execute-phase 44 --gaps-only — 44-22 concluido: U1 ok (json_frase, json_versao, html_frase, html_rodape, sem_neutra, sem_trecho_antigo, gerado_depois_do_push todos true; versao 1.4.0); push 2 (51797354, so .planning) conferido no publicado (commits publicados=29 fora=[]); 22/22 planos da Phase 44 com SUMMARY; aguardando a re-verificacao"
 ---
 
 # Project State
@@ -1388,6 +1388,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-21: revisao adversarial independente da rodada CR-01-bis (44-REVIEW-pos-CR01bis.md, diff_head 09168e22) — critical 0 (copy publicada verdadeira sob a 1.4.0, frase = UI-SPEC caractere a caractere, rodada so front), warning 6, info 4; a porta do 44-22 pode abrir pelo criterio `critical = 0`, e os seis WR seguem para decisao do operador no checkpoint
 - [Phase 44]: 44-21: o item do 44-20 em deferred-items (rodape «undefined» com versao_allowlist ausente) classificado WR-02 — viola a E4 da UI-SPEC (nunca null cru), inalcancavel com a EF de hoje; conserto sugerido sem copy nova: `invocarExportMeusDados` recusa resposta sem versao (SERVER_ERROR)
 - [Phase 44]: 44-22: CR-01-bis publicado com «publicar» do operador (sem disposicao de achado => os 10 da revisao do 44-21 ficam open em 44-REVIEW-DISPOSITION-pos-CR01bis.md) — push dddf7ac9 em 2026-10-07T20:51:34Z apos 5 recusas 500 do GitHub (15:09-15:12Z) e sonda de tag descartavel (20:47Z, aceita e apagada); conferido no publicado (index-7NrDustL.js, 49 JS), EF v6; a caixa do 44-22 e o 22/22 da Phase 44 so viram depois do U1
+- [Phase 44]: 44-22: U1 ok — o operador fez UM pedido acesso real com a conta de teste depois do push (gerado_em 2026-10-07T21:17:52.829Z > T0 20:51:34Z); o script U1 do plano comparou o .json e o .html baixados com a frase de HEAD (igualdade exata, versao 1.4.0, rodape 1.4.0, sem frase neutra, sem trecho antigo) imprimindo so booleanos; PROD so leitura: 1 pedido acesso desde T0, 1 atendido. A frase do CR-01-bis chegou ao arquivo de quem pede, nao so ao bundle
 
 ### Roadmap Evolution
 
@@ -1720,8 +1721,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-07T20:54:03.000Z
-Stopped at: 44-22 Task 3 concluido (publicado); aguardando Task 4 (U1)
+Last session: 2026-10-07T21:25:00.000Z
+Stopped at: Completed 44-22-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

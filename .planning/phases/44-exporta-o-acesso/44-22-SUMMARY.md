@@ -1,11 +1,91 @@
 ---
 phase: 44-exporta-o-acesso
 plan: 22
-status: in-progress
+subsystem: publicação do front (Vercel) + U1 da cópia de dados do titular
+tags: [lgpd, export, cr-01-bis, publicacao, vercel, u1, fail-closed, escrituracao]
+status: complete
+
+requires:
+  - phase: 44-exporta-o-acesso (44-17..44-20)
+    provides: "frase BD-18/BD-19 (oQueNaoEsta), frase neutra e fronteiraDaCopia (BD-22), portões (cr4) (cr5) (cr6) (cp3) (cp4)"
+  - phase: 44-exporta-o-acesso (44-21)
+    provides: "44-REVIEW-pos-CR01bis.md — critical 0 sobre diff_head 09168e22, 6 warning, 4 info"
+provides:
+  - "front publicado com as duas frases de HEAD em index-7NrDustL.js (push dddf7ac9, T0 2026-10-07T20:51:34Z), trechos antigos fora de todo JS e do index.html"
+  - "U1: um pedido acesso real da conta de teste depois do push; .json e .html conferidos por script contra a frase de HEAD (todos os booleanos true, versão 1.4.0)"
+  - "44-REVIEW-DISPOSITION.md 9/9 fixed com sha; 44-REVIEW-DISPOSITION-pos-CR01bis.md (novo) com os 10 achados do 44-21 open"
+affects: [44-verificacao, M8-fecho]
+
+actuals:
+  tokens: 10678        # chars/4 das linhas acrescentadas em 8f3372fb..árvore (SUMMARY, duas disposições, STATE, ROADMAP; 42713 caracteres); estimativa do plano 82000
+  tasks: 4
+  commits: 3           # MEDIDO: git rev-list --count plan_head_before..plan_head_after (antes do commit pós-U1)
 plan_head_before: 8f3372fba00154dc6445a3e5293485f6a8249e9a
+plan_head_after: 51797354df65a33461f804051c978c5f2ffd9d69
+
+tech-stack:
+  added: []
+  patterns:
+    - "Push com GATES_SHA: a árvore que sobe é a aprovada pelos portões; depois do GATES_SHA só entra .planning/"
+    - "Conferência no publicado por crawl até ponto fixo (índice + todo assets/*.js referenciado), trechos fixos derivados do template de HEAD"
+    - "U1 por script que lê só a frase, a versão e gerado_em do arquivo do titular, e imprime só booleanos"
+
+key-files:
+  created:
+    - .planning/phases/44-exporta-o-acesso/44-REVIEW-DISPOSITION-pos-CR01bis.md
+    - .planning/phases/44-exporta-o-acesso/44-22-SUMMARY.md
+  modified:
+    - .planning/phases/44-exporta-o-acesso/44-REVIEW-DISPOSITION.md
+    - .planning/STATE.md
+    - .planning/ROADMAP.md
+
+key-decisions:
+  - "Publicar com «publicar» do operador, sem disposição de achado: os 10 achados não críticos do 44-21 ficam open"
+  - "Nenhum push parcial, branch remota ou rebase durante as 5 recusas 500 do GitHub; a 6ª tentativa, autorizada («sim») depois de uma sonda de tag descartável, passou"
+  - "A caixa do 44-22 e o 22/22 da Phase 44 só viraram depois do U1; a caixa da Phase 44 fica para o verificador"
+  - "U1 ok: a frase do CR-01-bis chegou ao arquivo de quem pede (json e html), não só ao bundle"
+
+patterns-established:
+  - "O commit pós-U1 é só .planning/ e sobe num terceiro push coberto pela mesma resposta «publicar»"
+
+requirements-completed: [EXPORT-01, EXPORT-02, EXPORT-04]   # REQUIREMENTS.md NÃO é tocado por este plano (proibição do plano); a marcação é do verificador
+
+coverage:
+  - id: D1
+    description: "As duas frases de HEAD no front publicado, chunks lazy inclusive, e nenhum trecho antigo em JS ou index.html"
+    requirement: EXPORT-02
+    verification:
+      - kind: other
+        ref: "Task 3 verify (linha 308 do plano): oQueNaoEsta em index-7NrDustL.js · naoEstaVersaoDivergente em index-7NrDustL.js · 49 JS varridos; trechos antigos ausentes; canal presente"
+        status: pass
+    human_judgment: false
+  - id: D2
+    description: "U1: pedido acesso real da conta de teste depois do push; .json e .html iguais à frase de HEAD, versão 1.4.0"
+    requirement: EXPORT-01
+    verification:
+      - kind: manual_procedural
+        ref: "script U1 do <verification>: {json_frase,json_versao,html_frase,html_rodape,sem_neutra,sem_trecho_antigo,gerado_depois_do_push} todos true; PROD só leitura 1/1"
+        status: pass
+    human_judgment: true
+    rationale: "O pedido é um ato do operador em PROD pela tela; a conferência dos arquivos é por script"
+  - id: D3
+    description: "Só commits desta rodada publicados; allowlist, EF e banco intocados"
+    requirement: EXPORT-04
+    verification:
+      - kind: other
+        ref: "commits publicados=29 fora=[] (pós-push 2); EF exportar-meus-dados v6 ACTIVE verify_jwt true"
+        status: pass
+    human_judgment: false
+
+duration: "8h20min de relógio (13:05Z–21:25Z), quase todo em espera: GitHub 500 de 15:09Z a 20:51Z e o U1 do operador"
+completed: 2026-10-07
 ---
 
-# Phase 44 Plan 22: publicação do CR-01-bis — Summary (PARCIAL: Tasks 1–3 feitos, CR-01-bis publicado; falta o Task 4, o U1 do operador)
+# Phase 44 Plan 22: publicação do CR-01-bis — Summary
+
+**O CR-01-bis está no ar e no arquivo de quem pede.** O push `dddf7ac9` (T0 2026-10-07T20:51:34Z) publicou as duas frases de HEAD em `index-7NrDustL.js`, sem nenhum trecho antigo. O U1 conferiu, por script e só com booleanos, que o `.json` e o `.html` de um pedido real da conta de teste carregam a frase de HEAD por igualdade exata, na versão 1.4.0.
+
+> Histórico: este SUMMARY foi escrito em três etapas. As seções «Antes de publicar», «Aprovação» e «Publicação» ficam como foram escritas nos Tasks 1–3. As seções novas vêm depois de «Pendente neste task».
 
 GATES_SHA: 8f3372fba00154dc6445a3e5293485f6a8249e9a
 
@@ -270,7 +350,112 @@ O `<automated>` da linha 308 do plano foi extraído LITERAL por script. A única
 
 - **[Escopo — escrituração] A caixa do 44-22 e o 22/22 não foram marcados no Task 3.** O item 6 pede as caixas 44-17..44-22 «se ainda não estiverem». O 44-22 só termina com o U1 (Task 4), e o `STATE.md` segue com 144/147. Marcar a caixa agora deixaria o ROADMAP afirmando um plano completo que ainda depende do operador. O commit pós-U1 vira a caixa do 44-22 e o `21/22` → `22/22`, junto com o `progress` do STATE. A guarda «ROADMAP: só caixas desta rodada» aceita os dois estados.
 
-#### Pendente neste task (vai no segundo push, só `.planning/`)
+#### Pendente neste task (vai no segundo push, só `.planning/`) — resolvido, ver «Segundo push» abaixo
 
 - Commit de escrituração `docs(44-22)`: as duas disposições, este SUMMARY e o STATE.
 - Repetir a conferência do item 1, fazer o segundo push e rodar o verify da linha 308 até a linha final. O resultado desse verify vai para o SUMMARY no commit pós-U1, que é o terceiro push, também só `.planning/` e coberto pela resposta «publicar».
+
+### Segundo push (só `.planning/`) e o verify do Task 3 até a linha final
+
+- **Commit de escrituração:** `51797354` (`docs(44-22): publicado o CR-01-bis …`), feito às 20:55:56Z. Toca só `.planning/`: `STATE.md`, este SUMMARY e as duas disposições.
+- **Conferência antes do push 2** (20:56:22Z, `origin/main..HEAD`): o mesmo script do item 1, extraído literal da linha 204. Saída: `commits=1 fora=[]` e `REQUIREMENTS.md intocado`. `HEAD..origin/main` = 0.
+- **Push 2:** `dddf7ac9..51797354  main -> main`, aceito às **2026-10-07T20:56:25Z** (reflog de `origin/main`, «update by push»). Passou na primeira tentativa.
+- **Vercel para `51797354`:** `pending` às 20:56:27Z e `success` «Deployment has completed» às 20:57:00Z. O commit é só `.planning/`, então o build é o mesmo.
+- **Verify da linha 308 depois do push 2** (20:57:19Z–20:57:31Z, scratch `p4422/p3`). Rodou literal até a linha final, exit 0:
+  - `git log --oneline origin/main..HEAD` → vazio; REQUIREMENTS.md intocado;
+  - **`commits publicados=29 fora=[]`** (`b14559ea..origin/main`: os 28 do push 1 + `51797354`);
+  - EF v6, ACTIVE, `verify_jwt` true;
+  - crawl: `index.html` → `assets/index-7NrDustL.js`, 49 JS;
+  - `oQueNaoEsta em index-7NrDustL.js · naoEstaVersaoDivergente em index-7NrDustL.js · 49 JS varridos; trechos antigos ausentes; canal presente`;
+  - disposição: `linhas=9 fora=[]`; disposição nova: `achados=10 linhas=10`;
+  - caixa `- [ ] **Phase 44` presente;
+  - linha final: «frases novas no ar, trechos antigos fora, EF v6, disposicoes escrituradas, REQUIREMENTS intocado, nada parado no disco».
+
+  A saída na tela dessa passada não foi guardada. No scratch ficaram `publicado.txt` (29 blocos `@@@`), `ef.json` (v6, ACTIVE, `verify_jwt` true) e `chunk.txt` (a linha do script `P` acima). Por isso o verify foi **rodado de novo** neste continuation, às 2026-10-07T21:25:10Z–21:25:15Z (scratch `p4422/p4`), antes do commit pós-U1, sobre HEAD `51797354` = `origin/main`. O `t3.sh` foi conferido por script como igual à linha 308, com a troca só do `D`. Saída inteira, exit 0:
+
+  ```
+  commits publicados=29 fora=[]
+  oQueNaoEsta em index-7NrDustL.js · naoEstaVersaoDivergente em index-7NrDustL.js · 49 JS varridos; trechos antigos ausentes; canal presente
+  linhas=9 fora=[]
+  achados=10 linhas=10
+  frases novas no ar, trechos antigos fora, EF v6, disposicoes escrituradas, REQUIREMENTS intocado, nada parado no disco
+  ```
+
+## U1 (Task 4)
+
+### Resposta do operador
+
+O operador fez o U1 com a conta de teste de candidato e mandou os dois arquivos baixados (por upload, não em `~/Downloads`):
+
+- `J` = `/Users/fernando/.claude/uploads/139ef089-98d8-46ab-ad07-f3478f187c6f/8c46fcc0-beauty-smile-meus-dados-2026-10-07.json`
+- `H` = `/Users/fernando/.claude/uploads/139ef089-98d8-46ab-ad07-f3478f187c6f/5cb86ba0-beauty-smile-meus-dados-2026-10-07.html`
+
+Ele também colou o bloco da tela verbatim, e o texto bate com a frase de HEAD. Não houve aviso de limite de 24 h.
+
+### Script U1 (literal do `<verification>`)
+
+O comando foi extraído LITERAL da linha 383 do plano (entre as crases, por script, sem transcrição) e rodou com `bash` sobre HEAD `51797354`, às 2026-10-07T21:22:43Z, com `J`, `H` e `T0=2026-10-07T20:51:34Z`. Saída inteira, exit 0:
+
+```
+{"json_frase":true,"json_versao":true,"html_frase":true,"html_rodape":true,"sem_neutra":true,"sem_trecho_antigo":true,"gerado_depois_do_push":true} gerado_em=2026-10-07T21:17:52.829Z versao=1.4.0
+```
+
+- `json_frase`: a chave `o_que_nao_esta_nesta_copia` é **igual**, caractere a caractere, ao template `oQueNaoEsta` de HEAD com o canal no lugar da interpolação.
+- `html_frase`: o `.html` traz `<h2>O que não está nesta cópia</h2>\n<p>` + a mesma frase + `</p>`.
+- `json_versao` e `html_rodape`: a versão é 1.4.0 (a de `docs/compliance/export-allowlist.json`) nos dois arquivos.
+- `sem_neutra`: a frase neutra (versão divergente) não aparece em nenhum dos dois. Logo, EF e site estão na mesma versão.
+- `sem_trecho_antigo`: nem a oração da igualdade entre candidatos nem o segundo ramo do convite aparecem.
+- `gerado_depois_do_push`: `gerado_em` 21:17:52Z é posterior a T0 20:51:34Z.
+
+O script não imprimiu nenhum dado da pessoa: só os booleanos, a versão e `gerado_em`.
+
+### Contagem só leitura em PROD
+
+Scratch `p4422/u1count.sql`, primeira linha `SET TRANSACTION READ ONLY;`, rodado por `node p46apply.cjs run` (SEM registro no ledger) às 21:22:51Z:
+
+```sql
+SELECT count(*) AS total_acesso_desde_t0, count(*) FILTER (WHERE situacao = 'atendido') AS atendidos_desde_t0 FROM public.solicitacoes_dados WHERE tipo = 'acesso' AND solicitado_em >= '2026-10-07T20:51:34Z';
+```
+
+Resultado: **`total_acesso_desde_t0` 1 · `atendidos_desde_t0` 1** (esperado ≥ 1 e ≥ 1). É o pedido do operador. O orquestrador já tinha lido, também só leitura, o último `tipo='acesso'` às 21:17:45Z, depois de T0. A única escrita em PROD nesta rodada é essa linha, feita pelo operador pela tela.
+
+**U1: ok.** A frase do CR-01-bis chegou ao arquivo de quem pede, não só ao bundle.
+
+### Terceiro push (este commit)
+
+Commit pós-U1 só de `.planning/`:
+
+- este SUMMARY, com `status: complete`;
+- `STATE.md`: `progress` 145/147 (99%), `stopped_at`, `last_activity_desc`, `last_updated`, `Last session:`, `Stopped at:` e uma linha de decisão do U1;
+- `ROADMAP.md`: caixa `[x]` do 44-22 e `21/22` → `22/22`. A caixa `- [ ] **Phase 44` não muda.
+
+Antes de commitar rodam a conferência de corpo do STATE, a de REQUIREMENTS e a do ROADMAP. Antes do push roda a conferência do conjunto. Depois do push, `git log --oneline origin/main..HEAD` tem de sair vazio. O resultado vai no retorno ao orquestrador, porque este arquivo já estará commitado.
+
+## Pendências do re-verificador
+
+- **CR-01-bis:** re-verificar pelo publicado (`index-7NrDustL.js`, crawl até ponto fixo) e pelo U1 acima, não pelo disco.
+- **Override BD-14:** a cadência manual do smoke de drift continua valendo.
+- **Advisory do verificador sobre `historico_acoes`, `logs_auditoria` e `comparativo_solicitado`:** fora desta rodada, sem mudança.
+- **Residuais aceitos T-44-102 e T-44-109:** continuam aceitos.
+- **Achados não críticos da revisão do 44-21:** os 10 (WR-01..WR-06, IN-01..IN-04) estão `open` em `44-REVIEW-DISPOSITION-pos-CR01bis.md`, porque o operador respondeu «publicar» sem disposição. Uma rodada `--gaps` futura decide o que fazer com eles.
+- **Caixa `- [ ] **Phase 44`:** quem a vira é o verificador.
+
+## Deviations from Plan
+
+- **[Escopo — escrituração] Caixa do 44-22, `22/22` e `progress` só no commit pós-U1** (registrado no Task 3, «Desvios deste task»). Fechado aqui.
+- **[Rule 3 — bloqueio externo] GitHub 500 no push 1.** Foram cinco recusas (4 do executor e 1 do orquestrador às 15:12:28Z) e uma sonda de tag autorizada às 20:47Z, que passou e foi apagada. A 6ª tentativa passou. Não houve push parcial, branch remota nem rebase. Detalhes em «Publicação».
+- **[Execução] Scratch fora do repositório:** `mktemp -d` → `…/scratchpad/p4422/*` em todos os verifies, para que a saída pudesse ser lida. Os comandos são literais, extraídos do plano por script.
+- **[Execução] Arquivos do U1 por upload, não em `~/Downloads`:** o operador forneceu os caminhos, e o script lê só a frase, a versão e `gerado_em`.
+
+Fora isso, o plano foi executado como escrito. Nenhum `phase.complete`, `update-plan-progress` ou escritor `state.*`/`requirements.*`/`roadmap.annotate-dependencies` do gsd-tools foi usado. STATE e ROADMAP foram editados à mão.
+
+## Known Stubs
+
+Nenhum. O plano só toca `.planning/` depois do `GATES_SHA`.
+
+## Self-Check: PASSED
+
+- Arquivos: `44-22-SUMMARY.md`, `44-REVIEW-DISPOSITION.md` e `44-REVIEW-DISPOSITION-pos-CR01bis.md` existem.
+- Commits: `441d8867`, `dddf7ac9` e `51797354` existem e estão em `origin/main`.
+- `git rev-list --count 8f3372fb..51797354` = 3 (o `actuals.commits`).
+- O `GATES_SHA` `8f3372fb` existe; `8f3372fb..HEAD` toca só `.planning/`.
