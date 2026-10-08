@@ -429,14 +429,14 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | JORN-39 | Phase 49 | Complete |
 | JORN-40 | Phase 49 | Complete |
 | JORN-41 | Phase 49 | Complete — itens humanos (fluxo `flag` em PROD, conferência visual com WR-07, custo residual WR-03) passaram na UAT de 2026-10-03 (`49-UAT.md` 3/3); verificação `passed`. Histórico: Gaps Found — CR-01 reaberto na re-verificação de 2026-09-30; decisão do operador (a) bloquear×sinalizar entregue (49-36..49-42) e no ar nas 7 EFs (49-43); aguarda re-verificação. Histórico: Gaps Found — CR-01 consertado (49-33) e no ar (49-34: 7 EFs em v33/v23/v17/v20/v31/v31/v23); aguarda re-verificação. Histórico: **Complete** (padrões pt-BR em `49b3ab5b` + `ae299ae8`; as **7 EFs redeployadas em 2026-09-28T19:15Z**, todas +1 de versão com `verify_jwt` preservado e os padrões conferidos no eszip publicado. Teste de aceite CUMPRIDO: passo (c) reexecutado em 28/09 às 23:33 contra a versão no ar — 3 de 3 confirmações, e o JORN-39 fechou na mesma colagem com `provider='none'` em 304 ms) |
-| JORN-42 | Bloco 3 (fase a criar) | Pending (defeito 2 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
-| JORN-43 | Bloco 3 (fase a criar) | Pending (defeito 3 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
-| JORN-44 | Bloco 3 (fase a criar) | Pending (defeito 4 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
-| JORN-45 | Bloco 3 (fase a criar) | Pending (defeito 5 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
-| JORN-46 | Bloco 3 (fase a criar) | Pending (defeito 6 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
-| JORN-47 | Bloco 3 (fase a criar) | Pending (defeito 7 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
-| JORN-48 | Bloco 3 (fase a criar) | Pending (defeito 8 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
-| JORN-49 | Bloco 3 (fase a criar) | Pending (defeito 9 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
+| JORN-42 | Phase 51 | Pending (defeito 2 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
+| JORN-43 | Phase 51 | Pending (defeito 3 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
+| JORN-44 | Phase 51 | Pending (defeito 4 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
+| JORN-45 | Phase 51 | Pending (defeito 5 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
+| JORN-46 | Phase 51 | Pending (defeito 6 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
+| JORN-47 | Phase 51 | Pending (defeito 7 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
+| JORN-48 | Phase 51 | Pending (defeito 8 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
+| JORN-49 | Phase 51 | Pending (defeito 9 da UAT de 27-29/09; ver `49-18-SUMMARY.md` §Defeitos); roteado para fora da Phase 49 pelo operador em 2026-09-29 |
 | JORN-50 | — | Pending (medido 2026-09-29 no fechamento da Phase 49, FORA do escopo dela; mexer em vaga ativa durante o fechamento trocaria o instrumento debaixo da medição) |
 | JORN-52 | — | Pending (achado em 2026-09-29 ao verificar o reaponte do JORN-50; 1 vaga ativa atingida, 5 cargos latentes. Depende do padrão que os 3 cargos de marketing estabelecem) |
 | JORN-51 | — | **Complete** (errata em 2 lugares + este item; a migration NÃO foi editada, e o md5 `fa8b5a8f8cd0e26cde6b147cc7a95131` segue batendo com o ledger de PROD) |
@@ -463,7 +463,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | 47 | Transparência & Consolidação | 6 | TRANSP (2) + CONSOL (4) |
 | 48 | Consertos da Jornada — Bloco 1 | 11 | JORN (11) |
 | 49 | Consertos da Jornada — Bloco 2 | 17 | JORN (17: 16 do kickoff + JORN-41) |
-| — | Bloco 3 (a criar) | 8 | JORN (8: JORN-42..49, roteados em 2026-09-29) |
+| 51 | Consertos da Jornada — Bloco 3 | 8 | JORN (8: JORN-42..49, roteados em 2026-09-29; fase planejada em 2026-10-08) |
 
 **Três requirements atravessam fronteira de fase — deliberadamente:**
 

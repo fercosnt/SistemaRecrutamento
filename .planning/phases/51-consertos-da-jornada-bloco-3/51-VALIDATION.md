@@ -42,28 +42,28 @@ created: "2026-10-08"
 
 ## Per-Task Verification Map
 
-> Granularidade por requisito até os planos existirem; o planner amarra cada linha a Task IDs.
+> Amarrado pelo planner em 2026-10-08 (15 planos, 12 ondas). `51-NN-Tk` = Task k do plano 51-NN.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | B | JORN-42 | IDOR / REVISAO-05 | Pedido aceito nas 3 origens, um por rejeição, só `status='rejeitado'`; titular apenas | smoke SQL | `node p46apply.cjs run supabase/tests/p51_revisao_rejeicao_smoke.sql` | ❌ W0 | ⬜ pending |
-| TBD | TBD | B | JORN-42 | Elevação (RH inativo) | REVISAO-05 na rejeição pelo RH; qualquer RH ativo no knockout; RH inativo 42501; mutação prova mordência | smoke SQL | idem | ❌ W0 | ⬜ pending |
-| TBD | TBD | B | JORN-42 | Repúdio | Procedente reabre em `etapa_rejeitada` / `triagem` (knockout, D-30) com 1 linha de histórico, `em_analise`, prazo SP+10 | smoke + sessão real | consulta `etapa_atual,status` + `count(historico_candidatura)` antes/depois | ❌ W0 | ⬜ pending |
-| TBD | TBD | B | JORN-42 / D-03 | — | Knockout revertido não reaplicado; só `submit_candidatura_atomic` grava `knockout_automatico` (asserção por forma) | smoke por forma + sessão D-29 | `select proname from pg_proc where prosrc ~ 'motivo_rejeicao\s*=\s*''knockout_automatico'''` | ❌ W0 | ⬜ pending |
-| TBD | TBD | B | JORN-42 | Divulgação | Fila: origem + id de pedido; admin = RH ativo (md5 com desempate); contar inclui as novas | smoke | `p50_acesso_recrutador_smoke.sql` (k) ajustado + novo | parcial | ⬜ pending |
-| TBD | TBD | B | JORN-42 | Divulgação (anon/views) | Nada abriu para `anon` nem para candidato alheio (tabela nova, views) | sonda de role | `SET LOCAL ROLE anon/authenticated` por tabela e RPC | ❌ W0 | ⬜ pending |
-| TBD | TBD | B | JORN-42 / D-09 | Open redirect | E-mail de rejeição com link `/candidato/explicacao/<id>` só em `rejeitado`; grep-guard verde | deno | `deno test supabase/functions/_shared/__tests__/email-templates.test.ts` | ✅ (acrescentar) | ⬜ pending |
-| TBD | TBD | B | JORN-42 | — | Ciclo `decisao_final` intacto | smoke | `p42_revisao_art20`, `p48_reabertura`, `p48_rejeicao_triagem`, `p48_dedupe`, `p49_snapshot`, `oper31` (via `scripts/p50_ensaio.cjs`) | ✅ | ⬜ pending |
-| TBD | TBD | B | JORN-42 | LGPD | Motor raspa a resposta do revisor no registro novo; export drift coerente | smoke | `p45_motor_exclusao_smoke.sql` + asserção nova; `p44_export_drift_smoke.sql` | ✅ + acréscimo | ⬜ pending |
-| TBD | TBD | B | JORN-42 / D-35 | — | `knockout_rate` conta só knockouts ainda rejeitados | smoke | consulta `funil_kpis(<vaga>)` antes/depois da revertida | ❌ W0 | ⬜ pending |
-| TBD | TBD | B | JORN-43 | Divulgação | `get_avaliacao_status(<id>)->'raven'` só booleanos, guarda de titular | smoke + sonda | `p51_raven_status_smoke.sql` (ou caso no smoke acima) | ❌ W0 | ⬜ pending |
-| TBD | TBD | A/B | JORN-43 | — | Card visível só com liberação vigente, não concluída, candidatura em andamento | unit + navegador | teste do card no `DashboardCandidatoPage` | ❌ W0 | ⬜ pending |
-| TBD | TBD | A | JORN-44 | — | «Ir ao painel» no cabeçalho e no tudo-concluído | unit + navegador | `npx vitest run src/features/avaliacao/components/__tests__/AvaliacaoContainer.test.tsx` | ✅ (acrescentar) | ⬜ pending |
-| TBD | TBD | A | JORN-45 | — | «Ver respostas» expande o detalhe; filtro `tipo IN ('sjt','big_five')`; texto ao lado das citações; Big Five só «Concluído/Não fez» (D-32) | unit + navegador | `HubCandidatoRH` + `ScorecardAvaliacao.test.tsx` (faixas → D-32) | parcial | ⬜ pending |
-| TBD | TBD | A | JORN-46 | — | «Voltar às avaliações» → lista; «Ir ao painel» → dashboard (D-25/D-37) | unit + e2e | guarda de rótulos + `e2e/prova-cognitiva.spec.ts` / `e2e/explicacao-flow.spec.ts` ajustados | parcial | ⬜ pending |
-| TBD | TBD | A | JORN-47 | Validação de entrada | Salvar bloqueado com notas vazias; mensagem na tela | unit | `EntrevistaScorecardInline.test.tsx` (`:77` muda) | ✅ (ajustar) | ⬜ pending |
-| TBD | TBD | A | JORN-48 | — | Nenhuma superfície diz só «Avaliação cognitiva»; nomes do D-15 (inclui e-mail D-31) | grep test | guarda nova por forma + `forbidden-strings.grep.test.ts` | ❌ W0 | ⬜ pending |
-| TBD | TBD | A | JORN-49 | LGPD | Recibo sem «endereço»; «mantém» com estado e faixa (Art. 16, IV); inventário = motor | gerador | `npm run check:recibo-exclusao && npm run check:pii-inventory-md`; `genReciboExclusao.test.ts`, `ReciboExclusao.test.tsx` | ✅ | ⬜ pending |
+| 51-08-T1 | 51-08 | 8 | JORN-42 | IDOR / REVISAO-05 | Pedido aceito nas 3 origens, um por rejeição, só `status='rejeitado'`; titular apenas | smoke SQL | `node p46apply.cjs run supabase/tests/p51_revisao_rejeicao_smoke.sql` | ❌ W0 | ⬜ pending |
+| 51-08-T1/T2 | 51-08 | 8 | JORN-42 | Elevação (RH inativo) | REVISAO-05 na rejeição pelo RH; qualquer RH ativo no knockout; RH inativo 42501; mutação prova mordência | smoke SQL | idem | ❌ W0 | ⬜ pending |
+| 51-08-T1 · 51-15-T2 | 51-08 · 51-15 | 8 · 12 | JORN-42 | Repúdio | Procedente reabre em `etapa_rejeitada` / `triagem` (knockout, D-30) com 1 linha de histórico, `em_analise`, prazo SP+10 | smoke + sessão real | consulta `etapa_atual,status` + `count(historico_candidatura)` antes/depois | ❌ W0 | ⬜ pending |
+| 51-08-T1 · 51-15-T2 | 51-08 · 51-15 | 8 · 12 | JORN-42 / D-03 | — | Knockout revertido não reaplicado; só `submit_candidatura_atomic` grava `knockout_automatico` (asserção por forma) | smoke por forma + sessão D-29 | `select proname from pg_proc where prosrc ~ 'motivo_rejeicao\s*=\s*''knockout_automatico'''` | ❌ W0 | ⬜ pending |
+| 51-09-T1 · 51-09-T3 | 51-09 | 9 | JORN-42 | Divulgação | Fila: origem + id de pedido; admin = RH ativo (md5 com desempate); contar inclui as novas | smoke | `p50_acesso_recrutador_smoke.sql` (k) ajustado + novo | parcial | ⬜ pending |
+| 51-08-T1 · 51-14-T2 | 51-08 · 51-14 | 8 · 11 | JORN-42 | Divulgação (anon/views) | Nada abriu para `anon` nem para candidato alheio (tabela nova, views) | sonda de role | `SET LOCAL ROLE anon/authenticated` por tabela e RPC | ❌ W0 | ⬜ pending |
+| 51-11-T2 | 51-11 | 9 | JORN-42 / D-09 | Open redirect | E-mail de rejeição com link `/candidato/explicacao/<id>` só em `rejeitado`; grep-guard verde | deno | `deno test supabase/functions/_shared/__tests__/email-templates.test.ts` | ✅ (acrescentar) | ⬜ pending |
+| 51-08-T2 · 51-14-T2 | 51-08 · 51-14 | 8 · 11 | JORN-42 | — | Ciclo `decisao_final` intacto | smoke | `p42_revisao_art20`, `p48_reabertura`, `p48_rejeicao_triagem`, `p48_dedupe`, `p49_snapshot`, `oper31` (via `scripts/p50_ensaio.cjs`) | ✅ | ⬜ pending |
+| 51-10-T1 · 51-10-T3 | 51-10 | 10 | JORN-42 | LGPD | Motor raspa a resposta do revisor no registro novo; export drift coerente | smoke | `p45_motor_exclusao_smoke.sql` + asserção nova; `p44_export_drift_smoke.sql` | ✅ + acréscimo | ⬜ pending |
+| 51-09-T2 | 51-09 | 9 | JORN-42 / D-35 | — | `knockout_rate` conta só knockouts ainda rejeitados | smoke | consulta `funil_kpis(<vaga>)` antes/depois da revertida | ❌ W0 | ⬜ pending |
+| 51-06-T1 | 51-06 | 6 | JORN-43 | Divulgação | `get_avaliacao_status(<id>)->'raven'` só booleanos, guarda de titular | smoke + sonda | `p51_raven_status_smoke.sql` (ou caso no smoke acima) | ❌ W0 | ⬜ pending |
+| 51-07-T1 | 51-07 | 7 | JORN-43 | — | Card visível só com liberação vigente, não concluída, candidatura em andamento | unit + navegador | teste do card no `DashboardCandidatoPage` | ❌ W0 | ⬜ pending |
+| 51-01-T1 | 51-01 | 1 | JORN-44 | — | «Ir ao painel» no cabeçalho e no tudo-concluído | unit + navegador | `npx vitest run src/features/avaliacao/components/__tests__/AvaliacaoContainer.test.tsx` | ✅ (acrescentar) | ⬜ pending |
+| 51-02-T1 · 51-02-T2 | 51-02 | 2 | JORN-45 | — | «Ver respostas» expande o detalhe; filtro `tipo IN ('sjt','big_five')`; texto ao lado das citações; Big Five só «Concluído/Não fez» (D-32) | unit + navegador | `HubCandidatoRH` + `ScorecardAvaliacao.test.tsx` (faixas → D-32) | parcial | ⬜ pending |
+| 51-01-T2 · 51-01-T3 | 51-01 | 1 | JORN-46 | — | «Voltar às avaliações» → lista; «Ir ao painel» → dashboard (D-25/D-37) | unit + e2e | guarda de rótulos + `e2e/prova-cognitiva.spec.ts` / `e2e/explicacao-flow.spec.ts` ajustados | parcial | ⬜ pending |
+| 51-04-T1 | 51-04 | 4 | JORN-47 | Validação de entrada | Salvar bloqueado com notas vazias; mensagem na tela | unit | `EntrevistaScorecardInline.test.tsx` (`:77` muda) | ✅ (ajustar) | ⬜ pending |
+| 51-03 · 51-04-T2 · 51-07-T2 | 51-03 · 51-04 · 51-07 | 3 · 4 · 7 | JORN-48 | — | Nenhuma superfície diz só «Avaliação cognitiva»; nomes do D-15 (inclui e-mail D-31) | grep test | guarda nova por forma + `forbidden-strings.grep.test.ts` | ❌ W0 | ⬜ pending |
+| 51-05-T1 · 51-05-T2 | 51-05 | 5 | JORN-49 | LGPD | Recibo sem «endereço»; «mantém» com estado e faixa (Art. 16, IV); inventário = motor | gerador | `npm run check:recibo-exclusao && npm run check:pii-inventory-md`; `genReciboExclusao.test.ts`, `ReciboExclusao.test.tsx` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

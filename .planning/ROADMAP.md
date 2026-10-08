@@ -651,15 +651,61 @@ Plans:
 
 ### Phase 51: Consertos da Jornada — Bloco 3
 
-**Goal**: [A definir no kickoff — `/gsd-plan-phase 51`]
+**Goal**: Os oito defeitos que a UAT de 27–29/09 achou na jornada real deixam de existir: o candidato pode pedir revisão (Art. 20) de **toda** rejeição — decisão final, rejeição pelo RH em qualquer etapa e knockout —, e a revisão procedente reabre a candidatura na etapa em que ela parou (knockout em `triagem`) sem reaplicar o knockout; a avaliação de raciocínio (Raven) tem porta de entrada no painel enquanto está por fazer; as provas e a lista de avaliações levam à lista ou ao painel com rótulos que dizem o destino; o hub do RH abre as respostas que anuncia; as notas de entrevista são obrigatórias nos dois lados; os dois instrumentos cognitivos têm nomes distintos («Prova cognitiva» × «Raciocínio lógico (Matrizes)»); e o recibo de exclusão diz o que sai e o que fica
 **Depends on**: Phase 50
 **Requirements**: JORN-42, JORN-43, JORN-44, JORN-45, JORN-46, JORN-47, JORN-48, JORN-49
-**Origem**: defeitos 2–9 da UAT de 27–29/09 (`49-18-SUMMARY.md` §Defeitos), roteados pelo operador ao Bloco 3 em 2026-09-29 (`REQUIREMENTS.md`, rastreabilidade de JORN-42..49). Direção já decidida para o JORN-42 (29/09): a opção de pedir revisão fica sempre disponível
-**Fora de escopo**: JORN-50..52 (seguem sem fase); Bloco 4 da fila
-**Plans**: 0 plans
+**Origem**: defeitos 2–9 da UAT de 27–29/09 (`49-18-SUMMARY.md` §Defeitos), roteados pelo operador ao Bloco 3 em 2026-09-29 (`REQUIREMENTS.md`, rastreabilidade de JORN-42..49). Direção já decidida para o JORN-42 (29/09): a opção de pedir revisão fica sempre disponível. Decisões D-01..D-38 em `51-CONTEXT.md` (D-30..D-38 = respostas do operador às correções de fato da pesquisa, 2026-10-08)
+**Success Criteria** (what must be TRUE):
+  1. Com uma conta de teste em PROD, um knockout e uma rejeição pelo RH são revistos a pedido do candidato; o RH2 (recrutador ativo) responde procedente na mesma fila de revisões, com selo de origem; a candidatura reabre na etapa certa (knockout em `triagem`) com trilha, `em_analise` e prazo, o knockout não volta e a análise de IA é despachada; quem rejeitou não responde (REVISAO-05) — provado por consulta no banco
+  2. O ciclo da decisão final continua byte-idêntico (smokes p42/p48/p49 verdes) e nada abriu para `anon` nem para candidato de outra candidatura (tabela nova sem policy e sem privilégio, RPCs com ACL nomeada, vistas iguais no ensaio)
+  3. O candidato com o Raven liberado vê o card «Raciocínio lógico (Matrizes)» no painel enquanto não concluiu, e só então; o servidor devolve só booleanos (RNF-07a)
+  4. Dentro de uma prova, «Voltar às avaliações» leva à lista e «Ir ao painel» leva ao painel; a lista de avaliações tem «Ir ao painel» no cabeçalho e no tudo-concluído
+  5. No hub do RH, «Ver respostas» abre o detalhe (SJT; Big Five «Concluído/Não fez»; texto integral do caso prático ao lado das citações) e o instrumento que a vaga não aplica diz «Não se aplica a esta vaga»; nenhuma superfície confunde os dois instrumentos cognitivos
+  6. Salvar a avaliação de entrevista sem notas fica bloqueado com mensagem na tela; o recibo de exclusão não promete apagar «endereço» inteiro e diz que estado e faixa etária ficam, sem vínculo, para relatório agregado (LGPD, Art. 16, IV) — inventário = motor
+  7. Todo apply e deploy pela via do projeto (`p46apply.cjs`/`efdeploy.cjs`), o JORN-42 só depois de review bloqueante e decisão escrita do operador, e `git log origin/main..HEAD` vazio com os marcadores servidos no chunk certo
+**Guardrails**: os do Bloco 1/2 e da Phase 50 — migrations pelo `p46apply.cjs` (md5 do ledger conferido), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado. Mudança de controle de acesso (JORN-42): review bloqueante antes do apply e prova de que nada abriu (views incluídas). Ordem D-27: telas e textos primeiro, banco depois (migration → motor/LGPD → EF → cliente)
+**Fora de escopo**: JORN-50..52 (seguem sem fase); Bloco 4 da fila; portfólio visível ao RH e a Parte B do todo `49-producoes-do-candidato-sem-leitor-de-rh`
+**Plans**: 15 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 51 to break down)
+**Wave 1**
+- [ ] 51-01-PLAN.md — Navegação do candidato (JORN-44, JORN-46): «Ir ao painel» na lista, «Voltar às avaliações» nas provas, nomes do D-15 nas telas que toca, guarda por forma, publicação
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 51-02-PLAN.md — Hub do RH (JORN-45): «Ver respostas» expande o detalhe no lugar; Big Five «Concluído/Não fez»; texto integral do caso prático ao lado das citações; publicação
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 51-03-PLAN.md — Instrumentos no RH (JORN-48): «Prova cognitiva» × «Raciocínio lógico (Matrizes)»; «Não se aplica a esta vaga» só com evidência positiva; publicação
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 51-04-PLAN.md — Notas obrigatórias (JORN-47) + toast e rótulos de exportação (JORN-48) + guarda por forma dos nomes em `src/`; publicação
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 51-05-PLAN.md — Recibo de exclusão (JORN-49): inventário = motor, «mantém» estado e faixa etária (Art. 16, IV), geradores, `executar-direito-titular`, publicação
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 51-06-PLAN.md — Raven no banco (JORN-43): chave `raven` só com booleanos em `get_avaliacao_status`; ensaio e mutações da Onda B; apply `20261008000001`; push
+
+**Wave 7** *(blocked on Wave 6 completion)*
+- [ ] 51-07-PLAN.md — Card do Raven no painel (JORN-43) + e-mail de liberação nomeando o instrumento (D-31); `notificar-candidato`; publicação
+
+**Wave 8** *(blocked on Wave 7 completion)*
+- [ ] 51-08-PLAN.md — Tracer do JORN-42: especificação RED → registro próprio do pedido + RPCs + reabertura na etapa (ensaio); MB1..MB12; portão `p51_portao.cjs`
+
+**Wave 9** *(blocked on Wave 8 completion)*
+- [ ] 51-09-PLAN.md — Fila com três origens e id do pedido, detalhe do knockout, KPI (D-35), alerta de prazo; (k) da P50 com desempate (ensaio)
+- [ ] 51-11-PLAN.md — `notificar-candidato`: veredito do próprio pedido e e-mail de rejeição com o direito de pedir revisão (D-09) — sem deploy
+- [ ] 51-12-PLAN.md — Página de explicação: pedido de revisão para as três origens, origem lida do servidor — sem publicar
+
+**Wave 10** *(blocked on Wave 9 completion)*
+- [ ] 51-10-PLAN.md — Motor raspa a resposta do revisor no registro novo + D-57 completo da tabela nova (ensaio)
+- [ ] 51-13-PLAN.md — Fila do RH: selo de origem, id do pedido, resposta pela RPC certa, contexto do knockout (D-11) — sem publicar
+
+**Wave 11** *(blocked on Wave 10 completion)*
+- [ ] 51-14-PLAN.md — Portão: review bloqueante + decisão escrita (porta de mão única), apply `20261008000002..4`, EFs, push do cliente
+
+**Wave 12** *(blocked on Wave 11 completion)*
+- [ ] 51-15-PLAN.md — `db:types`, sonda de aceite, sessões reais D-29/D-28 e do Raven, conferência das telas, publicação final
 
 ## Progress
 
@@ -682,7 +728,7 @@ Plans:
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
-| 51. Consertos da Jornada — Bloco 3 | v8.0 | 0/? | Not started | - |
+| 51. Consertos da Jornada — Bloco 3 | v8.0 | 0/15 | Planned | - |
 
 ---
 
