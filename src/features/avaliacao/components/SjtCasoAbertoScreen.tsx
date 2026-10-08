@@ -50,6 +50,20 @@ import {
 } from '@/features/avaliacao/hooks/useAutosaveAvaliacao'
 
 const TESTE = 'sjt_caso_aberto'
+
+/**
+ * Phase 51 / Plan 51-01 (JORN-46 — D-25, D-37): the label says where the button goes.
+ * «Voltar às avaliações» → the assessment list (`/candidato/avaliacao/:id`); «Ir ao
+ * painel» → `/candidato/dashboard`, used ONLY where the etapa already moved on («Sua
+ * etapa avançou»), so the candidate is not bounced through the list's lock screen (C-11).
+ * Local on purpose: importing `COPY_NAVEGACAO` from the container would close an
+ * import cycle through the `components/` barrel.
+ */
+const COPY_NAV = {
+  voltarAvaliacoes: 'Voltar às avaliações',
+  irAoPainel: 'Ir ao painel',
+} as const
+
 const MIN_WORDS = 200
 const MAX_WORDS = 500
 
@@ -129,7 +143,10 @@ export function SjtCasoAbertoScreen() {
   const belowMin = words < MIN_WORDS
   const aboveMax = words > MAX_WORDS
 
-  const backToPanel = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
+  const backToList = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
+  // D-37 / C-11: the etapa moved on → straight to the panel (the list would only show
+  // its lock screen).
+  const goToPanel = () => navigate('/candidato/dashboard')
 
   const handleSubmit = async () => {
     if (!pergunta) return
@@ -142,11 +159,11 @@ export function SjtCasoAbertoScreen() {
         texto,
       })
       toast.success('Avaliação enviada com sucesso')
-      backToPanel()
+      backToList()
     } catch (err) {
       if (err instanceof AvaliacaoServiceError && err.code === 'LOCKED') {
         toast.info('Sua etapa avançou. Esta avaliação foi encerrada.')
-        backToPanel()
+        goToPanel()
         return
       }
       toast.error('Não foi possível enviar sua resposta. Tente novamente.')
@@ -165,8 +182,8 @@ export function SjtCasoAbertoScreen() {
           <p className="text-white/80 mb-6">
             Esta avaliação foi encerrada e suas respostas já estão salvas.
           </p>
-          <GlassButton variant="white" hover onClick={backToPanel} className="text-white">
-            Voltar ao painel
+          <GlassButton variant="white" hover onClick={goToPanel} className="text-white">
+            {COPY_NAV.irAoPainel}
           </GlassButton>
         </GlassPanel>
       </ScreenShell>
@@ -198,8 +215,8 @@ export function SjtCasoAbertoScreen() {
       <ScreenShell>
         <GlassPanel variant="white" blur="xl" className="text-white text-center p-12">
           <p className="text-white/90 text-xl mb-4">Nenhuma avaliação pendente</p>
-          <GlassButton variant="white" hover onClick={backToPanel} className="text-white">
-            Voltar ao painel
+          <GlassButton variant="white" hover onClick={backToList} className="text-white">
+            {COPY_NAV.voltarAvaliacoes}
           </GlassButton>
         </GlassPanel>
       </ScreenShell>

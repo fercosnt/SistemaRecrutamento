@@ -58,6 +58,19 @@ import {
 
 const ITENS_POR_PAGINA = 10
 
+/**
+ * Phase 51 / Plan 51-01 (JORN-46 — D-25, D-37): the label says where the button goes.
+ * «Voltar às avaliações» → the assessment list (`/candidato/avaliacao/:id`); «Ir ao
+ * painel» → `/candidato/dashboard`, used ONLY where the etapa already moved on («Sua
+ * etapa avançou»), so the candidate is not bounced through the list's lock screen (C-11).
+ * Local on purpose: importing `COPY_NAVEGACAO` from the container would close an
+ * import cycle through the `components/` barrel.
+ */
+const COPY_NAV = {
+  voltarAvaliacoes: 'Voltar às avaliações',
+  irAoPainel: 'Ir ao painel',
+} as const
+
 /** Pull the EF `error_code` (e.g. AI_UNAVAILABLE) off a BigfiveServiceError — code-only, no PII. */
 function errorCodeOf(error: unknown): string | undefined {
   if (error instanceof BigfiveServiceError) {
@@ -340,7 +353,10 @@ export function BigFiveQuestionnaireScreen() {
       upsertResposta(candidaturaId ?? '', 'big_five', payload),
   })
 
-  const backToPanel = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
+  const backToList = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
+  // D-37 / C-11: the etapa moved on → straight to the panel (the list would only show
+  // its lock screen).
+  const goToPanel = () => navigate('/candidato/dashboard')
 
   const ordered = useMemo<BigfiveItem[]>(
     () => (itens ? [...itens].sort((a, b) => a.ordem - b.ordem) : []),
@@ -374,7 +390,7 @@ export function BigFiveQuestionnaireScreen() {
     } catch (err) {
       if (err instanceof BigfiveServiceError && err.code === 'LOCKED') {
         toast.info('Sua etapa avançou. Esta avaliação foi encerrada.')
-        backToPanel()
+        goToPanel()
         return
       }
       toast.error('Não foi possível enviar agora. Tente novamente.')
@@ -411,8 +427,8 @@ export function BigFiveQuestionnaireScreen() {
         <GlassPanel variant="white" blur="xl" className="text-white text-center p-12">
           <Lock className="w-12 h-12 text-white/60 mx-auto mb-4" />
           <p className="text-white/90 text-xl mb-4">Sua etapa avançou.</p>
-          <GlassButton variant="white" hover onClick={backToPanel} className="text-white">
-            Voltar ao painel
+          <GlassButton variant="white" hover onClick={goToPanel} className="text-white">
+            {COPY_NAV.irAoPainel}
           </GlassButton>
         </GlassPanel>
       </ScreenShell>
@@ -428,8 +444,8 @@ export function BigFiveQuestionnaireScreen() {
       <ScreenShell>
         <GlassPanel variant="white" blur="xl" className="text-white text-center p-12">
           <p className="text-white/90 text-xl mb-4">Avaliação indisponível no momento</p>
-          <GlassButton variant="white" hover onClick={backToPanel} className="text-white">
-            Voltar ao painel
+          <GlassButton variant="white" hover onClick={backToList} className="text-white">
+            {COPY_NAV.voltarAvaliacoes}
           </GlassButton>
         </GlassPanel>
       </ScreenShell>

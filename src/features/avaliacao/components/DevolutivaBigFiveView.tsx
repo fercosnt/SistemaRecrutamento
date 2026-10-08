@@ -131,9 +131,21 @@ function analogia(
   return `Você se descreveu com um nível ${BANDA_LABEL[banda].toLowerCase()} de ${label}.`
 }
 
+/**
+ * Phase 51 / Plan 51-01 (JORN-46 — D-25, D-37): the label says where the button goes.
+ * «Voltar às avaliações» → the assessment list (`/candidato/avaliacao/:id`). This view
+ * has no «Sua etapa avançou» state, so it never needs «Ir ao painel».
+ * Local on purpose: importing `COPY_NAVEGACAO` from the container would close an
+ * import cycle through the `components/` barrel.
+ */
+const COPY_NAV = {
+  voltarAvaliacoes: 'Voltar às avaliações',
+} as const
+
 export function DevolutivaBigFiveView() {
   const navigate = useNavigate()
   const { candidaturaId } = useParams<{ candidaturaId: string }>()
+  const backToList = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: bigfiveKeys.devolutiva(candidaturaId ?? ''),
@@ -161,13 +173,8 @@ export function DevolutivaBigFiveView() {
           <p className="text-white/70 mb-6">
             Volte em alguns instantes. Acompanhe o andamento pelo seu painel.
           </p>
-          <GlassButton
-            variant="white"
-            hover
-            onClick={() => navigate(`/candidato/avaliacao/${candidaturaId}`)}
-            className="text-white"
-          >
-            Voltar ao painel
+          <GlassButton variant="white" hover onClick={backToList} className="text-white">
+            {COPY_NAV.voltarAvaliacoes}
           </GlassButton>
         </GlassPanel>
       </ViewShell>
@@ -269,13 +276,8 @@ export function DevolutivaBigFiveView() {
       </GlassPanel>
 
       <div className="flex justify-center pb-8">
-        <GlassButton
-          variant="white"
-          hover
-          onClick={() => navigate(`/candidato/avaliacao/${candidaturaId}`)}
-          className="text-white min-h-[44px]"
-        >
-          Voltar ao painel
+        <GlassButton variant="white" hover onClick={backToList} className="text-white min-h-[44px]">
+          {COPY_NAV.voltarAvaliacoes}
         </GlassButton>
       </div>
     </ViewShell>
