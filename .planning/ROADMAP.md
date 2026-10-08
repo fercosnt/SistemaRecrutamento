@@ -32,6 +32,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
 - [x] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma (completed 2026-10-03)
 - [x] **Phase 50: Acesso do Recrutador** - O recrutador cadastrado vê todas as vagas e as filas que dependem delas, em vez da tela vazia do predicado `created_by` (completed 2026-10-06)
+- [ ] **Phase 51: Consertos da Jornada — Bloco 3** - Defeitos da UAT de 27–29/09 (JORN-42..49): direito de revisão que depende do caminho da rejeição, prova cognitiva sem porta de entrada, navegação sem volta, notas de entrevista com 400 mudo, recibo de exclusão que promete demais
 
 ### Ordem de execução, dependências e paralelização
 
@@ -648,6 +649,18 @@ Plans:
 **Wave 7** *(blocked on Wave 6 completion)*
 - [x] 50-11-PLAN.md — SC1 com sessão real: operador cria o RH2 (recrutador), script de sessão, conferência no navegador
 
+### Phase 51: Consertos da Jornada — Bloco 3
+
+**Goal**: [A definir no kickoff — `/gsd-plan-phase 51`]
+**Depends on**: Phase 50
+**Requirements**: JORN-42, JORN-43, JORN-44, JORN-45, JORN-46, JORN-47, JORN-48, JORN-49
+**Origem**: defeitos 2–9 da UAT de 27–29/09 (`49-18-SUMMARY.md` §Defeitos), roteados pelo operador ao Bloco 3 em 2026-09-29 (`REQUIREMENTS.md`, rastreabilidade de JORN-42..49). Direção já decidida para o JORN-42 (29/09): a opção de pedir revisão fica sempre disponível
+**Fora de escopo**: JORN-50..52 (seguem sem fase); Bloco 4 da fila
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 51 to break down)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -669,6 +682,7 @@ Plans:
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
+| 51. Consertos da Jornada — Bloco 3 | v8.0 | 0/? | Not started | - |
 
 ---
 

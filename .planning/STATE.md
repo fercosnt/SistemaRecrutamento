@@ -3,12 +3,12 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: complete
-stopped_at: "Phase 44 verificada (passed, 7/7, 2026-10-07): CR-01-bis fechado e publicado (index-7NrDustL.js), U1 ok; achados da revisao pos-CR01bis (WR-01..WR-06, IN-01..IN-04) ficam open — WR-01 (fronteira compara string de versao, nao conteudo) recomendado antes da proxima mudanca de allowlist; erratum pendente no 44-20-SUMMARY (WR-06). Phase 45 escriturada em 2026-10-07 (45-06/45-11 SUMMARY, ROADMAP [x], ERASE-01/08 [x]). Proximo: blocos 2-4 do M8 ou Phase 50"
-last_updated: "2026-10-07T21:25:00.000Z"
+stopped_at: "Phase 51 context gathered (51-CONTEXT.md, D-01..D-29; JORN-42 revoga a D-20 da 48). Proximo: /gsd-plan-phase 51"
+last_updated: "2026-10-08T02:52:25.704Z"
 last_activity: 2026-10-07
-state_head: 3ed321b6e086c7b6addbf007b4821ef2087d6a9a
+state_head: fde578cdb8d423452858a03ce168ddb2a58b5bcf
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 9
   total_plans: 147
   completed_plans: 147
@@ -1398,6 +1398,8 @@ Log completo em PROJECT.md Key Decisions.
 
 ### Roadmap Evolution
 
+- Phase 51 added (2026-10-07): Consertos da Jornada — Bloco 3 — recebe JORN-42..49 (defeitos da UAT de 27–29/09), roteados pelo operador ao Bloco 3 em 2026-09-29. JORN-50..52 seguem sem fase. Rastreabilidade em REQUIREMENTS.md ainda diz «Bloco 3 (fase a criar)»
+
 - Phase 50 added (2026-10-05): Acesso do Recrutador — fecha o G4-b/EXPORT-05 da 44; recrutador vê todas as vagas (decisão do operador)
 
 - Phase 49 added: Consertos da Jornada — Bloco 2 (2026-09-22) — o BLOCO 2 da fila da `JORNADA-GUIADA.md` («leva o RH a decidir errado»): defeitos 28, 13, 7, 25, 12, 17, 3b; o 14 fica sem código por D8. Requirements JORN-* a criar no kickoff; aberto para o operador: transcrição guardada como texto ou como hash (12)
@@ -1727,9 +1729,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-07T21:25:00.000Z
-Stopped at: Completed 44-22-PLAN.md
-Resume file: None
+Last session: 2026-10-08T02:52:25.274Z
+Stopped at: Phase 51 context gathered
+Resume file: .planning/phases/51-consertos-da-jornada-bloco-3/51-CONTEXT.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
