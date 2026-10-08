@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: complete
-stopped_at: "Phase 51 context gathered (51-CONTEXT.md, D-01..D-29; JORN-42 revoga a D-20 da 48). Proximo: /gsd-plan-phase 51"
-last_updated: "2026-10-08T02:52:25.704Z"
-last_activity: 2026-10-07
-state_head: fde578cdb8d423452858a03ce168ddb2a58b5bcf
+status: executing
+stopped_at: "Phase 51 planned: 17 plans / 13 waves (51-01..51-17), checker passed after 5 revision rounds (aa0748d8); CONTEXT D-30..D-38 = operator answers to research fact corrections. Proximo: /gsd-execute-phase 51"
+last_updated: "2026-10-08T19:26:12.653Z"
+last_activity: 2026-10-08
+state_head: aa0748d8ace3f3daad98f8a3d1c3da9467bb638f
 progress:
   total_phases: 10
   completed_phases: 9
-  total_plans: 147
+  total_plans: 164
   completed_plans: 147
-  percent: 100
-current_phase_name: Exportação & Acesso
-current_phase: 44
-last_activity_desc: "execute-phase 44 --gaps-only — 44-22 concluido: U1 ok (json_frase, json_versao, html_frase, html_rodape, sem_neutra, sem_trecho_antigo, gerado_depois_do_push todos true; versao 1.4.0); push 2 (51797354, so .planning) conferido no publicado (commits publicados=29 fora=[]); 22/22 planos da Phase 44 com SUMMARY; aguardando a re-verificacao"
+  percent: 90
+current_phase_name: Consertos da Jornada — Bloco 3
+current_phase: 51
+last_activity_desc: "plan-phase 51 — 17 planos (Wave A cliente/texto 51-01..05; Wave B banco: 51-06 raven, 51-08..17 JORN-42 opcao (b)); research + 12 correcoes de fato respondidas (D-30..D-38); checker: 0 blocker / 0 warning"
 ---
 
 # Project State
