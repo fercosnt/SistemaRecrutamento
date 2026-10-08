@@ -175,6 +175,45 @@ do todo `49-producoes-do-candidato-sem-leitor-de-rh` (ver D-17 e Deferred).
   teste marcada): cai no knockout → pede revisão → revertida → **não** cai de novo (D-03). Dados de
   teste ficam visíveis ao RH (D-07 da 50).
 
+### Respostas do operador às correções de fato da pesquisa (2026-10-08, `51-RESEARCH.md` §Correções)
+
+> Medidas em PROD só-leitura pela pesquisa; C-4, C-5, C-6 e C-10 reconferidas pelo orquestrador
+> antes de perguntar. Estas decisões **prevalecem** sobre o texto das D-01..D-29 onde divergem.
+
+- **D-30 (C-1):** Revisão procedente de **knockout reabre em `triagem`**, não em `inscricao`. É a
+  etapa a que o candidato aprovado chegaria, e o trigger `avancar_etapa` grava o histórico. Rejeição
+  pelo RH fora da decisão final reabre na etapa registrada no histórico (D-02 inalterado para ela).
+- **D-31 (C-5):** O D-14 quer dizer **nenhum aviso NOVO**. O e-mail de liberação do Raven (D-22 da
+  48, `trg_notif_cognitivo_liberado`) **fica**, aponta para o card novo do painel e passa a **nomear
+  o instrumento: «Raciocínio lógico (Matrizes)»**. O comentário «NÃO nomeia o instrumento» do
+  template é reescrito. Redeploy de `notificar-candidato`.
+- **D-32 (C-8):** No detalhe expandido do hub, o Big Five mostra **só «Concluído» / «Não fez»**
+  (vale a D-19 da 51). A frase «as faixas seguem no hub» da D-31 da 49 fica **revogada para o
+  hub**. O teste que fixa as faixas muda junto.
+- **D-33 (C-2):** Selos da fila (D-12): **«Decisão final»**, **«Rejeição pelo RH»** (origem
+  `'humana_triagem'`, qualquer etapa fora da decisão final) e **«Knockout»**. Nenhum selo diz
+  «triagem».
+- **D-34 (C-10):** O recibo não é só texto. `candidatos.estado` sai de `anonimizar` e vai para
+  `preservar_com_ressalva` no `pii-inventory.yaml`, e `faixa_etaria_materializada` entra no
+  inventário. A linha nova de «mantém» tem **`base_legal` = LGPD Art. 16, IV** (conservação para
+  uso exclusivo do controlador, anonimizada, sem acesso de terceiros). Regenerar recibo + espelhos
+  + `pii-inventory.md` e redeployar `executar-direito-titular`.
+- **D-35 (D-03, KPI):** Na reabertura do knockout, `motivo_rejeicao = 'knockout_automatico'`
+  **fica** (é auditoria). O `knockout_rate` de `funil_kpis` passa a contar só knockouts **ainda
+  rejeitados**, e `funil_kpis` vira RPC reescrita com PRE-PORTAO.
+- **D-36 (D-03, análise):** A resposta procedente de um knockout **dispara a análise de IA** que a
+  inscrição teria disparado, para que o RH encontre a triagem pronta.
+- **D-37 (D-25, telas fora da lista):** A convenção segue a **posição da tela**. `ProvaCognitivaScreen`
+  fica dentro do container, então ganha «Voltar às avaliações» e vai para a lista.
+  `AvaliacaoRavenScreen` e `WrongEtapaState` ganham «Ir ao painel» e vão para o dashboard. O estado
+  «Sua etapa avançou» das provas leva **direto ao painel**.
+- **D-38 (C-4, C-6 — escopo de banco):** O **JORN-43 exige banco**: o candidato não lê o próprio
+  `scores_raven` (a policy compara `candidato_id` com `auth.uid()`, e 37 de 37 diferem). A conclusão
+  do Raven entra como uma chave **só com booleanos** em `get_avaliacao_status`, e a RLS não muda. Isso
+  vai no grupo de banco do D-27. O **D-21 não dispara**: o RH já lê o texto do caso prático por
+  `ler_resposta_caso_aberto_sjt` (49-44; `anon` não executa). O D-20 é trabalho só de cliente, e não
+  há migration de acesso nem review D-12 para ele.
+
 ### Claude's Discretion
 
 - **Mecanismo do JORN-42:** gravar toda rejeição em `decisao_final` (unificando o caminho que o
