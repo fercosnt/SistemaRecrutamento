@@ -26,7 +26,16 @@
 import { useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Circle, CircleDot, CheckCircle2, Lock, AlertCircle, LogOut, User } from 'lucide-react'
+import {
+  Circle,
+  CircleDot,
+  CheckCircle2,
+  Lock,
+  AlertCircle,
+  LogOut,
+  User,
+  LayoutDashboard,
+} from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
 import { BeautySmileLogo } from '@/components/BeautySmileLogo'
 import { Glass, GlassPanel, GlassCard, GlassButton } from '@/components/ui/glass'
@@ -57,7 +66,25 @@ interface AvaliacaoContainerProps {
    * directly without the route/query layer (Wave-0 RED test path).
    */
   testes?: TesteCard[]
+  /**
+   * Presentational mode only: the «Ir ao painel» handler handed to the shell (the
+   * connected mode injects `navigate('/candidato/dashboard')` itself). Absent → the
+   * «Ir ao painel» buttons are not rendered (never an inert button).
+   */
+  onBackToPanel?: () => void
 }
+
+/**
+ * Phase 51 / Plan 51-01 (JORN-44, JORN-46 — D-25, D-26, D-37): navigation labels of
+ * the candidate assessment LIST. «Painel» means ONLY `/candidato/dashboard`: every
+ * button carrying `irAoPainel` goes there. Inside a prova the way back to this list is
+ * «Voltar às avaliações» (each prova screen keeps its own local COPY — importing from
+ * here would close an import cycle through the `components/` barrel).
+ * Guarded by `src/__tests__/guards/rotulos-navegacao-candidato.grep.test.ts`.
+ */
+export const COPY_NAVEGACAO = {
+  irAoPainel: 'Ir ao painel',
+} as const
 
 /**
  * The container's per-card SOURCE OF TRUTH — one entry per recognized container
@@ -92,7 +119,9 @@ export const CONTAINER_TESTE_CONFIG: Record<
     // dead `/candidato/avaliacao/:id/cognitivo` stub. The card is gated on
     // `vaga.aplica_cognitivo` in deriveCards and routes to a screen the pontuar_cognitivo
     // gate now accepts during `avaliacao_assincrona` (26-02).
-    label: 'Avaliação cognitiva',
+    // Phase 51 / D-15: «Prova cognitiva» — distinct from the Raven («Raciocínio lógico
+    // (Matrizes)»), which is not an etapa instrument and never appears in this list.
+    label: 'Prova cognitiva',
     route: (id) => `/candidato/prova-cognitiva/${id}`,
   },
 }
@@ -157,12 +186,15 @@ function AvaliacaoShell({
   candidatoEmail,
   onLogout,
   onOpenTeste,
+  onBackToPanel,
 }: {
   cards: TesteCard[]
   candidatoNome?: string
   candidatoEmail?: string
   onLogout?: () => void
   onOpenTeste?: (card: TesteCard) => void
+  /** JORN-44 / D-26: «Ir ao painel» (header, every list state + «tudo concluído»). */
+  onBackToPanel?: () => void
 }) {
   const pendentes = cards.filter((c) => statusInfo(c.status).label !== 'Concluído')
   const allDone = cards.length > 0 && pendentes.length === 0
@@ -192,13 +224,26 @@ function AvaliacaoShell({
                   </p>
                 </div>
               </div>
-              <button
-                onClick={onLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg border border-white/20 backdrop-blur-md transition-all duration-300 hover:shadow-lg active:scale-95"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="drop-shadow-sm">Sair</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {onBackToPanel && (
+                  <button
+                    type="button"
+                    data-testid="avaliacao-ir-ao-painel"
+                    onClick={onBackToPanel}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg border border-white/20 backdrop-blur-md transition-all duration-300 hover:shadow-lg active:scale-95"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    <span className="drop-shadow-sm">{COPY_NAVEGACAO.irAoPainel}</span>
+                  </button>
+                )}
+                <button
+                  onClick={onLogout}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg border border-white/20 backdrop-blur-md transition-all duration-300 hover:shadow-lg active:scale-95"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="drop-shadow-sm">Sair</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -228,6 +273,18 @@ function AvaliacaoShell({
                 <p className="text-white/70">
                   Você concluiu todas as avaliações desta etapa. Acompanhe o andamento pelo seu painel.
                 </p>
+                {onBackToPanel && (
+                  <GlassButton
+                    variant="white"
+                    hover
+                    data-testid="avaliacao-concluida-ir-ao-painel"
+                    onClick={onBackToPanel}
+                    className="mt-6 text-white drop-shadow-sm min-h-[44px]"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    {COPY_NAVEGACAO.irAoPainel}
+                  </GlassButton>
+                )}
               </Glass>
             ) : (
               <div className="space-y-4">
@@ -302,8 +359,9 @@ function WrongEtapaState({ onBack }: { onBack: () => void }) {
             <p className="text-white/80 mb-6">
               Ela aparecerá aqui quando for a sua etapa.
             </p>
+            {/* D-37: the lock exists because the etapa moved on → straight to the panel. */}
             <GlassButton variant="white" hover onClick={onBack} className="text-white">
-              Voltar ao painel
+              {COPY_NAVEGACAO.irAoPainel}
             </GlassButton>
           </GlassPanel>
         </div>
@@ -397,10 +455,10 @@ function deriveCards(
  * and renders the shell (or the neutral wrong-etapa lock). Falls back to the
  * presentational shell when a `testes` prop is provided (Wave-0 RED test).
  */
-export function AvaliacaoContainer({ testes }: AvaliacaoContainerProps = {}) {
+export function AvaliacaoContainer({ testes, onBackToPanel }: AvaliacaoContainerProps = {}) {
   // ── Presentational mode (test path): no router/query providers required. ──
   if (testes) {
-    return <AvaliacaoShell cards={testes} />
+    return <AvaliacaoShell cards={testes} onBackToPanel={onBackToPanel} />
   }
   return <ConnectedAvaliacaoContainer />
 }
@@ -515,6 +573,7 @@ function ConnectedAvaliacaoContainer() {
       candidatoEmail={candidato?.email}
       onLogout={handleLogout}
       onOpenTeste={handleOpenTeste}
+      onBackToPanel={() => navigate('/candidato/dashboard')}
     />
   )
 }
