@@ -4,9 +4,9 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
 stopped_at: "Phase 51 planned: 17 plans / 13 waves (51-01..51-17), checker passed after 5 revision rounds (aa0748d8); CONTEXT D-30..D-38 = operator answers to research fact corrections. Proximo: /gsd-execute-phase 51"
-last_updated: "2026-10-08T19:26:12.653Z"
+last_updated: "2026-10-08T23:44:22.984Z"
 last_activity: 2026-10-08
-state_head: aa0748d8ace3f3daad98f8a3d1c3da9467bb638f
+state_head: 2ee5301f62c738b4d1d3b3696d27bd960a384381
 progress:
   total_phases: 10
   completed_phases: 9
@@ -184,7 +184,7 @@ Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 44 — Exportação & Acesso
+**Current focus:** Phase 51 — Consertos da Jornada — Bloco 3
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
