@@ -24,7 +24,7 @@ created: "2026-10-08"
 | **Framework** | Vitest (unidade/componente) · `deno test` (EFs) · smokes SQL via `node p46apply.cjs run` · Playwright (opcional) |
 | **Config file** | `vite.config.ts` (`test.include: ['**/__tests__/**/*.{test,spec}.{ts,tsx}']`; EFs excluídas) |
 | **Quick run command** | `npx vitest run <arquivos tocados> && npm run lint` |
-| **Full suite command** | `npm run test:run && npm run lint && deno test supabase/functions` + smokes da onda por `node p46apply.cjs run supabase/tests/<arquivo>.sql` |
+| **Full suite command** | `npm run test:run && npm run lint && deno test supabase/functions` + smokes da onda pelo envelope que aborta (`node scripts/p51_ensaio.cjs …`; os só-leitura também por `node p46apply.cjs run supabase/tests/<arquivo>.sql`) |
 | **Estimated runtime** | ~180 seconds (Vitest + lint); smokes ~10–30 s cada |
 
 `npm run lint` = `tsc --noEmit`; baseline medido **89**, teto **90** (D-53 da 49) — sobra 1.
@@ -42,20 +42,24 @@ created: "2026-10-08"
 
 ## Per-Task Verification Map
 
-> Amarrado pelo planner em 2026-10-08 (15 planos, 12 ondas). `51-NN-Tk` = Task k do plano 51-NN.
+> Amarrado pelo planner em 2026-10-08 (17 planos, 13 ondas). `51-NN-Tk` = Task k do plano 51-NN.
+> Revisão 1 do plano (2026-10-08): o portão `scripts/p51_portao.cjs` saiu do 51-08 para o 51-09 (onda 8); o plano do motor foi
+> dividido em motor (51-13) e D-57 (51-15); os seguintes foram renumerados (fila 09→10, fila do RH 13→14, portão 14→16, fecho 15→17).
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 51-08-T1 | 51-08 | 8 | JORN-42 | IDOR / REVISAO-05 | Pedido aceito nas 3 origens, um por rejeição, só `status='rejeitado'`; titular apenas | smoke SQL | `node p46apply.cjs run supabase/tests/p51_revisao_rejeicao_smoke.sql` | ❌ W0 | ⬜ pending |
+| 51-08-T1 | 51-08 | 8 | JORN-42 | IDOR / REVISAO-05 | Pedido aceito nas 3 origens, um por rejeição, só `status='rejeitado'`; titular apenas | smoke SQL | `node scripts/p51_ensaio.cjs --migracoes=… supabase/tests/p51_revisao_rejeicao_smoke.sql` (o smoke escreve: só pelo ensaio que aborta) | ❌ W0 | ⬜ pending |
 | 51-08-T1/T2 | 51-08 | 8 | JORN-42 | Elevação (RH inativo) | REVISAO-05 na rejeição pelo RH; qualquer RH ativo no knockout; RH inativo 42501; mutação prova mordência | smoke SQL | idem | ❌ W0 | ⬜ pending |
-| 51-08-T1 · 51-15-T2 | 51-08 · 51-15 | 8 · 12 | JORN-42 | Repúdio | Procedente reabre em `etapa_rejeitada` / `triagem` (knockout, D-30) com 1 linha de histórico, `em_analise`, prazo SP+10 | smoke + sessão real | consulta `etapa_atual,status` + `count(historico_candidatura)` antes/depois | ❌ W0 | ⬜ pending |
-| 51-08-T1 · 51-15-T2 | 51-08 · 51-15 | 8 · 12 | JORN-42 / D-03 | — | Knockout revertido não reaplicado; só `submit_candidatura_atomic` grava `knockout_automatico` (asserção por forma) | smoke por forma + sessão D-29 | `select proname from pg_proc where prosrc ~ 'motivo_rejeicao\s*=\s*''knockout_automatico'''` | ❌ W0 | ⬜ pending |
-| 51-09-T1 · 51-09-T3 | 51-09 | 9 | JORN-42 | Divulgação | Fila: origem + id de pedido; admin = RH ativo (md5 com desempate); contar inclui as novas | smoke | `p50_acesso_recrutador_smoke.sql` (k) ajustado + novo | parcial | ⬜ pending |
-| 51-08-T1 · 51-14-T2 | 51-08 · 51-14 | 8 · 11 | JORN-42 | Divulgação (anon/views) | Nada abriu para `anon` nem para candidato alheio (tabela nova, views) | sonda de role | `SET LOCAL ROLE anon/authenticated` por tabela e RPC | ❌ W0 | ⬜ pending |
+| 51-08-T1 · 51-17-T2 | 51-08 · 51-17 | 8 · 13 | JORN-42 | Repúdio | Procedente reabre em `etapa_rejeitada` / `triagem` (knockout, D-30) com 1 linha de histórico, `em_analise`, prazo SP+10 | smoke + sessão real | consulta `etapa_atual,status` + `count(historico_candidatura)` antes/depois | ❌ W0 | ⬜ pending |
+| 51-08-T1 · 51-17-T2 | 51-08 · 51-17 | 8 · 13 | JORN-42 / D-03 | — | Knockout revertido não reaplicado; só `submit_candidatura_atomic` grava `knockout_automatico` (asserção por forma) | smoke por forma + sessão D-29 | `select proname from pg_proc where prosrc ~ 'motivo_rejeicao\s*=\s*''knockout_automatico'''` | ❌ W0 | ⬜ pending |
+| 51-10-T1 · 51-10-T3 | 51-10 | 9 | JORN-42 | Divulgação | Fila: origem + id de pedido; admin = RH ativo (md5 com desempate); contar inclui as novas | smoke | `p50_acesso_recrutador_smoke.sql` (k) ajustado + novo | parcial | ⬜ pending |
+| 51-08-T1 · 51-16-T2 | 51-08 · 51-16 | 8 · 12 | JORN-42 | Divulgação (anon/views) | Nada abriu para `anon` nem para candidato alheio (tabela nova, views) | sonda de role | `SET LOCAL ROLE anon/authenticated` por tabela e RPC | ❌ W0 | ⬜ pending |
 | 51-11-T2 | 51-11 | 9 | JORN-42 / D-09 | Open redirect | E-mail de rejeição com link `/candidato/explicacao/<id>` só em `rejeitado`; grep-guard verde | deno | `deno test supabase/functions/_shared/__tests__/email-templates.test.ts` | ✅ (acrescentar) | ⬜ pending |
-| 51-08-T2 · 51-14-T2 | 51-08 · 51-14 | 8 · 11 | JORN-42 | — | Ciclo `decisao_final` intacto | smoke | `p42_revisao_art20`, `p48_reabertura`, `p48_rejeicao_triagem`, `p48_dedupe`, `p49_snapshot`, `oper31` (via `scripts/p50_ensaio.cjs`) | ✅ | ⬜ pending |
-| 51-10-T1 · 51-10-T3 | 51-10 | 10 | JORN-42 | LGPD | Motor raspa a resposta do revisor no registro novo; export drift coerente | smoke | `p45_motor_exclusao_smoke.sql` + asserção nova; `p44_export_drift_smoke.sql` | ✅ + acréscimo | ⬜ pending |
-| 51-09-T2 | 51-09 | 9 | JORN-42 / D-35 | — | `knockout_rate` conta só knockouts ainda rejeitados | smoke | consulta `funil_kpis(<vaga>)` antes/depois da revertida | ❌ W0 | ⬜ pending |
+| 51-08-T2 · 51-16-T2 | 51-08 · 51-16 | 8 · 12 | JORN-42 | — | Ciclo `decisao_final` intacto | smoke | `p42_revisao_art20`, `p48_reabertura`, `p48_rejeicao_triagem`, `p48_dedupe`, `p49_snapshot`, `oper31` (via `scripts/p51_ensaio.cjs`) | ✅ | ⬜ pending |
+| 51-09-T1 · 51-09-T2 | 51-09 | 8 | JORN-42 | Tampering (código sem review em PROD) | Portão recusa sem revisão commitada com `critical: 0`, com código depois da revisão/do pin, com plano alterado ou árvore suja | auto-teste node | `node scripts/p51_portao.cjs --auto-teste` | ❌ W0 | ⬜ pending |
+| 51-13-T1 · 51-13-T2 | 51-13 | 10 | JORN-42 | LGPD | Motor raspa a resposta do revisor no registro novo, sem inventar revisão; a purga que chama o motor segue verde | smoke | `p45_motor_exclusao_smoke.sql` + asserção nova e `p46_purga_smoke.sql`, no ensaio com `0002`..`0004` | ✅ + acréscimo | ⬜ pending |
+| 51-15-T2 · 51-15-T3 | 51-15 | 11 | JORN-42 | LGPD | Export, recibo e inventário com a tabela nova; drift coerente; portões editados (VALUES, snapshots) mordem | smoke + gerador | `p44_export_drift_smoke.sql` no ensaio; os quatro `check:`; `exportAllowlist.test.ts` | ✅ + acréscimo | ⬜ pending |
+| 51-10-T2 | 51-10 | 9 | JORN-42 / D-35 | — | `knockout_rate` conta só knockouts ainda rejeitados | smoke | consulta `funil_kpis(<vaga>)` antes/depois da revertida | ❌ W0 | ⬜ pending |
 | 51-06-T1 | 51-06 | 6 | JORN-43 | Divulgação | `get_avaliacao_status(<id>)->'raven'` só booleanos, guarda de titular | smoke + sonda | `p51_raven_status_smoke.sql` (ou caso no smoke acima) | ❌ W0 | ⬜ pending |
 | 51-07-T1 | 51-07 | 7 | JORN-43 | — | Card visível só com liberação vigente, não concluída, candidatura em andamento | unit + navegador | teste do card no `DashboardCandidatoPage` | ❌ W0 | ⬜ pending |
 | 51-01-T1 | 51-01 | 1 | JORN-44 | — | «Ir ao painel» no cabeçalho e no tudo-concluído | unit + navegador | `npx vitest run src/features/avaliacao/components/__tests__/AvaliacaoContainer.test.tsx` | ✅ (acrescentar) | ⬜ pending |

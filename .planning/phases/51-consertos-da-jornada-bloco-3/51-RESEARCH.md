@@ -618,24 +618,27 @@ select count(*) from public.<tabela_nova>;   -- esperado: erro 42501 ou 0
 
 | # | Suposição | Seção | Risco se estiver errada |
 |---|---|---|---|
-| A1 | O operador aceita que a reabertura do knockout vá para `triagem` (C-1) | JORN-42 | Se exigir `inscricao`, o histórico precisa ser gravado à mão e a candidatura fica numa etapa sem tela de RH |
-| A2 | A opção (b) é a escolhida; o motor ganha um passo para raspar a resposta do revisor | JORN-42 | Com (a), o mapa de smokes quebrados é o da coluna (a) |
-| A3 | O alerta de prazo (`varrer_prazos_reabertura`) deve cobrir as reaberturas de triagem e knockout (D-04, «o mesmo `prazo_nova_decisao_em`») | D-04 | Se não cobrir, a reabertura fica sem cobrança ao RH |
-| A4 | Estender `get_avaliacao_status` é aceitável como mudança sem abertura de acesso (só booleanos, mesma guarda) | D-13 / C-4 | Se o operador tratar como mudança de acesso, entra no review D-12 |
-| A5 | Nenhuma notificação `decisao` está em `falhou` esperando retry (o deploy do D-09 não reenviaria uma rejeição antiga com o texto novo) | D-09 | Medir antes do deploy; não foi medido nesta sessão |
-| A6 | `PesosSliders` (chip «Cognitivo» na configuração da vaga) entra no D-15 | D-15 | Cosmético |
+| A1 | O operador aceita que a reabertura do knockout vá para `triagem` (C-1) **(RESOLVED → D-30: sim, `triagem`)** | JORN-42 | Se exigir `inscricao`, o histórico precisa ser gravado à mão e a candidatura fica numa etapa sem tela de RH |
+| A2 | A opção (b) é a escolhida; o motor ganha um passo para raspar a resposta do revisor **(RESOLVED → planner: (b) no 51-08; passo do motor no 51-13)** | JORN-42 | Com (a), o mapa de smokes quebrados é o da coluna (a) |
+| A3 | O alerta de prazo (`varrer_prazos_reabertura`) deve cobrir as reaberturas de triagem e knockout (D-04, «o mesmo `prazo_nova_decisao_em`») **(RESOLVED → planner: sim, segundo laço no 51-10)** | D-04 | Se não cobrir, a reabertura fica sem cobrança ao RH |
+| A4 | Estender `get_avaliacao_status` é aceitável como mudança sem abertura de acesso (só booleanos, mesma guarda) **(RESOLVED → 51-06: nada abre; a ACL só FECHA — `anon` tinha EXECUTE, medido 2026-10-08, e perde; aperto nomeado, confirmado pelo operador na pergunta (f) do 51-16)** | D-13 / C-4 | Se o operador tratar como mudança de acesso, entra no review D-12 |
+| A5 | Nenhuma notificação `decisao` está em `falhou` esperando retry (o deploy do D-09 não reenviaria uma rejeição antiga com o texto novo) **(RESOLVED → medida e decidida antes do deploy, pergunta (c) do 51-16)** | D-09 | Medir antes do deploy; não foi medido nesta sessão |
+| A6 | `PesosSliders` (chip «Cognitivo» na configuração da vaga) entra no D-15 **(RESOLVED → planner: entra, 51-03 Task 3)** | D-15 | Cosmético |
 
 ---
 
-## Perguntas em aberto (ao operador, antes do plano)
+## Perguntas em aberto (ao operador, antes do plano) (RESOLVED)
 
-1. **C-1:** a reabertura do knockout vai para `triagem`? (recomendado)
-2. **C-5:** o D-14 desliga o e-mail de liberação do Raven que a D-22 da 48 criou, ou mantém? Se mantiver, o e-mail passa a nomear o instrumento («Raciocínio lógico (Matrizes)»), contra o comentário «NÃO nomeia o instrumento»?
-3. **C-8:** no detalhe do hub, o Big Five mostra faixas (49 D-31: «As faixas seguem no hub») ou só «Concluído/Não fez» (51 D-19)?
-4. **C-10:** qual `base_legal` vai na linha nova de «mantém» (estado e faixa etária para relatório agregado)?
-5. **C-2:** o selo «triagem» para rejeições pelo RH em qualquer etapa. Aceitar o nome ou trocar por «rejeição pelo RH»?
-6. **D-03 colateral:** na reabertura do knockout, zerar `motivo_rejeicao` (sai do `knockout_rate`) ou manter? E despachar a análise automaticamente?
-7. **D-25 fora da lista:** `ProvaCognitivaScreen` (está no container, logo «Voltar às avaliações»?) e `WrongEtapaState` / Raven («Ir ao painel»).
+> Todas respondidas pelo operador em 2026-10-08 — `51-CONTEXT.md` D-30..D-38, que prevalecem. Ponteiro por pergunta abaixo;
+> o texto original de cada uma fica como registro.
+
+1. **C-1:** a reabertura do knockout vai para `triagem`? (recomendado) — **RESOLVED → D-30** (sim, `triagem`).
+2. **C-5:** o D-14 desliga o e-mail de liberação do Raven que a D-22 da 48 criou, ou mantém? Se mantiver, o e-mail passa a nomear o instrumento («Raciocínio lógico (Matrizes)»), contra o comentário «NÃO nomeia o instrumento»? — **RESOLVED → D-31** (mantém, nomeia o instrumento, aponta ao card; 51-07).
+3. **C-8:** no detalhe do hub, o Big Five mostra faixas (49 D-31: «As faixas seguem no hub») ou só «Concluído/Não fez» (51 D-19)? — **RESOLVED → D-32** (só «Concluído/Não fez»; 51-02).
+4. **C-10:** qual `base_legal` vai na linha nova de «mantém» (estado e faixa etária para relatório agregado)? — **RESOLVED → D-34** (LGPD, Art. 16, IV; 51-05).
+5. **C-2:** o selo «triagem» para rejeições pelo RH em qualquer etapa. Aceitar o nome ou trocar por «rejeição pelo RH»? — **RESOLVED → D-33** («Decisão final» / «Rejeição pelo RH» / «Knockout»; 51-14).
+6. **D-03 colateral:** na reabertura do knockout, zerar `motivo_rejeicao` (sai do `knockout_rate`) ou manter? E despachar a análise automaticamente? — **RESOLVED → D-35** (mantém; o KPI conta só os ainda rejeitados; 51-10) **e D-36** (despacha a análise; 51-08).
+7. **D-25 fora da lista:** `ProvaCognitivaScreen` (está no container, logo «Voltar às avaliações»?) e `WrongEtapaState` / Raven («Ir ao painel»). — **RESOLVED → D-37** (pela posição da tela; 51-01).
 
 ---
 
