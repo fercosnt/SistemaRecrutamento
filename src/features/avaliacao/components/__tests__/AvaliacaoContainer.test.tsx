@@ -53,7 +53,11 @@ vi.mock('@/features/avaliacao/services/avaliacaoService', () => ({
 }))
 
 // RED: this module does not exist yet — import throws "Cannot find module".
-import { AvaliacaoContainer } from '@/features/avaliacao/components/AvaliacaoContainer'
+import {
+  AvaliacaoContainer,
+  COPY_NAVEGACAO,
+  CONTAINER_TESTE_CONFIG,
+} from '@/features/avaliacao/components/AvaliacaoContainer'
 
 // Neutral, RNF-07a-safe copy strings (verbatim from 11-UI-SPEC.md).
 const COPY = {
@@ -99,7 +103,9 @@ describe('AvaliacaoContainer (Plan 11-01 — AVAL-01, Wave 0 RED)', () => {
 // assertions are deterministic (no network).
 // ─────────────────────────────────────────────────────────────────────────────
 
-const COGNITIVO_LABEL = 'Avaliação cognitiva'
+// Phase 51 / D-15: the textual instrument is «Prova cognitiva» (the Raven is
+// «Raciocínio lógico (Matrizes)» and never appears in this container).
+const COGNITIVO_LABEL = 'Prova cognitiva'
 const BIG_FIVE_LABEL = 'Avaliação comportamental'
 
 // Mirrors `cargoTemplates.baseTestes`: `testes_aplicaveis` ALWAYS includes a
@@ -214,5 +220,96 @@ describe('AvaliacaoContainer — card state from get_avaliacao_status (26-06 / F
     expect(screen.getAllByText('Pendente').length).toBeGreaterThanOrEqual(1)
     // RNF-07a — no score/threshold/percent anywhere in the rendered tree.
     expect(document.body.textContent ?? '').not.toMatch(FORBIDDEN_SCORE)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 51 / Plan 51-01 — JORN-44 (D-26, D-37, D-15): the assessment LIST offers a
+// way back to the candidate panel. «Ir ao painel» sits beside «Sair» in the header in
+// EVERY list state, and the «tudo concluído» state keeps the canonical wait-state
+// sentence (wait-state-copy.grep.test.ts) AND gains a prominent «Ir ao painel». Both
+// call an injected `onBackToPanel` (the shell stays pure — no router in this mode);
+// the connected container injects `navigate('/candidato/dashboard')`.
+// Without `onBackToPanel` the buttons are NOT rendered (no inert button).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const IR_AO_PAINEL = 'Ir ao painel'
+const CANONICAL_WAIT = 'Acompanhe o andamento pelo seu painel'
+
+const ALL_DONE_TESTES = [
+  { teste: 'sjt_mc', status: 'feito', tempoEstimadoMin: 10 },
+  { teste: 'sjt_caso_aberto', status: 'concluido', tempoEstimadoMin: 15 },
+]
+
+describe('AvaliacaoContainer — «Ir ao painel» na lista (51-01 / JORN-44)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('exporta COPY_NAVEGACAO com o rótulo «Ir ao painel» (constante única do rótulo)', () => {
+    expect(COPY_NAVEGACAO).toEqual(expect.objectContaining({ irAoPainel: IR_AO_PAINEL }))
+  })
+
+  it('o card do instrumento textual se chama «Prova cognitiva» (D-15)', () => {
+    expect(CONTAINER_TESTE_CONFIG.cognitivo.label).toBe(COGNITIVO_LABEL)
+  })
+
+  it('cabeçalho: «Ir ao painel» ao lado de «Sair»; o clique chama onBackToPanel uma vez', () => {
+    const onBackToPanel = vi.fn()
+    render(<AvaliacaoContainer testes={TWO_TESTES} onBackToPanel={onBackToPanel} />)
+    const btn = screen.getByTestId('avaliacao-ir-ao-painel')
+    expect(btn).toHaveTextContent(IR_AO_PAINEL)
+    // Same header row as «Sair».
+    expect(btn.parentElement).toHaveTextContent('Sair')
+    fireEvent.click(btn)
+    expect(onBackToPanel).toHaveBeenCalledTimes(1)
+  })
+
+  it('cabeçalho: «Ir ao painel» também no estado vazio', () => {
+    const onBackToPanel = vi.fn()
+    render(<AvaliacaoContainer testes={[]} onBackToPanel={onBackToPanel} />)
+    expect(screen.getByTestId('avaliacao-ir-ao-painel')).toHaveTextContent(IR_AO_PAINEL)
+  })
+
+  it('tudo concluído: mantém a frase canônica E ganha o botão «Ir ao painel»', () => {
+    const onBackToPanel = vi.fn()
+    render(<AvaliacaoContainer testes={ALL_DONE_TESTES} onBackToPanel={onBackToPanel} />)
+    expect(document.body.textContent ?? '').toContain(CANONICAL_WAIT)
+    const btn = screen.getByTestId('avaliacao-concluida-ir-ao-painel')
+    expect(btn).toHaveTextContent(IR_AO_PAINEL)
+    fireEvent.click(btn)
+    expect(onBackToPanel).toHaveBeenCalledTimes(1)
+    // The header button is still there too (every list state).
+    expect(screen.getByTestId('avaliacao-ir-ao-painel')).toBeInTheDocument()
+  })
+
+  it('sem onBackToPanel: renderiza sem quebrar e NÃO mostra botão inerte', () => {
+    render(<AvaliacaoContainer testes={ALL_DONE_TESTES} />)
+    expect(screen.getByText('Tudo concluído!')).toBeInTheDocument()
+    expect(screen.queryByTestId('avaliacao-ir-ao-painel')).toBeNull()
+    expect(screen.queryByTestId('avaliacao-concluida-ir-ao-painel')).toBeNull()
+  })
+
+  it('modo conectado: o «Ir ao painel» do cabeçalho navega para /candidato/dashboard', async () => {
+    mocks.getAvaliacaoContext.mockResolvedValue({ ...CONTEXT_BASE, aplica_cognitivo: false })
+    mocks.getAvaliacaoStatus.mockResolvedValue(ALL_PENDING)
+    renderConnected()
+    const btn = await screen.findByTestId('avaliacao-ir-ao-painel')
+    fireEvent.click(btn)
+    expect(mocks.navigateMock).toHaveBeenCalledWith('/candidato/dashboard')
+  })
+
+  it('WrongEtapaState (etapa já mudou): o botão diz «Ir ao painel» e leva ao dashboard (D-37)', async () => {
+    mocks.getAvaliacaoContext.mockResolvedValue({
+      ...CONTEXT_BASE,
+      candidatura: { ...CONTEXT_BASE.candidatura, etapa_atual: 'entrevista' },
+      aplica_cognitivo: false,
+    })
+    mocks.getAvaliacaoStatus.mockResolvedValue(ALL_PENDING)
+    renderConnected()
+    await screen.findByText('Esta avaliação não está disponível.')
+    expect(screen.queryByText('Voltar ao painel')).toBeNull()
+    fireEvent.click(screen.getByText(IR_AO_PAINEL))
+    expect(mocks.navigateMock).toHaveBeenCalledWith('/candidato/dashboard')
   })
 })
