@@ -161,7 +161,15 @@ export const RECIBO_EXCLUSAO = {
         "decisao_final_historico.reaberta_em",
         "decisao_final_historico.revisao_respondida_em",
         "decisao_final_historico.revisao_solicitada_em",
-        "decisao_final_historico.revisao_veredito"
+        "decisao_final_historico.revisao_veredito",
+        "revisao_rejeicao.etapa_reabertura",
+        "revisao_rejeicao.etapa_rejeitada",
+        "revisao_rejeicao.origem",
+        "revisao_rejeicao.prazo_nova_decisao_em",
+        "revisao_rejeicao.reaberta_em",
+        "revisao_rejeicao.respondida_em",
+        "revisao_rejeicao.solicitada_em",
+        "revisao_rejeicao.veredito"
       ],
       "item_id": "registro_da_decisao",
       "obrigatorio": false,
@@ -516,7 +524,8 @@ export const RECIBO_EXCLUSAO = {
       ],
       "colunas_origem": [
         "decisao_final.revisao_resultado",
-        "decisao_final_historico.revisao_resultado"
+        "decisao_final_historico.revisao_resultado",
+        "revisao_rejeicao.resultado"
       ],
       "item_id": "resposta_ao_seu_pedido_de_revisao",
       "passo_motor": "tombstone_decisao_final",
@@ -613,6 +622,12 @@ export const RECIBO_EXCLUSAO = {
     "redacoes_candidato.rubrica_versao": "estado_do_processo",
     "redacoes_candidato.texto_hash": "chave_tecnica",
     "respostas_formulario.resposta_numerica": "estado_do_processo",
+    "revisao_rejeicao.alerta_prazo_enviado_em": "estado_do_processo",
+    "revisao_rejeicao.candidatura_id": "chave_tecnica",
+    "revisao_rejeicao.historico_rejeicao_id": "chave_tecnica",
+    "revisao_rejeicao.opcao_knockout_id": "chave_tecnica",
+    "revisao_rejeicao.rejeitado_por": "dado_de_funcionario",
+    "revisao_rejeicao.respondida_por": "dado_de_funcionario",
     "sessoes_ativas.revogado_por": "linha_removida_com_a_conta",
     "solicitacoes_dados.aviso_cancelamento_enviado_em": "estado_do_processo",
     "solicitacoes_dados.aviso_pedido_enviado_em": "estado_do_processo"
@@ -654,21 +669,21 @@ export const RECIBO_EXCLUSAO = {
       "arquivo": "supabase/functions/_shared/exportAllowlist.ts",
       "razao": "Cobre 30 de 69 tabelas (45-RESEARCH §C2) e exclui, como telemetria_interna, oito tabelas com PII do titular — inclusive ai_call_logs e logs_acesso, duas das cinco do ERASE-09. Um recibo derivado dele seria omisso sobre o que não diz (§Pitfall 5)."
     },
-    "gerado_em": "2026-10-09T03:52:59.413Z",
+    "gerado_em": "2026-10-09T07:08:50.457Z",
     "gerador": "docs/compliance/sql/gen-recibo-exclusao.cjs",
     "inventario_coletado_em": "2026-07-29T14:08:18Z",
     "plano": "45-02",
     "requirement": "ERASE-07",
     "totais": {
-      "colunas_com_linha_no_recibo": 178,
-      "colunas_com_razao_de_silencio": 58,
-      "colunas_com_veredito": 236,
-      "colunas_em_escopo_do_titular": 236,
+      "colunas_com_linha_no_recibo": 187,
+      "colunas_com_razao_de_silencio": 64,
+      "colunas_com_veredito": 251,
+      "colunas_em_escopo_do_titular": 251,
       "linhas_mantem": 10,
       "linhas_sai": 12,
-      "tabelas_em_escopo_do_titular": 38,
+      "tabelas_em_escopo_do_titular": 39,
       "tabelas_fora_do_escopo_do_titular": 5,
-      "tabelas_no_inventario": 43
+      "tabelas_no_inventario": 44
     }
   },
   "passos_motor": [

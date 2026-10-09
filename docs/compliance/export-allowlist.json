@@ -55,20 +55,20 @@
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-10-09T03:53:02.839Z",
+    "gerado_em": "2026-10-09T07:08:50.423Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-04T01:34:27Z",
     "padrao_nome_de_endereco": "(^|_)(url|urls|uri|uris|link|links)($|_)",
     "requirement": "EXPORT-02",
     "totais": {
-      "colunas_colhidas": 787,
-      "colunas_com_veredito_em_escopo": 451,
-      "colunas_excluidas_em_escopo": 56,
-      "colunas_exportadas": 395,
+      "colunas_colhidas": 803,
+      "colunas_com_veredito_em_escopo": 467,
+      "colunas_excluidas_em_escopo": 60,
+      "colunas_exportadas": 407,
       "colunas_fora_do_arquivo_legivel": 4,
-      "tabelas_catalogadas": 75,
-      "tabelas_com_colunas_colhidas": 53,
-      "tabelas_em_escopo": 32,
+      "tabelas_catalogadas": 76,
+      "tabelas_com_colunas_colhidas": 54,
+      "tabelas_em_escopo": 33,
       "tabelas_excluidas": 43
     },
     "totais_medidos_em_public": {
@@ -76,7 +76,7 @@
       "fks_public": 105,
       "tabelas_base_public": 69
     },
-    "versao": "1.4.0"
+    "versao": "1.5.0"
   },
   "tabelas": {
     "agendamentos_entrevista": {
@@ -1129,6 +1129,46 @@
         "motivo": "decisoes_por_coluna"
       },
       "razao": "BD-10 (OPERADOR, 2026-10-06). O FATO e a BASE de os dados dela ficarem guardados além do prazo (o `motivo` do vocabulário fechado `ck_retencao_hold_motivo`, quando a retenção começou e quando terminou). O texto livre do RH (`detalhe`, que pode conter estratégia de litígio) e os ids de funcionário ficam fora, com razão nomeada."
+    },
+    "revisao_rejeicao": {
+      "chave_titular": "candidatura_id",
+      "colunas": [
+        "candidatura_id",
+        "etapa_reabertura",
+        "etapa_rejeitada",
+        "historico_rejeicao_id",
+        "id",
+        "origem",
+        "prazo_nova_decisao_em",
+        "reaberta_em",
+        "respondida_em",
+        "resultado",
+        "solicitada_em",
+        "veredito"
+      ],
+      "colunas_excluidas": {
+        "alerta_prazo_enviado_em": "decisoes_por_coluna: Análoga: `decisao_final.alerta_prazo_enviado_em` (excluída, bloco «PHASE 48»). (i) telemetria_interna — carimbo de ENTREGA do alerta de prazo vencido AO FUNCIONÁRIO. O fato que importa ao titular (o prazo) sai por `prazo_nova_decisao_em`. Entraria calado por R1 sem este veredito.",
+        "opcao_knockout_id": "decisoes_por_coluna: Sem análoga em `decisao_final`. CÓPIA, gravada no pedido, do UUID da opção\neliminatória que derrubou a candidatura no knockout (D-11 da 51: é o que o RH\nvê ao responder). Decisão do plano 51-15 (e do 51-RESEARCH §Segurança, V8:\n«`opcao_knockout_id` nunca ao candidato»): fica FORA da cópia por esta tabela.\n⚠ DUAS RESSALVAS REGISTRADAS, para o operador, sem mudar o veredito: (1) o\nplano e o RESEARCH citam a regra como «D-15 da 48», e a D-15 do 48-CONTEXT é\nsobre o teto de erros do `tsc` — a fonte da regra não foi localizada; (2) o\nMESMO UUID já chega ao titular por `candidaturas.opcao_knockout_id`\n(`export: true` desde o M1 da Phase 44, «o motivo do desfecho é precisamente o\nque o Art. 20 manda ser explicável»). Excluí-lo aqui não esconde nada que a\ncópia não tenha por outra porta; incluí-lo duplicaria um ponteiro opaco. Se o\noperador decidir que a opção nunca vai ao titular, o veredito a revisar é o de\n`candidaturas.opcao_knockout_id`.\n",
+        "rejeitado_por": "decisoes_por_coluna: Análoga: `decisao_final.por_usuario` (excluída como `pii_de_terceiro (R2)`). UUID do funcionário que rejeitou na triagem (nulo no knockout, `ck_revisao_rejeicao_autor`); a cópia do candidato não carrega ponteiro para funcionário. Também em `ponteiros.de_terceiro` (bloco «PHASE 51»).",
+        "respondida_por": "decisoes_por_coluna: Análoga: `decisao_final.revisao_por_usuario` (excluída como `pii_de_terceiro (R2)`). UUID do funcionário que respondeu ao pedido. Também em `ponteiros.de_terceiro` (bloco «PHASE 51»)."
+      },
+      "fora_do_arquivo_legivel": [],
+      "ligacao": "via:candidaturas",
+      "proveniencia": {
+        "candidatura_id": "decisoes_por_coluna",
+        "etapa_reabertura": "decisoes_por_coluna",
+        "etapa_rejeitada": "decisoes_por_coluna",
+        "historico_rejeicao_id": "decisoes_por_coluna",
+        "id": "decisoes_por_coluna",
+        "origem": "decisoes_por_coluna",
+        "prazo_nova_decisao_em": "decisoes_por_coluna",
+        "reaberta_em": "decisoes_por_coluna",
+        "respondida_em": "decisoes_por_coluna",
+        "resultado": "decisoes_por_coluna",
+        "solicitada_em": "decisoes_por_coluna",
+        "veredito": "decisoes_por_coluna"
+      },
+      "razao": "JORN-42 (Phase 51). O registro do pedido de revisão do Art. 20 que a PESSOA fez sobre uma rejeição na triagem ou no knockout — quando pediu, de que etapa, a resposta de quem revisou e, se revertida, a reabertura e o prazo. É o análogo de `decisao_final` para a rejeição que não passou por decisão final, e a página de explicação já mostra ao titular origem, datas, veredito, resposta e prazo (`estado_revisao_rejeicao`). Os UUIDs de funcionário, a opção eliminatória e o carimbo de alerta ao RH ficam fora, com razão nomeada."
     },
     "scores_bigfive": {
       "chave_titular": "candidatura_id",

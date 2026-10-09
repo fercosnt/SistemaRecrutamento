@@ -92,20 +92,22 @@
 -- REGRA DE HONESTIDADE DE NÚMERO (herdada de 04-invent05-blast-radius.sql:30-40)
 -- ------------------------------------------------------------------------------
 -- Os TRÊS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS** (contagens
--- medidas com `wc -l` sobre a saída de cada comando em 2026-10-06, allowlist 1.4.0,
--- plano 44-11):
+-- medidas sobre a saída de cada comando em 2026-10-09, allowlist 1.5.0,
+-- plano 51-15 — trocados por script, que só ACRESCENTOU linhas):
 --
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 395 pares
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 56  pares
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-tabelas     ⇒ 75  pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 407 pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 60  pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-tabelas     ⇒ 76  pares
 --
--- Soma das duas primeiras: **451 colunas com veredito**, sobre 32 tabelas. A
--- terceira é a disposição de TODA tabela que o artefato conhece: 32 em escopo do
--- titular + 43 excluídas com razão nomeada = 75. O artefato de origem é o
+-- Soma das duas primeiras: **467 colunas com veredito**, sobre 33 tabelas. A
+-- terceira é a disposição de TODA tabela que o artefato conhece: 33 em escopo do
+-- titular + 43 excluídas com razão nomeada = 76. O artefato de origem é o
 -- `export-allowlist.json` derivado do catálogo medido em **2026-08-04T01:34:27Z**
 -- (69 tabelas base / 1025 colunas / 105 FKs em `public` — a fotografia do topo,
--- que não é reescrita), com os `meta.acrescimos` das Phases 48, 49 e 44 (44-11).
--- ⚠ 69 × 75 não é erro: `meta.totais_medidos_em_public` do artefato é COPIADO
+-- que não é reescrita), com os `meta.acrescimos` das Phases 48, 49, 44 (44-11) e
+-- 51 (51-15). (Até o 51-15: 395 + 56 = 451 sobre 32 tabelas e 75 disposições,
+-- allowlist 1.4.0, 44-11.)
+-- ⚠ 69 × 76 (antes 69 × 75) não é erro: `meta.totais_medidos_em_public` do artefato é COPIADO
 -- daquela fotografia; `meta.totais.tabelas_catalogadas` é CALCULADO com os
 -- acréscimos. Nota datada no `export-scope-rules.yaml`, `fecho_executado`.
 --
@@ -170,6 +172,18 @@
 -- Depois disto a baseline esperada contra PROD é ZERO linhas — mas ESPERADA não é
 -- MEDIDA: a prova contra o banco (esta consulta devolvendo `[]` e o smoke
 -- aprovando pela primeira vez) é do plano 44-12, e a publicação, do 44-13.
+--
+-- ⚠ E MUDARAM DE NOVO NA PHASE 51 (51-15, 2026-10-09, JORN-42): 395 + 56 = 451 pares
+-- sobre 32 tabelas e 75 disposições → **407 + 60 = 467 pares sobre 33 tabelas e 76
+-- disposições**. Entra a tabela `revisao_rejeicao` (migration 20261008000002): 12
+-- colunas na cópia, 4 fora com razão (`rejeitado_por`, `respondida_por`,
+-- `opcao_knockout_id`, `alerta_prazo_enviado_em`). ⚠ TRANSITÓRIO DECLARADO: a tabela só
+-- existe em PROD depois do apply do portão 51-16. Entre o commit do 51-15 e esse apply,
+-- esta consulta e o smoke rodados contra o PROD VIVO acusam `revisao_rejeicao` como
+-- disposição sem tabela viva (e as 16 colunas como veredito sem coluna) — ESPERADO.
+-- Nesse intervalo o smoke só é prova DENTRO do ensaio que prefixa 0002..0004
+-- (`node scripts/p51_ensaio.cjs --migracoes=…0002,…0003,…0004 supabase/tests/p44_export_drift_smoke.sql`),
+-- onde fica verde.
 --
 -- ⚠ Toda regeração da allowlist obriga a regerar os TRÊS blocos. Essa obrigação
 -- deixou de ser promessa em prosa: a asserção (k) de `exportAllowlist.test.ts`
@@ -548,6 +562,18 @@ WITH allowlist(tabela, coluna) AS (
     ('retencao_hold','id'),
     ('retencao_hold','liberado_em'),
     ('retencao_hold','motivo'),
+    ('revisao_rejeicao','candidatura_id'),
+    ('revisao_rejeicao','etapa_reabertura'),
+    ('revisao_rejeicao','etapa_rejeitada'),
+    ('revisao_rejeicao','historico_rejeicao_id'),
+    ('revisao_rejeicao','id'),
+    ('revisao_rejeicao','origem'),
+    ('revisao_rejeicao','prazo_nova_decisao_em'),
+    ('revisao_rejeicao','reaberta_em'),
+    ('revisao_rejeicao','respondida_em'),
+    ('revisao_rejeicao','resultado'),
+    ('revisao_rejeicao','solicitada_em'),
+    ('revisao_rejeicao','veredito'),
     ('scores_bigfive','analise_ia'),
     ('scores_bigfive','candidatura_id'),
     ('scores_bigfive','created_at'),
@@ -662,6 +688,10 @@ excluidas(tabela, coluna) AS (
     ('retencao_hold','criado_por'),
     ('retencao_hold','detalhe'),
     ('retencao_hold','liberado_por'),
+    ('revisao_rejeicao','alerta_prazo_enviado_em'),
+    ('revisao_rejeicao','opcao_knockout_id'),
+    ('revisao_rejeicao','rejeitado_por'),
+    ('revisao_rejeicao','respondida_por'),
     ('solicitacoes_dados','aviso_cancelamento_enviado_em'),
     ('solicitacoes_dados','aviso_pedido_enviado_em'),
     ('solicitacoes_dados','plano'),
@@ -736,6 +766,7 @@ disposicao_tabelas(tabela, destino) AS (
     ('respostas_formulario','escopo_titular'),
     ('respostas_raven','escopo_titular'),
     ('retencao_hold','escopo_titular'),
+    ('revisao_rejeicao','escopo_titular'),
     ('scores_bigfive','escopo_titular'),
     ('scores_candidato','escopo_titular'),
     ('scores_disc','escopo_titular'),

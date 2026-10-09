@@ -156,6 +156,28 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `prazo_nova_decisao_em` | 🔒 preservar | timestamptz |  |
 | `alerta_prazo_enviado_em` | 🔒 preservar | timestamptz | Controle de envio de alerta ao RH |
 
+### `revisao_rejeicao`
+
+> Pedido de revisão do Art. 20 de uma rejeição FORA da decisão final (triagem pelo RH ou knockout automático). Análogo de `decisao_final` para esse caso: o REGISTRO do pedido sobrevive à exclusão (prova de exercício de direito e de revisão humana); a resposta escrita pelo revisor sai.
+
+| Coluna | Classificação | Tipo | Nota |
+|--------|---------------|------|------|
+| `candidatura_id` | 🔒 preservar | uuid | Como `decisao_final.candidatura_id`. A ligação com o titular é cortada pelo tombstone da candidatura, não por esta coluna |
+| `historico_rejeicao_id` | 🔒 preservar | uuid | Chave técnica para a linha de `historico_candidatura` da rejeição (UNIQUE: um pedido por rejeição) |
+| `origem` | 🔒 preservar | text | Vocabulário fechado humana_triagem|automatica — estado do processo |
+| `etapa_rejeitada` | 🔒 preservar | enum | Como `historico_candidatura.etapa_de` |
+| `etapa_reabertura` | 🔒 preservar | enum | Como `historico_candidatura.etapa_para`; `triagem` no knockout (D-30) |
+| `rejeitado_por` | 🔒 preservar | uuid | Funcionário, não titular — como `decisao_final.por_usuario`. Nulo no knockout (ck_revisao_rejeicao_autor) |
+| `opcao_knockout_id` | 🔒 preservar | uuid | Cópia de `candidaturas.opcao_knockout_id` (D-11): opção do produto, não atributo da pessoa. Sem FK |
+| `solicitada_em` | 🔒 preservar | timestamptz | Art. 20 — prova de exercício de direito, como `decisao_final.revisao_solicitada_em` |
+| `veredito` | 🔒 preservar | text | Vocabulário fechado mantida|revertida — como `decisao_final.revisao_veredito` |
+| `resultado` | 🗑️ apagar | text | Resposta que o REVISOR escreveu ao pedido — texto sobre a pessoa, na fala de quem revisou. Mesmo tratamento de `decisao_final.revisao_resultado` (D-60): anonimizar_candidato a substitui por valor fixo no passo tombstone_decisao_final (migration 20261008000004, plano 51-13, chave revisao_rejeicao_resultado; pedido NÃO respondido continua NULL). Recibo: item resposta_ao_seu_pedido_de_revisao |
+| `respondida_por` | 🔒 preservar | uuid | Funcionário — como `decisao_final.revisao_por_usuario` |
+| `respondida_em` | 🔒 preservar | timestamptz |  |
+| `reaberta_em` | 🔒 preservar | timestamptz | Como `decisao_final.reaberta_em` — parte do registro da decisão |
+| `prazo_nova_decisao_em` | 🔒 preservar | timestamptz | Como `decisao_final.prazo_nova_decisao_em` |
+| `alerta_prazo_enviado_em` | 🔒 preservar | timestamptz | Controle de envio do alerta de prazo ao RH. Sem PII; estado do processo |
+
 ### `historico_candidatura`
 
 > ⚠ ESPINHA DE AUDITORIA. FK NO ACTION (ERASE-08).
@@ -663,9 +685,9 @@ o defeito de verdade, e não a existência da tabela.
 | Classificação | Colunas |
 |---------------|--------:|
 | 🎭 anonimizar | 22 |
-| 🗑️ apagar | 68 |
+| 🗑️ apagar | 69 |
 | ⚠️ preservar c/ ressalva | 51 |
-| 🔒 preservar | 109 |
-| **Total explícito** | **250** |
+| 🔒 preservar | 123 |
+| **Total explícito** | **265** |
 
-Cobertura de tabelas: **65 / 64**.
+Cobertura de tabelas: **66 / 64**.
