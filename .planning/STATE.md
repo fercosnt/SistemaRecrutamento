@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-13-PLAN.md
-last_updated: "2026-10-09T06:47:39.004Z"
+stopped_at: Completed 51-14-PLAN.md
+last_updated: "2026-10-09T06:59:28.826Z"
 last_activity: 2026-10-09
-state_head: da6ea422c00d78f5735a4c143b7b24ff137a0277
+state_head: 68a3424d5f75d64665f97d202d6179ff42af6e21
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 160
+  completed_plans: 161
   percent: 98
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-13 concluido (motor de exclusao, NADA aplicado/publicado/empurrado): migration 20261008000004 faz anonimizar_candidato raspar revisao_rejeicao.resultado com a sentinela de decisao_final.revisao_resultado (CASE WHEN ... IS NULL THEN NULL) e plano_exclusao_titular contar pela mesma expressao; p45 com (C3/ix) rodada VERMELHA antes do re-pin, (B25) cinco sub-rotulos, pins do arquivo a68e4a6a/0a4996fe, v_esperado 39; ensaio verde vistas=igual, capturar identico; runner 31/31 (MD1/MD2 nos rotulos da B25); p46_purga verde; ledger segue em 20261008000001. Proximo: 51-14"
+last_activity_desc: "51-14 concluido (cliente da fila de revisoes, NADA aplicado/publicado/empurrado): selo de origem por linha (Decisao final / Rejeicao pelo RH / Knockout, nenhum diz triagem), key={linha.pedido_id} (C-12), autor do knockout Automatico (knockout); responderRevisao roteia pela origem (humana_triagem/automatica -> responder_revisao_rejeicao por cast estreito; humana/nulo -> responder_revisao_decisao); ContextoKnockoutRevisao le ler_contexto_knockout_revisao sob demanda (D-11); desvios: reversao com copia por origem (reabre na etapa), removida sem a pedido do titular (motor tambem roda na purga) — a confirmar pelo operador; mordida base 8 assercoes+2 cargas, forte 14; vitest 351/351; tsc 89; ledger segue em 20261008000001. ORDEM: cliente so depois do apply da 0002/0003 (51-16). Proximo: 51-15"
 ---
 
 # Project State
@@ -1005,6 +1005,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P11 | 15min | 2 tasks | 4 files |
 | Phase 51 P12 | 11min | 2 tasks | 8 files |
 | Phase 51 P13 | 14min | 2 tasks | 3 files |
+| Phase 51 P14 | 7 min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -1436,6 +1437,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-13: a contagem revisao_rejeicao_resultado mora DENTRO de tombstone_decisao_final (sem chave de topo) — a EF executar-direito-titular soma os numeros do bloco e nao fixa chaves; nenhum smoke le a mensagem do terminador por regex
 - [Phase 51]: 51-13: pins do (C3/i) do p45 re-carimbados do ARQUIVO 20261008000004 (anon a68e4a6a, plano 0a4996fe), nunca do catalogo; a rede (C3/ix) cresceu e foi rodada VERMELHA contra o corpo do 49-29 antes; conferencia viva x arquivo e da corrida ao vivo do 51-16
 - [Phase 51]: 51-13: MD2 derruba por FORMA o CHECK de coerencia veredito/resultado da 0002 na propria mutacao (sem ele o 23514 atravessa o handler P45B0 sem rotulo); o CHECK fica como segunda defesa
+- [Phase 51]: 51-14: o selo de origem da fila mora na celula Decisao original (7 colunas mantidas); a linha e identificada por pedido_id (C-12) e o rascunho do dialogo reinicia pelo pedido
+- [Phase 51]: 51-14: responderRevisao roteia so origem explicita humana_triagem/automatica para responder_revisao_rejeicao; humana ou nulo (fila anterior a 0003) seguem em responder_revisao_decisao
+- [Phase 51]: 51-14: a reversao das origens novas tem copia propria (reabre na etapa: triagem no knockout, etapa da rejeicao na rejeicao pelo RH); a de Decisao final so vale para a decisao final
+- [Phase 51]: 51-14: removida no contexto do knockout diz apagada na exclusao de dados pessoais, NAO a pedido do titular (anonimizar_candidato tambem roda na purga de retencao) — desvio da frase do plano, a confirmar pelo operador
 
 ### Roadmap Evolution
 
@@ -1770,8 +1775,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T06:47:08.214Z
-Stopped at: Completed 51-13-PLAN.md
+Last session: 2026-10-09T06:59:00.942Z
+Stopped at: Completed 51-14-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
