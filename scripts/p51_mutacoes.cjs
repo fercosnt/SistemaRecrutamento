@@ -168,6 +168,52 @@ const fnContar = () => fn(V03, 'contar_revisoes_pendentes');
 const fnFunil = () => fn(V03, 'funil_kpis');
 const fnVarrer = () => fn(V03, 'varrer_prazos_reabertura');
 
+// ── 51-13: o motor raspa a resposta do revisor no registro novo (migration 20261008000004) ──
+const V04 = '20261008000004';
+const S45M = 'supabase/tests/p45_motor_exclusao_smoke.sql';
+/* `CREATE OR REPLACE FUNCTION public.<nome>(` … o delimitador NOMEADO `$<nome>$` que FECHA o corpo,
+ * mais `;`. A 0004 usa delimitadores nomeados (o `fn` acima procura `$function$;`, que la nao existe):
+ * o delimitador tem de ocorrer EXATAMENTE duas vezes no arquivo (abre e fecha), senao a extracao
+ * casaria uma mencao em prosa (a armadilha do 46-02) — erro do harness. */
+const fnNomeada = (versao, nome) => {
+  const t = mig(versao);
+  const ini = `CREATE OR REPLACE FUNCTION public.${nome}(`;
+  const D = '$' + nome + '$';
+  const nIni = t.split(ini).length - 1;
+  const nD = t.split(D).length - 1;
+  if (nIni !== 1 || nD !== 2) sair(`ANCORA AUSENTE/AMBIGUA: ${nome} na ${versao} (inicio ${nIni} vez(es), delimitador ${D} ${nD} vez(es); exigido 1 e 2)`);
+  const a = t.indexOf(ini);
+  const d1 = t.indexOf(D);
+  const d2 = t.indexOf(D, d1 + D.length);
+  if (d1 < a) sair(`ANCORA AUSENTE/AMBIGUA: ${nome} — o delimitador ${D} aparece antes do CREATE`);
+  return t.slice(a, d2 + D.length) + ';';
+};
+const fnMotor = () => fnNomeada(V04, 'anonimizar_candidato');
+/* O statement que comeca na ancora (unica) e termina no primeiro `;` FORA DE LITERAL — varredura que
+ * alterna dentro/fora a cada aspa (o '' de escape alterna duas vezes e volta ao mesmo estado). A
+ * sentinela que o passo copia contem `foi removido;`: um indexOf(';') cortaria DENTRO dela e a 0004
+ * mutada sairia com erro de sintaxe (42601), que o runner mostraria como NAO MORDE acusando a
+ * assercao certa. O trecho e recortado do ARQUIVO em tempo de execucao e passado ao `trocar` como
+ * ancora — nunca copiado para ca (49-PATTERNS §K: o literal da sentinela nao mora fora do motor). */
+function statementForaDeLiteral(texto, inicio, rotulo) {
+  const n = texto.split(inicio).length - 1;
+  if (n !== 1) sair(`ANCORA AUSENTE/AMBIGUA: ${rotulo} («${inicio}» ocorre ${n} vez(es))`);
+  const a = texto.indexOf(inicio);
+  let dentro = false;
+  for (let i = a; i < texto.length; i++) {
+    const c = texto[i];
+    if (c === "'") dentro = !dentro;
+    else if (c === ';' && !dentro) {
+      const st = texto.slice(a, i + 1);
+      // sanidade do corte: o statement inteiro tem o WHERE escopado; um corte que terminasse dentro
+      // do literal o perderia — erro do harness, nunca uma mutacao mal formada mandada ao banco
+      if (!/WHERE[\s\S]*candidato_id\s*=\s*p_candidato_id\)?;$/.test(st)) sair(`ANCORA AUSENTE/AMBIGUA: ${rotulo} — o corte no primeiro ; fora de literal nao terminou no WHERE escopado (${JSON.stringify(st.slice(-80))})`);
+      return st;
+    }
+  }
+  return sair(`ANCORA AUSENTE/AMBIGUA: ${rotulo} — sem ; fora de literal depois de «${inicio}»`);
+}
+
 const MUTACOES = [
   {
     // (b) RNF-07a: um número do Raven entra na chave. Com a fixture sem score a folha é null; com
@@ -488,6 +534,59 @@ const MUTACOES = [
     rotulos: ['velho.responder_revisao_rejeicao/3'],
     requer: [V02],
     sql: () => trocar(fnResp(), "IF v_role = 'rh' AND NOT public.is_active_rh_user() THEN", 'IF false THEN', 'MC8'),
+  },
+  {
+    // (B25/respondido) do p45 — o passo novo removido: o UPDATE de revisao_rejeicao vira `NULL;`
+    // (a contagem v_n_rr_res FICA, para o jsonb de retorno continuar igual e a mordida ser da
+    // execucao, nao da contagem). Nada e escrito, nenhum CHECK em jogo: o pedido respondido
+    // conserva o texto do revisor.
+    id: 'MD1',
+    desc: 'passo novo removido — o UPDATE de revisao_rejeicao vira NULL; (a contagem fica)',
+    smoke: S45M,
+    letra: 'B25/respondido',
+    requer: [V02, V04],
+    sql: () => {
+      const motor = fnMotor();
+      return trocar(motor, statementForaDeLiteral(motor, 'UPDATE public.revisao_rejeicao', 'MD1'), 'NULL;', 'MD1');
+    },
+  },
+  {
+    // (B25/nao_respondido) do p45 — SENTINELA SECA: a guarda do UPDATE novo vira `CASE WHEN false`,
+    // e o ELSE <sentinela> passa a valer para todo pedido (o literal nunca e escrito aqui, §K).
+    // ⚠ O CHECK de coerencia `(veredito IS NULL) = (resultado IS NULL)` da 0002 e DERRUBADO NA
+    //   PROPRIA MUTACAO (rota 1 do fix_hint do checker): com ele de pe o motor mutado levanta 23514
+    //   DENTRO do bloco B do smoke, cujo unico handler e `WHEN sqlstate 'P45B0'`, o erro atravessa o
+    //   DO sem P45M FAIL e a mutacao nao e julgavel. A rota 2 (embrulhar a chamada do motor) foi
+    //   recusada: aquela chamada e a do (B2), compartilhada pela especificacao inteira, e capturar
+    //   23514 ali roubaria do (B2)/(B3) a classe de erro que eles existem para expor. O CHECK e a
+    //   SEGUNDA defesa; o portao sob prova aqui e a ASSERCAO, que tem de morder sozinha. O CHECK de
+    //   comprimento (>= 50) fica de pe — a sentinela o satisfaz.
+    // ⚠ O CHECK e achado POR FORMA (o unico CHECK de revisao_rejeicao cuja definicao contem
+    //   `veredito IS NULL` E `resultado IS NULL`), nunca pelo nome; zero ou mais de um =
+    //   MUTACAO MD2 INVALIDA (o runner a mostra como NAO MORDE, nunca como mordida). Como o MB6.
+    //   No modo pos-apply (51-16) o ALTER segura AccessExclusiveLock na revisao_rejeicao viva so
+    //   durante a requisicao que aborta (lock_timeout 3s).
+    id: 'MD2',
+    desc: 'sentinela seca (CASE WHEN false) com o CHECK de coerencia veredito/resultado derrubado por forma',
+    smoke: S45M,
+    letra: 'B25/nao_respondido',
+    requer: [V02, V04],
+    sql: () =>
+      'DO $md2$\n' +
+      'DECLARE v_nomes text[];\n' +
+      'BEGIN\n' +
+      '  SELECT array_agg(co.conname::text) INTO v_nomes\n' +
+      '    FROM pg_catalog.pg_constraint co\n' +
+      "   WHERE co.conrelid = 'public.revisao_rejeicao'::regclass AND co.contype = 'c'\n" +
+      "     AND position('veredito IS NULL' IN pg_catalog.pg_get_constraintdef(co.oid)) > 0\n" +
+      "     AND position('resultado IS NULL' IN pg_catalog.pg_get_constraintdef(co.oid)) > 0;\n" +
+      '  IF coalesce(array_length(v_nomes, 1), 0) <> 1 THEN\n' +
+      "    RAISE EXCEPTION 'MUTACAO MD2 INVALIDA: % CHECK(s) de coerencia veredito/resultado em revisao_rejeicao (exigido 1): %', coalesce(array_length(v_nomes, 1), 0), coalesce(array_to_string(v_nomes, ','), '<nenhum>');\n" +
+      '  END IF;\n' +
+      "  EXECUTE format('ALTER TABLE public.revisao_rejeicao DROP CONSTRAINT %I', v_nomes[1]);\n" +
+      'END\n' +
+      '$md2$;\n' +
+      trocar(fnMotor(), 'CASE WHEN r.resultado IS NULL THEN NULL', 'CASE WHEN false THEN NULL', 'MD2'),
   },
 ];
 
