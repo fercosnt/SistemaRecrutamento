@@ -760,6 +760,32 @@ describe('explicacaoService — o estado do pedido de revisão da rejeição (JO
     expect(rpcsChamadas()).toEqual(['estado_revisao_rejeicao', 'explicacao_rejeicao_origem'])
   })
 
+  // IN-02 do 51-REVIEW-PORTAO-2: `42883` também é o erro de um helper ausente chamado DENTRO do corpo de
+  // `estado_revisao_rejeicao` (uma migration futura que renomeie um helper). Isso NÃO é a RPC ausente: cair
+  // no fluxo de antes esconderia do titular um pedido existente. Só conta o 42883 que nomeia a própria RPC.
+  it.each([
+    ['assinatura posicional', 'function public.estado_revisao_rejeicao(uuid) does not exist'],
+    ['argumento nomeado (o que o PostgREST manda)', 'function public.estado_revisao_rejeicao(p_candidatura_id => uuid) does not exist'],
+  ])('42883 que nomeia a PRÓPRIA RPC (%s) → ausência → fluxo de antes', async (_n, message) => {
+    servidor({ estado_revisao_rejeicao: { error: { code: '42883', message } } })
+    maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.origem).toBe('humana')
+    expect(fromMock).toHaveBeenCalledWith('decisao_final')
+  })
+
+  it.each([
+    ['helper ausente dentro do corpo', 'function public.candidatura_encerrada(public.etapa_processo, public.status_candidatura) does not exist'],
+    ['operador ausente dentro do corpo', 'operator does not exist: uuid = text'],
+    ['sem mensagem', undefined],
+  ])('42883 que NÃO nomeia a RPC (%s) → DATABASE_ERROR, nunca o fluxo de antes', async (_n, message) => {
+    fromMock.mockClear()
+    servidor({ estado_revisao_rejeicao: { error: { code: '42883', message } } })
+    maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
+    await expect(getExplicacao(VALID_CAND)).rejects.toMatchObject({ code: 'DATABASE_ERROR' })
+    expect(fromMock).not.toHaveBeenCalledWith('decisao_final')
+  })
+
   it('erro que NÃO é ausência da RPC (PGRST203 ambígua, 42501, rede) continua DATABASE_ERROR', async () => {
     for (const erro of [
       { code: 'PGRST203', message: 'Could not choose the best candidate function' },
