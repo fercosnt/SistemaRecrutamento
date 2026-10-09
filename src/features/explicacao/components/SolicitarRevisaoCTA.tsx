@@ -40,7 +40,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useSolicitarRevisao } from '../hooks/useExplicacao'
+import { useSolicitarRevisao, type OrigemRejeicao } from '../hooks/useExplicacao'
 
 /**
  * Verbatim pt-BR copy from 15-UI-SPEC §Candidate LGPD Art. 20, com os três rótulos do
@@ -79,6 +79,14 @@ function formatRequestedDate(iso: string): string {
 
 export interface SolicitarRevisaoCTAProps {
   candidaturaId: string
+  /**
+   * 51-12 (JORN-42) — a origem da rejeição, como o SERVIDOR a deu (`getExplicacao`). É
+   * repassada à mutação e escolhe a RPC do pedido: `humana` → o ciclo da decisão final;
+   * `automatica` / `humana_triagem` → o registro próprio do pedido (51-08). Obrigatória de
+   * propósito: um default esconderia o call site que esquecesse de passá-la, e o pedido
+   * do knockout iria para a RPC que o recusa sempre.
+   */
+  origem: OrigemRejeicao
   /** When set, the revision was already requested → the CTA is disabled (idempotent). */
   revisaoSolicitadaEm: string | null
   /**
@@ -92,6 +100,7 @@ export interface SolicitarRevisaoCTAProps {
 
 export function SolicitarRevisaoCTA({
   candidaturaId,
+  origem,
   revisaoSolicitadaEm,
   revisaoRespondidaEm = null,
 }: SolicitarRevisaoCTAProps) {
@@ -194,7 +203,7 @@ export function SolicitarRevisaoCTA({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{COPY.dialogCancel}</AlertDialogCancel>
-          <AlertDialogAction onClick={() => mutate()}>
+          <AlertDialogAction onClick={() => mutate(origem)}>
             {COPY.dialogConfirm}
           </AlertDialogAction>
         </AlertDialogFooter>

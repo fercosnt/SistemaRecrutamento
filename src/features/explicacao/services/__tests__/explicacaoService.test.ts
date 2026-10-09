@@ -55,7 +55,10 @@ vi.mock('@/lib/supabase/client', () => {
 
 import {
   DECISAO_EXPLICACAO_ALLOWLIST,
+  ExplicacaoServiceError,
   REASON_HUMANA_TRIAGEM,
+  REASON_KNOCKOUT,
+  getEstadoRevisaoRejeicao,
   getExplicacao,
   normalizarVeredito,
   solicitarRevisao,
@@ -63,6 +66,32 @@ import {
 } from '../explicacaoService'
 
 const VALID_CAND = '11111111-1111-4111-8111-111111111111'
+
+type RespostaRpc = { data?: unknown; error?: unknown }
+
+/**
+ * 51-12 (JORN-42): o serviço passa a fazer DUAS perguntas diferentes ao servidor por
+ * RPC — `estado_revisao_rejeicao` (sempre primeiro) e, no fluxo de antes, a
+ * `explicacao_rejeicao_origem`. Um `mockResolvedValue` único responderia as duas com o
+ * MESMO valor e o teste mediria uma coincidência; este roteador responde por NOME, e o
+ * que não for nomeado devolve `{ data: null, error: null }` (o servidor «não se aplica»).
+ */
+function servidor(respostas: Record<string, RespostaRpc>) {
+  rpcMock.mockImplementation(async (fn: string) => {
+    const r = respostas[fn]
+    return { data: r?.data ?? null, error: r?.error ?? null }
+  })
+}
+
+/** Atalho do fluxo de antes: só a `explicacao_rejeicao_origem` responde. */
+function origemResponde(resposta: RespostaRpc) {
+  servidor({ explicacao_rejeicao_origem: resposta })
+}
+
+/** Os nomes das RPCs chamadas, na ordem. */
+function rpcsChamadas(): string[] {
+  return rpcMock.mock.calls.map((c) => c[0] as string)
+}
 
 /** A rejected own row with the review lifecycle fields overridable per case. */
 function linhaRejeitada(over: Record<string, unknown> = {}) {
@@ -83,6 +112,14 @@ beforeEach(() => {
   selects.length = 0
   rpcMock.mockReset()
   maybeSingleMock.mockReset()
+  fromMock.mockClear()
+  // Default: toda RPC responde «não se aplica». Sem isto, a pergunta nova do 51-12
+  // (`estado_revisao_rejeicao`, feita ANTES da leitura de `decisao_final`) receberia
+  // `undefined` nos casos que só configuram a linha de `decisao_final`.
+  servidor({})
+  // E nenhuma linha em `decisao_final` até o caso dizer o contrário — o mesmo «não se
+  // aplica» do lado da leitura direta.
+  maybeSingleMock.mockResolvedValue({ data: null, error: null })
 })
 
 afterEach(() => {
@@ -268,7 +305,7 @@ describe('explicacaoService — reachability gate (Pitfall 6 / T-15-14)', () => 
     // knockout ou a rejeição humana na triagem (JORN-22). O serviço PERGUNTA ao
     // servidor; um `null` (não é sua / não se aplica) mantém a página indisponível.
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: null, error: null })
+    origemResponde({ data: null, error: null })
     await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
   })
 
@@ -338,7 +375,7 @@ describe('explicacaoService — solicitarRevisao (DECISAO-04 + SEC-03 server-sid
     const fetchMock = vi.fn().mockResolvedValue({ ok: true })
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(solicitarRevisao(VALID_CAND)).resolves.toBe('ok')
+    await expect(solicitarRevisao(VALID_CAND, 'humana')).resolves.toBe('ok')
 
     expect(rpcMock).toHaveBeenCalledWith('solicitar_revisao_decisao', {
       p_candidatura_id: VALID_CAND,
@@ -354,7 +391,7 @@ describe('explicacaoService — solicitarRevisao (DECISAO-04 + SEC-03 server-sid
     const fetchMock = vi.fn().mockRejectedValue(new Error('network down'))
     vi.stubGlobal('fetch', fetchMock)
     // The mutation resolves on the RPC; there is no client notification path to break.
-    await expect(solicitarRevisao(VALID_CAND)).resolves.toBe('ok')
+    await expect(solicitarRevisao(VALID_CAND, 'humana')).resolves.toBe('ok')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -362,7 +399,7 @@ describe('explicacaoService — solicitarRevisao (DECISAO-04 + SEC-03 server-sid
     rpcMock.mockResolvedValue({ error: { code: '42501', message: 'forbidden' } })
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    await expect(solicitarRevisao(VALID_CAND)).resolves.toBe('denied')
+    await expect(solicitarRevisao(VALID_CAND, 'humana')).resolves.toBe('denied')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -375,7 +412,7 @@ describe('explicacaoService — solicitarRevisao (DECISAO-04 + SEC-03 server-sid
       const fetchMock = vi.fn()
       vi.stubGlobal('fetch', fetchMock)
       // Non-retryable neutral outcome — NOT a thrown NETWORK_ERROR, NOT a webhook fire.
-      await expect(solicitarRevisao(VALID_CAND)).resolves.toBe('unavailable')
+      await expect(solicitarRevisao(VALID_CAND, 'humana')).resolves.toBe('unavailable')
       expect(fetchMock).not.toHaveBeenCalled()
     },
   )
@@ -399,7 +436,7 @@ describe('explicacaoService — solicitarRevisao (DECISAO-04 + SEC-03 server-sid
 describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', () => {
   it('sem `decisao_final` e COM knockout: devolve explicação de origem automática', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: 'automatica', error: null })
+    origemResponde({ data: 'automatica', error: null })
 
     const r = await getExplicacao(VALID_CAND)
     expect(r).not.toBeNull()
@@ -413,7 +450,7 @@ describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', (
 
   it('o texto nomeia o MECANISMO e cala o CRITÉRIO (Art. 20 sim, D-15 preservado)', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: 'automatica', error: null })
+    origemResponde({ data: 'automatica', error: null })
 
     const r = await getExplicacao(VALID_CAND)
     // Diz que foi automático e o que o motivou — é o direito do Art. 20.
@@ -427,7 +464,7 @@ describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', (
 
   it('o ciclo de revisão vem TODO nulo — não há revisão a oferecer', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: 'automatica', error: null })
+    origemResponde({ data: 'automatica', error: null })
 
     const r = await getExplicacao(VALID_CAND)
     expect(r?.revisao_solicitada_em).toBeNull()
@@ -439,7 +476,7 @@ describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', (
 
   it('⚠ a rejeição HUMANA da triagem NUNCA recebe o texto da automática (o portão que mais importa)', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: 'humana_triagem', error: null })
+    origemResponde({ data: 'humana_triagem', error: null })
     const r = await getExplicacao(VALID_CAND)
     expect(r?.origem).toBe('humana_triagem')
     expect(r?.reason).not.toMatch(/requisitos objetivos|elegibilidade|formul[áa]rio/i)
@@ -463,24 +500,28 @@ describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', (
       undefined,
     ]) {
       maybeSingleMock.mockResolvedValue({ data: null, error: null })
-      rpcMock.mockResolvedValue({ data, error: null })
+      origemResponde({ data, error: null })
       await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
     }
   })
 
   it('erro na RPC resolve para indisponível, e não derruba a tela de transparência', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: null, error: { code: '42501' } })
+    origemResponde({ data: null, error: { code: '42501' } })
     await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
   })
 
-  it('havendo decisão HUMANA rejeitada, a origem é humana e a RPC nem é consultada', async () => {
+  // 51-12 (D-56 — re-especificado): até o 51-12 este caso asseria `rpcMock` NUNCA chamado.
+  // Desde o JORN-42 a primeira pergunta é SEMPRE `estado_revisao_rejeicao` (o pedido de
+  // revisão fora da decisão final), então o que continua verdade — e é o que importa — é
+  // que a pergunta do FALLBACK (`explicacao_rejeicao_origem`) não é feita.
+  it('havendo decisão HUMANA rejeitada, a origem é humana e a RPC do fallback nem é consultada', async () => {
     rpcMock.mockClear()
     maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
 
     const r = await getExplicacao(VALID_CAND)
     expect(r?.origem).toBe('humana')
-    expect(rpcMock).not.toHaveBeenCalled()
+    expect(rpcsChamadas()).toEqual(['estado_revisao_rejeicao'])
   })
 
   it('aprovado/em_espera não caem no fallback — knockout e decisão final se excluem', async () => {
@@ -488,7 +529,8 @@ describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', (
       rpcMock.mockClear()
       maybeSingleMock.mockResolvedValue({ data: linhaRejeitada({ decisao }), error: null })
       await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
-      expect(rpcMock).not.toHaveBeenCalled()
+      // D-56: era `not.toHaveBeenCalled()`; ver o caso acima.
+      expect(rpcsChamadas()).toEqual(['estado_revisao_rejeicao'])
     }
   })
 })
@@ -512,7 +554,7 @@ describe('explicacaoService — a rejeição humana na triagem (JORN-22 / D-20)'
 
   it('sem `decisao_final` e com origem humana_triagem: devolve a explicação própria', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: 'humana_triagem', error: null })
+    origemResponde({ data: 'humana_triagem', error: null })
 
     const r = await getExplicacao(VALID_CAND)
     expect(r).toEqual({
@@ -532,11 +574,13 @@ describe('explicacaoService — a rejeição humana na triagem (JORN-22 / D-20)'
     })
   })
 
-  it('a RPC booleana antiga saiu do serviço — uma única pergunta ao servidor', async () => {
+  // D-56 (51-12): era `toHaveBeenCalledTimes(1)`. A pergunta do estado do pedido (JORN-42)
+  // vem antes; a pergunta da ORIGEM continua sendo uma só, e a booleana antiga, nenhuma.
+  it('a RPC booleana antiga saiu do serviço — uma única pergunta de origem ao servidor', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: 'humana_triagem', error: null })
+    origemResponde({ data: 'humana_triagem', error: null })
     await getExplicacao(VALID_CAND)
-    expect(rpcMock).toHaveBeenCalledTimes(1)
+    expect(rpcsChamadas()).toEqual(['estado_revisao_rejeicao', 'explicacao_rejeicao_origem'])
     expect(rpcMock).not.toHaveBeenCalledWith(
       'explicacao_rejeicao_automatica',
       expect.anything(),
@@ -559,16 +603,17 @@ describe('explicacaoService — a rejeição humana na triagem (JORN-22 / D-20)'
 
   it('erro na RPC resolve para indisponível', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: 'humana_triagem', error: { code: '42501' } })
+    origemResponde({ data: 'humana_triagem', error: { code: '42501' } })
     await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
   })
 
+  // D-56 (51-12): era `rpcMock` nunca chamado; ver o caso equivalente do §7.18.
   it('havendo linha em `decisao_final`, a origem é humana e a RPC tri-estado nem é consultada', async () => {
     rpcMock.mockClear()
     maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
     const r = await getExplicacao(VALID_CAND)
     expect(r?.origem).toBe('humana')
-    expect(rpcMock).not.toHaveBeenCalled()
+    expect(rpcMock).not.toHaveBeenCalledWith('explicacao_rejeicao_origem', expect.anything())
   })
 })
 
@@ -604,9 +649,232 @@ describe('explicacaoService — o estado da reabertura (JORN-19)', () => {
 
   it('o caminho automático também devolve os dois campos nulos', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: 'automatica', error: null })
+    origemResponde({ data: 'automatica', error: null })
     const r = await getExplicacao(VALID_CAND)
     expect(r?.reaberta_em).toBeNull()
     expect(r?.prazo_nova_decisao_em).toBeNull()
+  })
+})
+
+/**
+ * 51-12 (JORN-42 · D-01, lado do candidato) — o pedido de revisão para TODA rejeição.
+ *
+ * A D-20 da 48 («rejeição humana na triagem: explicação + canal, sem pedido») foi revogada
+ * pelo operador em 29/09. O knockout e a rejeição pelo RH fora da decisão final passam a ter
+ * pedido, pelo registro próprio do pedido (`revisao_rejeicao`, 51-08). A ORIGEM continua
+ * vindo do SERVIDOR: `estado_revisao_rejeicao` é a primeira pergunta, e o cliente nunca a
+ * deriva (do lado dele, knockout e rejeição pelo RH são a mesma linha).
+ */
+describe('explicacaoService — o estado do pedido de revisão da rejeição (JORN-42)', () => {
+  const PEDIDO_RESPONDIDO = {
+    solicitada_em: '2026-10-01T12:00:00+00:00',
+    veredito: 'revertida',
+    resultado: 'Reexaminamos a resposta do formulário e a regra da vaga com cuidado.',
+    respondida_em: '2026-10-02T15:00:00+00:00',
+    reaberta_em: '2026-10-02T15:00:00+00:00',
+    prazo_nova_decisao_em: '2026-10-13T03:00:00+00:00',
+  }
+
+  it('knockout elegível → explicação AUTOMÁTICA, razão do knockout, ciclo nulo, e nada do fluxo antigo', async () => {
+    servidor({
+      estado_revisao_rejeicao: { data: { origem: 'automatica', elegivel: true, pedido: null } },
+    })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r).toEqual({
+      origem: 'automatica',
+      decisao: 'rejeitado',
+      reason: REASON_KNOCKOUT,
+      revisao_solicitada_em: null,
+      revisao_resultado: null,
+      explicacao_solicitada_em: null,
+      revisao_veredito: null,
+      revisao_respondida_em: null,
+      reaberta_em: null,
+      prazo_nova_decisao_em: null,
+    })
+    // A pergunta é feita ao servidor, com o id da própria candidatura…
+    expect(rpcMock).toHaveBeenCalledWith('estado_revisao_rejeicao', {
+      p_candidatura_id: VALID_CAND,
+    })
+    // …e responde sozinha: nem `decisao_final`, nem a RPC de origem do fluxo de antes.
+    expect(fromMock).not.toHaveBeenCalledWith('decisao_final')
+    expect(rpcsChamadas()).toEqual(['estado_revisao_rejeicao'])
+  })
+
+  it('rejeição pelo RH elegível → explicação humana_triagem com a razão de QUEM decidiu', async () => {
+    servidor({
+      estado_revisao_rejeicao: {
+        data: { origem: 'humana_triagem', elegivel: true, pedido: null },
+      },
+    })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.origem).toBe('humana_triagem')
+    expect(r?.reason).toBe(REASON_HUMANA_TRIAGEM)
+    expect(r?.reason).not.toBe(REASON_KNOCKOUT)
+  })
+
+  it('estado `null` → o fluxo de hoje, byte a byte (decisão final lida pela allowlist)', async () => {
+    maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.origem).toBe('humana')
+    expect(fromMock).toHaveBeenCalledWith('decisao_final')
+    expect(selects).toContain(DECISAO_EXPLICACAO_ALLOWLIST)
+  })
+
+  it('erro do `estado_revisao_rejeicao` → ExplicacaoServiceError DATABASE_ERROR (não vira «indisponível»)', async () => {
+    servidor({ estado_revisao_rejeicao: { error: { code: 'XX000', message: 'boom' } } })
+    const p = getExplicacao(VALID_CAND)
+    await expect(p).rejects.toBeInstanceOf(ExplicacaoServiceError)
+    await expect(p).rejects.toMatchObject({ code: 'DATABASE_ERROR' })
+    expect(fromMock).not.toHaveBeenCalledWith('decisao_final')
+  })
+
+  it('pedido presente → os campos do ciclo vêm do PEDIDO (inclusive depois da reabertura)', async () => {
+    servidor({
+      estado_revisao_rejeicao: {
+        data: { origem: 'automatica', elegivel: false, pedido: PEDIDO_RESPONDIDO },
+      },
+    })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r).toEqual({
+      origem: 'automatica',
+      decisao: 'rejeitado',
+      reason: REASON_KNOCKOUT,
+      revisao_solicitada_em: PEDIDO_RESPONDIDO.solicitada_em,
+      revisao_resultado: PEDIDO_RESPONDIDO.resultado,
+      explicacao_solicitada_em: null,
+      revisao_veredito: 'revertida',
+      revisao_respondida_em: PEDIDO_RESPONDIDO.respondida_em,
+      reaberta_em: PEDIDO_RESPONDIDO.reaberta_em,
+      prazo_nova_decisao_em: PEDIDO_RESPONDIDO.prazo_nova_decisao_em,
+    })
+  })
+
+  it('veredito fora do vocabulário no pedido → normalizado para null', async () => {
+    servidor({
+      estado_revisao_rejeicao: {
+        data: {
+          origem: 'humana_triagem',
+          elegivel: false,
+          pedido: { ...PEDIDO_RESPONDIDO, veredito: 'parcialmente_revertida' },
+        },
+      },
+    })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.revisao_veredito).toBeNull()
+  })
+})
+
+/**
+ * T-51-53 — a coerção ESTRITA do jsonb. A allowlist do servidor (51-08 (k)) já monta só
+ * `origem`, `elegivel` e as seis chaves do `pedido`; o cliente não confia num invariante
+ * remoto para decidir o que renderiza. Qualquer forma diferente — chave a mais (a
+ * justificativa interna, o revisor, a opção do knockout), tipo errado, origem fora das
+ * duas — vira `null`, e `getExplicacao` segue para o fluxo de antes.
+ */
+describe('explicacaoService — getEstadoRevisaoRejeicao: coerção estrita (T-51-53)', () => {
+  const PEDIDO = {
+    solicitada_em: '2026-10-01T12:00:00+00:00',
+    veredito: null,
+    resultado: null,
+    respondida_em: null,
+    reaberta_em: null,
+    prazo_nova_decisao_em: null,
+  }
+
+  async function estadoDe(data: unknown) {
+    servidor({ estado_revisao_rejeicao: { data } })
+    return getEstadoRevisaoRejeicao(VALID_CAND)
+  }
+
+  it('aceita as duas formas que o servidor monta', async () => {
+    await expect(
+      estadoDe({ origem: 'automatica', elegivel: true, pedido: null }),
+    ).resolves.toEqual({ origem: 'automatica', elegivel: true, pedido: null })
+    await expect(
+      estadoDe({ origem: 'humana_triagem', elegivel: false, pedido: PEDIDO }),
+    ).resolves.toEqual({ origem: 'humana_triagem', elegivel: false, pedido: PEDIDO })
+  })
+
+  it.each([
+    ['null', null],
+    ['string', 'automatica'],
+    ['array', []],
+    ['origem humana (o ciclo de decisao_final não passa por aqui)', { origem: 'humana', elegivel: true, pedido: null }],
+    ['origem desconhecida', { origem: 'AUTOMATICA', elegivel: true, pedido: null }],
+    ['elegivel não booleano', { origem: 'automatica', elegivel: 'true', pedido: null }],
+    ['sem pedido e sem direito', { origem: 'automatica', elegivel: false, pedido: null }],
+    ['chave a mais no topo', { origem: 'automatica', elegivel: true, pedido: null, rejeitado_por: 'x' }],
+    ['pedido com chave a mais (revisor)', { origem: 'automatica', elegivel: false, pedido: { ...PEDIDO, respondida_por: 'x' } }],
+    ['pedido com chave a mais (opção do knockout)', { origem: 'automatica', elegivel: false, pedido: { ...PEDIDO, opcao_knockout_id: 'x' } }],
+    ['pedido sem uma das seis chaves', { origem: 'automatica', elegivel: false, pedido: { solicitada_em: '2026-10-01' } }],
+    ['pedido com valor não string', { origem: 'automatica', elegivel: false, pedido: { ...PEDIDO, solicitada_em: 42 } }],
+  ])('forma fora do contrato (%s) → null', async (_nome, data) => {
+    await expect(estadoDe(data)).resolves.toBeNull()
+  })
+
+  it('erro → ExplicacaoServiceError DATABASE_ERROR', async () => {
+    servidor({ estado_revisao_rejeicao: { error: { code: '42501', message: 'x' } } })
+    await expect(getEstadoRevisaoRejeicao(VALID_CAND)).rejects.toMatchObject({
+      code: 'DATABASE_ERROR',
+    })
+  })
+
+  it('forma fora do contrato não abre a explicação: segue para o fluxo de antes', async () => {
+    servidor({
+      estado_revisao_rejeicao: {
+        data: { origem: 'automatica', elegivel: true, pedido: null, justificativa: 'interna' },
+      },
+    })
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
+    expect(rpcsChamadas()).toEqual(['estado_revisao_rejeicao', 'explicacao_rejeicao_origem'])
+  })
+})
+
+/**
+ * 51-12 — `solicitarRevisao(candidaturaId, origem)` roteia pela ORIGEM (que veio do
+ * servidor): a decisão final continua em `solicitar_revisao_decisao`; o knockout e a
+ * rejeição pelo RH vão para `solicitar_revisao_rejeicao` (51-08). O mapa de desfechos é o
+ * MESMO: 42501 → `denied`, P0002 → `unavailable`, outro erro → NETWORK_ERROR.
+ */
+describe('explicacaoService — solicitarRevisao roteia pela origem (JORN-42)', () => {
+  it.each(['automatica', 'humana_triagem'] as const)(
+    'origem %s → solicitar_revisao_rejeicao (nunca a da decisão final)',
+    async (origem) => {
+      servidor({ solicitar_revisao_rejeicao: { data: { solicitada_em: '2026-10-09T10:00:00Z' } } })
+      await expect(solicitarRevisao(VALID_CAND, origem)).resolves.toBe('ok')
+      expect(rpcMock).toHaveBeenCalledWith('solicitar_revisao_rejeicao', {
+        p_candidatura_id: VALID_CAND,
+      })
+      expect(rpcMock).not.toHaveBeenCalledWith('solicitar_revisao_decisao', expect.anything())
+    },
+  )
+
+  it('origem humana → solicitar_revisao_decisao (nunca a do registro novo)', async () => {
+    servidor({})
+    await expect(solicitarRevisao(VALID_CAND, 'humana')).resolves.toBe('ok')
+    expect(rpcsChamadas()).toEqual(['solicitar_revisao_decisao'])
+  })
+
+  it('42501 → denied (neutro, não erro)', async () => {
+    servidor({ solicitar_revisao_rejeicao: { error: { code: '42501', message: 'forbidden' } } })
+    await expect(solicitarRevisao(VALID_CAND, 'automatica')).resolves.toBe('denied')
+  })
+
+  it.each(['P0002', 'no_data_found'] as const)('%s → unavailable (não reenviável)', async (code) => {
+    servidor({
+      solicitar_revisao_rejeicao: {
+        error: { code, message: 'revisao indisponivel: a candidatura nao esta rejeitada' },
+      },
+    })
+    await expect(solicitarRevisao(VALID_CAND, 'humana_triagem')).resolves.toBe('unavailable')
+  })
+
+  it('outro erro → ExplicacaoServiceError NETWORK_ERROR', async () => {
+    servidor({ solicitar_revisao_rejeicao: { error: { code: 'XX000', message: 'boom' } } })
+    await expect(solicitarRevisao(VALID_CAND, 'automatica')).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    })
   })
 })

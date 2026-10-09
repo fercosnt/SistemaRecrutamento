@@ -204,6 +204,35 @@ export interface ExplicacaoCandidato {
  */
 export type ExplicacaoWriteOutcome = 'ok' | 'denied' | 'unavailable'
 
+/** De onde veio a rejeição — o discriminador que veio do SERVIDOR (nunca derivado aqui). */
+export type OrigemRejeicao = ExplicacaoCandidato['origem']
+
+/**
+ * 51-12 (JORN-42) — o pedido de revisão de uma rejeição FORA da decisão final, como o
+ * titular o lê: as SEIS chaves que a allowlist de `estado_revisao_rejeicao` monta dentro
+ * do `jsonb_build_object` (51-08). Nunca quem rejeitou, quem respondeu, a opção do
+ * knockout, ids de histórico ou etapas — e a coerção abaixo recusa a forma que os traga.
+ */
+export interface PedidoRevisaoRejeicao {
+  solicitada_em: string | null
+  veredito: string | null
+  resultado: string | null
+  respondida_em: string | null
+  reaberta_em: string | null
+  prazo_nova_decisao_em: string | null
+}
+
+/**
+ * 51-12 — o que `estado_revisao_rejeicao(uuid)` devolve ao titular quando não é `NULL`:
+ * `{origem, elegivel: true, pedido: null}` (pode pedir) ou `{origem, elegivel: false,
+ * pedido: {…}}` (já pediu — inclusive depois da reabertura, armadilha 3 do RESEARCH).
+ */
+export interface EstadoRevisaoRejeicao {
+  origem: 'automatica' | 'humana_triagem'
+  elegivel: boolean
+  pedido: PedidoRevisaoRejeicao | null
+}
+
 /**
  * Derives a respectful, NON-CLINICAL templated reason keyed on the decision (Open Q5).
  *
@@ -248,7 +277,7 @@ function reasonForDecisao(decisao: DecisaoResultado): string {
  * oferecesse o pedido sem que o `solicitar_revisao_decisao` o aceitasse (ele exige linha
  * em `decisao_final`, que o knockout não cria) seria pior que o silêncio de antes.
  */
-const REASON_KNOCKOUT =
+export const REASON_KNOCKOUT =
   'Esta vaga define alguns requisitos objetivos de elegibilidade, e uma das respostas ' +
   'que você deu no formulário de inscrição não atende a um deles. Por isso a sua ' +
   'candidatura foi encerrada logo na inscrição, sem passar pelas etapas de avaliação. ' +
@@ -276,6 +305,111 @@ export const REASON_HUMANA_TRIAGEM =
   'seguir com ela neste momento. Esta decisão vale para esta vaga nesta seleção e não ' +
   'impede que você se candidate a outras.'
 
+const CHAVES_ESTADO: readonly string[] = ['origem', 'elegivel', 'pedido']
+const CHAVES_PEDIDO: readonly (keyof PedidoRevisaoRejeicao)[] = [
+  'solicitada_em',
+  'veredito',
+  'resultado',
+  'respondida_em',
+  'reaberta_em',
+  'prazo_nova_decisao_em',
+]
+
+function objetoSimples(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+/** Igualdade de CONJUNTO de chaves: nem uma a menos, nem uma a mais. */
+function chavesExatas(o: Record<string, unknown>, chaves: readonly string[]): boolean {
+  const k = Object.keys(o)
+  return k.length === chaves.length && chaves.every((c) => k.includes(c))
+}
+
+/**
+ * Coerção ESTRITA do jsonb de `estado_revisao_rejeicao` (T-51-53). A allowlist do servidor
+ * (51-08 (k)) já monta só as chaves permitidas; o cliente não confia num invariante remoto
+ * para decidir o que renderiza. Qualquer forma diferente — chave a mais (a justificativa
+ * interna, o revisor, a opção do knockout), chave a menos, tipo errado, origem fora das
+ * duas, ou a combinação sem sentido «sem direito e sem pedido» — resolve para `null`.
+ * Pura e total.
+ */
+export function coagirEstadoRevisaoRejeicao(valor: unknown): EstadoRevisaoRejeicao | null {
+  if (!objetoSimples(valor) || !chavesExatas(valor, CHAVES_ESTADO)) return null
+  const { origem, elegivel, pedido } = valor
+  if (origem !== 'automatica' && origem !== 'humana_triagem') return null
+  if (typeof elegivel !== 'boolean') return null
+
+  // `elegivel` e `pedido` são as duas faces do mesmo fato: quem já pediu não é elegível de
+  // novo (D-06 — um pedido por rejeição). Qualquer outra combinação é forma desconhecida.
+  if (elegivel) {
+    return pedido === null ? { origem, elegivel: true, pedido: null } : null
+  }
+  if (!objetoSimples(pedido) || !chavesExatas(pedido, CHAVES_PEDIDO)) return null
+  const p = {} as PedidoRevisaoRejeicao
+  for (const chave of CHAVES_PEDIDO) {
+    const v = pedido[chave]
+    if (v !== null && typeof v !== 'string') return null
+    p[chave] = v
+  }
+  return { origem, elegivel: false, pedido: p }
+}
+
+/**
+ * 51-12 (JORN-42) — pergunta ao SERVIDOR o estado do pedido de revisão de uma rejeição fora
+ * da decisão final (knockout, ou rejeição pelo RH em qualquer etapa). `NULL` do servidor —
+ * não é o titular, não há rejeição, ou a rejeição é da decisão final (que tem ciclo próprio)
+ * — e qualquer forma fora do contrato resolvem para `null`. Um ERRO não vira «não se
+ * aplica»: ele lança `DATABASE_ERROR`, porque engolir a falha poderia esconder do titular um
+ * pedido que ele fez.
+ */
+export async function getEstadoRevisaoRejeicao(
+  candidaturaId: string,
+): Promise<EstadoRevisaoRejeicao | null> {
+  if (!candidaturaId) {
+    throw new ExplicacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
+  }
+
+  // NARROW confined cast (molde de `getAvaliacaoStatus`): `estado_revisao_rejeicao` vem da
+  // migration `20261008000002` (51-08) e ainda não está em `database.types.ts`. Só o nome
+  // da RPC é alargado — nada de cliente sem tipo. Sai no db:types do 51-17.
+  const { data, error } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>
+  )('estado_revisao_rejeicao', { p_candidatura_id: candidaturaId })
+
+  if (error) {
+    throw new ExplicacaoServiceError(
+      `Não foi possível carregar esta página: ${error.message}`,
+      'DATABASE_ERROR',
+      error,
+    )
+  }
+  return coagirEstadoRevisaoRejeicao(data)
+}
+
+/**
+ * A explicação montada do estado do pedido (51-12): a razão pela ORIGEM — o texto de quem
+ * decidiu continua distinto (D-01) — e os campos do ciclo a partir do PEDIDO.
+ * `explicacao_solicitada_em` é carimbo de `decisao_final`, que este caminho não tem.
+ */
+function explicacaoDoEstado(estado: EstadoRevisaoRejeicao): ExplicacaoCandidato {
+  const { origem, pedido } = estado
+  return {
+    origem,
+    decisao: 'rejeitado',
+    reason: origem === 'automatica' ? REASON_KNOCKOUT : REASON_HUMANA_TRIAGEM,
+    revisao_solicitada_em: pedido?.solicitada_em ?? null,
+    revisao_resultado: pedido?.resultado ?? null,
+    explicacao_solicitada_em: null,
+    revisao_veredito: normalizarVeredito(pedido?.veredito ?? null),
+    revisao_respondida_em: pedido?.respondida_em ?? null,
+    reaberta_em: pedido?.reaberta_em ?? null,
+    prazo_nova_decisao_em: pedido?.prazo_nova_decisao_em ?? null,
+  }
+}
+
 /**
  * Reads the candidate's OWN decision (DECISAO-04) via the own-row allowlist, scoped to
  * `candidaturaId`. The LIVE `candidato_le_propria_decisao` RLS policy enforces own-row
@@ -293,6 +427,14 @@ export async function getExplicacao(
   if (!candidaturaId) {
     throw new ExplicacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
+
+  // 51-12 (JORN-42): a PRIMEIRA pergunta é o estado do pedido de revisão fora da decisão
+  // final. Ela parte do REGISTRO do pedido, não do status — por isso a resposta e a
+  // reabertura continuam visíveis depois da revertida (armadilha 3 do RESEARCH), e a
+  // rejeição pelo RH depois de uma decisão final em espera ou revertida também ganha
+  // explicação e pedido. `null` → o fluxo de antes, intocado.
+  const estado = await getEstadoRevisaoRejeicao(candidaturaId)
+  if (estado) return explicacaoDoEstado(estado)
 
   const { data, error } = await supabase
     .from('decisao_final')
@@ -472,15 +614,28 @@ export async function stampExplicacao(
  */
 export async function solicitarRevisao(
   candidaturaId: string,
+  origem: OrigemRejeicao,
 ): Promise<ExplicacaoWriteOutcome> {
   if (!candidaturaId) {
     throw new ExplicacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // `solicitar_revisao_decisao` is live in PROD + present in database.types.ts (15-06 regen).
-  const { error } = await supabase.rpc('solicitar_revisao_decisao', {
-    p_candidatura_id: candidaturaId,
-  })
+  // 51-12 (JORN-42): roteia pela ORIGEM que veio do servidor. A decisão final continua no
+  // seu ciclo (`solicitar_revisao_decisao`, live + tipada desde a 15-06). O knockout e a
+  // rejeição pelo RH vão para o registro próprio do pedido (`solicitar_revisao_rejeicao`,
+  // migration `20261008000002`, 51-08) — por cast estreito confinado ao nome, no molde de
+  // `getAvaliacaoStatus`; sai no db:types do 51-17. O mapa de desfechos abaixo é o MESMO.
+  const { error } =
+    origem === 'humana'
+      ? await supabase.rpc('solicitar_revisao_decisao', {
+          p_candidatura_id: candidaturaId,
+        })
+      : await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>
+        )('solicitar_revisao_rejeicao', { p_candidatura_id: candidaturaId })
 
   if (error) {
     const code = (error as { code?: string }).code ?? ''
@@ -506,6 +661,7 @@ export async function solicitarRevisao(
 /** Namespaced object export (camelCaseService convention). */
 export const explicacaoService = {
   getExplicacao,
+  getEstadoRevisaoRejeicao,
   stampExplicacao,
   solicitarRevisao,
   normalizarVeredito,

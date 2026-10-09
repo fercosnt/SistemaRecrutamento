@@ -228,12 +228,10 @@ export function ExplicacaoCandidatoPage() {
       : origem === 'humana_triagem'
         ? COPY.resultLineHumanaTriagem
         : COPY.resultLine
+  // 51-12 (JORN-42 · D-01): o knockout passa a ter pedido de revisão (registro próprio do
+  // pedido, 51-08) — o `semRevisaoBody` deixa de ser usado neste ramo.
   const semRevisaoBody =
-    origem === 'automatica'
-      ? COPY.semRevisaoBody
-      : origem === 'humana_triagem'
-        ? COPY.semRevisaoBodyHumanaTriagem
-        : null
+    origem === 'humana_triagem' ? COPY.semRevisaoBodyHumanaTriagem : null
 
   return (
     <ScreenShell>
@@ -319,6 +317,7 @@ export function ExplicacaoCandidatoPage() {
             </p>
             <SolicitarRevisaoCTA
               candidaturaId={id as string}
+              origem={origem}
               revisaoSolicitadaEm={explicacao.revisao_solicitada_em}
               revisaoRespondidaEm={explicacao.revisao_respondida_em}
             />

@@ -30,6 +30,7 @@ import {
   solicitarRevisao,
   stampExplicacao,
   type ExplicacaoCandidato,
+  type OrigemRejeicao,
   type RevisaoVeredito,
 } from '../services/explicacaoService'
 
@@ -38,7 +39,7 @@ import {
  * already imports — the established direction of dependency in this feature (the page
  * talks to the hook, never to the service).
  */
-export type { ExplicacaoCandidato, RevisaoVeredito }
+export type { ExplicacaoCandidato, OrigemRejeicao, RevisaoVeredito }
 
 /** Hierarchical query keys for the explanation surface. */
 export const explicacaoKeys = {
@@ -85,14 +86,18 @@ export function useExplicacao(candidaturaId: string | undefined) {
  * Mutation: requests a human review (LGPD Art. 20). On success shows the exact UI-SPEC
  * toast and invalidates the explanation query so the CTA flips to the idempotent
  * "Você já solicitou a revisão desta decisão." state. On failure shows the retry toast.
+ *
+ * 51-12 (JORN-42): a variável da mutação é a ORIGEM da rejeição — a que veio do servidor
+ * em `getExplicacao` — e é ela que escolhe a RPC no serviço (decisão final ×
+ * registro próprio do pedido). O hook não a deriva; só a repassa.
  */
 export function useSolicitarRevisao(candidaturaId: string | undefined) {
   const queryClient = useQueryClient()
 
-  return useMutation<void, Error, void>({
+  return useMutation<void, Error, OrigemRejeicao>({
     mutationKey: [...explicacaoKeys.all, 'solicitar-revisao', candidaturaId],
-    mutationFn: async () => {
-      const outcome = await solicitarRevisao(candidaturaId as string)
+    mutationFn: async (origem) => {
+      const outcome = await solicitarRevisao(candidaturaId as string, origem)
       // An own-row denial (someone else's decision) surfaces as a failure toast — it is
       // not a successful registration.
       if (outcome === 'denied') {

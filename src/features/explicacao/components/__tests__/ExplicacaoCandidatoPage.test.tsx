@@ -30,12 +30,17 @@
  * @see .planning/phases/42-invent-rio-gates-fila-art-20/42-UI-SPEC.md (§Superfície do candidato — REVISAO-04)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 const CAND_ID = '11111111-1111-4111-8111-111111111111'
 
 const explicacaoMock = vi.fn()
+/**
+ * 51-12: a mutação do pedido é capturada para que o teste da página prove o CAMINHO
+ * inteiro — o clique em «Pedir revisão» chega à mutação com a ORIGEM que o servidor deu.
+ */
+const mutateMock = vi.fn()
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
@@ -48,7 +53,7 @@ vi.mock('@/components/BackgroundImage', () => ({
 
 vi.mock('../../hooks/useExplicacao', () => ({
   useExplicacao: () => explicacaoMock(),
-  useSolicitarRevisao: () => ({ mutate: vi.fn(), isPending: false }),
+  useSolicitarRevisao: () => ({ mutate: mutateMock, isPending: false }),
 }))
 
 import { ExplicacaoCandidatoPage } from '../ExplicacaoCandidatoPage'
@@ -119,7 +124,21 @@ function carregada(over: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   explicacaoMock.mockReset()
+  mutateMock.mockReset()
 })
+
+/** Copy do CTA e do diálogo (pinos em `SolicitarRevisaoCTA.test.tsx`, 43-UI-SPEC BD-3). */
+const CTA = 'Pedir que uma pessoa revise esta decisão'
+const CONFIRMAR = 'Pedir revisão'
+
+/**
+ * Abre o diálogo do CTA e confirma. O conteúdo do `AlertDialog` do Radix é montado em
+ * PORTAL — por isso a busca é em `document.body`, nunca no `container` do render.
+ */
+function pedirRevisao() {
+  fireEvent.click(screen.getByRole('button', { name: CTA }))
+  fireEvent.click(within(document.body).getByRole('button', { name: CONFIRMAR }))
+}
 
 describe('ExplicacaoCandidatoPage — não-regressão: sem resposta, nada de bloco novo', () => {
   it('revisão pedida e ainda SEM resposta → nenhum bloco de resultado aparece', () => {
@@ -384,14 +403,14 @@ describe('ExplicacaoCandidatoPage — o acompanhamento interno do RH nunca chega
 })
 
 /**
- * §7.18, caminho (2) — a página passa a servir a rejeição AUTOMÁTICA, com texto próprio
- * e SEM pedido de revisão (veredito do responsável: explicação sim, revisão não).
+ * §7.18, caminho (2) — a página serve a rejeição AUTOMÁTICA, com texto próprio.
  *
- * A ausência do CTA não é preferência de layout: `solicitar_revisao_decisao` exige a
- * linha em `decisao_final` que o knockout nunca cria, então um botão ali seria um pedido
- * que o servidor recusa sempre. Um direito oferecido e negado é pior que um direito que
- * a tela nunca prometeu — daí o bloco que diz, com todas as letras, que não há revisão a
- * pedir por aqui, e nomeia o canal humano no lugar.
+ * 51-12 (JORN-42 · D-01): até aqui este bloco asseria a AUSÊNCIA do pedido de revisão no
+ * knockout (veredito de então: explicação sim, revisão não — `solicitar_revisao_decisao`
+ * exige linha em `decisao_final`). O operador revogou essa regra em 29/09 e o 51-08 deu ao
+ * knockout um registro próprio do pedido (`solicitar_revisao_rejeicao`). Os casos foram
+ * RE-ESPECIFICADOS (D-56): o texto de QUEM decidiu continua o do knockout, e o pedido
+ * existe — e vai para a RPC certa.
  */
 describe('ExplicacaoCandidatoPage — a rejeição automática (§7.18)', () => {
   function carregadaAutomatica() {
@@ -417,25 +436,42 @@ describe('ExplicacaoCandidatoPage — a rejeição automática (§7.18)', () => 
     expect(screen.queryByText(/Após avaliarmos seu processo/i)).not.toBeInTheDocument()
   })
 
-  it('NÃO oferece pedido de revisão — nem o CTA, nem a frase do direito', () => {
+  // D-56 (51-12): este caso asseria «NÃO oferece pedido de revisão — nem o CTA, nem a frase
+  // do direito». Agora asserte a PRESENÇA dos dois, ao lado do texto do knockout.
+  it('OFERECE o pedido de revisão — o CTA e a frase do direito, ao lado do texto do knockout', () => {
     carregadaAutomatica()
     render(<ExplicacaoCandidatoPage />)
+    // Quem decidiu continua dito como foi: nenhuma pessoa avaliou (D-01).
+    expect(screen.getByText(/sem avaliação de uma pessoa/i)).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: /revis(ã|a)o/i }),
-    ).not.toBeInTheDocument()
+      screen.getByText('Esta vaga define alguns requisitos objetivos de elegibilidade…'),
+    ).toBeInTheDocument()
+    // E o direito existe.
+    expect(screen.getByRole('button', { name: CTA })).toBeInTheDocument()
     expect(
-      screen.queryByText(/pedir que uma pessoa da nossa equipe revise/i),
-    ).not.toBeInTheDocument()
+      screen.getByText(/pedir que uma pessoa da nossa equipe revise/i),
+    ).toBeInTheDocument()
   })
 
-  it('mas não silencia o assunto: diz por que não há revisão e dá o canal humano', () => {
+  it('confirmar o pedido leva a ORIGEM `automatica` à mutação (a RPC certa é escolhida por ela)', () => {
     carregadaAutomatica()
     render(<ExplicacaoCandidatoPage />)
-    expect(screen.getByText(/não há uma revisão a pedir por aqui/i)).toBeInTheDocument()
-    // Pela constante (2026-10-06): a intenção é «dá o canal humano», não «este
-    // endereço». O valor literal é preso uma vez só, em canalPrivacidade.test.ts.
-    const canal = screen.getByRole('link', { name: CANAL_PRIVACIDADE_EMAIL })
-    expect(canal).toHaveAttribute('href', `mailto:${CANAL_PRIVACIDADE_EMAIL}`)
+    pedirRevisao()
+    expect(mutateMock).toHaveBeenCalledTimes(1)
+    expect(mutateMock).toHaveBeenCalledWith('automatica')
+  })
+
+  // D-56 (51-12): este caso asseria «diz por que não há revisão e dá o canal humano» — o
+  // bloco `semRevisaoBody` com o canal de privacidade. Com o pedido disponível, a frase
+  // «não há uma revisão a pedir por aqui» seria falsa; ela e o desvio para o canal saem.
+  it('não diz mais que não há revisão a pedir, nem desvia para o canal de privacidade', () => {
+    carregadaAutomatica()
+    render(<ExplicacaoCandidatoPage />)
+    expect(screen.queryByText(/não há uma revisão a pedir por aqui/i)).not.toBeInTheDocument()
+    expect(screen.queryByText('Se você quiser falar sobre esta decisão')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: CANAL_PRIVACIDADE_EMAIL }),
+    ).not.toBeInTheDocument()
   })
 
   it('o caminho HUMANO não perdeu o CTA de revisão (não-regressão)', () => {
@@ -445,6 +481,13 @@ describe('ExplicacaoCandidatoPage — a rejeição automática (§7.18)', () => 
       screen.getByText(/pedir que uma pessoa da nossa equipe revise/i),
     ).toBeInTheDocument()
     expect(screen.queryByText(/não há uma revisão a pedir por aqui/i)).not.toBeInTheDocument()
+  })
+
+  it('o caminho HUMANO leva a origem `humana` à mutação (decisão final, RPC de sempre)', () => {
+    carregada({ revisao_solicitada_em: null })
+    render(<ExplicacaoCandidatoPage />)
+    pedirRevisao()
+    expect(mutateMock).toHaveBeenCalledWith('humana')
   })
 })
 

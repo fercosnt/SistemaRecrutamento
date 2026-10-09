@@ -63,7 +63,7 @@ beforeEach(() => {
 
 describe('SolicitarRevisaoCTA — os dois estados da Phase 15 seguem inalterados', () => {
   it('sem pedido → o CTA está habilitado e é o gatilho do diálogo de confirmação', () => {
-    render(<SolicitarRevisaoCTA candidaturaId={CAND_ID} revisaoSolicitadaEm={null} />)
+    render(<SolicitarRevisaoCTA candidaturaId={CAND_ID} origem="humana" revisaoSolicitadaEm={null} />)
     const botao = screen.getByRole('button', { name: COPY_SPEC.cta })
     expect(botao).toBeEnabled()
     expect(botao.className).toContain('min-h-[44px]')
@@ -73,7 +73,7 @@ describe('SolicitarRevisaoCTA — os dois estados da Phase 15 seguem inalterados
 
   it('pedido feito e SEM resposta → rótulo "já solicitou", desabilitado, copy inalterada', () => {
     render(
-      <SolicitarRevisaoCTA candidaturaId={CAND_ID} revisaoSolicitadaEm={PEDIDO_EM} />,
+      <SolicitarRevisaoCTA candidaturaId={CAND_ID} origem="humana" revisaoSolicitadaEm={PEDIDO_EM} />,
     )
     expect(screen.getByText(COPY_SPEC.jaSolicitada)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: COPY_SPEC.cta })).toBeDisabled()
@@ -82,11 +82,12 @@ describe('SolicitarRevisaoCTA — os dois estados da Phase 15 seguem inalterados
 
   it('passar `revisaoRespondidaEm` nulo explicitamente é idêntico a não passar', () => {
     const { container: semProp } = render(
-      <SolicitarRevisaoCTA candidaturaId={CAND_ID} revisaoSolicitadaEm={PEDIDO_EM} />,
+      <SolicitarRevisaoCTA candidaturaId={CAND_ID} origem="humana" revisaoSolicitadaEm={PEDIDO_EM} />,
     )
     const { container: comNulo } = render(
       <SolicitarRevisaoCTA
         candidaturaId={CAND_ID}
+        origem="humana"
         revisaoSolicitadaEm={PEDIDO_EM}
         revisaoRespondidaEm={null}
       />,
@@ -100,6 +101,7 @@ describe('SolicitarRevisaoCTA — o terceiro estado: a revisão foi respondida',
     render(
       <SolicitarRevisaoCTA
         candidaturaId={CAND_ID}
+        origem="humana"
         revisaoSolicitadaEm={PEDIDO_EM}
         revisaoRespondidaEm={RESPOSTA_EM}
       />,
@@ -119,6 +121,7 @@ describe('SolicitarRevisaoCTA — o terceiro estado: a revisão foi respondida',
     const { container } = render(
       <SolicitarRevisaoCTA
         candidaturaId={CAND_ID}
+        origem="humana"
         revisaoSolicitadaEm={PEDIDO_EM}
         revisaoRespondidaEm={RESPOSTA_EM}
       />,
@@ -135,6 +138,7 @@ describe('SolicitarRevisaoCTA — o terceiro estado: a revisão foi respondida',
     const { container } = render(
       <SolicitarRevisaoCTA
         candidaturaId={CAND_ID}
+        origem="humana"
         revisaoSolicitadaEm={null}
         revisaoRespondidaEm={RESPOSTA_EM}
       />,
@@ -149,6 +153,7 @@ describe('SolicitarRevisaoCTA — o terceiro estado: a revisão foi respondida',
     render(
       <SolicitarRevisaoCTA
         candidaturaId={CAND_ID}
+        origem="humana"
         revisaoSolicitadaEm={PEDIDO_EM}
         revisaoRespondidaEm={RESPOSTA_EM}
       />,
@@ -160,6 +165,7 @@ describe('SolicitarRevisaoCTA — o terceiro estado: a revisão foi respondida',
     const { container } = render(
       <SolicitarRevisaoCTA
         candidaturaId={CAND_ID}
+        origem="humana"
         revisaoSolicitadaEm={PEDIDO_EM}
         revisaoRespondidaEm={RESPOSTA_EM}
       />,
@@ -195,7 +201,7 @@ describe('SolicitarRevisaoCTA — o terceiro estado: a revisão foi respondida',
  */
 describe('SolicitarRevisaoCTA — a copy do diálogo de confirmação (BD-3)', () => {
   function abrirDialogo() {
-    render(<SolicitarRevisaoCTA candidaturaId={CAND_ID} revisaoSolicitadaEm={null} />)
+    render(<SolicitarRevisaoCTA candidaturaId={CAND_ID} origem="humana" revisaoSolicitadaEm={null} />)
     fireEvent.click(screen.getByRole('button', { name: COPY_SPEC.cta }))
   }
 
@@ -223,6 +229,22 @@ describe('SolicitarRevisaoCTA — a copy do diálogo de confirmação (BD-3)', (
     )
     expect(mutate).toHaveBeenCalledTimes(1)
   })
+
+  // 51-12 (JORN-42): a origem dada pelo servidor chega à mutação tal como veio — é ela que
+  // escolhe a RPC do pedido no serviço. O CTA não a deriva nem a troca.
+  it.each(['humana', 'automatica', 'humana_triagem'] as const)(
+    'confirmar repassa a origem `%s` à mutação',
+    (origem) => {
+      render(
+        <SolicitarRevisaoCTA candidaturaId={CAND_ID} origem={origem} revisaoSolicitadaEm={null} />,
+      )
+      fireEvent.click(screen.getByRole('button', { name: COPY_SPEC.cta }))
+      fireEvent.click(
+        within(document.body).getByRole('button', { name: COPY_SPEC.dialogConfirm }),
+      )
+      expect(mutate).toHaveBeenCalledWith(origem)
+    },
+  )
 
   it('o CORPO do diálogo continua byte-idêntico (declarado INALTERADO pela UI-SPEC)', () => {
     abrirDialogo()
