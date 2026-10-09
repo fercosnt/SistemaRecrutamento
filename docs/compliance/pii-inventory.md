@@ -56,7 +56,8 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `complemento` | 🗑️ apagar | varchar |  |
 | `bairro` | 🗑️ apagar | varchar |  |
 | `cidade` | 🎭 anonimizar | varchar | NOT NULL — não pode ser apagada, só generalizada |
-| `estado` | 🎭 anonimizar | char | NOT NULL. Granularidade UF é útil ao bias snapshot |
+| `estado` | ⚠️ preservar c/ ressalva | char | NOT NULL. Preservado pelo motor de exclusão desde a P45 (item 5); alimenta o relatório agregado (bias snapshot) por UF, sem vínculo com o titular. Base legal no recibo: LGPD, Art. 16, IV. |
+| `faixa_etaria_materializada` | ⚠️ preservar c/ ressalva | text | Materializada pelo motor ANTES de anonimizar data_nascimento (ERASE-01); fica para o relatório agregado, sem vínculo com o titular |
 | `instagram` | 🗑️ apagar | varchar |  |
 | `instagram_url` | 🗑️ apagar | varchar |  |
 | `linkedin` | 🗑️ apagar | varchar |  |
@@ -661,10 +662,10 @@ o defeito de verdade, e não a existência da tabela.
 
 | Classificação | Colunas |
 |---------------|--------:|
-| 🎭 anonimizar | 23 |
+| 🎭 anonimizar | 22 |
 | 🗑️ apagar | 68 |
+| ⚠️ preservar c/ ressalva | 51 |
 | 🔒 preservar | 109 |
-| ⚠️ preservar c/ ressalva | 49 |
-| **Total explícito** | **249** |
+| **Total explícito** | **250** |
 
 Cobertura de tabelas: **65 / 64**.

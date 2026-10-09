@@ -105,6 +105,22 @@ export const RECIBO_EXCLUSAO = {
     },
     {
       "aplicavel_quando": "sempre",
+      "base_legal": "LGPD, Art. 16, IV",
+      "classificacoes_origem": [
+        "preservar_com_ressalva"
+      ],
+      "colunas_origem": [
+        "candidatos.estado",
+        "candidatos.faixa_etaria_materializada"
+      ],
+      "item_id": "estado_e_faixa_etaria",
+      "obrigatorio": false,
+      "rotulo": "Estado e faixa etária",
+      "texto_futuro": "Ficam guardados o seu estado (UF) e a sua faixa etária, sem vínculo com o seu nome, para relatório agregado.",
+      "texto_passado": "Ficaram guardados o seu estado (UF) e a sua faixa etária, sem vínculo com o seu nome, para relatório agregado."
+    },
+    {
+      "aplicavel_quando": "sempre",
       "base_legal": "LGPD, Art. 8º, §1º",
       "classificacoes_origem": [
         "preservar"
@@ -317,7 +333,6 @@ export const RECIBO_EXCLUSAO = {
         "candidatos.data_nascimento",
         "candidatos.data_ultimo_acesso",
         "candidatos.email",
-        "candidatos.estado",
         "candidatos.genero",
         "candidatos.instagram",
         "candidatos.instagram_url",
@@ -337,8 +352,8 @@ export const RECIBO_EXCLUSAO = {
       "passo_motor": "tombstone_candidato",
       "passo_motor_onde": "RPC SECURITY DEFINER de anonimização — plano 45-07",
       "rotulo": "Os seus dados de cadastro",
-      "texto_futuro": "Nome, e-mail, telefone, CPF, data de nascimento, endereço, redes sociais e disponibilidade vão ser apagados do seu cadastro.",
-      "texto_passado": "Nome, e-mail, telefone, CPF, data de nascimento, endereço, redes sociais e disponibilidade foram apagados do seu cadastro."
+      "texto_futuro": "Nome, e-mail, telefone, CPF, data de nascimento, gênero, CEP, rua, número, complemento, bairro, cidade, redes sociais e disponibilidade vão ser apagados do seu cadastro.",
+      "texto_passado": "Nome, e-mail, telefone, CPF, data de nascimento, gênero, CEP, rua, número, complemento, bairro, cidade, redes sociais e disponibilidade foram apagados do seu cadastro."
     },
     {
       "aplicavel_quando": "sempre",
@@ -639,17 +654,17 @@ export const RECIBO_EXCLUSAO = {
       "arquivo": "supabase/functions/_shared/exportAllowlist.ts",
       "razao": "Cobre 30 de 69 tabelas (45-RESEARCH §C2) e exclui, como telemetria_interna, oito tabelas com PII do titular — inclusive ai_call_logs e logs_acesso, duas das cinco do ERASE-09. Um recibo derivado dele seria omisso sobre o que não diz (§Pitfall 5)."
     },
-    "gerado_em": "2026-09-24T05:24:24.651Z",
+    "gerado_em": "2026-10-09T03:52:59.413Z",
     "gerador": "docs/compliance/sql/gen-recibo-exclusao.cjs",
     "inventario_coletado_em": "2026-07-29T14:08:18Z",
     "plano": "45-02",
     "requirement": "ERASE-07",
     "totais": {
-      "colunas_com_linha_no_recibo": 177,
+      "colunas_com_linha_no_recibo": 178,
       "colunas_com_razao_de_silencio": 58,
-      "colunas_com_veredito": 235,
-      "colunas_em_escopo_do_titular": 235,
-      "linhas_mantem": 9,
+      "colunas_com_veredito": 236,
+      "colunas_em_escopo_do_titular": 236,
+      "linhas_mantem": 10,
       "linhas_sai": 12,
       "tabelas_em_escopo_do_titular": 38,
       "tabelas_fora_do_escopo_do_titular": 5,

@@ -259,10 +259,14 @@ const ITENS_SAI = [
   {
     item_id: 'dados_de_cadastro',
     rotulo: 'Os seus dados de cadastro',
+    // Phase 51 (51-05, JORN-49 · D-23/D-34): «endereço» genérico prometia apagar
+    // o endereço inteiro, e o motor preserva `estado` (P45, item 5). O texto agora
+    // lista o que o motor apaga de fato, e `estado` saiu das origens desta linha —
+    // ele vive na linha «mantém» «Estado e faixa etária», mais abaixo.
     texto_futuro:
-      'Nome, e-mail, telefone, CPF, data de nascimento, endereço, redes sociais e disponibilidade vão ser apagados do seu cadastro.',
+      'Nome, e-mail, telefone, CPF, data de nascimento, gênero, CEP, rua, número, complemento, bairro, cidade, redes sociais e disponibilidade vão ser apagados do seu cadastro.',
     texto_passado:
-      'Nome, e-mail, telefone, CPF, data de nascimento, endereço, redes sociais e disponibilidade foram apagados do seu cadastro.',
+      'Nome, e-mail, telefone, CPF, data de nascimento, gênero, CEP, rua, número, complemento, bairro, cidade, redes sociais e disponibilidade foram apagados do seu cadastro.',
     aplicavel_quando: 'sempre',
     passo_motor: 'tombstone_candidato',
     origens: flat(
@@ -272,7 +276,6 @@ const ITENS_SAI = [
         'data_nascimento',
         'genero',
         'cidade',
-        'estado',
         'created_by',
         'updated_by',
         'celular',
@@ -568,6 +571,20 @@ const ITENS_MANTEM = [
     aplicavel_quando: 'sempre',
     base_legal: 'LGPD, Art. 7º, VI — grupos com menos de 5 pessoas são suprimidos do relatório',
     origens: flat(q('candidatos', ['como_conheceu']), q('entrevista_analises', ['bias_flags'])),
+  },
+  {
+    // Phase 51 (51-05, JORN-49 · D-23/D-34): o motor preserva `estado` (P45,
+    // item 5) e materializa `faixa_etaria_materializada` antes de anonimizar a
+    // data de nascimento (ERASE-01). O recibo tem de dizer que os dois ficam.
+    item_id: 'estado_e_faixa_etaria',
+    rotulo: 'Estado e faixa etária',
+    texto_futuro:
+      'Ficam guardados o seu estado (UF) e a sua faixa etária, sem vínculo com o seu nome, para relatório agregado.',
+    texto_passado:
+      'Ficaram guardados o seu estado (UF) e a sua faixa etária, sem vínculo com o seu nome, para relatório agregado.',
+    aplicavel_quando: 'sempre',
+    base_legal: 'LGPD, Art. 16, IV',
+    origens: q('candidatos', ['estado', 'faixa_etaria_materializada']),
   },
   {
     item_id: 'prova_do_consentimento',
