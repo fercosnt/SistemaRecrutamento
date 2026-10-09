@@ -22,6 +22,7 @@
  * @module features/avaliacao-cognitiva/services/ravenService
  */
 import { supabase } from '@/lib/supabase/client'
+import { getAvaliacaoStatus } from '@/features/avaliacao/services/avaliacaoService'
 
 export class RavenServiceError extends Error {
   constructor(
@@ -82,20 +83,30 @@ export async function listarQuestoesRaven(): Promise<QuestaoRaven[]> {
  * seriam confundidos por um booleano só: não liberado (o RH ainda não abriu),
  * liberado e pendente (pode fazer), e já respondido (não refaz). Um "não pode
  * entrar" que não diz qual dos três é o motivo deixa o candidato sem ação possível.
+ *
+ * ⚠ 51-07 (C-4) — «JÁ RESPONDEU» VEM DO SERVIDOR, NÃO DE UM SELECT DO CANDIDATO. Até aqui a
+ * conclusão era lida direto da tabela de scores do Raven, e o titular NUNCA via a própria linha:
+ * a policy de SELECT dela compara `candidaturas.candidato_id` com `auth.uid()`, e
+ * `candidatos.id ≠ user_id` em 37 de 37 linhas com usuário (medido em PROD pela pesquisa da
+ * Phase 51, sonda de role com o JWT de um titular que TINHA linha: zero linhas visíveis). Então
+ * `ja_respondeu` era sempre `false`, e quem já tinha concluído reabria a prova, respondia os 60
+ * itens e só então falhava no INSERT (PK `(candidatura_id, questao_id)`). A leitura agora é a
+ * chave `raven.registrado` de `get_avaliacao_status` (DEFINER, guarda de titular por `user_id`,
+ * só booleanos — 51-06): o score continua fora do navegador (RNF-07a) e a RLS não muda (D-38).
+ * A liberação continua lida direto de `cognitivo_liberacao`: essa policy o titular atravessa.
  */
 export async function consultarLiberacao(candidaturaId: string): Promise<LiberacaoRaven> {
-  const [lib, resp] = await Promise.all([
+  const [lib, status] = await Promise.all([
     supabase
       .from('cognitivo_liberacao')
       .select('liberado_em, revogado_em')
       .eq('candidatura_id', candidaturaId)
       .is('revogado_em', null)
       .maybeSingle(),
-    supabase
-      .from('scores_raven')
-      .select('candidatura_id')
-      .eq('candidatura_id', candidaturaId)
-      .maybeSingle(),
+    getAvaliacaoStatus(candidaturaId).then(
+      (s) => ({ data: s, error: null }),
+      (error: unknown) => ({ data: null, error }),
+    ),
   ])
 
   if (lib.error) {
@@ -106,10 +117,18 @@ export async function consultarLiberacao(candidaturaId: string): Promise<Liberac
     )
   }
 
+  if (status.error || !status.data) {
+    throw new RavenServiceError(
+      'Não foi possível verificar se a avaliação já foi concluída.',
+      'DATABASE_ERROR',
+      status.error,
+    )
+  }
+
   return {
     liberado: !!lib.data,
     liberado_em: (lib.data?.liberado_em as string | undefined) ?? null,
-    ja_respondeu: !!resp.data,
+    ja_respondeu: status.data.raven.registrado,
   }
 }
 

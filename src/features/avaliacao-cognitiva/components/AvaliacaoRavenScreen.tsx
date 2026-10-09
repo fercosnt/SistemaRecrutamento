@@ -19,7 +19,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Glass, GlassButton } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -28,9 +28,12 @@ import {
   listarQuestoesRaven,
   consultarLiberacao,
   submeterRaven,
+  type LiberacaoRaven,
   type QuestaoRaven,
 } from '../services/ravenService'
 import { useProctoring } from '../hooks/useProctoring'
+import { avaliacaoStatusKey } from '../hooks/useStatusRavenCandidato'
+import type { AvaliacaoStatus } from '@/features/avaliacao/services/avaliacaoService'
 
 const COPY = {
   // Phase 51 / D-15: distinct from the textual «Prova cognitiva» of the vaga.
@@ -59,6 +62,7 @@ export function AvaliacaoRavenScreen() {
   const navigate = useNavigate()
   const { candidaturaId } = useParams<{ candidaturaId: string }>()
   const voltarAoPainel = () => navigate('/candidato/dashboard')
+  const queryClient = useQueryClient()
 
   const liberacaoQuery = useQuery({
     queryKey: ['raven', 'liberacao', candidaturaId],
@@ -126,6 +130,20 @@ export function AvaliacaoRavenScreen() {
     setEnviando(true)
     try {
       await submeterRaven(candidaturaId as string, respostasAtualizadas, temposAtualizados)
+      // 51-07 (D-13 · C-4): concluída é FATO do servidor a partir daqui — as 60 entram numa
+      // transação, e o trigger da sexagésima grava o score nela. O painel (card do Raven) e
+      // esta tela leem do cache, com staleTime de 5 min: sem escrever a conclusão nas duas
+      // entradas, o candidato voltava ao painel e encontrava o MESMO convite «Fazer a
+      // avaliação», e a tela reabria a prova pela leitura de antes. A entrada do status é
+      // invalidada também, para o servidor confirmar na próxima leitura.
+      const id = candidaturaId as string
+      queryClient.setQueryData<LiberacaoRaven>(['raven', 'liberacao', id], (old) =>
+        old ? { ...old, ja_respondeu: true } : old,
+      )
+      queryClient.setQueryData<AvaliacaoStatus>(avaliacaoStatusKey(id), (old) =>
+        old ? { ...old, raven: { ...old.raven, registrado: true } } : old,
+      )
+      void queryClient.invalidateQueries({ queryKey: avaliacaoStatusKey(id) })
       setConcluida(true)
     } catch (e) {
       const msg = e instanceof Error ? e.message : COPY.erroEnvio

@@ -1,0 +1,31 @@
+# 51-07 · D-56 — os portoes novos/reescritos MORDEM (2026-10-09T04:39:44Z)
+
+## 1. Worktree de refs/gsd/51-07/base (1923e319), com o guarda, o ravenService.status.test.ts e o
+##    email-templates.test.ts do HEAD copiados; node_modules por symlink. Esperado: FALHA.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/__tests__/guards/nomes-instrumentos.grep.test.ts > JORN-48 / D-15 — (ii) as superfícies que o D-15 nomeia carregam os nomes novos > supabase/functions/_shared/email-templates.ts carrega «Raciocínio lógico (Matrizes) (e-mail de liberação)»
+ FAIL  src/features/avaliacao-cognitiva/__tests__/ravenService.status.test.ts > consultarLiberacao — ja_respondeu vem de get_avaliacao_status.raven.registrado (C-4) > raven.registrado = true → ja_respondeu: true (quem concluiu não reabre a prova)
+ FAIL  src/features/avaliacao-cognitiva/__tests__/ravenService.status.test.ts > consultarLiberacao — ja_respondeu vem de get_avaliacao_status.raven.registrado (C-4) > a leitura direta de scores_raven não acontece mais (o candidato nunca a via)
+ FAIL  src/features/avaliacao-cognitiva/__tests__/ravenService.status.test.ts > consultarLiberacao — ja_respondeu vem de get_avaliacao_status.raven.registrado (C-4) > erro em get_avaliacao_status → RavenServiceError DATABASE_ERROR (a tela já trata erro)
+ Test Files  2 failed (2)
+      Tests  4 failed | 41 passed (45)
+vitest_exit=1 (medido por bash -c)
+T-48-10a — avaliacao_cognitiva_liberada: assunto, prévia e corpo nomeiam o «Raciocínio lógico (Matrizes)»; corpo tem a vaga e o painel (51-07 · D-31) ... FAILED (344µs)
+T-48-10b — par (subject, preheader) de avaliacao_cognitiva_liberada pinado por literal (51-07 · D-31) ... FAILED (706µs)
+FAILED | 41 passed | 2 failed (6ms)
+deno_exit=1 (medido por bash -c)
+Worktree removido depois (git worktree remove --force; git worktree list = so o checkout principal).
+
+## 2. T-48-10 reescrito (deno), mutacoes sobre uma COPIA de _shared em scratch (o arquivo do repo nao foi tocado)
+CONTROLE: T-48-10a ok · T-48-10b ok · T-48-10c ok · T-48-10d ok
+M1 nome tecnico «Raven» no corpo              → T-48-10c FAILED
+M2 «Matrizes» fora do nome do D-15            → T-48-10c FAILED
+M3 assunto volta a «Uma avaliação cognitiva…» → T-48-10a FAILED, T-48-10b FAILED
+M4 corpo sem o nome do D-15                   → T-48-10a FAILED
+M5 token proibido «nota» no corpo             → T-48-10a FAILED, T-48-10c FAILED
+
+## 3. Guarda (i) estendido a supabase/functions — arquivo plantado (nao rastreado, removido em seguida)
+supabase/functions/_shared/zz_mordida_51_07.ts:1  «Avaliação cognitiva»  export const A = "Avaliação cognitiva";   → CASOU
+supabase/functions/_shared/zz_mordida_51_07.ts:2  «Cognitivo»  export const ETAPA = { cognitivo: "Cognitivo" };  → CASOU
+linha 3  export const K = ["big_five", "cognitivo"];  (chave tecnica)                                    → nao casou (correto)
+Tests 1 failed | 40 passed — arquivo removido; git status sem resto.

@@ -1163,7 +1163,10 @@ Deno.test("48-10 — cognitivo_liberado com ciclo válido: claim versionado, tem
   assertEquals(supa.upserts[0].row.template, "avaliacao_cognitiva_liberada");
   assertEquals(fetchMock.calls.length, 1);
   const { subject, html } = corpoEnviado(fetchMock.calls[0]);
-  assert(/avalia[çc][ãa]o cognitiva/i.test(subject), `assunto: ${subject}`);
+  // 51-07 (D-31): o assunto nomeia o instrumento pelo nome do D-15 — antes dizia só
+  // «avaliação cognitiva», nome que deixou de distinguir o Raven da prova textual da vaga.
+  assert(subject.includes("Raciocínio lógico (Matrizes)"), `assunto: ${subject}`);
+  assert(!/avalia[çc][ãa]o cognitiva/i.test(subject), `assunto com o nome aposentado: ${subject}`);
   assert(html.includes(VAGA_FIX.titulo), "corpo sem a vaga");
   // Este evento não lê histórico nem decisão — allowlist mínima (ids + nome/e-mail + vaga).
   const tabelas = new Set(supa.selects.map((s) => s.table));

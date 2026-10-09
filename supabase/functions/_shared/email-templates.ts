@@ -1,6 +1,6 @@
 /**
  * `_shared/email-templates.ts` — os templates de e-mail Beauty Smile ao candidato (COMM-02/03/05/06;
- * 5º evento 42-08; 6º evento 48-10 · D-22, a liberação da avaliação cognitiva).
+ * 5º evento 42-08; 6º evento 48-10 · D-22, a liberação do Raciocínio lógico (Matrizes) — 51-07 · D-31).
  *
  * HAND-ROLLED, inline CSS, table-based — sem bibliotecas React de e-mail (elas quebram no
  * runtime Deno das Edge Functions). Um wrapper compartilhado (`layoutBase`) carrega header (logo) +
@@ -318,20 +318,28 @@ ${veredito ? `<p style="margin:0 0 16px;">${escapeHtml(veredito)}</p>` : ""}
 }
 
 /**
- * Corpo do 6º evento — a liberação da avaliação cognitiva (Phase 48 / Plan 48-10 · D-22).
+ * Corpo do 6º evento — a liberação do Raven (Phase 48 / Plan 48-10 · D-22; renomeado no 51-07).
  *
  * É um AVISO de que há algo a fazer, não uma comunicação sobre a avaliação. Por isso:
- *   · diz «avaliação cognitiva» — linguagem de produto do CLAUDE.md, nunca o termo clínico que ela proíbe;
- *   · NÃO nomeia o instrumento (dado interno do RH), nem nota, critério, prazo ou motivo;
- *   · manda a pessoa ao painel, onde estão as instruções. O BOTÃO de acesso ao painel é
- *     acrescentado a todos os corpos de candidato pelo plano 48-16 — não duplicar aqui.
+ *   · NOMEIA O INSTRUMENTO pelo nome do D-15 — «Raciocínio lógico (Matrizes)» —, decisão do
+ *     operador D-31 de 2026-10-08. Até o 51-07 este e-mail dizia só «avaliação cognitiva» e
+ *     este docblock mandava NÃO nomear o instrumento; o D-15 deu um nome a cada um dos dois
+ *     instrumentos cognitivos, e «avaliação cognitiva» deixou de distinguir o Raven da prova
+ *     textual da vaga. O nome técnico (Raven) continua interno e não aparece aqui;
+ *   · nenhuma nota, critério, prazo ou motivo; nunca o termo clínico que o CLAUDE.md proíbe;
+ *   · aponta para o CARD do painel (`RavenCandidatoCard`, 51-07), no cartão da candidatura —
+ *     antes dizia «acesse o seu painel» para um painel que não tinha entrada nenhuma (JORN-43).
+ *     O BOTÃO de acesso ao painel é acrescentado a todos os corpos de candidato pelo plano
+ *     48-16 — não duplicar aqui.
+ * D-14 / D-31: nenhum aviso NOVO — é o mesmo evento, a mesma chave
+ * (`avaliacao_cognitiva_liberada`, vocabulário de dedupe que NÃO muda), só o texto.
  */
 function corpoCognitivoLiberado(d: DadosEmail): string {
   return `${saudacao(d)}
-<p style="margin:0 0 16px;">A equipe da Beauty Smile liberou uma avaliação cognitiva para a sua candidatura à vaga <strong>${
+<p style="margin:0 0 16px;">A equipe da Beauty Smile liberou o Raciocínio lógico (Matrizes) para a sua candidatura à vaga <strong>${
     escapeHtml(d.tituloVaga)
   }</strong>.</p>
-<p style="margin:0 0 16px;">Acesse o seu painel para ver as instruções.</p>
+<p style="margin:0 0 16px;">Ele está no seu painel, no cartão desta candidatura.</p>
 <p style="margin:0;">Atenciosamente,<br>Equipe Beauty Smile</p>`;
 }
 
@@ -351,8 +359,8 @@ export const SUBJECTS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   // o assunto é lido na LISTA de e-mails, antes de a mensagem ser aberta. Ele nomeia o que
   // chegou (a resposta à solicitação), não o que ela diz. Pinado por T-42-V2b.
   revisao_respondida: (d) => `Resposta à sua solicitação de revisão — ${d.tituloVaga}`,
-  // 48-10 / D-22: texto do plano, literal. A vaga vai no corpo.
-  avaliacao_cognitiva_liberada: () => "Uma avaliação cognitiva foi liberada para você",
+  // 48-10 / D-22; 51-07 / D-31: nomeia o instrumento pelo nome do D-15. A vaga vai no corpo.
+  avaliacao_cognitiva_liberada: () => "O Raciocínio lógico (Matrizes) foi liberado para você",
 };
 
 const CORPOS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
@@ -402,7 +410,8 @@ const PREHEADERS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   // LITERAL entre os dois vereditos. Um futuro que queira ramificar terá de alterar aquele
   // teste de propósito, e a mudança aparece no diff em vez de escorregar.
   revisao_respondida: () => "Sua solicitação de revisão foi respondida.",
-  avaliacao_cognitiva_liberada: () => "Uma avaliação cognitiva está disponível no seu painel.",
+  // 51-07 / D-31: a prévia nomeia o instrumento e diz onde ele está.
+  avaliacao_cognitiva_liberada: () => "O Raciocínio lógico (Matrizes) está no seu painel.",
 };
 
 /**
