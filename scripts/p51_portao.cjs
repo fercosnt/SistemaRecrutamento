@@ -27,8 +27,21 @@
  *   (3) `diff_base` ancestral (ou igual) de `--base`: a revisão cobre a onda inteira.
  *   (4-revisao) `reviewed_head` ancestral de HEAD e nenhum código fora de `.planning/` mudou entre
  *       ele e HEAD (`git diff --quiet <reviewed_head> HEAD -- . ':!.planning'`).
- *   (4)/(5) dos modos apply/deploy/push — a Task 2 do 51-09 os completa (pin; código do pin =
- *       código revisado; WR-06 do 50-REVIEW-TRACER-1/2/3 e WR-03 do 50-REVIEW-ACESSO-1).
+ *   (4) fora do modo revisao: `--pin` obrigatório e resolve. `apply`: HEAD = pin (WR-06 do
+ *       50-REVIEW-TRACER-1/2/3 — o que se aplica é o commit fixado). `deploy`/`push`: pin ancestral de
+ *       HEAD e `git diff --quiet <pin> HEAD -- . ':!.planning'` — commits só de `.planning/` (SUMMARY
+ *       parcial, STATE, a linha do todo) não travam o deploy com as migrations já no ar; código
+ *       depois do pin, sim (WR-03 do 50-REVIEW-ACESSO-1: igualdade de CÓDIGO, não HEAD = pin).
+ *   (5) fora do modo revisao: `reviewed_head` ancestral do pin e `git diff --quiet <reviewed_head>
+ *       <pin> -- . ':!.planning'` — o código do pin é o código revisado.
+ *   A revisão é conferida ANTES do pin: sem revisão, todo modo recusa por ela, com ou sem `--pin`.
+ *
+ *   modo     | (1)(2)(3) revisão | (4-revisao) | (4) pin                         | (5) pin = revisado | (6) plano | (7) árvore
+ *   ---------+-------------------+-------------+---------------------------------+--------------------+-----------+-----------
+ *   revisao  | sim               | sim         | `--pin` é recusado              | —                  | sim       | sim
+ *   apply    | sim               | —           | obrigatório; HEAD = pin         | sim                | sim       | sim
+ *   deploy   | sim               | —           | obrigatório; só .planning/ após | sim                | sim       | sim
+ *   push     | sim               | —           | obrigatório; só .planning/ após | sim                | sim       | sim
  *   (6) o `--plano` (o programa que escreve em PROD) existia no `reviewed_head`, não mudou entre ele e
  *       HEAD e não está modificado na árvore — a revisão cobre o plano que vai rodar.
  *   (7) árvore limpa (rastreados, staged e não rastreados) nos caminhos que vão a PROD:
@@ -192,7 +205,23 @@ function verificar(o, cwd, env) {
       recusar(`CODIGO DEPOIS DA REVISAO ${arq} (reviewed_head ${curto(rh)}): ${G.nomes(rh, head, '--', ...FORA_PLANNING)}`);
     }
   } else {
-    recusar(`modo ${o.modo} ainda nao implementado`);
+    /* (4) o pin: obrigatório e resolve; apply exige HEAD = pin; deploy/push aceitam depois dele só commits de .planning/ */
+    if (o.pin === undefined || o.pin === '') recusar(`SEM PIN: --pin e obrigatorio no modo ${o.modo}`);
+    pin = G.rev(o.pin);
+    if (!pin) recusar(`PIN NAO RESOLVE: --pin ${o.pin}`);
+    if (o.modo === 'apply') {
+      if (head !== pin) recusar(`HEAD != PIN: HEAD=${curto(head)} pin=${curto(pin)} (${o.pin}) — o modo apply exige HEAD = pin`);
+    } else {
+      if (!G.ok('merge-base', '--is-ancestor', pin, head)) recusar(`PIN ${curto(pin)} (${o.pin}) FORA DO HISTORICO DE HEAD`);
+      if (!G.ok('diff', '--quiet', pin, head, '--', ...FORA_PLANNING)) {
+        recusar(`CODIGO DEPOIS DO PIN ${curto(pin)} (${o.pin}): ${G.nomes(pin, head, '--', ...FORA_PLANNING)}`);
+      }
+    }
+    /* (5) o código do pin é o código revisado */
+    if (!G.ok('merge-base', '--is-ancestor', rh, pin)) recusar(`reviewed_head ${curto(rh)} de ${arq} FORA DO HISTORICO DO PIN ${curto(pin)}`);
+    if (!G.ok('diff', '--quiet', rh, pin, '--', ...FORA_PLANNING)) {
+      recusar(`CODIGO DO PIN != CODIGO REVISADO em ${arq} (reviewed_head ${curto(rh)}, pin ${curto(pin)}): ${G.nomes(rh, pin, '--', ...FORA_PLANNING)}`);
+    }
   }
 
   /* (6) o plano que escreve em PROD é o revisado: existia no reviewed_head, não mudou depois, nem na árvore */
@@ -299,6 +328,11 @@ function basico(r, c = {}) {
   r.revisao(1, { diff_base: c0, reviewed_head: c1, critical: 0, ...c.fm });
   const c2 = r.commit('revisao 1');
   return { c0, c1, c2 };
+}
+
+const PIN_REF = 'refs/gsd/t/pin';
+function fixarPin(r, sha) {
+  r.git('update-ref', PIN_REF, sha);
 }
 
 const OPT = { revisao: REV, base: BASE_REF, plano: PLANO, modo: 'revisao' };
@@ -600,10 +634,177 @@ const CASOS = [
     montar: (r) => (basico(r), { o: { pin: 'HEAD' } }),
     espera: rec(/^PIN NO MODO revisao: /),
   },
+  /* ---- modos apply / deploy / push (pin) ---- */
   {
-    nome: 'recusa: modo apply ainda nao implementado (Task 2)',
-    montar: (r) => (basico(r), { o: { modo: 'apply', pin: 'HEAD' } }),
-    espera: rec(/^modo apply ainda nao implementado/),
+    nome: 'apply: HEAD = pin e codigo do pin = codigo revisado',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      return { o: { modo: 'apply', pin: PIN_REF } };
+    },
+    espera: OK,
+  },
+  {
+    nome: 'recusa: apply com HEAD != pin (commit so de .planning depois do pin)',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      r.escrever('.planning/STATE.md', 'estado\n');
+      r.commit('docs: state');
+      return { o: { modo: 'apply', pin: PIN_REF } };
+    },
+    espera: rec(/^HEAD != PIN: /),
+  },
+  {
+    nome: 'recusa: apply com codigo do pin != codigo revisado (codigo entre reviewed_head e pin)',
+    montar: (r) => {
+      basico(r);
+      r.escrever('src/a.js', '3\n');
+      fixarPin(r, r.commit('fix: depois da revisao'));
+      return { o: { modo: 'apply', pin: PIN_REF } };
+    },
+    espera: rec(/^CODIGO DO PIN != CODIGO REVISADO .*src\/a\.js/),
+  },
+  {
+    nome: 'deploy: commits so de .planning/ depois do pin passam',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      r.escrever('.planning/f/F-SUMMARY.md', 'parcial\n');
+      r.commit('docs: summary parcial');
+      r.escrever('.planning/STATE.md', 'estado\n');
+      r.commit('docs: state');
+      return { o: { modo: 'deploy', pin: PIN_REF } };
+    },
+    espera: OK,
+  },
+  {
+    nome: 'push: commits so de .planning/ depois do pin passam',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      r.escrever('.planning/todos/42.md', 'linha datada\n');
+      r.commit('docs: todo 42');
+      return { o: { modo: 'push', pin: PIN_REF } };
+    },
+    espera: OK,
+  },
+  {
+    nome: 'recusa: deploy com codigo depois do pin',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      r.escrever('supabase/functions/f/index.ts', 'export {};\n');
+      r.commit('fix: ef depois do pin');
+      return { o: { modo: 'deploy', pin: PIN_REF } };
+    },
+    espera: rec(/^CODIGO DEPOIS DO PIN .*supabase\/functions\/f\/index\.ts/),
+  },
+  {
+    nome: 'recusa: push com codigo depois do pin',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      r.escrever('src/b.tsx', 'export const B = 1;\n');
+      r.commit('feat: cliente depois do pin');
+      return { o: { modo: 'push', pin: PIN_REF } };
+    },
+    espera: rec(/^CODIGO DEPOIS DO PIN .*src\/b\.tsx/),
+  },
+  {
+    nome: 'recusa: deploy com codigo do pin != codigo revisado (so .planning/ depois do pin)',
+    montar: (r) => {
+      basico(r);
+      r.escrever('supabase/m.sql', 'select 3;\n');
+      fixarPin(r, r.commit('fix: depois da revisao'));
+      r.escrever('.planning/STATE.md', 'estado\n');
+      r.commit('docs: state');
+      return { o: { modo: 'deploy', pin: PIN_REF } };
+    },
+    espera: rec(/^CODIGO DO PIN != CODIGO REVISADO .*supabase\/m\.sql/),
+  },
+  {
+    nome: 'recusa: apply sem --pin',
+    montar: (r) => (basico(r), { o: { modo: 'apply' } }),
+    espera: rec(/^SEM PIN: /),
+  },
+  {
+    nome: 'recusa: deploy sem --pin',
+    montar: (r) => (basico(r), { o: { modo: 'deploy' } }),
+    espera: rec(/^SEM PIN: /),
+  },
+  {
+    nome: 'recusa: push sem --pin',
+    montar: (r) => (basico(r), { o: { modo: 'push' } }),
+    espera: rec(/^SEM PIN: /),
+  },
+  {
+    nome: 'recusa: --pin que nao resolve',
+    montar: (r) => (basico(r), { o: { modo: 'apply', pin: 'refs/gsd/t/nao-existe' } }),
+    espera: rec(/^PIN NAO RESOLVE: /),
+  },
+  {
+    nome: 'recusa: deploy com pin fora do historico de HEAD',
+    montar: (r) => {
+      basico(r);
+      r.git('checkout', '-q', '-b', 'lado');
+      r.escrever('.planning/lado.md', 'lado\n');
+      fixarPin(r, r.commit('lado'));
+      r.git('checkout', '-q', '-');
+      return { o: { modo: 'deploy', pin: PIN_REF } };
+    },
+    espera: rec(/^PIN .* FORA DO HISTORICO DE HEAD/),
+  },
+  {
+    nome: 'recusa: apply com reviewed_head fora do historico do pin',
+    montar: (r) => {
+      const { c0 } = basico(r, { semRevisao: true });
+      r.git('checkout', '-q', '-b', 'lado');
+      r.escrever('.planning/lado.md', 'lado\n');
+      const s1 = r.commit('lado');
+      r.git('checkout', '-q', '-');
+      r.revisao(1, { diff_base: c0, reviewed_head: s1, critical: 0 });
+      fixarPin(r, r.commit('revisao 1'));
+      return { o: { modo: 'apply', pin: PIN_REF } };
+    },
+    espera: rec(/^reviewed_head .* FORA DO HISTORICO DO PIN/),
+  },
+  {
+    nome: 'recusa: apply sem revisao recusa pela revisao ANTES de conferir o pin (nem --pin dado)',
+    montar: (r) => (basico(r, { semRevisao: true }), { o: { modo: 'apply' } }),
+    espera: rec(/^SEM REVISAO: /),
+  },
+  {
+    nome: 'recusa: apply com o plano mudado depois da revisao (codigo do pin = revisado)',
+    montar: (r) => {
+      basico(r);
+      r.escrever(PLANO, 'plano editado\n');
+      fixarPin(r, r.commit('docs: plano'));
+      return { o: { modo: 'apply', pin: PIN_REF } };
+    },
+    espera: rec(/^PLANO MUDOU DEPOIS DA REVISAO: /),
+  },
+  {
+    nome: 'recusa: deploy com o plano mudado num commit so de .planning/ depois do pin',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      r.escrever(PLANO, 'plano editado\n');
+      r.commit('docs: plano');
+      return { o: { modo: 'deploy', pin: PIN_REF } };
+    },
+    espera: rec(/^PLANO MUDOU DEPOIS DA REVISAO: /),
+  },
+  {
+    nome: 'recusa: push com arvore suja (efdeploy.cjs modificado)',
+    montar: (r) => {
+      r.escrever('efdeploy.cjs', '//\n');
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      r.escrever('efdeploy.cjs', '// editado\n');
+      return { o: { modo: 'push', pin: PIN_REF } };
+    },
+    espera: rec(/^ARVORE SUJA: .*efdeploy\.cjs/),
   },
 ];
 
@@ -622,6 +823,17 @@ const CASOS_CLI = [
     args: ['--revisao', REV, '--base', BASE_REF, '--plano', PLANO, '--modo', 'revisao'],
     status: 1,
     saida: /^PORTAO RECUSADO: SEM REVISAO: /m,
+  },
+  {
+    nome: 'cli: apply com pin — PORTAO OK com o sha do pin e saida 0',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      return {};
+    },
+    args: ['--revisao', REV, '--base', BASE_REF, '--pin', PIN_REF, '--plano', PLANO, '--modo', 'apply'],
+    status: 0,
+    saida: /^PORTAO OK: revisao=\.planning\/f\/F-REVIEW-PORTAO-1\.md reviewed_head=[0-9a-f]{40} pin=[0-9a-f]{40} modo=apply$/m,
   },
   {
     nome: 'cli: opcao desconhecida recusa com saida 1',
