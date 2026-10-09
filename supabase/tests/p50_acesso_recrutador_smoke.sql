@@ -275,6 +275,22 @@
 --   `07:d23=comportamental>e:42501`). CONTROLE 13/13 (1564 ms); «controle verde; 25/25 mutacoes
 --   mordem; nada persistiu».
 --
+--   Phase 51 / 51-10 (2026-10-09) — edição de portão D-56, provada por `scripts/p51_mutacoes.cjs` com
+--   20261008000002 + 20261008000003 PREFIXADAS (CONTROLE `50=13/13` em 1057 ms; «29/29 mutacoes
+--   mordem; nada persistiu»). Duas mudanças, e só estas: (k) — o agregado de
+--   `listar_revisoes_decisao(true|false)` ordena por `candidatura_id` e DEPOIS por
+--   `to_jsonb(t) ->> 'pedido_id'` (C-12: a fila tem as três origens e uma candidatura pode ter duas
+--   linhas; funciona antes e depois da 0003); (i) — o MAPA ganhou as duas RPCs do JORN-42 que chamam o
+--   helper (`responder_revisao_rejeicao/3`, `ler_contexto_knockout_revisao/1`), sem as quais o conjunto
+--   por forma reprova `[sem_sonda:…]` — medido: com a 0002 prefixada e o MAPA antigo, este smoke dava
+--   `P50C FAIL (i): [sem_sonda:responder_revisao_rejeicao/3]`.
+--   | Mutação | Inversão                                                        | Reprova (rótulos exigidos)                    | Medido (2026-10-09)                                     |
+--   |---------|-----------------------------------------------------------------|-----------------------------------------------|---------------------------------------------------------|
+--   | MC1a    | ramo `decisao_final` da fila exige `v_role = administrador` (o único ramo que o mundo do (k) popula: as revisões pendentes vivas ou a semeada) | (k) igual.listar_revisoes_decisao_true, igual.listar_revisoes_decisao_false | (k) [igual.listar_revisoes_decisao_true,igual.listar_revisoes_decisao_false], 1176 ms |
+--   | MC7     | `ler_contexto_knockout_revisao` sem o helper                    | (i) velho.ler_contexto_knockout_revisao/1     | (i) [velho.…/1,velho_mp.ler_contexto_knockout_revisao/1], 972 ms |
+--   | MC8     | `responder_revisao_rejeicao` sem o helper                       | (i) velho.responder_revisao_rejeicao/3        | (i) [velho.…/3,velho_mp.responder_revisao_rejeicao/3], 935 ms |
+--   `contar_revisoes_pendentes` não é mutada por MC1a: `igual.contar_revisoes_pendentes` NÃO aparece.
+--
 -- Varredura (forma) — 2026-10-05, padrão do CLAUDE.md §«Portões» sobre `supabase/tests/*.sql`
 -- (`grep -rnE '(<>|!=|IS DISTINCT FROM) *[0-9]+|= ANY \(ARRAY\[.|\b(proname|jobname|relname|tgname|conname|typname) +IN +\(.'`).
 --   População da forma: 336 linhas (re-medida na execução do 50-01; igual à do planejamento);
@@ -1457,7 +1473,13 @@ BEGIN
     'salvar_avaliacao_entrevista/4',   jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.salvar_avaliacao_entrevista(%L::uuid, %L::uuid, ''{}''::jsonb, %L)) x', v_cid, v_ea, c_just)),
     'save_entrevista_guia_edits/3',    jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.save_entrevista_guia_edits(%L::uuid, ''online'', ''{}''::jsonb)) x', v_cid)),
     'salvar_revisao_redacao/4',        jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.salvar_revisao_redacao(%L::uuid, ''aprovada'', %L, ''{}''::jsonb)) x', v_red, c_just)),
-    'upsert_pergunta_opcoes_metadata/2', jsonb_build_object('tipo', 'escrita', 'guarda', true, 'sql', format('SELECT ''ok'' FROM (SELECT public.upsert_pergunta_opcoes_metadata(%L::uuid, ''[]''::jsonb)) x', v_perg))
+    'upsert_pergunta_opcoes_metadata/2', jsonb_build_object('tipo', 'escrita', 'guarda', true, 'sql', format('SELECT ''ok'' FROM (SELECT public.upsert_pergunta_opcoes_metadata(%L::uuid, ''[]''::jsonb)) x', v_perg)),
+    -- Phase 51 (51-10): as duas RPCs do JORN-42 que chamam o helper (migrations 20261008000002/3) — sem
+    -- estas entradas o conjunto por forma as acusa [sem_sonda:…]. Pedido INEXISTENTE de propósito: o
+    -- helper vem ANTES da busca, então o token velho recebe 42501 e o rh ativo passa da autorização
+    -- (P0002, erro de negócio). Mordida: MC7/MC8 de scripts/p51_mutacoes.cjs (helper fora → velho.*).
+    'responder_revisao_rejeicao/3',    jsonb_build_object('tipo', 'escrita', 'guarda', true,  'sql', format('SELECT ''ok'' FROM (SELECT public.responder_revisao_rejeicao(gen_random_uuid(), ''mantida'', %L)) x', c_just)),
+    'ler_contexto_knockout_revisao/1', jsonb_build_object('tipo', 'leitura', 'guarda', true,  'sql', 'SELECT ''j:'' || coalesce(public.ler_contexto_knockout_revisao(gen_random_uuid()) ->> ''situacao'', ''?'')')
   );
 
   -- CONJUNTO POR FORMA: funções de `public` que chamam o helper ou trazem a forma do ramo rh
@@ -1849,11 +1871,18 @@ BEGIN
               IF a = 'ativo' THEN v_res := v_res || jsonb_build_object('ativo.ve', v_ve); END IF;
             WHEN 'contar_pedidos_dados_pendentes' THEN
               v_tok := 'i:' || public.contar_pedidos_dados_pendentes();
+            -- Phase 51 / C-12 (51-10, migration 20261008000003): a fila passou a ter as três origens e
+            -- uma candidatura pode ter DUAS linhas (revisão de uma rejeição pelo RH e, depois da
+            -- reabertura, a da decisão final) — ordenar só por candidatura_id deixaria o empate
+            -- indeterminado e o md5 admin × rh ativo deixaria de ser determinístico. Desempate pelo
+            -- pedido_id lido por to_jsonb (vale ANTES da 0003, quando a coluna não existe: NULL, e
+            -- DEPOIS). A mordida do (k) editado é a MC1a de scripts/p51_mutacoes.cjs (o ramo
+            -- decisao_final da fila exige administrador — o único ramo que o mundo deste (k) popula).
             WHEN 'listar_revisoes_decisao_true' THEN
-              SELECT 'n:' || count(*) || ':' || md5(coalesce(jsonb_agg(to_jsonb(t) - 'pode_responder' ORDER BY t.candidatura_id)::text, '[]'))
+              SELECT 'n:' || count(*) || ':' || md5(coalesce(jsonb_agg(to_jsonb(t) - 'pode_responder' ORDER BY t.candidatura_id, (to_jsonb(t) ->> 'pedido_id'))::text, '[]'))
                 INTO v_tok FROM public.listar_revisoes_decisao(true) t;
             WHEN 'listar_revisoes_decisao_false' THEN
-              SELECT 'n:' || count(*) || ':' || md5(coalesce(jsonb_agg(to_jsonb(t) - 'pode_responder' ORDER BY t.candidatura_id)::text, '[]'))
+              SELECT 'n:' || count(*) || ':' || md5(coalesce(jsonb_agg(to_jsonb(t) - 'pode_responder' ORDER BY t.candidatura_id, (to_jsonb(t) ->> 'pedido_id'))::text, '[]'))
                 INTO v_tok FROM public.listar_revisoes_decisao(false) t;
             ELSE
               v_tok := 'i:' || public.contar_revisoes_pendentes();

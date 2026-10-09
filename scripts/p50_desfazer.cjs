@@ -46,6 +46,18 @@
  * Ensaio (ida + volta numa requisição que aborta, antes do apply):
  *   node scripts/p50_ensaio.cjs --vistas --migracoes=<0002>,<0003>,<0004> --mutacao=supabase/tests/p50_desfazer_expansao.sql
  *
+ * ⚠ OBSOLETO PARA TRÊS FUNÇÕES DESDE A PHASE 51 (migration 20261008000003, plano 51-10). O arquivo
+ *   gerado restaura os corpos PRÉ-P50 de `listar_revisoes_decisao`, `contar_revisoes_pendentes` e
+ *   `funil_kpis`. Aplicado depois de 20261008000003 ele ABORTA em `listar_revisoes_decisao` (o
+ *   `CREATE OR REPLACE FUNCTION` dele não troca o tipo de retorno de 13 colunas — `origem`,
+ *   `pedido_id` — de volta para 11: 42P13) e, se alguém o «consertasse» para passar, APAGARIA o
+ *   JORN-42 (as rejeições pelo RH e os knockouts sumiriam da fila e do contador do RH) e o D-35 (o
+ *   funil voltaria a contar knockout revertido). Ele NÃO serve mais de base de migration corretiva
+ *   para essas três funções, e NÃO pode ser regerado: a captura pré-P50 não existe mais no catálogo.
+ *   Por isso `--gerar` e `--conferir` leem o ledger (só leitura) ANTES de tudo e, se
+ *   20261008000003 estiver lá, imprimem `OBSOLETO: …` e saem 1. O arquivo gerado NÃO é tocado à mão
+ *   (é «GERADO, NÃO EDITAR À MÃO»); a obsolescência também está no cabeçalho da 20261008000003.
+ *
  * Sem dependências: Node built-ins + p50_ensaio.cjs (sqlLeitura, MIGS, versao).
  */
 
@@ -58,6 +70,8 @@ const SAIDA = 'supabase/tests/p50_desfazer_expansao.sql';
 /* As migrations da EXPANSÃO: as de MIGS depois do tracer (0001, aplicado no 50-02). */
 const MIGS_EXP = E.MIGS.slice(1);
 const VERSOES = MIGS_EXP.map(E.versao);
+/* A migration da Phase 51 que torna o desfazer obsoleto para listar/contar/funil_kpis (51-10). */
+const VERSAO_OBSOLETA = '20261008000003';
 
 function sair(msg, c = 1) {
   console.error(msg);
@@ -365,6 +379,11 @@ function impressoesDoArquivo(txt) {
 function principal() {
   const modo = process.argv[2];
   if (modo !== '--gerar' && modo !== '--conferir') sair('uso: node scripts/p50_desfazer.cjs --gerar | --conferir', 2);
+  // Phase 51 (51-10): só leitura do ledger ANTES de qualquer captura — ver «OBSOLETO» no docblock.
+  const obs = E.sqlLeitura(`set transaction read only; select count(*)::int as n from supabase_migrations.schema_migrations where version = '${VERSAO_OBSOLETA}'`)[0].n;
+  if (obs > 0) {
+    sair(`OBSOLETO: o desfazer da P50 não descreve mais listar/contar/funil_kpis (Phase 51, ${VERSAO_OBSOLETA}) — aplicado agora, ele abortaria em listar_revisoes_decisao e, «consertado», apagaria o JORN-42; ${SAIDA} não serve de base de migration corretiva e não pode ser regerado`);
+  }
   const alvos = alvosPorForma();
   console.log(`alvos por forma: funcoes=${alvos.funcoes.length} politicas=${alvos.politicas.length} vistas=${alvos.vistas.length} (de ${MIGS_EXP.map((m) => path.basename(m)).join(', ')})`);
   const cap = capturar(alvos);
@@ -387,6 +406,6 @@ function principal() {
   console.log(`desfazer confere com PROD: ${ks.length}/${ks.length} impressoes iguais (funcoes=${alvos.funcoes.length} politicas=${alvos.politicas.length} vistas=${alvos.vistas.length}) · ledger=${JSON.stringify(cap.ledger)}`);
 }
 
-module.exports = { alvosPorForma, sqlImpressoes, gerarSql, impressoesDoArquivo, SAIDA, VERSOES };
+module.exports = { alvosPorForma, sqlImpressoes, gerarSql, impressoesDoArquivo, SAIDA, VERSOES, VERSAO_OBSOLETA };
 
 if (require.main === module) principal();

@@ -150,6 +150,24 @@ const fnSol = () => fn(V02, 'solicitar_revisao_rejeicao');
 const fnEst = () => fn(V02, 'estado_revisao_rejeicao');
 const fnResp = () => fn(V02, 'responder_revisao_rejeicao');
 
+// ── 51-10: a fila do RH com as três origens, o KPI e o prazo (migration 20261008000003) ──
+const V03 = '20261008000003';
+const S50 = 'supabase/tests/p50_acesso_recrutador_smoke.sql';
+/* `CREATE FUNCTION public.<nome>(` … `$function$;` de uma migration p51, reescrito como `CREATE OR REPLACE
+ * FUNCTION` com assinatura e RETURNS idênticos: vale com a migration prefixada e, no modo pós-apply do
+ * 51-16, contra o objeto vivo — um `CREATE FUNCTION` puro daria 42723 depois da migration e o runner o
+ * contaria como não-mordida (a 0003 cria `listar_revisoes_decisao` por DROP + CREATE e
+ * `ler_contexto_knockout_revisao` por CREATE). */
+const fnNova = (versao, nome) => {
+  const t = extrair(mig(versao), `CREATE FUNCTION public.${nome}(`, '$function$;', nome);
+  return 'CREATE OR REPLACE FUNCTION' + t.slice('CREATE FUNCTION'.length);
+};
+const fnListar = () => fnNova(V03, 'listar_revisoes_decisao');
+const fnCtx = () => fnNova(V03, 'ler_contexto_knockout_revisao');
+const fnContar = () => fn(V03, 'contar_revisoes_pendentes');
+const fnFunil = () => fn(V03, 'funil_kpis');
+const fnVarrer = () => fn(V03, 'varrer_prazos_reabertura');
+
 const MUTACOES = [
   {
     // (b) RNF-07a: um número do Raven entra na chave. Com a fixture sem score a folha é null; com
@@ -370,6 +388,106 @@ const MUTACOES = [
     letra: 'g',
     requer: [V02],
     sql: () => trocar(fnResp(), 'IF v_row.respondida_em IS NOT NULL THEN', 'IF false THEN', 'MB14'),
+  },
+
+  // ── 51-10: a fila do RH com as três origens, o KPI e o prazo (migration 20261008000003) ──
+  // REGRA DE POPULAÇÃO (revisão 2 do plano): uma mutação só é declarada contra uma cláusula se mudar
+  // a saída que ela observa SOBRE AS LINHAS QUE O MUNDO DELA CONTÉM — a fixture da própria cláusula
+  // ou a população viva. A `revisao_rejeicao` viva nasce vazia (D-08): nenhuma mutação do ramo novo
+  // pode ser julgada por um smoke que não semeia pedidos.
+  {
+    // (k) do p50: o RH ativo perde as revisões da DECISÃO FINAL — o único ramo que o mundo do (k)
+    // popula (as revisões pendentes vivas, ou a que ele semeia). O md5 admin × rh ativo diverge.
+    id: 'MC1a',
+    desc: 'ramo decisao_final de listar_revisoes_decisao exige v_role = administrador',
+    smoke: S50,
+    letra: 'k',
+    rotulos: ['igual.listar_revisoes_decisao_true', 'igual.listar_revisoes_decisao_false'],
+    requer: [V02, V03],
+    sql: () =>
+      trocar(fnListar(), 'AND (p_incluir_respondidos OR d.revisao_respondida_em IS NULL)',
+        "AND (p_incluir_respondidos OR d.revisao_respondida_em IS NULL)\n         AND v_role = 'administrador'", 'MC1a'),
+  },
+  {
+    // (l): o RH ativo de papel rh perde os pedidos das origens novas (tri e ko da fixture de (l)).
+    id: 'MC1b',
+    desc: 'ramo revisao_rejeicao de listar_revisoes_decisao exige v_role = administrador',
+    smoke: S51B,
+    letra: 'l',
+    requer: [V02, V03],
+    sql: () =>
+      trocar(fnListar(), 'WHERE (p_incluir_respondidos OR rr.respondida_em IS NULL)',
+        "WHERE (p_incluir_respondidos OR rr.respondida_em IS NULL)\n         AND v_role = 'administrador'", 'MC1b'),
+  },
+  {
+    // (m): o contador passa a contar o pedido RESPONDIDO (resp, da fixture de (m)).
+    id: 'MC2',
+    desc: 'ramo revisao_rejeicao de contar_revisoes_pendentes perde respondida_em IS NULL',
+    smoke: S51B,
+    letra: 'm',
+    requer: [V02, V03],
+    sql: () => trocar(fnContar(), 'WHERE rr.respondida_em IS NULL', 'WHERE true', 'MC2'),
+  },
+  {
+    // (l): pode_responder do ramo novo ignora rejeitado_por — A vê "pode responder" no pedido de tri
+    // (PENDENTE, rejeitado por A, da fixture de (l)).
+    id: 'MC3',
+    desc: 'pode_responder do ramo revisao_rejeicao ignora rejeitado_por (REVISAO-05)',
+    smoke: S51B,
+    letra: 'l',
+    requer: [V02, V03],
+    sql: () => trocar(fnListar(), '(rr.respondida_em IS NULL AND rr.rejeitado_por IS DISTINCT FROM v_uid)', '(rr.respondida_em IS NULL)', 'MC3'),
+  },
+  {
+    // (o): o knockout revertido da fixture de (o) segue contado no knockout_rate.
+    id: 'MC4',
+    desc: 'funil_kpis sem o filtro de status no CTE ko (D-35 desfeito)',
+    smoke: S51B,
+    letra: 'o',
+    requer: [V02, V03],
+    sql: () =>
+      trocar(fnFunil(), "FILTER (WHERE c.motivo_rejeicao = 'knockout_automatico' AND c.status = 'rejeitado')",
+        "FILTER (WHERE c.motivo_rejeicao = 'knockout_automatico')", 'MC4'),
+  },
+  {
+    // (n): o recrutador INATIVO lê o contexto do knockout da fixture de (n).
+    id: 'MC5',
+    desc: 'ler_contexto_knockout_revisao sem a linha do is_active_rh_user() (vira IF false)',
+    smoke: S51B,
+    letra: 'n',
+    requer: [V02, V03],
+    sql: () => trocar(fnCtx(), "IF v_role = 'rh' AND NOT public.is_active_rh_user() THEN", 'IF false THEN', 'MC5'),
+  },
+  {
+    // (p): sem a marcação no laço novo, a 2ª varredura enfileira de novo o alerta do ko da fixture de (p).
+    id: 'MC6',
+    desc: 'varrer_prazos_reabertura sem a marcacao de alerta_prazo_enviado_em no laco de revisao_rejeicao',
+    smoke: S51B,
+    letra: 'p',
+    requer: [V02, V03],
+    sql: () =>
+      trocar(fnVarrer(), '    UPDATE public.revisao_rejeicao\n       SET alerta_prazo_enviado_em = pg_catalog.now()\n     WHERE id = q.id;\n', '', 'MC6'),
+  },
+  {
+    // (i) do p50 — a entrada NOVA do MAPA (51-10) morde: sem o helper, o token velho passa da
+    // autorização (P0002 do pedido inexistente em vez de 42501).
+    id: 'MC7',
+    desc: 'ler_contexto_knockout_revisao sem o helper — sonda (i) do p50',
+    smoke: S50,
+    letra: 'i',
+    rotulos: ['velho.ler_contexto_knockout_revisao/1'],
+    requer: [V02, V03],
+    sql: () => trocar(fnCtx(), "IF v_role = 'rh' AND NOT public.is_active_rh_user() THEN", 'IF false THEN', 'MC7'),
+  },
+  {
+    // (i) do p50 — a outra entrada nova do MAPA: responder_revisao_rejeicao sem o helper.
+    id: 'MC8',
+    desc: 'responder_revisao_rejeicao sem o helper — sonda (i) do p50',
+    smoke: S50,
+    letra: 'i',
+    rotulos: ['velho.responder_revisao_rejeicao/3'],
+    requer: [V02],
+    sql: () => trocar(fnResp(), "IF v_role = 'rh' AND NOT public.is_active_rh_user() THEN", 'IF false THEN', 'MC8'),
   },
 ];
 

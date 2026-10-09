@@ -200,6 +200,19 @@
 --   tinham mutação própria — MB8 reprova (b) antes de (c). (z) é a negativa de resíduo, vigiada
 --   também pelo `capturar()` do ensaio. A próxima redefinição destas funções re-prova esta tabela.
 --
+--   v2 (51-10, 2026-10-09) — MC1b..MC6, com 20261008000002 + 20261008000003 PREFIXADAS (CONTROLE verde
+--   `51b=17/17` em 978 ms; «controle verde; 29/29 mutacoes mordem; nada persistiu», MA/MB e MC1a/MC7/
+--   MC8 do p50 incluídas). Cada uma morde sobre linhas que a fixture DA PRÓPRIA cláusula cria:
+--   | Mutação | Inversão                                                            | Reprova | Linha mordida (fixture da cláusula)                           | Duração |
+--   |---------|---------------------------------------------------------------------|---------|---------------------------------------------------------------|---------|
+--   | MC1b    | ramo `revisao_rejeicao` da fila exige `v_role = administrador`       | (l)     | A (rh) vê 1 dos 3 pedidos (só `dfr`): somem `tri` e `ko`        | 1212 ms |
+--   | MC2     | contador conta `revisao_rejeicao` respondida (`WHERE true`)          | (m)     | `resp` (mantida por B) contado: 2→5 e contagem 5 × fila 4      | 837 ms  |
+--   | MC3     | `pode_responder` do ramo novo ignora `rejeitado_por`                 | (l)     | A vê `pode_responder` true no pedido de `tri`, que ele rejeitou | 851 ms  |
+--   | MC4     | `funil_kpis` sem `AND c.status = rejeitado` no CTE ko                | (o)     | o `ko` revertido segue `knockouts: 1` depois da revertida      | 899 ms  |
+--   | MC5     | `ler_contexto_knockout_revisao` sem o helper (`IF false`)             | (n)     | recrutador INATIVO lê o contexto do pedido do `ko`             | 907 ms  |
+--   | MC6     | laço novo de `varrer_prazos_reabertura` sem a marcação do alerta     | (p)     | o alerta do `ko` fica sem marca (e a 2ª varredura repetiria)   | 907 ms  |
+--   (l)..(p) foram escritas sem cláusula vizinha que pegasse antes: cada MC morde na letra declarada.
+--
 -- Varredura D-56 (forma) — 2026-10-09, padrão LITERAL do CLAUDE.md §«Portões» sobre
 -- `supabase/tests/*.sql` (antes deste arquivo existir):
 --   População da forma: 369 linhas. Achados cujo texto toca revisão/rejeição/knockout/decisão/
@@ -217,8 +230,24 @@
 --     escopo deliberado: as três tabelas que AQUELE bloco muta.
 --   · `p50_acesso_recrutador_smoke.sql:1830/1985` (`v_rc <> 1`) — escritas de semeadura de uma
 --     linha; a fila (k) dele é do 51-10 (C-12), não deste plano.
---   Este arquivo tem constantes DELIBERADAS, todas escopo: o esperado 12 (o número de cláusulas
---   DESTE arquivo), os destinos de reabertura (D-02/D-30) e as contagens 1 de escrita da fixture.
+--   Este arquivo tem constantes DELIBERADAS, todas escopo: o esperado 17 (o número de cláusulas
+--   DESTE arquivo), os destinos de reabertura (D-02/D-30), as contagens 1 de escrita da fixture e, em
+--   (l)..(p), os tamanhos das PRÓPRIAS fixtures (3 pedidos em (l); +2 pendentes e 1 respondido em
+--   (m); 1→0 knockout em (o); 1 despacho em (p)) — nunca a população viva, que entra só como
+--   baseline da execução (a contagem ANTES em (m), a igualdade admin × rh em (l)).
+--   Re-varredura do 51-10 (2026-10-09, mesmo padrão LITERAL): 385 linhas. Achados que tocam
+--   `listar_revisoes_decisao`, `contar_revisoes_pendentes`, `funil_kpis` ou `varrer_prazos_reabertura`:
+--   · `funil34_kpis_smokes.sql:216` (`knockout_rate.total <> 0` do token velho) — ESCOPO: o velho vê KPI
+--     vazio; o D-35 não muda `total`. Verde com a 0003.
+--   · `p48_prazo_reabertura_smoke.sql:77` (`v_real <> 0` — nenhum prazo REAL vencido sem alerta) —
+--     premissa ESCOPO, mas conta só `decisao_final`: depois do apply (51-16), uma reabertura VIVA de
+--     `revisao_rejeicao` vencida e não alertada faria o `a_q_total = 1` dele (:306) ver 2 e reprovar com
+--     diagnóstico de fixture. Hoje a tabela é vazia em PROD e o smoke é verde com a 0003 — levado ao
+--     portão 51-16 como pendência nomeada (não editado aqui: fora dos arquivos do plano).
+--   · `p48_prazo_reabertura_smoke.sql:303/306/322/328/337/346/391/421` — contagens da PRÓPRIA fixture
+--     e o esperado 6 (escopo).
+--   · `p50_acesso_recrutador_smoke.sql` (k) — não casa o padrão (é md5 admin × rh), mas é o portão que
+--     a C-12 mexe: ORDER BY ganhou desempate pelo `pedido_id` (51-10), mordida provada por MC1a.
 --   Toda contagem global é baseline capturada na execução, sobre conjunto lido do catálogo.
 --
 -- COMO RODAR: SÓ pelo envelope que aborta — `node scripts/p51_ensaio.cjs [--vistas]
