@@ -99,3 +99,14 @@ Respostas registradas como foram dadas (opção escolhida em cada pergunta):
 **Fora do portão e ainda sem resposta** (não bloqueiam o 51-16; ficam para o fecho da fase): WINDOWS 89 (`disponibilidade`
 no recibo), 51-03 (`aplica_cognitivo=false`), 51-14 (texto neutro), WINDOWS 91-93 (51-15) e IN-16
 (`solicitar_revisao_decisao` com EXECUTE para `anon`).
+
+## ✅ Respostas do operador ao review -2 — 2026-10-09 (via `/gsd-execute-phase 51`, AskUserQuestion)
+
+`51-REVIEW-PORTAO-2.md` (commit `6dc622da`, `reviewed_head` `be4eddce`): 0 critical, 3 warning, 6 info. WR-09 do -1 ficou
+**parcial**, porque o D-23 cobre só 2 das 4 combinações (fonte da reversão × caminho da re-rejeição).
+
+- **D-23**: «**Fechar as 4**». O decisor revertido é recusado tanto em `rejeitar_candidatura` quanto em
+  `registrar_decisao(rejeitado)`, venha a reversão de `revisao_rejeicao` ou do ciclo `decisao_final`. Isso pede mais uma
+  rodada de conserto e depois o `51-REVIEW-PORTAO-3`, antes do apply.
+- **Mensagem no cliente**: «**Incluir**». A recusa do D-23 na rejeição direta mostra o motivo real, como a 48-15 já faz
+  em `registrar_decisao`.
