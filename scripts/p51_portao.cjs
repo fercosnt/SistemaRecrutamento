@@ -288,11 +288,23 @@ function lerLedgerProd(top, env, versoes) {
   return l;
 }
 
+/* IN-03 do 51-REVIEW-PORTAO-2: toda entrada de `supabase/migrations/` cujo nome cite `_p51_` tem de casar a
+ * FORMA vigiada (`RE_MIG_P51`). O `p46apply` aplica qualquer `<14 dígitos>_<nome>.sql`; uma `…_p51_D23-fix.sql`
+ * seria aplicada e escriturada e ficaria FORA desta conferência, calada — a iteração que não vê o objeto
+ * novo (CLAUDE.md §Portões). Aqui ela RECUSA em vez de sumir. */
+const RE_CITA_P51 = /^supabase\/migrations\/[^/]*_p51_/;
+
 function conferirLedger(G, pin, top, env, deps) {
   let arqs;
   try {
-    arqs = G('ls-tree', '-r', '--name-only', pin, '--', 'supabase/migrations').split('\n').filter((f) => RE_MIG_P51.test(f));
-  } catch {
+    const todos = G('ls-tree', '-r', '--name-only', pin, '--', 'supabase/migrations').split('\n').filter(Boolean);
+    const foraDaForma = todos.filter((f) => RE_CITA_P51.test(f) && !RE_MIG_P51.test(f));
+    if (foraDaForma.length) {
+      recusar(`LEDGER: migration p51 FORA DA FORMA vigiada (<14 digitos>_p51_[a-z0-9_]+.sql) no pin ${pin.slice(0, 8)}: ${foraDaForma.join(', ')} — o p46apply a aplicaria e este portao nao a veria; renomear antes de qualquer apply`);
+    }
+    arqs = todos.filter((f) => RE_MIG_P51.test(f));
+  } catch (e) {
+    if (e instanceof Recusa) throw e;
     recusar(`LEDGER: nao consegui listar supabase/migrations no pin ${pin.slice(0, 8)}`);
   }
   if (!arqs.length) recusar(`LEDGER: nenhuma migration p51 (supabase/migrations/<versao>_p51_*.sql) no pin ${pin.slice(0, 8)} — conjunto vazio nao prova a ordem do D-55`);
@@ -948,6 +960,19 @@ const CASOS = [
       return { o: { modo: 'push', pin: PIN_REF }, deps: dubleLedger(r, (v) => (delete v['20261008000005'], v)) };
     },
     espera: rec(/^MIGRATION FORA DO LEDGER DE PROD: 20261008000005 \(20261008000005_p51_nova\.sql\) — /),
+  },
+  {
+    // IN-03 do 51-REVIEW-PORTAO-2: um nome que o p46apply aplicaria mas que a forma vigiada nao ve
+    nome: 'recusa: deploy com migration p51 FORA DA FORMA no pin (maiuscula/hifen)',
+    montar: (r) => {
+      const { c0 } = basico(r, { semRevisao: true });
+      r.escrever('supabase/migrations/20261008000006_p51_D23-fix.sql', 'select 6;\n');
+      const c1b = r.commit('feat: migration fora da forma');
+      r.revisao(1, { diff_base: c0, reviewed_head: c1b, critical: 0 });
+      fixarPin(r, r.commit('revisao 1'));
+      return { o: { modo: 'deploy', pin: PIN_REF }, deps: dubleLedger(r) };
+    },
+    espera: rec(/^LEDGER: migration p51 FORA DA FORMA vigiada .*supabase\/migrations\/20261008000006_p51_D23-fix\.sql/),
   },
   {
     nome: 'recusa: push com md5 do ledger diferente do arquivo do pin',
