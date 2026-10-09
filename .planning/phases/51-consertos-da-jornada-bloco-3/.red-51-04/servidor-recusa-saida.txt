@@ -1,0 +1,34 @@
+# consulta (só leitura) 2026-10-09:
+node p46apply.cjs sql "set transaction read only; select p.oid::regprocedure::text as fn, p.pronargs as nargs, p.prosrc from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'salvar_avaliacao_entrevista' order by 1" | node .planning/phases/51-consertos-da-jornada-bloco-3/.red-51-04/servidor-recusa.cjs
+salvar_avaliacao_entrevista(uuid,uuid,jsonb,text) : RECUSA
+salvar_avaliacao_entrevista(uuid,jsonb,text) : DELEGA→salvar_avaliacao_entrevista(uuid,uuid,jsonb,text)
+servidor recusa notas vazias em 2 sobrecarga(s) (direta ou por delegação)
+## mutação sem-recusa-4
+salvar_avaliacao_entrevista(uuid,jsonb,text) : FURO
+salvar_avaliacao_entrevista(uuid,uuid,jsonb,text) : FURO
+SERVIDOR SEM A RECUSA: salvar_avaliacao_entrevista(uuid,jsonb,text),salvar_avaliacao_entrevista(uuid,uuid,jsonb,text)
+exit=1
+## mutação delega-outra-nota
+salvar_avaliacao_entrevista(uuid,uuid,jsonb,text) : RECUSA
+salvar_avaliacao_entrevista(uuid,jsonb,text) : FURO
+SERVIDOR SEM A RECUSA: salvar_avaliacao_entrevista(uuid,jsonb,text)
+exit=1
+## mutação wrapper-escreve
+salvar_avaliacao_entrevista(uuid,uuid,jsonb,text) : RECUSA
+salvar_avaliacao_entrevista(uuid,jsonb,text) : FURO
+SERVIDOR SEM A RECUSA: salvar_avaliacao_entrevista(uuid,jsonb,text)
+exit=1
+## mutação escrita-antes
+salvar_avaliacao_entrevista(uuid,uuid,jsonb,text) : FURO(escrita antes da recusa)
+salvar_avaliacao_entrevista(uuid,jsonb,text) : FURO
+SERVIDOR SEM A RECUSA: salvar_avaliacao_entrevista(uuid,uuid,jsonb,text),salvar_avaliacao_entrevista(uuid,jsonb,text)
+exit=1
+## mutação sobrecarga-nova
+salvar_avaliacao_entrevista(uuid,uuid,jsonb,text) : RECUSA
+salvar_avaliacao_entrevista(uuid,jsonb,text) : DELEGA→salvar_avaliacao_entrevista(uuid,uuid,jsonb,text)
+salvar_avaliacao_entrevista(uuid,uuid,jsonb,text,boolean) : FURO
+SERVIDOR SEM A RECUSA: salvar_avaliacao_entrevista(uuid,uuid,jsonb,text,boolean)
+exit=1
+## mutação vazia
+NENHUMA SOBRECARGA VIVA ENCONTRADA
+exit=1
