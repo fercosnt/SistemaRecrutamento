@@ -157,14 +157,19 @@
 --       dela; sob o administrador, `funil_kpis(<vaga>) -> knockout_rate` = {knockouts: 1, total: 1}
 --       ANTES (senão FALHA — vácuo) e {knockouts: 0, total: 1} DEPOIS da revertida por B (RPC real),
 --       na mesma execução; a candidatura fica `em_analise/knockout_automatico` (o motivo é auditoria).
---   (p) A3 / D-04: fixture com três pedidos REVERTIDOS por B — `ko` (knockout, reaberto em triagem),
---       `mov` (rejeição de A em triagem, reaberta e depois MOVIDA para avaliacao_assincrona) e `dfd`
---       (rejeição de A na etapa decisao_final, reaberta e depois com `registrar_decisao` em_espera);
---       `reaberta_em`/prazo envelhecidos SÓ nas linhas da fixture (prazo vencido); Vault presente
---       (senão FALHA — a varredura pularia tudo); como o dono, a 1ª `varrer_prazos_reabertura()`
---       enfileira para a fixture EXATAMENTE UM `notificar-rh` — do `ko` — com exatamente {evento:
---       prazo_reabertura_vencido, candidatura_id, ciclo = epoch do prazo} e marca SÓ o alerta do `ko`;
---       a 2ª não enfileira nada para a fixture; nenhum status de candidatura muda.
+--   (p) A3 / D-04: fixture com quatro pedidos REVERTIDOS por B — `ko` (knockout, reaberto em triagem),
+--       `mov` (rejeição de A em triagem, reaberta e depois MOVIDA para avaliacao_assincrona), `dfd`
+--       (rejeição de A na etapa decisao_final, reaberta e depois com `registrar_decisao` em_espera) e
+--       `dfx` (rejeição de A na etapa decisao_final, reaberta, depois uma NOVA DECISÃO de B —
+--       `registrar_decisao` rejeitado — cuja revisão do ciclo de decisao_final A reverteu: de novo em
+--       decisao_final/em_analise, com prazo do ciclo de decisao_final NÃO vencido);
+--       `reaberta_em`/prazo do registro novo envelhecidos SÓ nas linhas da fixture (prazo vencido); Vault
+--       presente (senão FALHA — a varredura pularia tudo); como o dono, a 1ª `varrer_prazos_reabertura()`
+--       enfileira para a fixture EXATAMENTE DOIS `notificar-rh` — do `ko` e do `dfd` (WR-06 do
+--       51-REVIEW-PORTAO-1: `em_espera` NÃO é nova decisão e não silencia o alerta, como o A5 do laço
+--       irmão) —, cada um com exatamente {evento: prazo_reabertura_vencido, candidatura_id, ciclo = epoch
+--       do prazo}, e marca SÓ esses dois; `mov` (movida) e `dfx` (nova decisão de verdade depois da
+--       reabertura) ficam sem alerta; a 2ª não enfileira nada para a fixture; nenhum status muda.
 --   (z) resíduo: nenhum id da fixture sobrevive; contagens globais = baseline DESTA execução,
 --       sobre um conjunto lido POR FORMA do catálogo — toda tabela base de `public` mais
 --       `auth.users` e a fila `net.http_request_queue` —, com o número de tabelas impresso (zero
@@ -212,6 +217,16 @@
 --   | MC5     | `ler_contexto_knockout_revisao` sem o helper (`IF false`)             | (n)     | recrutador INATIVO lê o contexto do pedido do `ko`             | 907 ms  |
 --   | MC6     | laço novo de `varrer_prazos_reabertura` sem a marcação do alerta     | (p)     | o alerta do `ko` fica sem marca (e a 2ª varredura repetiria)   | 907 ms  |
 --   (l)..(p) foram escritas sem cláusula vizinha que pegasse antes: cada MC morde na letra declarada.
+--
+--   v3 (51-16, rodada de conserto do 51-REVIEW-PORTAO-1, 2026-10-09) — WR-06: o laço novo de
+--   `varrer_prazos_reabertura` passa a ignorar `em_espera` (A5 do laço irmão). (p) ganhou `dfx` (nova
+--   decisão de verdade depois da reabertura) e `dfd` (só em_espera) passou a ser ALERTADO. Com 0002..0004
+--   PREFIXADAS: CONTROLE verde `51b=17/17` em 1343 ms; «controle verde; 33/33 mutacoes mordem; nada
+--   persistiu». As duas mutações novas mordem (p) nos dois sentidos do mesmo predicado:
+--   | Mutação | Inversão                                                            | Reprova | Linha mordida (fixture de (p))                                  | Duração |
+--   |---------|---------------------------------------------------------------------|---------|-----------------------------------------------------------------|---------|
+--   | MC9     | o comportamento de ANTES do WR-06 (em_espera cala o alerta)          | (p)     | `dfd` sem alerta: «1a varredura enfileirou 1 despacho(s)»       | 1109 ms |
+--   | MC10    | «nova decisão depois da reabertura» desligada (`AND false`)          | (p)     | `dfx` alertado apesar da nova decisão de B                      | 992 ms  |
 --
 -- Varredura D-56 (forma) — 2026-10-09, padrão LITERAL do CLAUDE.md §«Portões» sobre
 -- `supabase/tests/*.sql` (antes deste arquivo existir):
@@ -1984,9 +1999,10 @@ $o$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (p) A3 / D-04 — o alerta de prazo para as reaberturas fora da decisão final: UM despacho para o
---     pedido revertido com prazo vencido, marca o alerta, não repete; a candidatura movida de etapa
---     e a que ganhou decisão final depois da reabertura não são alertadas.
+-- (p) A3 / D-04 — o alerta de prazo para as reaberturas fora da decisão final: um despacho por
+--     pedido revertido com prazo vencido (inclusive o que ganhou só um em_espera depois da reabertura —
+--     A5 / WR-06), marca o alerta, não repete; a candidatura movida de etapa e a que ganhou NOVA
+--     DECISÃO (aprovado/rejeitado) depois da reabertura não são alertadas.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $p$
@@ -1999,7 +2015,7 @@ DECLARE
   c_resp constant text := 'Resposta sintetica do revisor no smoke P51B (p): texto ao titular, com mais de cinquenta caracteres no total.';
   j_tit  text;  j_a text;  j_b text;
   v_user uuid;  v_email text;  v_ctit uuid;  v_vaga uuid;  v_cid uuid;
-  c_ko   uuid;  c_mov uuid;  c_dfd uuid;
+  c_ko   uuid;  c_mov uuid;  c_dfd uuid;  c_dfx uuid;
   v_vko  uuid;  v_pko uuid;  v_opn uuid;  v_ret jsonb;
   lbl    text;  st text;
   v_q    bigint[];
@@ -2027,8 +2043,8 @@ BEGIN
     j_a   := json_build_object('sub', v_a::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', r_a))::text;
     j_b   := json_build_object('sub', v_b::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', r_b))::text;
 
-    -- `mov` (rejeição pelo RH em triagem) e `dfd` (rejeição pelo RH na etapa decisao_final)
-    FOREACH lbl IN ARRAY ARRAY['mov:triagem', 'dfd:decisao_final'] LOOP
+    -- `mov` (rejeição pelo RH em triagem), `dfd` e `dfx` (rejeição pelo RH na etapa decisao_final)
+    FOREACH lbl IN ARRAY ARRAY['mov:triagem', 'dfd:decisao_final', 'dfx:decisao_final'] LOOP
       v_vaga := gen_random_uuid();
       INSERT INTO public.vagas (id, titulo, slug, status)
       VALUES (v_vaga, '[SMOKE P51B] p-' || split_part(lbl, ':', 1), 'p51b-smoke-' || replace(v_vaga::text, '-', ''), 'ativa');
@@ -2036,7 +2052,7 @@ BEGIN
       VALUES (v_ctit, v_vaga, split_part(lbl, ':', 2)::public.etapa_processo, 'rejeitado', false, now() - interval '20 days')
       RETURNING id INTO v_cid;
       UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_cid;
-      IF split_part(lbl, ':', 1) = 'mov' THEN c_mov := v_cid; ELSE c_dfd := v_cid; END IF;
+      CASE split_part(lbl, ':', 1) WHEN 'mov' THEN c_mov := v_cid; WHEN 'dfd' THEN c_dfd := v_cid; ELSE c_dfx := v_cid; END CASE;
     END LOOP;
     -- `ko`: knockout pela RPC real
     v_vko := gen_random_uuid();  v_pko := gen_random_uuid();  v_opn := gen_random_uuid();
@@ -2051,17 +2067,19 @@ BEGIN
                jsonb_build_array(jsonb_build_object('pergunta_id', v_pko, 'resposta_opcoes', jsonb_build_array('Nao'))));
     PERFORM set_config('app.rejeicao_sancionada', '', true);
     c_ko := (v_ret ->> 'candidatura_id')::uuid;
-    v_fx := ARRAY[c_ko, c_mov, c_dfd];
+    v_fx := ARRAY[c_ko, c_mov, c_dfd, c_dfx];
 
-    -- rejeições de A, pedidos do titular e as três REVERTIDAS por B (RPCs reais)
+    -- rejeições de A, pedidos do titular e as quatro REVERTIDAS por B (RPCs reais)
     SET LOCAL ROLE authenticated;
     PERFORM set_config('request.jwt.claims', j_a, true);
     PERFORM public.rejeitar_candidatura(c_mov, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
     PERFORM public.rejeitar_candidatura(c_dfd, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
+    PERFORM public.rejeitar_candidatura(c_dfx, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
     PERFORM set_config('request.jwt.claims', j_tit, true);
     PERFORM public.solicitar_revisao_rejeicao(c_ko);
     PERFORM public.solicitar_revisao_rejeicao(c_mov);
     PERFORM public.solicitar_revisao_rejeicao(c_dfd);
+    PERFORM public.solicitar_revisao_rejeicao(c_dfx);
     RESET ROLE;
     -- os ids dos pedidos são lidos como postgres (a tabela não tem privilégio para authenticated).
     v_ped := ARRAY(SELECT r.id FROM public.revisao_rejeicao r WHERE r.candidatura_id = ANY (v_fx) ORDER BY r.id);
@@ -2080,19 +2098,35 @@ BEGIN
      WHERE candidatura_id = ANY (v_fx);
     -- `mov`: o RH moveu a candidatura depois da reabertura (como postgres, sem JWT — a trilha nasce).
     UPDATE public.candidaturas SET etapa_atual = 'avaliacao_assincrona' WHERE id = c_mov;
-    -- `dfd`: o RH registrou a decisão final depois da reabertura (RPC real, por A).
+    -- `dfd`: o RH registrou só um EM_ESPERA depois da reabertura (RPC real, por A) — NÃO é nova decisão
+    -- (A5 do laço irmão; WR-06): o alerta continua devido.
     SET LOCAL ROLE authenticated;
     PERFORM set_config('request.jwt.claims', j_a, true);
     PERFORM public.registrar_decisao(c_dfd, 'em_espera'::public.decisao_final_resultado, c_just);
+    -- `dfx`: NOVA DECISÃO de verdade depois da reabertura — B rejeita na decisão final (RPC real; B não
+    -- é o decisor revertido) —, e o ciclo de decisao_final dela é revertido por A (o titular pede, A
+    -- responde; REVISAO-05: B decidiu, A responde). Ela volta a decisao_final/em_analise, na etapa da
+    -- reabertura do registro novo, com o prazo do ciclo de decisao_final NÃO vencido (o laço 1 não a
+    -- alerta): só a cláusula «nova decisão depois da reabertura» do laço 2 a separa de um alerta.
+    PERFORM set_config('request.jwt.claims', j_b, true);
+    PERFORM public.registrar_decisao(c_dfx, 'rejeitado'::public.decisao_final_resultado, c_just);
+    PERFORM set_config('app.rejeicao_sancionada', '', true);
+    PERFORM set_config('request.jwt.claims', j_tit, true);
+    PERFORM public.solicitar_revisao_decisao(c_dfx);
+    PERFORM set_config('request.jwt.claims', j_a, true);
+    PERFORM public.responder_revisao_decisao(c_dfx, 'revertida', c_resp);
     RESET ROLE;
     PERFORM set_config('request.jwt.claims', '', true);
-    m := m || jsonb_build_object('estado', (SELECT jsonb_object_agg(CASE c.id WHEN c_ko THEN 'ko' WHEN c_mov THEN 'mov' ELSE 'dfd' END,
+    m := m || jsonb_build_object('estado', (SELECT jsonb_object_agg(CASE c.id WHEN c_ko THEN 'ko' WHEN c_mov THEN 'mov' WHEN c_dfd THEN 'dfd' ELSE 'dfx' END,
                                                  jsonb_build_object('etapa', c.etapa_atual, 'status', c.status, 'reab', r.etapa_reabertura,
                                                                     'vencido', r.prazo_nova_decisao_em < now(),
-                                                                    'df_depois', EXISTS (SELECT 1 FROM public.decisao_final d WHERE d.candidatura_id = c.id AND d.em > r.reaberta_em)))
+                                                                    'df_depois', EXISTS (SELECT 1 FROM public.decisao_final d WHERE d.candidatura_id = c.id AND d.em > r.reaberta_em),
+                                                                    'dec', (SELECT d.decisao::text FROM public.decisao_final d WHERE d.candidatura_id = c.id),
+                                                                    'df_vencido', (SELECT d.prazo_nova_decisao_em < now() FROM public.decisao_final d WHERE d.candidatura_id = c.id)))
                                               FROM public.candidaturas c JOIN public.revisao_rejeicao r ON r.candidatura_id = c.id
                                              WHERE c.id = ANY (v_fx)),
                                  'prazo_ko', (SELECT extract(epoch FROM r.prazo_nova_decisao_em)::bigint::text FROM public.revisao_rejeicao r WHERE r.candidatura_id = c_ko),
+                                 'prazo_dfd', (SELECT extract(epoch FROM r.prazo_nova_decisao_em)::bigint::text FROM public.revisao_rejeicao r WHERE r.candidatura_id = c_dfd),
                                  'vault', (SELECT count(*) FROM vault.decrypted_secrets s WHERE s.name IN ('project_url', 'edge_invoke_key')));
 
     -- 1ª varredura (como o dono, o caminho do pg_cron)
@@ -2104,7 +2138,7 @@ BEGIN
       INTO v_fila FROM net.http_request_queue q
      WHERE NOT (q.id = ANY (v_q)) AND (convert_from(q.body, 'UTF8')::jsonb ->> 'candidatura_id')::uuid = ANY (v_fx);
     m := m || jsonb_build_object('v1', jsonb_build_object('st', st, 'fila', v_fila),
-                                 'alerta1', (SELECT jsonb_object_agg(CASE r.candidatura_id WHEN c_ko THEN 'ko' WHEN c_mov THEN 'mov' ELSE 'dfd' END,
+                                 'alerta1', (SELECT jsonb_object_agg(CASE r.candidatura_id WHEN c_ko THEN 'ko' WHEN c_mov THEN 'mov' WHEN c_dfd THEN 'dfd' ELSE 'dfx' END,
                                                                      r.alerta_prazo_enviado_em IS NOT NULL)
                                                FROM public.revisao_rejeicao r WHERE r.candidatura_id = ANY (v_fx)));
     -- 2ª varredura: nada de novo para a fixture
@@ -2116,7 +2150,7 @@ BEGIN
       INTO v_fila FROM net.http_request_queue q
      WHERE NOT (q.id = ANY (v_q)) AND (convert_from(q.body, 'UTF8')::jsonb ->> 'candidatura_id')::uuid = ANY (v_fx);
     m := m || jsonb_build_object('v2', jsonb_build_object('st', st, 'fila', v_fila),
-                                 'ids', jsonb_build_object('ko', c_ko, 'mov', c_mov, 'dfd', c_dfd),
+                                 'ids', jsonb_build_object('ko', c_ko, 'mov', c_mov, 'dfd', c_dfd, 'dfx', c_dfx),
                                  'escrita_cand', (SELECT count(*) FROM public.candidaturas c WHERE c.id = ANY (v_fx) AND c.status <> 'em_analise'));
     v_ran := true;
     RAISE EXCEPTION 'reverter' USING ERRCODE = 'P51B1';
@@ -2130,35 +2164,39 @@ BEGIN
     RAISE EXCEPTION 'P51B FAIL (p): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e da FIXTURE', coalesce(v_err, 'nao chegou ao fim');
   END IF;
 
-  -- a população julgada: as três reaberturas com prazo vencido, cada uma na forma pretendida.
+  -- a população julgada: as quatro reaberturas com prazo vencido, cada uma na forma pretendida.
   IF (m ->> 'vault')::int IS DISTINCT FROM 2 THEN
     RAISE EXCEPTION 'P51B FAIL (p): Vault sem project_url/edge_invoke_key (% de 2) — a varredura pula tudo e a clausula seria vacua', m ->> 'vault';
   END IF;
   IF (m -> 'estado') IS DISTINCT FROM jsonb_build_object(
-       'ko',  jsonb_build_object('etapa', 'triagem', 'status', 'em_analise', 'reab', 'triagem', 'vencido', true, 'df_depois', false),
-       'mov', jsonb_build_object('etapa', 'avaliacao_assincrona', 'status', 'em_analise', 'reab', 'triagem', 'vencido', true, 'df_depois', false),
-       'dfd', jsonb_build_object('etapa', 'decisao_final', 'status', 'em_analise', 'reab', 'decisao_final', 'vencido', true, 'df_depois', true)) THEN
+       'ko',  jsonb_build_object('etapa', 'triagem', 'status', 'em_analise', 'reab', 'triagem', 'vencido', true, 'df_depois', false, 'dec', NULL, 'df_vencido', NULL),
+       'mov', jsonb_build_object('etapa', 'avaliacao_assincrona', 'status', 'em_analise', 'reab', 'triagem', 'vencido', true, 'df_depois', false, 'dec', NULL, 'df_vencido', NULL),
+       'dfd', jsonb_build_object('etapa', 'decisao_final', 'status', 'em_analise', 'reab', 'decisao_final', 'vencido', true, 'df_depois', true, 'dec', 'em_espera', 'df_vencido', NULL),
+       'dfx', jsonb_build_object('etapa', 'decisao_final', 'status', 'em_analise', 'reab', 'decisao_final', 'vencido', true, 'df_depois', true, 'dec', 'rejeitado', 'df_vencido', false)) THEN
     RAISE EXCEPTION 'P51B FAIL (p): a fixture nao tem a forma pretendida: % — a clausula seria vacua', m -> 'estado';
   END IF;
   IF coalesce(m -> 'v1' ->> 'st', '<nao rodou>') <> 'ACEITO' OR coalesce(m -> 'v2' ->> 'st', '<nao rodou>') <> 'ACEITO' THEN
     RAISE EXCEPTION 'P51B FAIL (p): varrer_prazos_reabertura deu «%» / «%» (esperado aceita nas duas chamadas)', m -> 'v1' ->> 'st', m -> 'v2' ->> 'st';
   END IF;
-  -- 1ª: exatamente UM despacho para a fixture — o do `ko` —, com as três chaves de hoje.
-  IF jsonb_array_length(m -> 'v1' -> 'fila') <> 1 THEN
-    v_bad := v_bad || format('1a varredura enfileirou %s despacho(s) para a fixture: %s (esperado UM, so para ko — mov foi movida de etapa e dfd ganhou decisao final depois da reabertura); ',
+  -- 1ª: exatamente DOIS despachos para a fixture — o do `ko` e o do `dfd` (em_espera não é nova
+  -- decisão, WR-06) —, cada um com as três chaves de hoje.
+  IF jsonb_array_length(m -> 'v1' -> 'fila') <> 2
+     OR (SELECT array_agg(e -> 'b' ->> 'candidatura_id' ORDER BY e -> 'b' ->> 'candidatura_id') FROM jsonb_array_elements(m -> 'v1' -> 'fila') e)
+        IS DISTINCT FROM (SELECT array_agg(x ORDER BY x) FROM unnest(ARRAY[m -> 'ids' ->> 'ko', m -> 'ids' ->> 'dfd']) x) THEN
+    v_bad := v_bad || format('1a varredura enfileirou %s despacho(s) para a fixture: %s (esperado DOIS, para ko e dfd — dfd so ganhou em_espera depois da reabertura, que NAO e nova decisao (A5/WR-06); mov foi movida de etapa e dfx ganhou nova decisao depois da reabertura); ',
                              jsonb_array_length(m -> 'v1' -> 'fila'), m -> 'v1' -> 'fila');
   ELSE
-    f := m -> 'v1' -> 'fila' -> 0;
-    SELECT array_agg(x ORDER BY x) INTO v_k FROM jsonb_object_keys(f -> 'b') x;
-    IF f ->> 'fn' IS DISTINCT FROM 'notificar-rh' OR v_k IS DISTINCT FROM ARRAY['candidatura_id', 'ciclo', 'evento']
-       OR f -> 'b' ->> 'evento' IS DISTINCT FROM 'prazo_reabertura_vencido'
-       OR f -> 'b' ->> 'candidatura_id' IS DISTINCT FROM m -> 'ids' ->> 'ko'
-       OR f -> 'b' ->> 'ciclo' IS DISTINCT FROM m ->> 'prazo_ko' THEN
-      v_bad := v_bad || format('despacho %s (esperado notificar-rh com exatamente {evento:prazo_reabertura_vencido, candidatura_id:ko, ciclo:%s}); ', f, m ->> 'prazo_ko');
-    END IF;
+    FOR f IN SELECT e FROM jsonb_array_elements(m -> 'v1' -> 'fila') e LOOP
+      SELECT array_agg(x ORDER BY x) INTO v_k FROM jsonb_object_keys(f -> 'b') x;
+      IF f ->> 'fn' IS DISTINCT FROM 'notificar-rh' OR v_k IS DISTINCT FROM ARRAY['candidatura_id', 'ciclo', 'evento']
+         OR f -> 'b' ->> 'evento' IS DISTINCT FROM 'prazo_reabertura_vencido'
+         OR f -> 'b' ->> 'ciclo' IS DISTINCT FROM (CASE f -> 'b' ->> 'candidatura_id' WHEN m -> 'ids' ->> 'ko' THEN m ->> 'prazo_ko' ELSE m ->> 'prazo_dfd' END) THEN
+        v_bad := v_bad || format('despacho %s (esperado notificar-rh com exatamente {evento:prazo_reabertura_vencido, candidatura_id, ciclo = epoch do prazo do pedido}); ', f);
+      END IF;
+    END LOOP;
   END IF;
-  IF (m -> 'alerta1') IS DISTINCT FROM '{"ko": true, "mov": false, "dfd": false}'::jsonb THEN
-    v_bad := v_bad || format('alerta_prazo_enviado_em depois da 1a varredura: %s (esperado so ko marcado); ', m -> 'alerta1');
+  IF (m -> 'alerta1') IS DISTINCT FROM '{"ko": true, "mov": false, "dfd": true, "dfx": false}'::jsonb THEN
+    v_bad := v_bad || format('alerta_prazo_enviado_em depois da 1a varredura: %s (esperado ko e dfd marcados; mov e dfx sem marca); ', m -> 'alerta1');
   END IF;
   IF jsonb_array_length(m -> 'v2' -> 'fila') <> 0 THEN
     v_bad := v_bad || format('a 2a varredura enfileirou de novo: %s (esperado nada — um alerta por ciclo); ', m -> 'v2' -> 'fila');
@@ -2170,7 +2208,7 @@ BEGIN
     RAISE EXCEPTION 'P51B FAIL (p): %', v_bad;
   END IF;
   PERFORM set_config('p51.evidencia',
-    btrim(coalesce(current_setting('p51.evidencia', true), '') || ' 51b.p=reab3(ko,mov,dfd):alerta=ko,2a=0'), false);
+    btrim(coalesce(current_setting('p51.evidencia', true), '') || ' 51b.p=reab4(ko,mov,dfd,dfx):alerta=ko+dfd,2a=0'), false);
   PERFORM set_config('smoke51b.pass', (current_setting('smoke51b.pass')::int + 1)::text, false);
 END
 $p$;

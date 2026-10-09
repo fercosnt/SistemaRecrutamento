@@ -515,6 +515,26 @@ const MUTACOES = [
       trocar(fnVarrer(), '    UPDATE public.revisao_rejeicao\n       SET alerta_prazo_enviado_em = pg_catalog.now()\n     WHERE id = q.id;\n', '', 'MC6'),
   },
   {
+    // (p) WR-06 DESFEITO (o comportamento de antes do conserto): qualquer upsert em decisao_final depois
+    // da reabertura — inclusive o em_espera do `dfd` da fixture de (p) — volta a silenciar o alerta.
+    id: 'MC9',
+    desc: 'laco de revisao_rejeicao volta a tratar em_espera como nova decisao (WR-06 desfeito)',
+    smoke: S51B,
+    letra: 'p',
+    requer: [V02, V03],
+    sql: () => trocar(fnVarrer(), "\n                          AND d.decisao IN ('aprovado', 'rejeitado'))", ')', 'MC9'),
+  },
+  {
+    // (p) o outro lado do mesmo predicado: a «nova decisão depois da reabertura» desligada — o `dfx` da
+    // fixture de (p) (rejeitado por B depois da reabertura, ciclo de decisao_final revertido) é alertado.
+    id: 'MC10',
+    desc: 'laco de revisao_rejeicao ignora a nova decisao depois da reabertura (NOT EXISTS sempre verdadeiro)',
+    smoke: S51B,
+    letra: 'p',
+    requer: [V02, V03],
+    sql: () => trocar(fnVarrer(), "AND d.decisao IN ('aprovado', 'rejeitado'))", 'AND false)', 'MC10'),
+  },
+  {
     // (i) do p50 — a entrada NOVA do MAPA (51-10) morde: sem o helper, o token velho passa da
     // autorização (P0002 do pedido inexistente em vez de 42501).
     id: 'MC7',

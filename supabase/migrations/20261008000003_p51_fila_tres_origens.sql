@@ -50,9 +50,13 @@
 --   5. `varrer_prazos_reabertura()` (CREATE OR REPLACE) — A3 / D-04: um segundo laço, irmão do de
 --      `decisao_final` (que fica BYTE-IGUAL), sobre `revisao_rejeicao` revertidas com prazo vencido, sem
 --      alerta, candidatura não excluída nem encerrada, que CONTINUA na `etapa_reabertura` e não ganhou
---      `decisao_final` depois da reabertura (o RH não mexeu nela); despacha `prazo_reabertura_vencido`
---      com as três chaves de hoje (`ciclo` = epoch do prazo) e marca `alerta_prazo_enviado_em` DEPOIS
---      do despacho. O job `prazo-reabertura-sweep` não muda.
+--      NOVA DECISÃO (`decisao_final` aprovado/rejeitado) depois da reabertura (o RH não mexeu nela);
+--      despacha `prazo_reabertura_vencido` com as três chaves de hoje (`ciclo` = epoch do prazo) e marca
+--      `alerta_prazo_enviado_em` DEPOIS do despacho. O job `prazo-reabertura-sweep` não muda.
+--      WR-06 do 51-REVIEW-PORTAO-1 (operador, 2026-10-09): `em_espera` registrado depois da reabertura
+--      NÃO é nova decisão e NÃO silencia o alerta — alinhado ao A5 do laço irmão (P48: «em_espera
+--      registrado na reabertura nao conta como nova decisao»). Antes, QUALQUER upsert em `decisao_final`
+--      depois da reabertura calava o alerta: um `em_espera` esquecido vencia o prazo sem aviso.
 --
 -- TROCA DE `RETURNS TABLE` ⇒ DROP + CREATE + ACL RECRIADA POR DIFERENÇA. `CREATE OR REPLACE` não
 --   troca o tipo de retorno (42P13). O DROP é SEM a cláusula de cascata: o PRE-PORTAO conta os
@@ -907,9 +911,10 @@ BEGIN
 
   -- P51 / A3 (D-04): as reaberturas do registro próprio do pedido (revisao_rejeicao — rejeição pelo RH
   -- em qualquer etapa e knockout) têm o MESMO prazo e o MESMO alerta. Alerta só se o RH não mexeu na
-  -- candidatura desde a reabertura: ela continua na etapa da reabertura e não ganhou decisao_final
-  -- depois dela. Mesmo despacho (três chaves, ciclo = epoch do prazo), mesma marcação DEPOIS do
-  -- despacho, mesma trava de concorrência. NUNCA decide: não escreve em candidaturas.
+  -- candidatura desde a reabertura: ela continua na etapa da reabertura e não ganhou NOVA DECISÃO
+  -- (aprovado/rejeitado em decisao_final) depois dela — em_espera NÃO conta (A5 do laço irmão, WR-06).
+  -- Mesmo despacho (três chaves, ciclo = epoch do prazo), mesma marcação DEPOIS do despacho, mesma
+  -- trava de concorrência. NUNCA decide: não escreve em candidaturas.
   FOR q IN
     SELECT rr.id, rr.candidatura_id, rr.prazo_nova_decisao_em
       FROM public.revisao_rejeicao rr
@@ -922,7 +927,8 @@ BEGIN
        AND c.etapa_atual = rr.etapa_reabertura
        AND NOT EXISTS (SELECT 1 FROM public.decisao_final d
                         WHERE d.candidatura_id = c.id
-                          AND d.em > rr.reaberta_em)
+                          AND d.em > rr.reaberta_em
+                          AND d.decisao IN ('aprovado', 'rejeitado'))
      ORDER BY rr.prazo_nova_decisao_em
      LIMIT 50
      FOR UPDATE OF rr SKIP LOCKED
@@ -962,9 +968,10 @@ COMMENT ON FUNCTION public.varrer_prazos_reabertura() IS
   'Phase 48 / 48-13 (JORN-19, D-10): varredura diaria (job pg_cron prazo-reabertura-sweep, 11:00 UTC) das candidaturas REABERTAS apos revisao (Art. 20) cujo prazo de 10 dias corridos venceu sem nova decisao. SO ALERTA o RH: posta ids-only (evento prazo_reabertura_vencido, candidatura_id, ciclo = epoch de prazo_nova_decisao_em) para a EF notificar-rh e grava decisao_final.alerta_prazo_enviado_em — um alerta por ciclo (a nova decisao zera o ciclo). NUNCA decide: nao escreve em candidaturas, nao aprova nem rejeita (D-10, D-01, RNF-07a). em_espera registrado na reabertura nao conta como nova decisao (A5) e nao impede o alerta. Candidatura excluida ou encerrada (candidatura_encerrada) nao gera alerta. Devolve quantas alertou. SECURITY DEFINER, search_path vazio, EXECUTE revogado de PUBLIC/anon/authenticated (chamada so pelo pg_cron, como o dono). '
   'P51 / A3 (D-04, 20261008000003): a second loop, sibling of the decisao_final one, covers the reopenings '
   'of revisao_rejeicao (rejeicao pelo RH em qualquer etapa e knockout): reaberta, prazo vencido, sem '
-  'alerta, candidatura nao excluida nem encerrada, AINDA na etapa_reabertura e sem decisao_final '
-  'registrada depois da reabertura; same dispatch (evento, candidatura_id, ciclo = epoch do prazo) and '
-  'revisao_rejeicao.alerta_prazo_enviado_em marked AFTER the dispatch. Proven by '
+  'alerta, candidatura nao excluida nem encerrada, AINDA na etapa_reabertura e sem NOVA DECISAO '
+  '(decisao_final aprovado/rejeitado) registrada depois da reabertura — em_espera nao conta, como no A5 '
+  'do laco irmao (WR-06 do 51-REVIEW-PORTAO-1); same dispatch (evento, candidatura_id, ciclo = epoch do '
+  'prazo) and revisao_rejeicao.alerta_prazo_enviado_em marked AFTER the dispatch. Proven by '
   'supabase/tests/p51_revisao_rejeicao_smoke.sql (p).';
 
 
@@ -1060,8 +1067,9 @@ BEGIN
          OR position('UPDATE public.revisao_rejeicao' IN v_cod) = 0
          OR position('c.etapa_atual = rr.etapa_reabertura' IN v_cod) = 0
          OR position('public.candidatura_encerrada(' IN v_cod) = 0
-         OR position('FOR UPDATE OF rr SKIP LOCKED' IN v_cod) = 0 THEN
-        RAISE EXCEPTION 'P51-03 POS-PORTAO: varrer_prazos_reabertura sem o segundo laco completo (idempotencia nas duas fontes, etapa da reabertura, encerramento, trava)';
+         OR position('FOR UPDATE OF rr SKIP LOCKED' IN v_cod) = 0
+         OR position('AND d.decisao IN (''aprovado'', ''rejeitado'')' IN v_cod) = 0 THEN
+        RAISE EXCEPTION 'P51-03 POS-PORTAO: varrer_prazos_reabertura sem o segundo laco completo (idempotencia nas duas fontes, etapa da reabertura, encerramento, trava, em_espera fora da nova decisao — A5/WR-06)';
       END IF;
       IF v_cod ~* 'update\s+public\.candidaturas' OR v_cod ~* 'registrar_decisao'
          OR v_cod ~* 'insert\s+into' OR v_cod ~* 'delete\s+from' THEN
