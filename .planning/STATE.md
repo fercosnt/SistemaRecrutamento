@@ -3,8 +3,8 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-15-PLAN.md
-last_updated: "2026-10-09T07:16:07.912Z"
+stopped_at: "51-16 Task 1 checkpoint:decision (blocking-human) — review 51-REVIEW-PORTAO-1 commitado (0 critical, 9 warning, 16 info, PORTAO OK modo revisao); decisao do operador pendente em 51-16-DECISAO-PENDENTE.md"
+last_updated: "2026-10-09T07:45:00.000Z"
 last_activity: 2026-10-09
 state_head: f7f144aed7b77d84daf1854e0c3ef9bd61d61d49
 progress:
