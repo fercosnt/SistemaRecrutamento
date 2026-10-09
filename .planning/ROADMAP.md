@@ -665,7 +665,7 @@ Plans:
   7. Todo apply e deploy pela via do projeto (`p46apply.cjs`/`efdeploy.cjs`), o JORN-42 só depois de review bloqueante e decisão escrita do operador, e `git log origin/main..HEAD` vazio com os marcadores servidos no chunk certo
 **Guardrails**: os do Bloco 1/2 e da Phase 50 — migrations pelo `p46apply.cjs` (md5 do ledger conferido), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado. Mudança de controle de acesso (JORN-42): review bloqueante antes do apply e prova de que nada abriu (views incluídas). Ordem D-27: telas e textos primeiro, banco depois (migration → motor/LGPD → EF → cliente)
 **Fora de escopo**: JORN-50..52 (seguem sem fase); Bloco 4 da fila; portfólio visível ao RH e a Parte B do todo `49-producoes-do-candidato-sem-leitor-de-rh`
-**Plans**: 7/17 plans executed
+**Plans**: 8/17 plans executed
 
 Plans:
 **Wave 1**
@@ -690,7 +690,7 @@ Plans:
 - [x] 51-07-PLAN.md — Card do Raven no painel (JORN-43) + e-mail de liberação nomeando o instrumento (D-31); `notificar-candidato`; publicação
 
 **Wave 8** *(blocked on Wave 7 completion)*
-- [ ] 51-08-PLAN.md — Tracer do JORN-42: especificação RED → registro próprio do pedido + RPCs + reabertura na etapa (ensaio); MB1..MB12; regressão do ciclo `decisao_final`
+- [x] 51-08-PLAN.md — Tracer do JORN-42: especificação RED → registro próprio do pedido + RPCs + reabertura na etapa (ensaio); MB1..MB12; regressão do ciclo `decisao_final`
 - [ ] 51-09-PLAN.md — Portão `scripts/p51_portao.cjs` (revisão commitada sem crítico, pin, código = revisado, árvore limpa) como programa com auto-teste
 
 **Wave 9** *(blocked on Wave 8 completion)*
@@ -732,7 +732,7 @@ Plans:
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
-| 51. Consertos da Jornada — Bloco 3 | v8.0 | 7/17 | In Progress | - |
+| 51. Consertos da Jornada — Bloco 3 | v8.0 | 8/17 | In Progress | - |
 
 ---
 
