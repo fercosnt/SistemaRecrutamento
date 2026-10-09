@@ -1,0 +1,15 @@
+# deno test --allow-all supabase/functions/_shared/__tests__/email-templates.test.ts  (RED, 2026-10-09T04:36:53Z, exit=1)
+T-48-10a — avaliacao_cognitiva_liberada: assunto, prévia e corpo nomeiam o «Raciocínio lógico (Matrizes)»; corpo tem a vaga e o painel (51-07 · D-31) ... FAILED (301µs)
+T-48-10b — par (subject, preheader) de avaliacao_cognitiva_liberada pinado por literal (51-07 · D-31) ... FAILED (693µs)
+T-48-10c — GREP-GUARD: sem nota, score, instrumento, critério, motivo nem «teste psicológico» ... ok (131µs)
+T-48-10d — valores do candidato e da vaga saem ESCAPADOS ... ok (24µs)
+T-48-10a — avaliacao_cognitiva_liberada: assunto, prévia e corpo nomeiam o «Raciocínio lógico (Matrizes)»; corpo tem a vaga e o painel (51-07 · D-31) => ./supabase/functions/_shared/__tests__/email-templates.test.ts:402:6
+error: AssertionError: assunto sem «Raciocínio lógico (Matrizes)»: Uma avaliação cognitiva foi liberada para você
+    throw new AssertionError(msg);
+T-48-10b — par (subject, preheader) de avaliacao_cognitiva_liberada pinado por literal (51-07 · D-31) => ./supabase/functions/_shared/__tests__/email-templates.test.ts:419:6
+error: AssertionError: Values are not equal.
+  throw new AssertionError(message);
+T-48-10a — avaliacao_cognitiva_liberada: assunto, prévia e corpo nomeiam o «Raciocínio lógico (Matrizes)»; corpo tem a vaga e o painel (51-07 · D-31) => ./supabase/functions/_shared/__tests__/email-templates.test.ts:402:6
+T-48-10b — par (subject, preheader) de avaliacao_cognitiva_liberada pinado por literal (51-07 · D-31) => ./supabase/functions/_shared/__tests__/email-templates.test.ts:419:6
+FAILED | 41 passed | 2 failed (6ms)
+error: Test failed

@@ -1,6 +1,6 @@
 /**
  * Phase 51 / Plan 51-04 — JORN-48 / D-15: guarda POR FORMA dos nomes dos dois instrumentos
- * cognitivos em `src/`.
+ * cognitivos em `src/` — e, desde o 51-07, também em `supabase/functions/` (Edge Functions).
  *
  * O D-15 deu um nome a cada instrumento, e nenhum dos dois continua sendo só «Avaliação
  * cognitiva»:
@@ -13,7 +13,9 @@
  *
  * ─── (i) O QUE AS DUAS REGEX VIGIAM — regra de CONTEÚDO INTEIRO ─────────────────────────────
  *
- * Varre todo `.ts/.tsx` de `src/` (recursivo, fora `__tests__` e `node_modules`), descarta as
+ * Varre todo `.ts/.tsx` de `src/` e de `supabase/functions/` (recursivo, fora `__tests__`,
+ * `node_modules` e arquivos `*.test.ts(x)` — as EFs guardam testes Deno ao lado do código, como
+ * `index.test.ts`, e um teste nomeia os nomes aposentados de propósito), descarta as
  * linhas de comentário (`^\s*(//|\*|/\*)`) e, de cada linha restante, extrai os CANDIDATOS A
  * RÓTULO: o conteúdo de cada string literal (aspas simples, duplas, ou crase SEM `${`) e cada
  * trecho de texto JSX (a linha partida em `<`, `>`, `{`, `}`). Um candidato reprova quando o
@@ -55,7 +57,23 @@
  * Fixtures que TÊM de casar e que NÃO podem casar, no formato de linha real, e a varredura
  * alcança ≥ 100 arquivos (um walk quebrado não passa vazio).
  *
- * O 51-07 estende `SCAN_ROOTS` ao template de e-mail (`supabase/functions/_shared/email-templates.ts`).
+ * ─── 51-07: `supabase/functions/` na varredura, sob a MESMA regra ───────────────────────────
+ *
+ * O e-mail de liberação do Raven (`_shared/email-templates.ts`, evento `cognitivo_liberado`) é
+ * superfície do candidato tanto quanto uma tela, e o D-31 mandou que ele nomeie o instrumento.
+ * A raiz inteira das EFs entra — não só o template —, sob a regra de conteúdo inteiro da (i),
+ * sem afrouxá-la nem endurecê-la para o lado do Deno:
+ *   - a chave técnica `"cognitivo"` (minúscula, aspas duplas — `CONTEXT_KEYS` de
+ *     `consolidar-decisao-final/index.ts`, `"cognitivo_itens"` do inventário) NÃO casa, pelo
+ *     mesmo motivo da `'cognitivo'` do front: `ROTULO_COGNITIVO` distingue maiúscula;
+ *   - o espelho GERADO do export (`_shared/exportAllowlist.ts`) cita «avaliação cognitiva» em
+ *     PROSA nas razões («Idem, avaliação cognitiva.», a liberação «da avaliação cognitiva») e
+ *     NÃO casa — é prosa, e a (i) por desenho não vê prosa. Esse arquivo NÃO é excluído da
+ *     varredura de propósito: a regra não o pega hoje, e excluí-lo esconderia um rótulo que um
+ *     dia nascesse lá (uma razão que fosse, inteira, «Avaliação cognitiva»). A (iii) tem as duas
+ *     linhas reais como fixtures que NÃO podem casar.
+ * O e-mail velho («Uma avaliação cognitiva foi liberada para você») também era prosa, e a (i)
+ * não o via — é a (ii), com o template na lista, que reprova o e-mail sem o nome do D-15.
  *
  * @see .planning/phases/51-consertos-da-jornada-bloco-3/51-CONTEXT.md (D-15)
  * @see src/__tests__/guards/forbidden-strings.grep.test.ts (esqueleto da varredura recursiva)
@@ -67,8 +85,11 @@ import { join, relative, resolve } from 'node:path'
 // Este arquivo mora em src/__tests__/guards/ — três níveis abaixo da raiz.
 const ROOT = resolve(__dirname, '../../..')
 
-/** Raízes varridas. O 51-07 acrescenta `supabase/functions/_shared/email-templates.ts`. */
-const SCAN_ROOTS = ['src'] as const
+/** Raízes varridas. O 51-07 acrescentou `supabase/functions` (ver o docblock). */
+const SCAN_ROOTS = ['src', 'supabase/functions'] as const
+
+/** Teste ao lado do código (o idioma das EFs: `index.test.ts`) — fora da varredura. */
+const ARQUIVO_DE_TESTE = /\.test\.tsx?$/
 
 /** (i) Formas de várias palavras — sem distinção de maiúscula, acento tolerado. */
 const NOMES_APOSENTADOS =
@@ -105,7 +126,7 @@ function collectFiles(pathRel: string): string[] {
   const full = join(ROOT, pathRel)
   if (!existsSync(full)) return []
   const st = statSync(full)
-  if (st.isFile()) return /\.(ts|tsx)$/.test(full) ? [full] : []
+  if (st.isFile()) return /\.(ts|tsx)$/.test(full) && !ARQUIVO_DE_TESTE.test(full) ? [full] : []
   if (!st.isDirectory()) return []
   const out: string[] = []
   for (const entry of readdirSync(full)) {
@@ -156,6 +177,8 @@ const SUPERFICIES: { arquivo: string; nome: RegExp; rotulo: string }[] = [
   { arquivo: 'src/features/avaliacao-cognitiva/hooks/useLiberacaoCognitivo.ts', nome: /Raciocínio lógico \(Matrizes\) liberado/, rotulo: 'Raciocínio lógico (Matrizes) liberado (toast)' },
   { arquivo: 'src/features/privacidade/services/exportacaoService.ts', nome: /Raciocínio lógico \(Matrizes\)/, rotulo: 'Raciocínio lógico (Matrizes) (rótulos de exportação)' },
   { arquivo: 'src/features/privacidade/services/exportacaoService.ts', nome: /prova cognitiva/i, rotulo: 'prova cognitiva (rótulos de exportação)' },
+  // 51-07 (D-31): o e-mail de liberação do Raven nomeia o instrumento (assunto, corpo, prévia).
+  { arquivo: 'supabase/functions/_shared/email-templates.ts', nome: /Raciocínio lógico \(Matrizes\)/, rotulo: 'Raciocínio lógico (Matrizes) (e-mail de liberação)' },
 ]
 
 describe('JORN-48 / D-15 — (ii) as superfícies que o D-15 nomeia carregam os nomes novos', () => {
@@ -171,6 +194,9 @@ describe('JORN-48 / D-15 — (ii) as superfícies que o D-15 nomeia carregam os 
 describe('JORN-48 / D-15 — (iii) sanidade: a regra casa o que deve e só o que deve', () => {
   const CASAM = [
     `const a = 'Avaliação cognitiva'`,
+    // 51-07 — um rótulo inteiro em aspas duplas (idioma Deno) casa como em `src/`
+    `  avaliacao_cognitiva_liberada: () => "Avaliação cognitiva",`,
+    `const ETAPA = { cognitivo: "Cognitivo" };`,
     `titulo="  avaliação Cognitiva "`,
     'heading: `Prova de raciocínio`,',
     '<h3>Raciocínio lógico</h3>',
@@ -200,6 +226,13 @@ describe('JORN-48 / D-15 — (iii) sanidade: a regra casa o que deve e só o que
     `// titulo antigo: 'Avaliação cognitiva'`,
     ` * <h3>Raciocínio lógico</h3> em docblock`,
     'const m = `${nome} — Avaliação cognitiva`',
+    // 51-07 — as formas reais de `supabase/functions/` que NÃO podem casar:
+    // a razão gerada do export (`_shared/exportAllowlist.ts`, prosa)…
+    `      "razao": "Idem, avaliação cognitiva."`,
+    `      "razao": "BD-9 (OPERADOR, 2026-10-06). A liberação individual da avaliação cognitiva é um ato do RH SOBRE a candidatura da pessoa."`,
+    // …e a chave técnica em aspas duplas (`consolidar-decisao-final/index.ts`).
+    `const CONTEXT_KEYS = ["big_five", "cognitivo"] as const;`,
+    `    "cognitivo_itens": "configuracao_do_produto",`,
   ]
   it.each(NAO_CASAM)('não casa: %s', (linha) => {
     expect(rotuloAposentado(linha)).toBeNull()
@@ -209,6 +242,17 @@ describe('JORN-48 / D-15 — (iii) sanidade: a regra casa o que deve e só o que
     const files = SCAN_ROOTS.flatMap((p) => collectFiles(p))
     expect(files.length).toBeGreaterThanOrEqual(100)
     expect(files.some((f) => f.endsWith('exportacaoService.ts'))).toBe(true)
+    expect(files.some((f) => f.includes(`${'__tests__'}`))).toBe(false)
+  })
+
+  it('51-07: a varredura alcança `supabase/functions/` — o e-mail, o espelho do export e as EFs, sem os testes Deno', () => {
+    const files = collectFiles('supabase/functions').map((f) => relative(ROOT, f))
+    expect(files.length).toBeGreaterThanOrEqual(30)
+    expect(files).toContain('supabase/functions/_shared/email-templates.ts')
+    // o espelho gerado NÃO é excluído (ver o docblock)
+    expect(files).toContain('supabase/functions/_shared/exportAllowlist.ts')
+    expect(files).toContain('supabase/functions/consolidar-decisao-final/index.ts')
+    expect(files.some((f) => /\.test\.tsx?$/.test(f))).toBe(false)
     expect(files.some((f) => f.includes(`${'__tests__'}`))).toBe(false)
   })
 })

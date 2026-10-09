@@ -374,10 +374,19 @@ Deno.test("T-42-V2f — tituloVaga com <script> sai ESCAPADO no HTML do 5º even
 // é uma ação pedida a ele, e a promessa nova do e-mail de confirmação (D-09 — «avisaremos
 // quando houver algo para você fazer») só é verdade se esta liberação avisar.
 //
-// Linguagem de produto (CLAUDE.md): «avaliação cognitiva», NUNCA «teste psicológico». E o
-// e-mail NÃO carrega instrumento, nota, critério nem motivo — é um aviso de que há algo a
-// fazer no painel, não uma comunicação sobre a avaliação. O grep-guard abaixo mora NESTE
-// arquivo, pelo mesmo motivo do T-42-V2e: a lista vetada não pode viver no código que ela guarda.
+// Linguagem de produto (CLAUDE.md): NUNCA «teste psicológico». O e-mail NÃO carrega nota,
+// critério nem motivo — é um aviso de que há algo a fazer no painel, não uma comunicação sobre a
+// avaliação. O grep-guard abaixo mora NESTE arquivo, pelo mesmo motivo do T-42-V2e: a lista
+// vetada não pode viver no código que ela guarda.
+//
+// ⚠ 51-07 (D-31, operador, 2026-10-08) — O E-MAIL PASSA A NOMEAR O INSTRUMENTO. Até aqui ele
+// dizia só «avaliação cognitiva» e este bloco travava que NÃO nomeasse o instrumento. O D-15 deu
+// nome a cada um dos dois instrumentos cognitivos, e «avaliação cognitiva» deixou de distinguir
+// o Raven da prova textual da vaga; o D-31 mandou o e-mail dizer «Raciocínio lógico (Matrizes)»
+// e apontar para o card do painel (51-07). A trava mudou de direção, não sumiu: o nome do
+// produto é OBRIGATÓRIO no assunto, na prévia e no corpo; o nome técnico («Raven») continua
+// proibido, e «Matrizes» só pode aparecer dentro do nome do D-15. A chave do evento
+// (`avaliacao_cognitiva_liberada`) NÃO mudou — é vocabulário de dedupe.
 
 const DADOS_COG = {
   nomeCandidato: "Ana <b>Silva</b>",
@@ -387,18 +396,30 @@ const DADOS_COG = {
 /** Qualquer endereço do domínio raiz — D-07 (nenhuma ocorrência literal nova do canal). */
 const RE_ENDERECO_DOMINIO = /[a-z0-9._%+-]*\s*@\s*beautysmile\.com\.br/i;
 
-Deno.test("T-48-10a — avaliacao_cognitiva_liberada: assunto nomeia a avaliação cognitiva; corpo tem a vaga e o painel", () => {
+/** O nome do Raven para o candidato (D-15). */
+const NOME_RAVEN = "Raciocínio lógico (Matrizes)";
+
+Deno.test("T-48-10a — avaliacao_cognitiva_liberada: assunto, prévia e corpo nomeiam o «Raciocínio lógico (Matrizes)»; corpo tem a vaga e o painel (51-07 · D-31)", () => {
   const { subject, html } = renderarEmail("avaliacao_cognitiva_liberada", DADOS_COG);
-  assert(/avalia[çc][ãa]o cognitiva/i.test(subject), `assunto sem «avaliação cognitiva»: ${subject}`);
+  assert(subject.includes(NOME_RAVEN), `assunto sem «${NOME_RAVEN}»: ${subject}`);
+  const preheader = extrairPreheader(html);
+  assert(preheader.length > 0, "prévia VAZIA (classe de defeito W-01)");
+  assert(preheader.includes(NOME_RAVEN), `prévia sem «${NOME_RAVEN}»: ${preheader}`);
+  // o corpo, sem a prévia (que mora no mesmo HTML): o nome tem de estar no TEXTO da mensagem
+  const corpo = html.replace(/<span style="display:none[^"]*">[\s\S]*?<\/span>/, "");
+  assert(corpo.includes(NOME_RAVEN), `corpo sem «${NOME_RAVEN}»`);
   assert(html.includes("Dentista Clínico Geral"), "o corpo tem de dizer de qual vaga se trata");
-  assert(html.includes("Acesse o seu painel"), "o corpo tem de mandar a pessoa ao painel");
-  assert(extrairPreheader(html).length > 0, "prévia VAZIA (classe de defeito W-01)");
+  assert(html.includes("no seu painel"), "o corpo tem de mandar a pessoa ao painel");
+  assert(html.includes("no cartão desta candidatura"), "o corpo tem de apontar o card do painel (D-31)");
+  // D-15: o nome aposentado não volta pelo assunto nem pela prévia
+  assert(!/avalia[çc][ãa]o cognitiva/i.test(subject), `assunto com o nome aposentado: ${subject}`);
+  assert(!/avalia[çc][ãa]o cognitiva/i.test(preheader), `prévia com o nome aposentado: ${preheader}`);
 });
 
-Deno.test("T-48-10b — par (subject, preheader) de avaliacao_cognitiva_liberada pinado por literal", () => {
+Deno.test("T-48-10b — par (subject, preheader) de avaliacao_cognitiva_liberada pinado por literal (51-07 · D-31)", () => {
   const { subject, html } = renderarEmail("avaliacao_cognitiva_liberada", DADOS_COG);
-  assertEquals(subject, "Uma avaliação cognitiva foi liberada para você");
-  assertEquals(extrairPreheader(html), "Uma avaliação cognitiva está disponível no seu painel.");
+  assertEquals(subject, "O Raciocínio lógico (Matrizes) foi liberado para você");
+  assertEquals(extrairPreheader(html), "O Raciocínio lógico (Matrizes) está no seu painel.");
 });
 
 Deno.test("T-48-10c — GREP-GUARD: sem nota, score, instrumento, critério, motivo nem «teste psicológico»", () => {
@@ -406,8 +427,13 @@ Deno.test("T-48-10c — GREP-GUARD: sem nota, score, instrumento, critério, mot
   const { subject, html } = renderarEmail("avaliacao_cognitiva_liberada", DADOS_COG);
   assert(!proibido.test(html), "VAZOU token de avaliação no e-mail da liberação cognitiva");
   assert(!proibido.test(subject), "VAZOU token de avaliação no ASSUNTO da liberação cognitiva");
-  // O instrumento não é nomeado ao candidato (o nome do teste é dado interno do RH).
-  assert(!/raven|matrizes/i.test(html + subject), "o e-mail nomeou o instrumento");
+  // 51-07 (D-31): o instrumento é nomeado SÓ pelo nome do produto (D-15). O nome técnico
+  // continua dado interno, e «Matrizes» fora do nome do D-15 seria outro rótulo.
+  assert(!/raven/i.test(html + subject), "o e-mail usou o nome técnico do instrumento");
+  assert(
+    !/matrizes/i.test((html + subject).replaceAll(NOME_RAVEN, "")),
+    "«Matrizes» fora do nome do D-15",
+  );
   // D-07: nenhum endereço do domínio raiz no corpo (o REPLY_TO já é o canal).
   assert(!RE_ENDERECO_DOMINIO.test(html), "o corpo citou um endereço @beautysmile.com.br (D-07)");
 });
