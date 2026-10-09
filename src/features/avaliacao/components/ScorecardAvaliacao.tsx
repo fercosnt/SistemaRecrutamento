@@ -11,12 +11,19 @@
  * never changes etapa by score. The candidate never reaches this surface (RLS +
  * allowlist deny in `scoresRhService`).
  *
- * ⚠ NÃO MONTADO (49-REVIEW-GAPS-3 CR-02, 2026-09-30): este componente só é exportado pelo
- * barril; nenhuma rota nem tela o renderiza, e o build o descarta por tree-shaking. Um teste
- * verde AQUI não prova que o RH vê coisa alguma. O sinal de revisão da SJT que o RH VÊ mora na
- * Decisão Final (`features/decisao/components/ConsolidacaoDashboard.tsx`,
- * `data-testid="decisao-sjt-sinal-revisao"`), alimentado por `consolidar-decisao-final`
- * (`breakdown[].sinais_revisao`). Montá-lo ou apagá-lo é decisão fora do conserto do CR-02.
+ * MONTADO desde 51-02 / JORN-45 (D-17..D-20, D-32, C-7): o hub do RH o abre no lugar, pelo
+ * «Ver respostas» de `features/hub-candidato/components/AvaliacoesRespondidasBloco.tsx` — a
+ * PRIMEIRA e única montagem. Até então (49-REVIEW-GAPS-3 CR-02, 2026-09-30) nenhuma rota o
+ * renderizava e o build o descartava. O que ele mostra a partir daqui:
+ *  - só as linhas `sjt` + `big_five` (`linhasDeAvaliacao`, C-8) — a mesma função conta o «N» do hub;
+ *  - Big Five como «Concluído» / «Não fez», pela regra de `estadoBigFive` — sem faixa, sem
+ *    número, sem cor de nota e sem o resumo da IA (D-19, D-32; a frase «as faixas seguem no hub»
+ *    da D-31 da 49 está revogada para o hub);
+ *  - no caso aberto, o TEXTO INTEGRAL do candidato ao lado das citações recortadas pela IA (D-20),
+ *    lido pela RPC `ler_resposta_caso_aberto_sjt` via `RespostaCasoAbertoConteudo` — nó de texto
+ *    React, nunca HTML. Nenhuma leitura nova de banco (D-38/C-6).
+ * A Decisão Final (`ConsolidacaoDashboard`) segue com o texto sem as citações (C-7): o D-20 proíbe
+ * recorte sem original, e ali há original sem recorte.
  *
  * @module features/avaliacao/components/ScorecardAvaliacao
  * @see src/features/triagem/components/SugestaoIABadge.tsx (reused verbatim — not re-authored)
@@ -34,13 +41,14 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from '@/features/triagem/components/SugestaoIABadge'
+import { RespostaCasoAbertoConteudo } from '@/features/decisao/components/RespostaCasoAbertoSjt'
+import { estadoBigFive, type EstadoBigFive } from '@/features/vagas/types/vagasTypes'
 import { useScorecardCandidato } from '../hooks/useScorecardCandidato'
 import {
   isBigFiveRow,
   type ScoreRow,
   type McMetadata,
   type CasoAbertoMetadata,
-  type BigFiveMetadata,
 } from '../services/scoresRhService'
 // Phase 49 / plano 49-41 — JORN-41, decisão (a). O vocabulário do sinal tem UMA fonte, a mesma
 // que a Edge Function escreve; contrato de ZERO IMPORTS, por isso o caminho relativo
@@ -140,8 +148,18 @@ function McBreakdown({ row }: { row: ScoreRow }) {
   )
 }
 
-/** Open-case BARS card (subtipo='caso_aberto'): dimensions + composite + citations/red_flags. */
-function CasoAbertoBreakdown({ row }: { row: ScoreRow }) {
+/** Rótulo da coluna do texto integral (D-20). Não diz que é o texto avaliado — o mecanismo não
+ *  garante isso (R1–R4 da migration 20261003000001). */
+export const ROTULO_TEXTO_DO_CANDIDATO = 'Texto do candidato'
+
+/**
+ * Open-case BARS card (subtipo='caso_aberto'): dimensions + composite + citations/red_flags.
+ *
+ * D-20 (51-02): as citações recortadas pela IA nunca aparecem sem o original — o texto integral
+ * do candidato fica AO LADO delas (duas colunas a partir de `md:`, empilhado no celular). O texto
+ * aparece mesmo quando a pontuação falhou: é o conteúdo do candidato, não da IA.
+ */
+function CasoAbertoBreakdown({ row, candidaturaId }: { row: ScoreRow; candidaturaId: string }) {
   const meta = (row.metadata ?? {}) as CasoAbertoMetadata
   const dimensions = meta.dimension_scores ?? []
   const composite = meta.composite_0_25 ?? row.score
@@ -186,36 +204,38 @@ function CasoAbertoBreakdown({ row }: { row: ScoreRow }) {
           )}
         </CardDescription>
       </CardHeader>
-      {!falhou ? (
-        <CardContent className="space-y-4">
-          {dimensions.length > 0 ? (
-            <ul className="space-y-3">
-              {dimensions.map((dim, i) => (
-                <li key={`${dim.dimension}-${i}`} className="space-y-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium text-white/90">{dim.dimension}</span>
-                    <span className="flex items-center gap-2">
-                      <SugestaoIABadge variant="compact" />
-                      <span className="font-semibold text-white">
-                        {dim.score_1_5}
-                        <span className="text-white/50"> / 5</span>
-                      </span>
-                      {dim.level ? (
-                        <Badge className="border-white/15 bg-white/5 text-white/70 text-xs">
-                          {dim.level}
-                        </Badge>
-                      ) : null}
+      <CardContent className="space-y-4">
+        {!falhou && dimensions.length > 0 ? (
+          <ul className="space-y-3">
+            {dimensions.map((dim, i) => (
+              <li key={`${dim.dimension}-${i}`} className="space-y-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium text-white/90">{dim.dimension}</span>
+                  <span className="flex items-center gap-2">
+                    <SugestaoIABadge variant="compact" />
+                    <span className="font-semibold text-white">
+                      {dim.score_1_5}
+                      <span className="text-white/50"> / 5</span>
                     </span>
-                  </div>
-                  {dim.reasoning ? (
-                    <p className="text-sm text-white/60">{dim.reasoning}</p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+                    {dim.level ? (
+                      <Badge className="border-white/15 bg-white/5 text-white/70 text-xs">
+                        {dim.level}
+                      </Badge>
+                    ) : null}
+                  </span>
+                </div>
+                {dim.reasoning ? (
+                  <p className="text-sm text-white/60">{dim.reasoning}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
-          {citacoes.length > 0 ? (
+        {/* D-20: citações (IA) e texto integral (candidato) lado a lado. Os dois só como nó de
+            texto React. */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {!falhou && citacoes.length > 0 ? (
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
                 Citações
@@ -227,107 +247,57 @@ function CasoAbertoBreakdown({ row }: { row: ScoreRow }) {
               </ul>
             </div>
           ) : null}
+          <div className="space-y-1 text-amber-100">
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+              {ROTULO_TEXTO_DO_CANDIDATO}
+            </p>
+            <RespostaCasoAbertoConteudo candidaturaId={candidaturaId} />
+          </div>
+        </div>
 
-          {redFlags.length > 0 ? (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-                Red flags
-              </p>
-              <ul className="list-disc space-y-1 pl-5 text-sm text-white/70">
-                {redFlags.map((f, i) => (
-                  <li key={i}>{typeof f === 'string' ? f : JSON.stringify(f)}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </CardContent>
-      ) : null}
+        {!falhou && redFlags.length > 0 ? (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+              Red flags
+            </p>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-white/70">
+              {redFlags.map((f, i) => (
+                <li key={i}>{typeof f === 'string' ? f : JSON.stringify(f)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </CardContent>
     </Card>
   )
 }
 
-/** Candidate-facing dimension labels — "N" is "Sensibilidade Emocional" (LGPD-04). */
-const BIGFIVE_DIM_LABEL: Record<string, string> = {
-  O: 'Abertura à Experiência',
-  C: 'Conscienciosidade',
-  E: 'Extroversão',
-  A: 'Amabilidade',
-  N: 'Sensibilidade Emocional',
-}
-
-const BIGFIVE_BANDA_LABEL: Record<string, string> = {
-  muito_baixo: 'Muito baixo',
-  mod_baixo: 'Moderadamente baixo',
-  medio: 'Médio',
-  mod_alto: 'Moderadamente alto',
-  muito_alto: 'Muito alto',
+/** D-19 / D-32: as duas únicas coisas que o detalhe diz do Big Five. */
+export const COPY_BIG_FIVE_ESTADO: Record<EstadoBigFive, string> = {
+  concluido: 'Big Five — Concluído',
+  nao_fez: 'Big Five — Não fez',
 }
 
 /**
- * Big Five contextual card (tipo='big_five'). Marked CONTEXTUAL / não-eliminatório
- * (RNF-07a) — the traits NEVER drive a pass/fail. Each dimension shows only its
- * NEUTRAL band (muito baixo…muito alto) — the raw percentil digit is NEVER rendered
- * (UX-07, Phase 23; Big Five is non-evaluative). The SugestaoIABadge appears ONLY on
- * the AI-polished executive summary. Reads via the `scoresRhService` allowlist
- * (never `select('*')`).
+ * Big Five no detalhe do hub (D-19, D-32): UMA linha, «Concluído» quando existe linha
+ * `tipo='big_five'` e «Não fez» quando não existe — a regra de `estadoBigFive`, a mesma do card
+ * da lista. Sem faixa, sem número, sem cor de nota e sem o resumo da IA: o Big Five é avaliação
+ * comportamental NÃO avaliativa (RNF-07a, UX-07). Substitui o antigo `BigFiveBreakdown`, que
+ * mostrava faixa por dimensão e o resumo executivo.
  */
-function BigFiveBreakdown({ row }: { row: ScoreRow }) {
-  const meta = (row.metadata ?? {}) as BigFiveMetadata
-  const dimensoes = meta.dimensoes ?? []
-  const resumo = meta.resumo_executivo
-
+function BigFiveEstado({ estado }: { estado: EstadoBigFive }) {
   return (
     <Card className="border-white/10 bg-white/[0.03]">
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-white">Perfil comportamental (Big Five)</CardTitle>
+          <CardTitle data-testid="scorecard-bigfive-estado" className="text-white">
+            {COPY_BIG_FIVE_ESTADO[estado]}
+          </CardTitle>
           <Badge className="border-white/15 bg-white/5 text-white/70 text-xs font-semibold">
             Contextual · não-eliminatório
           </Badge>
         </div>
-        <CardDescription className="text-white/70">
-          Sinaliza estilo de trabalho — não decide a etapa. Decisão sempre humana.
-        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {dimensoes.length > 0 ? (
-          <ul className="space-y-2">
-            {dimensoes.map((d, i) => (
-              <li
-                key={`${d.dim}-${i}`}
-                className="flex flex-wrap items-center justify-between gap-2 text-sm"
-              >
-                {/* NEUTRAL band only — the raw percentil digit is NEVER rendered (UX-07,
-                    Phase 23): Big Five is non-evaluative, so the RH sees the band, not a
-                    number. Not AI-derived → no SugestaoIABadge here. */}
-                <span className="font-medium text-white/90">
-                  {BIGFIVE_DIM_LABEL[d.dim] ?? d.dim}
-                </span>
-                <span className="flex items-center gap-2">
-                  <Badge className="border-white/15 bg-white/5 text-white/70 text-xs">
-                    {BIGFIVE_BANDA_LABEL[d.banda] ?? d.banda}
-                  </Badge>
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-white/60">Perfil ainda não disponível.</p>
-        )}
-
-        {resumo ? (
-          <div className="space-y-1 border-t border-white/10 pt-3">
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-                Resumo
-              </p>
-              {/* SugestaoIABadge ONLY on the AI-polished text block. */}
-              <SugestaoIABadge variant="compact" />
-            </div>
-            <p className="text-sm text-white/70">{resumo}</p>
-          </div>
-        ) : null}
-      </CardContent>
     </Card>
   )
 }
@@ -383,15 +353,17 @@ export function ScorecardAvaliacao({
 
   return (
     <div className={cn('space-y-4', className)}>
-      {rows.map((row) =>
-        isBigFiveRow(row) ? (
-          <BigFiveBreakdown key={row.id} row={row} />
-        ) : row.subtipo === 'mc' ? (
-          <McBreakdown key={row.id} row={row} />
-        ) : (
-          <CasoAbertoBreakdown key={row.id} row={row} />
-        ),
-      )}
+      {rows
+        .filter((row) => !isBigFiveRow(row))
+        .map((row) =>
+          row.subtipo === 'mc' ? (
+            <McBreakdown key={row.id} row={row} />
+          ) : (
+            <CasoAbertoBreakdown key={row.id} row={row} candidaturaId={candidaturaId} />
+          ),
+        )}
+      {/* D-19/D-32: o Big Five é UMA linha, com ou sem linha `big_five` («Não fez»). */}
+      <BigFiveEstado estado={estadoBigFive(rows)} />
     </div>
   )
 }

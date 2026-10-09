@@ -44,7 +44,7 @@ export interface RespostaCasoAbertoSjtProps {
 }
 
 /** O conteúdo aberto: só existe depois do clique, e é ele que busca. */
-function RespostaCasoAbertoConteudo({ candidaturaId }: { candidaturaId: string }) {
+export function RespostaCasoAbertoConteudo({ candidaturaId }: { candidaturaId: string }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...decisaoKeys.all, 'resposta-caso-aberto', candidaturaId] as const,
     queryFn: () => getRespostaCasoAbertoSjt(candidaturaId),
