@@ -729,6 +729,51 @@ describe('explicacaoService — o estado do pedido de revisão da rejeição (JO
     expect(fromMock).not.toHaveBeenCalledWith('decisao_final')
   })
 
+  /*
+   * WR-03 do 51-REVIEW-PORTAO-1 (operador, 2026-10-09): a RPC nova vem da migration
+   * `20261008000002`. Se ela FALTAR (cliente publicado fora de ordem, um desfazer, o cache do
+   * PostgREST sem ela), a página de explicação NÃO cai — cai no fluxo de antes. Em especial a
+   * explicação de `decisao_final`, que não depende da RPC nova, continua de pé. Só a AUSÊNCIA
+   * da função é tolerada: qualquer outro erro continua fail-closed (teste acima).
+   */
+  it.each([
+    ['PGRST202 (PostgREST: função fora do schema cache)', { code: 'PGRST202', message: 'Could not find the function public.estado_revisao_rejeicao(p_candidatura_id) in the schema cache' }],
+    ['42883 (Postgres: undefined_function)', { code: '42883', message: 'function public.estado_revisao_rejeicao(uuid) does not exist' }],
+  ])('RPC nova AUSENTE — %s → fluxo de antes: a decisão final continua explicada', async (_nome, erro) => {
+    servidor({ estado_revisao_rejeicao: { error: erro } })
+    maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.origem).toBe('humana')
+    expect(r?.decisao).toBe('rejeitado')
+    expect(fromMock).toHaveBeenCalledWith('decisao_final')
+    expect(selects).toContain(DECISAO_EXPLICACAO_ALLOWLIST)
+  })
+
+  it('RPC nova AUSENTE e sem decisão final → a RPC de origem de antes responde (knockout)', async () => {
+    servidor({
+      estado_revisao_rejeicao: { error: { code: 'PGRST202', message: 'Could not find the function' } },
+      explicacao_rejeicao_origem: { data: 'automatica' },
+    })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.origem).toBe('automatica')
+    expect(r?.reason).toBe(REASON_KNOCKOUT)
+    expect(rpcsChamadas()).toEqual(['estado_revisao_rejeicao', 'explicacao_rejeicao_origem'])
+  })
+
+  it('erro que NÃO é ausência da RPC (PGRST203 ambígua, 42501, rede) continua DATABASE_ERROR', async () => {
+    for (const erro of [
+      { code: 'PGRST203', message: 'Could not choose the best candidate function' },
+      { code: '42501', message: 'permission denied for function estado_revisao_rejeicao' },
+      { message: 'Failed to fetch' },
+    ]) {
+      fromMock.mockClear()
+      servidor({ estado_revisao_rejeicao: { error: erro } })
+      maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
+      await expect(getExplicacao(VALID_CAND)).rejects.toMatchObject({ code: 'DATABASE_ERROR' })
+      expect(fromMock).not.toHaveBeenCalledWith('decisao_final')
+    }
+  })
+
   it('pedido presente → os campos do ciclo vêm do PEDIDO (inclusive depois da reabertura)', async () => {
     servidor({
       estado_revisao_rejeicao: {
