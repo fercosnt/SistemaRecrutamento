@@ -409,10 +409,18 @@ export async function getEstadoRevisaoRejeicao(
  * PostgREST sem a função no schema cache; `42883` (`undefined_function`) é o Postgres quando o
  * cache ainda a tinha. Nenhum outro código entra: `PGRST203` (ambígua), `42501` (sem
  * permissão) e erro de rede NÃO são ausência e continuam fail-closed.
+ *
+ * IN-02 (51-REVIEW-PORTAO-2): `42883` também é o erro de um helper ou operador ausente chamado
+ * DENTRO do corpo da RPC — isso não é a RPC ausente, e cair no fluxo de antes esconderia do titular
+ * um pedido existente. Por isso o `42883` só conta quando a mensagem nomeia a PRÓPRIA função
+ * (`function public.estado_revisao_rejeicao(…) does not exist`).
  */
+const RE_RPC_AUSENTE_42883 = /\bfunction\s+(?:public\.)?estado_revisao_rejeicao\(/
+
 function rpcAusente(erro: unknown): boolean {
-  const code = objetoSimples(erro) ? erro.code : undefined
-  return code === 'PGRST202' || code === '42883'
+  if (!objetoSimples(erro)) return false
+  if (erro.code === 'PGRST202') return true
+  return erro.code === '42883' && typeof erro.message === 'string' && RE_RPC_AUSENTE_42883.test(erro.message)
 }
 
 /**
