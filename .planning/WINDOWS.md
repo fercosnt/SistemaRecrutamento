@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 34
+open_count: 35
 waived_count: 10
 fixed_count: 45
-total_count: 89
-last_updated: 2026-10-09T04:02:33.586Z
+total_count: 90
+last_updated: 2026-10-09T06:01:54.666Z
 ---
 
 # Broken Windows Ledger
@@ -104,6 +104,7 @@ last_updated: 2026-10-09T04:02:33.586Z
 | 87 | 50 | unmet-truth | supabase/tests/p50_acesso_recrutador_smoke.sql |  | 50-01 BORDA vacua: clausula (f) so julga mortas/rascunhos se n_borda > 0; PROD 2026-10-05 tem 0 candidaturas com deleted_at/is_rascunho, entao 'rh ativo nao ve morta/rascunho' nao foi provado por execucao | open |  | 2026-10-05T18:10:28.492Z |  |
 | 88 | 51 | unrun-verify | e2e/prova-cognitiva.spec.ts | 62 | 51-01: PC-01/PC-02 heading «Prova cognitiva» e botão «Voltar às avaliações» editados sem execução (spec gated em E2E_REAL_LOGIN + candidaturas semeadas) | open |  | 2026-10-09T00:05:57.950Z |  |
 | 89 | 51 | unmet-truth | docs/compliance/sql/gen-recibo-exclusao.cjs | 296 | 51-05 EDGE-PROBE JORN-49: o recibo (dados_de_cadastro, passo tombstone_candidato) promete apagar a disponibilidade, e o motor anonimizar_candidato (md5 46248544...) nao toca a tabela disponibilidade; em PROD 2026-10-09, 2 de 2 titulares anonimizados mantem a linha com valor. Pre-existente; conserto = decisao do operador (motor apaga, ou linha vai para «mantém» com base legal) | open |  | 2026-10-09T04:02:33.586Z |  |
+| 90 | 51 | deviation | supabase/tests/p48_prazo_reabertura_smoke.sql | 77 | 51-10: premissa v_real so conta decisao_final; depois do apply da 20261008000003 uma reabertura viva de revisao_rejeicao vencida sem alerta faria a_q_total=2 (:306) reprovar com diagnostico de fixture — decidir no portao 51-16 | open |  | 2026-10-09T06:01:54.666Z |  |
 
 ````json
 [
@@ -1218,6 +1219,19 @@ last_updated: 2026-10-09T04:02:33.586Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-10-09T04:02:33.586Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 90,
+    "kind": "deviation",
+    "phase": "51",
+    "file": "supabase/tests/p48_prazo_reabertura_smoke.sql",
+    "line": 77,
+    "description": "51-10: premissa v_real so conta decisao_final; depois do apply da 20261008000003 uma reabertura viva de revisao_rejeicao vencida sem alerta faria a_q_total=2 (:306) reprovar com diagnostico de fixture — decidir no portao 51-16",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-09T06:01:54.666Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
