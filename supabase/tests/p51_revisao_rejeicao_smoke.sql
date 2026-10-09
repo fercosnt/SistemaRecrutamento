@@ -170,15 +170,25 @@
 --       irmão) —, cada um com exatamente {evento: prazo_reabertura_vencido, candidatura_id, ciclo = epoch
 --       do prazo}, e marca SÓ esses dois; `mov` (movida) e `dfx` (nova decisão de verdade depois da
 --       reabertura) ficam sem alerta; a 2ª não enfileira nada para a fixture; nenhum status muda.
---   v3 (51-16, WR-09 do 51-REVIEW-PORTAO-1 — migration 20261008000005, D-23 estendido):
---   (q) fixture própria (envelope `P51B1`): `rv` (A rejeita pelo RH, o titular pede, B REVERTE), `mt` (A
---       rejeita, B MANTÉM), `sr` (nunca rejeitada) e `kr` (knockout pela RPC real, B reverte); a forma de
---       cada uma é conferida antes (vácua = FALHA). Sondas que revertem (`P51B2`): A rejeitando `rv` de
---       novo → 42501 com a marca `(D-23)` (o decisor revertido não re-rejeita); B rejeitando `rv` →
---       aceito (outro RH pode); A rejeitando `mt` → a recusa de antes (23514, candidatura encerrada),
---       NUNCA o D-23 (só a revertida trava); A rejeitando `sr` e `kr` → aceito (o caminho sem revisão
---       revertida não muda; o knockout não tem decisor). ⚠ Por isso a re-rejeição do D-06 em (f) passou
---       de A para B na mesma rodada: com a 0005, A é exatamente o decisor revertido de `tri`.
+--   v3 (51-16, WR-09 do 51-REVIEW-PORTAO-1 — migration 20261008000005, D-23 estendido) e v4 (51-16, rodada
+--   do 51-REVIEW-PORTAO-2 — WR-01/WR-03/IN-06; operador «fechar as 4»):
+--   (q) fixture própria (envelope `P51B1`): pelo registro novo, `rv` (triagem) e `rvd` (decisao_final) — A
+--       rejeita pelo RH, o titular pede, B REVERTE —, `mt` (A rejeita, B MANTÉM) e `kr` (knockout pela RPC
+--       real, B reverte); pelo ciclo de decisao_final, `dv` (A decide rejeitado, o titular pede, B reverte:
+--       a linha VIGENTE é a revertida de A) e `dh` (idem, e depois B registra em_espera: a revertida de A
+--       vai para o ARQUIVO); `sr`/`sd` nunca rejeitadas; e C, um recrutador `rh` ATIVO NÃO-admin criado
+--       aqui (IN-06: a população viva dá B administrador). A forma de cada uma, e a de C, é conferida antes
+--       (vácua = FALHA). Sondas que revertem (`P51B2`): A — o decisor revertido — rejeitando de novo por
+--       `rejeitar_candidatura` (rc) e por `registrar_decisao(rejeitado)` (rd) `rv`, `rvd`, `dv` e `dh` → 42501
+--       com a marca `(D-23)` nas 8 (as 4 combinações fonte × caminho, com os dois ramos do ciclo); B e C
+--       rejeitando `rv`/`dv`/`dh` (rc) e `rvd`/`dv`/`dh` (rd) → aceito; A em `mt` (rc) → a recusa de antes
+--       (23514, encerrada), NUNCA o D-23; A em `sr`/`kr` (rc) e `sd` (rd) → aceito (sem revisão revertida
+--       nada muda; o knockout não tem decisor); e A registrando `aprovado` em `rvd` → aceito (o (2c) de
+--       registrar_decisao trava só a re-REJEIÇÃO — escopo do operador; o (2b) da 48 trava qualquer decisão).
+--       ⚠ Por isso, nas mesmas rodadas, três fixtures de outras cláusulas trocaram A por B: a re-rejeição
+--       do D-06 em (f) (A é o decisor revertido de `tri`), a de `rev` em (j) (A é o decisor revertido do
+--       ciclo de decisao_final de `rev`) e o em_espera de `dfd` em (p) (A é o decisor revertido de `dfd`; o
+--       que ele pode registrar depois é o escopo julgado aqui). Nenhuma delas julga o ator.
 --   (z) resíduo: nenhum id da fixture sobrevive; contagens globais = baseline DESTA execução,
 --       sobre um conjunto lido POR FORMA do catálogo — toda tabela base de `public` mais
 --       `auth.users` e a fila `net.http_request_queue` —, com o número de tabelas impresso (zero
@@ -240,14 +250,28 @@
 --   RED antes da 0005 (só 0002..0004): «P51B FAIL (q): A (decisor revertido) rejeitando de novo rv =
 --   «ACEITO»»; com a 0005: CONTROLE verde `51b=18/18` em 1181 ms; «controle verde; 36/36 mutacoes mordem;
 --   nada persistiu».
---   | Mutação | Inversão                                                            | Reprova | Linha mordida (fixture)                                         | Duração |
---   |---------|---------------------------------------------------------------------|---------|-----------------------------------------------------------------|---------|
---   | ME1     | a trava desligada (`IF false AND EXISTS …`) — o comportamento de antes | (q)     | A, o decisor revertido de `rv`, rejeita de novo: ACEITO          | 2238 ms |
---   | ME2 *   | a trava sem o filtro do decisor (trava todo RH)                      | (f)     | B (outro RH) recusado na re-rejeição do D-06 de `tri`            | 1159 ms |
---   | ME3     | a trava sem o filtro do veredito (pedido mantido também trava)       | (q)     | A em `mt` (mantido) recebe o D-23 em vez da recusa de encerrada  | 1204 ms |
---   * ME2 REDECLARADA de (q) para (f) (precedente MB6): a re-rejeição do D-06 em (f) é feita por B desde
---     esta rodada e é a PRIMEIRA sonda de «outro RH rejeita depois da reabertura»; (q) segue exigindo B
---     aceito em `rv` — nenhuma cláusula afrouxada.
+--   v4 (rodada do 51-REVIEW-PORTAO-2, 2026-10-09) — a 0005 reescrita (`…_p51_d23_decisor_revertido.sql`):
+--   RED da (q) nova, no ensaio que aborta: só 0002..0004 → «P51B FAIL (q): a_rc_rv, a_rc_rvd, a_rc_dv,
+--   a_rc_dh, a_rd_rv, a_rd_rvd = «ACEITO»» (combinações 1, 2 e 4 abertas; a 3, do (2b) da 48, já recusava);
+--   com a 0005 ANTERIOR (HEAD 686e24d7) → «a_rc_dv, a_rc_dh, a_rd_rv, a_rd_rvd = «ACEITO»» (2 e 4 abertas —
+--   exatamente a matriz do WR-01/WR-03 do review -2); com a 0005 nova: CONTROLE verde `51b=18/18`;
+--   «controle verde; 44/44 mutacoes mordem; nada persistiu».
+--   | Mutação | Inversão                                                            | Reprova | Linha mordida (fixture)                                         |
+--   |---------|---------------------------------------------------------------------|---------|-----------------------------------------------------------------|
+--   | ME1     | rc: ramo revisao_rejeicao desligado (combinação 1)                   | (q)     | A rejeita `rv`/`rvd` de novo: ACEITO                             |
+--   | ME2 *   | rc: ramo revisao_rejeicao sem o filtro do decisor (trava todo RH)    | (f)     | B (outro RH) recusado na re-rejeição do D-06 de `tri`            |
+--   | ME3     | rc: ramo revisao_rejeicao sem o filtro do veredito                   | (q)     | A em `mt` (mantido) recebe o D-23 em vez da recusa de encerrada  |
+--   | ME4     | rc: ramo decisao_final VIGENTE desligado (combinação 4)              | (q)     | A rejeita `dv` de novo: ACEITO                                   |
+--   | ME5     | rc: ramo decisao_final_historico (ARQUIVO) desligado (combinação 4)  | (q)     | A rejeita `dh` de novo: ACEITO                                   |
+--   | ME6     | rd: (2c) novo desligado (combinação 2 — o bypass do WR-01)           | (q)     | A registra rejeitado em `rv`/`rvd`: ACEITO                       |
+--   | ME7     | rd: (2b) da P48, linha VIGENTE, desligado (combinação 3)             | (q)     | A registra rejeitado em `dv`: ACEITO                             |
+--   | ME8     | rd: (2b) da P48, ARQUIVO, desligado (combinação 3)                   | (q)     | A registra rejeitado em `dh`: ACEITO                             |
+--   | ME9     | rd: (2c) sem o filtro `p_decisao = rejeitado` (escopo)                | (q)     | A registrando `aprovado` em `rvd` recebe o D-23                  |
+--   | ME10    | rc: ramo revisao_rejeicao trava todo `v_role = rh` (IN-06)            | (q)     | C (rh não-admin) recusado em `rv` (e A em `kr`)                  |
+--   | ME11    | rd: (2c) trava todo `v_role = rh` (IN-06)                             | (q)     | C (rh não-admin) recusado em `rvd` — SÓ C pega: B é administrador |
+--   * ME2 REDECLARADA de (q) para (f) (precedente MB6): a re-rejeição do D-06 em (f) é feita por B e é a
+--     PRIMEIRA sonda de «outro RH rejeita depois da reabertura»; (q) segue exigindo B e C aceitos — nenhuma
+--     cláusula afrouxada. ME7/ME8 também mordem o `p48_reabertura_smoke` ((e) e (g)) com a 0005 prefixada.
 --
 -- Varredura D-56 (forma) — 2026-10-09, padrão LITERAL do CLAUDE.md §«Portões» sobre
 -- `supabase/tests/*.sql` (antes deste arquivo existir):
@@ -300,7 +324,9 @@
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
 -- deliberado), não uma fotografia do banco. Vive num ÚNICO literal (`smoke51b.esperado`, abaixo);
 -- o gate e o JSON final LEEM a GUC. Hoje: 18 — a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, z
--- (a (q) é do 51-16, WR-09: era 17 até a rodada de conserto do 51-REVIEW-PORTAO-1).
+-- (a (q) é do 51-16, WR-09: era 17 até a rodada de conserto do 51-REVIEW-PORTAO-1; a rodada do review -2
+-- ampliou a (q) às 4 combinações sem criar cláusula nova). As listas `c_d23`/`c_ok` da (q) são ESCOPO
+-- deliberado — as sondas da PRÓPRIA fixture —, não fotografia do banco.
 -- =============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -547,8 +573,12 @@ BEGIN
     PERFORM public.responder_revisao_decisao(c_rev, 'revertida', c_resp);
     RESET ROLE;
     UPDATE public.historico_candidatura SET criado_em = criado_em - interval '1 hour' WHERE candidatura_id = c_rev;
+    -- Rejeitada de novo por B, não por A: desde a rodada do 51-REVIEW-PORTAO-2 (WR-03, operador «fechar as 4»)
+    -- a 20261008000005 trava em rejeitar_candidatura também o decisor revertido do ciclo decisao_final — e A
+    -- é exatamente o decisor revertido de `rev`. A trava é provada em (q); aqui o que se julga é o DONO da
+    -- rejeição corrente (rejeitar_candidatura depois de um ciclo revertido), seja de quem for.
     SET LOCAL ROLE authenticated;
-    PERFORM set_config('request.jwt.claims', j_a, true);
+    PERFORM set_config('request.jwt.claims', j_b, true);
     PERFORM public.rejeitar_candidatura(c_rev, 'outro'::public.motivo_rejeicao_rh, c_just);
     RESET ROLE;
     PERFORM set_config('request.jwt.claims', '', true);
@@ -2125,10 +2155,12 @@ BEGIN
      WHERE candidatura_id = ANY (v_fx);
     -- `mov`: o RH moveu a candidatura depois da reabertura (como postgres, sem JWT — a trilha nasce).
     UPDATE public.candidaturas SET etapa_atual = 'avaliacao_assincrona' WHERE id = c_mov;
-    -- `dfd`: o RH registrou só um EM_ESPERA depois da reabertura (RPC real, por A) — NÃO é nova decisão
-    -- (A5 do laço irmão; WR-06): o alerta continua devido.
+    -- `dfd`: o RH registrou só um EM_ESPERA depois da reabertura (RPC real, por B) — NÃO é nova decisão
+    -- (A5 do laço irmão; WR-06): o alerta continua devido. Por B, não por A, desde a rodada do
+    -- 51-REVIEW-PORTAO-2: A é o decisor revertido de `dfd`, e o que A pode registrar depois da reversão é o
+    -- ESCOPO do (2c) de registrar_decisao (só `rejeitado` trava), julgado em (q) — aqui só o alerta.
     SET LOCAL ROLE authenticated;
-    PERFORM set_config('request.jwt.claims', j_a, true);
+    PERFORM set_config('request.jwt.claims', j_b, true);
     PERFORM public.registrar_decisao(c_dfd, 'em_espera'::public.decisao_final_resultado, c_just);
     -- `dfx`: NOVA DECISÃO de verdade depois da reabertura — B rejeita na decisão final (RPC real; B não
     -- é o decisor revertido) —, e o ciclo de decisao_final dela é revertido por A (o titular pede, A
@@ -2242,10 +2274,14 @@ $p$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (q) D-23 ESTENDIDO A `rejeitar_candidatura` (WR-09 do 51-REVIEW-PORTAO-1, operador 2026-10-09,
---     migration 20261008000005): o decisor revertido — quem fez a rejeição que uma `revisao_rejeicao`
---     REVERTEU — não rejeita de novo a mesma candidatura (42501, a mensagem do D-23 da 48); outro RH
---     rejeita; o caminho sem revisão revertida não muda.
+-- (q) D-23 FECHADO NAS 4 COMBINAÇÕES (WR-09 do 51-REVIEW-PORTAO-1; WR-01/WR-03 e IN-06 do 51-REVIEW-PORTAO-2;
+--     operador 2026-10-09, «fechar as 4»; migration 20261008000005): o decisor revertido — quem fez a
+--     rejeição que uma revisão REVERTEU, seja a revisão de `revisao_rejeicao` ou a do ciclo `decisao_final`
+--     — não rejeita de novo a mesma candidatura, nem por `rejeitar_candidatura` nem por
+--     `registrar_decisao(rejeitado)` (42501, a mensagem do D-23 da 48); outro RH rejeita — o B da
+--     população viva E um recrutador `rh` NÃO-admin criado nesta fixture (C), para que uma trava que
+--     prendesse todo `rh` não passe com B administrador; o caminho sem revisão revertida não muda; e o
+--     escopo do (2c) de `registrar_decisao` (só `rejeitado`) vale nos dois sentidos.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $q$
@@ -2256,16 +2292,25 @@ DECLARE
   r_b    text := current_setting('smoke51b.rb');
   c_just constant text := 'Justificativa sintetica do smoke P51B (q): rejeicao registrada pela fixture, com mais de cinquenta caracteres.';
   c_resp constant text := 'Resposta sintetica do revisor no smoke P51B (q): texto ao titular, com mais de cinquenta caracteres no total.';
-  j_tit  text;  j_a text;  j_b text;
-  v_user uuid;  v_email text;  v_ctit uuid;  v_vaga uuid;  v_cid uuid;
-  c_rv   uuid;  c_mt uuid;  c_sr uuid;  c_kr uuid;
+  j_tit  text;  j_a text;  j_b text;  j_c text;
+  v_user uuid;  v_email text;  v_ctit uuid;  v_vaga uuid;  v_cid uuid;  v_c uuid;
+  ids    jsonb := '{}'::jsonb;
+  c_kr   uuid;
   v_vko  uuid;  v_pko uuid;  v_opn uuid;  v_ret jsonb;
   v_ped  uuid;
-  lbl    text;  parts text[];  st text;
+  lbl    text;  parts text[];  st text;  v_j text;
   m      jsonb := '{}'::jsonb;
   v_err  text;
   v_ran  boolean := false;
   v_bad  text := '';
+  k      text;
+  -- o veredito esperado de CADA sonda: <ator>_<caminho>_<fixture>; rc = rejeitar_candidatura,
+  -- rd = registrar_decisao(rejeitado), rda = registrar_decisao(aprovado)
+  c_d23  constant text[] := ARRAY['a_rc_rv', 'a_rc_rvd', 'a_rc_dv', 'a_rc_dh',     -- reversão no registro novo / no ciclo
+                                  'a_rd_rv', 'a_rd_rvd', 'a_rd_dv', 'a_rd_dh'];    --   × os dois caminhos
+  c_ok   constant text[] := ARRAY['b_rc_rv', 'c_rc_rv', 'b_rc_dv', 'c_rc_dv', 'b_rc_dh', 'c_rc_dh',
+                                  'b_rd_rvd', 'c_rd_rvd', 'b_rd_dv', 'c_rd_dv', 'b_rd_dh', 'c_rd_dh',
+                                  'a_rc_sr', 'a_rc_kr', 'a_rd_sd', 'a_rda_rvd'];
 BEGIN
   BEGIN
     v_user  := gen_random_uuid();
@@ -2276,20 +2321,33 @@ BEGIN
     INSERT INTO public.candidatos (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
     VALUES (v_user, 'SMOKE P51B Titular Q', v_email, '(11) 95108-5126', DATE '1991-04-12', 'Santos', 'SP', 'site')
     RETURNING id INTO v_ctit;
+    -- C: recrutador `rh` ATIVO, NÃO-admin, distinto de A e de B — criado aqui (IN-06): a população viva
+    -- de hoje dá B administrador, e uma trava «todo rh com pedido revertido» passaria só com B.
+    v_c     := gen_random_uuid();
+    v_email := 'p51b-smoke-' || replace(v_c::text, '-', '') || '@invalido.local';
+    INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    VALUES (v_c, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', v_email, '', now(), now(),
+            '{"provider":"email","providers":["email"],"role":"rh"}'::jsonb, '{}'::jsonb);
+    INSERT INTO public.usuarios_rh (user_id, nome_completo, email, cargo, role, ativo, primeiro_acesso)
+    VALUES (v_c, '[SMOKE P51B] Recrutador C (q)', v_email, 'SMOKE recrutador', 'recrutador', true, false);
     j_tit := json_build_object('sub', v_user::text, 'role', 'authenticated', 'app_metadata', json_build_object('role', 'candidato'))::text;
     j_a   := json_build_object('sub', v_a::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', r_a))::text;
     j_b   := json_build_object('sub', v_b::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', r_b))::text;
+    j_c   := json_build_object('sub', v_c::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', 'rh'))::text;
 
-    -- `rv` (A rejeita, B REVERTE), `mt` (A rejeita, B MANTÉM) e `sr` (nunca rejeitada), todas em triagem.
-    FOREACH lbl IN ARRAY ARRAY['rv', 'mt', 'sr'] LOOP
+    -- uma vaga sintética por candidatura (rótulo:etapa). Idioma do 51-06: nasce `rejeitado` e vai a
+    -- `em_analise` por UPDATE só de status, como postgres SEM JWT.
+    FOREACH lbl IN ARRAY ARRAY['rv:triagem', 'rvd:decisao_final', 'dv:decisao_final', 'dh:decisao_final',
+                               'mt:triagem', 'sr:triagem', 'sd:decisao_final'] LOOP
+      parts  := string_to_array(lbl, ':');
       v_vaga := gen_random_uuid();
       INSERT INTO public.vagas (id, titulo, slug, status)
-      VALUES (v_vaga, '[SMOKE P51B] q-' || lbl, 'p51b-smoke-' || replace(v_vaga::text, '-', ''), 'ativa');
+      VALUES (v_vaga, '[SMOKE P51B] q-' || parts[1], 'p51b-smoke-' || replace(v_vaga::text, '-', ''), 'ativa');
       INSERT INTO public.candidaturas (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
-      VALUES (v_ctit, v_vaga, 'triagem', 'rejeitado', false, now() - interval '20 days')
+      VALUES (v_ctit, v_vaga, parts[2]::public.etapa_processo, 'rejeitado', false, now() - interval '20 days')
       RETURNING id INTO v_cid;
       UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_cid;
-      CASE lbl WHEN 'rv' THEN c_rv := v_cid; WHEN 'mt' THEN c_mt := v_cid; ELSE c_sr := v_cid; END CASE;
+      ids := ids || jsonb_build_object(parts[1], v_cid);
     END LOOP;
     -- `kr`: knockout pela RPC real, REVERTIDO por B (não tem decisor: rejeitado_por NULL).
     v_vko := gen_random_uuid();  v_pko := gen_random_uuid();  v_opn := gen_random_uuid();
@@ -2304,51 +2362,85 @@ BEGIN
                jsonb_build_array(jsonb_build_object('pergunta_id', v_pko, 'resposta_opcoes', jsonb_build_array('Nao'))));
     PERFORM set_config('app.rejeicao_sancionada', '', true);
     c_kr := (v_ret ->> 'candidatura_id')::uuid;
+    ids  := ids || jsonb_build_object('kr', c_kr);
 
-    -- rejeições de A (RPC real), pedidos do titular, respostas de B (revertida em rv e kr, mantida em mt)
+    -- registro novo: A rejeita (RPC real) `rv` (triagem), `rvd` (decisao_final) e `mt`; o titular pede
+    -- (e pede o `kr`); B REVERTE rv, rvd e kr e MANTÉM mt.
     SET LOCAL ROLE authenticated;
     PERFORM set_config('request.jwt.claims', j_a, true);
-    PERFORM public.rejeitar_candidatura(c_rv, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
-    PERFORM public.rejeitar_candidatura(c_mt, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
+    FOREACH lbl IN ARRAY ARRAY['rv', 'rvd', 'mt'] LOOP
+      PERFORM public.rejeitar_candidatura((ids ->> lbl)::uuid, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
+    END LOOP;
     PERFORM set_config('request.jwt.claims', j_tit, true);
-    PERFORM public.solicitar_revisao_rejeicao(c_rv);
-    PERFORM public.solicitar_revisao_rejeicao(c_mt);
-    PERFORM public.solicitar_revisao_rejeicao(c_kr);
+    FOREACH lbl IN ARRAY ARRAY['rv', 'rvd', 'mt', 'kr'] LOOP
+      PERFORM public.solicitar_revisao_rejeicao((ids ->> lbl)::uuid);
+    END LOOP;
     RESET ROLE;
-    FOREACH lbl IN ARRAY ARRAY['rv:revertida', 'mt:mantida', 'kr:revertida'] LOOP
+    FOREACH lbl IN ARRAY ARRAY['rv:revertida', 'rvd:revertida', 'mt:mantida', 'kr:revertida'] LOOP
       parts := string_to_array(lbl, ':');
-      v_ped := (SELECT r.id FROM public.revisao_rejeicao r
-                 WHERE r.candidatura_id = CASE parts[1] WHEN 'rv' THEN c_rv WHEN 'mt' THEN c_mt ELSE c_kr END);
+      v_ped := (SELECT r.id FROM public.revisao_rejeicao r WHERE r.candidatura_id = (ids ->> parts[1])::uuid);
       SET LOCAL ROLE authenticated;
       PERFORM set_config('request.jwt.claims', j_b, true);
       PERFORM public.responder_revisao_rejeicao(v_ped, parts[2], c_resp);
       RESET ROLE;
     END LOOP;
+
+    -- ciclo decisao_final: A decide `rejeitado` em `dv` e `dh` (RPC real), o titular pede a revisão do ciclo,
+    -- B REVERTE os dois; em `dh` B registra depois `em_espera` — a linha revertida de A vai para o ARQUIVO
+    -- (decisao_final_historico) e a vigente passa a ser de B (o ramo «arquivo» do predicado).
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', j_a, true);
+    PERFORM public.registrar_decisao((ids ->> 'dv')::uuid, 'rejeitado'::public.decisao_final_resultado, c_just);
+    PERFORM public.registrar_decisao((ids ->> 'dh')::uuid, 'rejeitado'::public.decisao_final_resultado, c_just);
+    PERFORM set_config('app.rejeicao_sancionada', '', true);
+    PERFORM set_config('request.jwt.claims', j_tit, true);
+    PERFORM public.solicitar_revisao_decisao((ids ->> 'dv')::uuid);
+    PERFORM public.solicitar_revisao_decisao((ids ->> 'dh')::uuid);
+    PERFORM set_config('request.jwt.claims', j_b, true);
+    PERFORM public.responder_revisao_decisao((ids ->> 'dv')::uuid, 'revertida', c_resp);
+    PERFORM public.responder_revisao_decisao((ids ->> 'dh')::uuid, 'revertida', c_resp);
+    PERFORM public.registrar_decisao((ids ->> 'dh')::uuid, 'em_espera'::public.decisao_final_resultado, c_just);
+    RESET ROLE;
     PERFORM set_config('request.jwt.claims', '', true);
 
     -- a população julgada, na forma pretendida (senão a cláusula seria vácua)
     m := m || jsonb_build_object('estado', (SELECT jsonb_object_agg(x.l, x.v) FROM (
-               SELECT l, jsonb_build_object('status', c.status, 'etapa', c.etapa_atual,
-                        'veredito', (SELECT r.veredito FROM public.revisao_rejeicao r WHERE r.candidatura_id = c.id),
-                        'por_a', (SELECT r.rejeitado_por = v_a FROM public.revisao_rejeicao r WHERE r.candidatura_id = c.id)) AS v
-                 FROM unnest(ARRAY['rv', 'mt', 'sr', 'kr'], ARRAY[c_rv, c_mt, c_sr, c_kr]) AS u(l, id)
-                 JOIN public.candidaturas c ON c.id = u.id) x));
+               SELECT u.l, jsonb_build_object('status', c.status, 'etapa', c.etapa_atual,
+                        'rr', (SELECT r.veredito || ':' || CASE WHEN r.rejeitado_por = v_a THEN 'a' WHEN r.rejeitado_por IS NULL THEN '-' ELSE '?' END
+                                 FROM public.revisao_rejeicao r WHERE r.candidatura_id = c.id),
+                        'df', (SELECT d.decisao || ':' || coalesce(d.revisao_veredito, '-') || ':' || CASE WHEN d.por_usuario = v_a THEN 'a' WHEN d.por_usuario = v_b THEN 'b' ELSE '?' END
+                                 FROM public.decisao_final d WHERE d.candidatura_id = c.id),
+                        'arq_a', (SELECT count(*) FROM public.decisao_final_historico h
+                                   WHERE h.candidatura_id = c.id AND h.revisao_veredito = 'revertida'
+                                     AND h.decisao = 'rejeitado' AND h.por_usuario = v_a)) AS v
+                 FROM jsonb_each_text(ids) AS u(l, id)
+                 JOIN public.candidaturas c ON c.id = u.id::uuid) x),
+                 'c_ator', (SELECT jsonb_build_object('role', u.role, 'ativo', u.ativo, 'vivo', u.deleted_at IS NULL,
+                                                      'distinto', v_c IS DISTINCT FROM v_a AND v_c IS DISTINCT FROM v_b)
+                              FROM public.usuarios_rh u WHERE u.user_id = v_c));
 
-    -- SONDAS: cada rejeição revertida por P51B2 mesmo quando ACEITA (nenhuma deixa efeito na seguinte).
-    FOREACH lbl IN ARRAY ARRAY['a:rv', 'b:rv', 'a:mt', 'a:sr', 'a:kr'] LOOP
-      parts := string_to_array(lbl, ':');
+    -- SONDAS: cada uma revertida por P51B2 mesmo quando ACEITA (nenhuma deixa efeito na seguinte).
+    FOREACH k IN ARRAY c_d23 || c_ok || ARRAY['a_rc_mt'] LOOP
+      parts := string_to_array(k, '_');
+      v_j   := CASE parts[1] WHEN 'a' THEN j_a WHEN 'b' THEN j_b ELSE j_c END;
+      v_cid := (ids ->> parts[3])::uuid;
       SET LOCAL ROLE authenticated;
-      PERFORM set_config('request.jwt.claims', CASE parts[1] WHEN 'a' THEN j_a ELSE j_b END, true);
+      PERFORM set_config('request.jwt.claims', v_j, true);
       BEGIN
-        PERFORM public.rejeitar_candidatura(CASE parts[2] WHEN 'rv' THEN c_rv WHEN 'mt' THEN c_mt WHEN 'sr' THEN c_sr ELSE c_kr END,
-                                            'outro'::public.motivo_rejeicao_rh, c_just);
+        IF parts[2] = 'rc' THEN
+          PERFORM public.rejeitar_candidatura(v_cid, 'outro'::public.motivo_rejeicao_rh, c_just);
+        ELSIF parts[2] = 'rd' THEN
+          PERFORM public.registrar_decisao(v_cid, 'rejeitado'::public.decisao_final_resultado, c_just);
+        ELSE
+          PERFORM public.registrar_decisao(v_cid, 'aprovado'::public.decisao_final_resultado, c_just);
+        END IF;
         RAISE EXCEPTION 'sonda revertida' USING ERRCODE = 'P51B2';
       EXCEPTION
         WHEN SQLSTATE 'P51B2' THEN st := 'ACEITO';
         WHEN OTHERS THEN st := SQLSTATE || ':' || SQLERRM;
       END;
       RESET ROLE;
-      m := m || jsonb_build_object(parts[1] || '_' || parts[2], st);
+      m := m || jsonb_build_object(k, st);
     END LOOP;
     PERFORM set_config('request.jwt.claims', '', true);
     v_ran := true;
@@ -2364,36 +2456,39 @@ BEGIN
   END IF;
 
   IF (m -> 'estado') IS DISTINCT FROM jsonb_build_object(
-       'rv', jsonb_build_object('status', 'em_analise', 'etapa', 'triagem',   'veredito', 'revertida', 'por_a', true),
-       'mt', jsonb_build_object('status', 'rejeitado',  'etapa', 'rejeitado', 'veredito', 'mantida',   'por_a', true),
-       'sr', jsonb_build_object('status', 'em_analise', 'etapa', 'triagem',   'veredito', NULL,        'por_a', NULL),
-       'kr', jsonb_build_object('status', 'em_analise', 'etapa', 'triagem',   'veredito', 'revertida', 'por_a', NULL)) THEN
-    RAISE EXCEPTION 'P51B FAIL (q): a fixture nao tem a forma pretendida: % — a clausula seria vacua', m -> 'estado';
+       'rv',  jsonb_build_object('status', 'em_analise', 'etapa', 'triagem',       'rr', 'revertida:a', 'df', NULL,                'arq_a', 0),
+       'rvd', jsonb_build_object('status', 'em_analise', 'etapa', 'decisao_final', 'rr', 'revertida:a', 'df', NULL,                'arq_a', 0),
+       'dv',  jsonb_build_object('status', 'em_analise', 'etapa', 'decisao_final', 'rr', NULL,          'df', 'rejeitado:revertida:a', 'arq_a', 0),
+       'dh',  jsonb_build_object('status', 'em_analise', 'etapa', 'decisao_final', 'rr', NULL,          'df', 'em_espera:revertida:b', 'arq_a', 1),
+       'mt',  jsonb_build_object('status', 'rejeitado',  'etapa', 'rejeitado',     'rr', 'mantida:a',   'df', NULL,                'arq_a', 0),
+       'sr',  jsonb_build_object('status', 'em_analise', 'etapa', 'triagem',       'rr', NULL,          'df', NULL,                'arq_a', 0),
+       'sd',  jsonb_build_object('status', 'em_analise', 'etapa', 'decisao_final', 'rr', NULL,          'df', NULL,                'arq_a', 0),
+       'kr',  jsonb_build_object('status', 'em_analise', 'etapa', 'triagem',       'rr', 'revertida:-', 'df', NULL,                'arq_a', 0))
+     OR (m -> 'c_ator') IS DISTINCT FROM '{"role": "recrutador", "ativo": true, "vivo": true, "distinto": true}'::jsonb THEN
+    RAISE EXCEPTION 'P51B FAIL (q): a fixture nao tem a forma pretendida: estado % ; C % — a clausula seria vacua', m -> 'estado', m -> 'c_ator';
   END IF;
-  -- o decisor revertido é recusado, com o código e a marca do D-23
-  IF coalesce(m ->> 'a_rv', '<nao rodou>') NOT LIKE '42501:%(D-23)%' THEN
-    v_bad := v_bad || format('A (decisor revertido) rejeitando de novo rv = «%s» (esperado 42501 com a marca (D-23) — o D-23 da 48 estendido a rejeitar_candidatura); ', m ->> 'a_rv');
-  END IF;
-  -- outro RH rejeita
-  IF coalesce(m ->> 'b_rv', '<nao rodou>') <> 'ACEITO' THEN
-    v_bad := v_bad || format('B (outro RH) rejeitando rv = «%s» (esperado aceito — so o decisor revertido e travado); ', m ->> 'b_rv');
-  END IF;
-  -- o caminho sem revisão revertida não muda: mantida segue encerrada (a trava de antes, não o D-23),
-  -- nunca rejeitada aceita, knockout revertido (sem decisor) aceita
-  IF coalesce(m ->> 'a_mt', '<nao rodou>') NOT LIKE '23514:%encerrada%' OR m ->> 'a_mt' LIKE '%(D-23)%' THEN
-    v_bad := v_bad || format('A rejeitando mt (pedido MANTIDO) = «%s» (esperado a recusa de candidatura encerrada, 23514 — nao o D-23: so a revertida trava); ', m ->> 'a_mt');
-  END IF;
-  IF coalesce(m ->> 'a_sr', '<nao rodou>') <> 'ACEITO' THEN
-    v_bad := v_bad || format('A rejeitando sr (sem rejeicao anterior) = «%s» (esperado aceito — o caminho sem revisao nao muda); ', m ->> 'a_sr');
-  END IF;
-  IF coalesce(m ->> 'a_kr', '<nao rodou>') <> 'ACEITO' THEN
-    v_bad := v_bad || format('A rejeitando kr (knockout revertido, sem decisor) = «%s» (esperado aceito — o knockout nao tem decisor a travar); ', m ->> 'a_kr');
+  -- o decisor revertido é recusado nas 4 combinações, com o código e a marca do D-23
+  FOREACH k IN ARRAY c_d23 LOOP
+    IF coalesce(m ->> k, '<nao rodou>') NOT LIKE '42501:%(D-23)%' THEN
+      v_bad := v_bad || format('%s = «%s» (esperado 42501 com a marca (D-23) — o decisor revertido nao re-rejeita); ', k, m ->> k);
+    END IF;
+  END LOOP;
+  -- outro RH rejeita (B da população e C `rh` não-admin), o caminho sem revisão revertida não muda e o
+  -- (2c) de registrar_decisao só trava `rejeitado`
+  FOREACH k IN ARRAY c_ok LOOP
+    IF coalesce(m ->> k, '<nao rodou>') <> 'ACEITO' THEN
+      v_bad := v_bad || format('%s = «%s» (esperado aceito — so o decisor revertido e travado, e so a re-rejeicao); ', k, m ->> k);
+    END IF;
+  END LOOP;
+  -- mantida segue encerrada (a trava de antes, não o D-23)
+  IF coalesce(m ->> 'a_rc_mt', '<nao rodou>') NOT LIKE '23514:%encerrada%' OR m ->> 'a_rc_mt' LIKE '%(D-23)%' THEN
+    v_bad := v_bad || format('a_rc_mt (pedido MANTIDO) = «%s» (esperado a recusa de candidatura encerrada, 23514 — nao o D-23: so a revertida trava); ', m ->> 'a_rc_mt');
   END IF;
   IF v_bad <> '' THEN
     RAISE EXCEPTION 'P51B FAIL (q): %', v_bad;
   END IF;
   PERFORM set_config('p51.evidencia',
-    btrim(coalesce(current_setting('p51.evidencia', true), '') || ' 51b.q=d23(a_rv=42501,b_rv=ok,a_mt=encerrada,a_sr=ok,a_kr=ok)'), false);
+    btrim(coalesce(current_setting('p51.evidencia', true), '') || format(' 51b.q=d23x%s(rc,rd:rv,rvd,dv,dh)=42501,ok=%s(b:%s,c:rh),a_mt=encerrada', array_length(c_d23, 1), array_length(c_ok, 1), r_b)), false);
   PERFORM set_config('smoke51b.pass', (current_setting('smoke51b.pass')::int + 1)::text, false);
 END
 $q$;
