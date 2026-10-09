@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-11-PLAN.md
-last_updated: "2026-10-09T06:14:51.507Z"
+stopped_at: Completed 51-12-PLAN.md
+last_updated: "2026-10-09T06:29:31.157Z"
 last_activity: 2026-10-09
-state_head: c1a3b09b1b467e3a03daf4971de83c05134fa1bf
+state_head: d06f78907e1e03779b0b7915a4366bab596d5614
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 158
-  percent: 96
+  completed_plans: 159
+  percent: 97
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-11 concluido (notificar-candidato, NADA aplicado/publicado/empurrado): resposta de revisao le o veredito do proprio pedido (pedido_id -> ciclo por epoch ARREDONDADO, Math.round medido no PG 17.6 -> decisao_final); pedido nao achado ou erro = neutro; e-mail de rejeicao com COPY_DIREITO_REVISAO e link da explicacao via montarUrlLogin (D-09); deno 128/128, 15 casos mordem a base, mutacao floor morde; ledger segue em 20261008000001. Proximo: 51-12"
+last_activity_desc: "51-12 concluido (pagina de explicacao, NADA aplicado/publicado/empurrado): getExplicacao pergunta estado_revisao_rejeicao PRIMEIRO (cast estreito, coercao estrita T-51-53) e monta a explicacao do pedido; solicitarRevisao roteia pela origem do servidor (humana -> solicitar_revisao_decisao; automatica/humana_triagem -> solicitar_revisao_rejeicao); CTA nas tres origens, reaberta em qualquer origem, blocos sem-revisao e canal fora; vitest 143/143, 46 casos mordem a base, tsc 89; e2e EX-04 condicional; ledger segue em 20261008000001. Proximo: 51-13"
 ---
 
 # Project State
@@ -1003,6 +1003,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P09 | 16min | 2 tasks | 1 files |
 | Phase 51 P10 | 22min | 3 tasks | 5 files |
 | Phase 51 P11 | 15min | 2 tasks | 4 files |
+| Phase 51 P12 | 11min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -1428,6 +1429,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-11: cicloDoInstante usa Math.round (extract(epoch)::bigint arredonda no PG 17.6, medido) — o Math.floor do plano perderia metade dos pedidos no retry
 - [Phase 51]: 51-11: pedido_id nao achado/de outra candidatura e erro de leitura de revisao_rejeicao = frase neutra, nunca plano B em decisao_final (veredito de outro ciclo)
 - [Phase 51]: 51-11: COPY_DIREITO_REVISAO = revisionIntro literal da pagina de explicacao; urlExplicacao so em evento decisao com desfecho rejeitado, via montarUrlLogin
+- [Phase 51]: 51-12: estado_revisao_rejeicao e a PRIMEIRA pergunta de getExplicacao; elegivel lido como coercao (false+pedido = ja pediu), nao como portao — exigir true apagaria resposta/reabertura (armadilha 3)
+- [Phase 51]: 51-12: origem e variavel da mutacao e prop OBRIGATORIA do SolicitarRevisaoCTA (default esconderia call site esquecido); EX-04 usa o rotulo vivo do CTA (BD-3), nao o do plano
+- [Phase 51]: 51-12: cliente so vai ao ar no 51-16 depois do apply da 0002 e do deploy de notificar-candidato — antes disso estado_revisao_rejeicao nao existe e getExplicacao lanca DATABASE_ERROR
 
 ### Roadmap Evolution
 
@@ -1762,8 +1766,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T06:14:51.232Z
-Stopped at: Completed 51-11-PLAN.md
+Last session: 2026-10-09T06:29:30.878Z
+Stopped at: Completed 51-12-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
