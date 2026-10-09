@@ -274,6 +274,69 @@ describe('recibo-exclusao.json — o artefato', () => {
   });
 });
 
+/**
+ * Phase 51 (51-05) · JORN-49 · D-23/D-34 — o recibo diz o que sai E o que fica.
+ *
+ * O texto antigo prometia apagar o «endereço» inteiro, e o motor (P45, item 5)
+ * PRESERVA `candidatos.estado` e materializa `faixa_etaria_materializada` antes
+ * de anonimizar a data de nascimento. Estes casos travam as DUAS direções no
+ * artefato: (14) a linha «sai» não promete mais do que o motor apaga, e (15) a
+ * coluna «mantém» diz o que o motor guarda, com a base legal do Art. 16, IV.
+ * A redação é asserida literalmente de propósito: é a lista do que o motor
+ * apaga, medida no corpo vivo (51-RESEARCH §D-23), e não copy livre.
+ */
+describe('JORN-49 — «sai» sem endereço genérico, «mantém» com estado e faixa etária', () => {
+  const LISTA_DO_MOTOR = 'gênero, CEP, rua, número, complemento, bairro, cidade';
+
+  it('(14) dados_de_cadastro lista o que o motor apaga, sem «endereço» genérico e sem `estado` nas origens', () => {
+    const sai = recibo.colunas_sai.find((i) => i.item_id === 'dados_de_cadastro');
+    expect(sai, 'linha «sai» dados_de_cadastro ausente').toBeDefined();
+    for (const texto of [sai!.texto_futuro, sai!.texto_passado]) {
+      expect(texto, 'promete apagar o endereço inteiro').not.toMatch(/endere[cç]o/i);
+      expect(texto).toContain(LISTA_DO_MOTOR);
+    }
+    expect(sai!.colunas_origem).not.toContain('candidatos.estado');
+    for (const c of ['cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'genero']) {
+      expect(sai!.colunas_origem, `origem do motor ausente: candidatos.${c}`).toContain(`candidatos.${c}`);
+    }
+    // Nenhuma linha «sai» reivindica o que o motor guarda.
+    const origensSai = recibo.colunas_sai.flatMap((i) => i.colunas_origem);
+    expect(origensSai).not.toContain('candidatos.estado');
+    expect(origensSai).not.toContain('candidatos.faixa_etaria_materializada');
+  });
+
+  it('(15) a linha «mantém» estado_e_faixa_etaria existe, com base legal LGPD, Art. 16, IV e as duas origens', () => {
+    const fica = recibo.colunas_mantem.find((i) => i.item_id === 'estado_e_faixa_etaria');
+    expect(fica, 'linha «mantém» estado_e_faixa_etaria ausente').toBeDefined();
+    expect(fica!.base_legal).toBe('LGPD, Art. 16, IV');
+    expect(fica!.rotulo).toBe('Estado e faixa etária');
+    expect(fica!.aplicavel_quando).toBe('sempre');
+    expect(fica!.colunas_origem).toEqual(
+      expect.arrayContaining(['candidatos.estado', 'candidatos.faixa_etaria_materializada']),
+    );
+    for (const texto of [fica!.texto_futuro, fica!.texto_passado]) {
+      expect(texto).toContain('sem vínculo com o seu nome');
+      expect(texto).toContain('relatório agregado');
+    }
+  });
+
+  it('(16) devolver `estado` à linha «sai» (e tirá-lo do «mantém») REPROVA a geração por DIREÇÃO', () => {
+    // A regressão exata deste plano: o inventário diz que o motor preserva `estado`;
+    // um gerador que voltasse a prometer apagá-lo tem de parar, nomeando a coluna.
+    montar((s) =>
+      patch(
+        patch(s, "        'cidade',\n        'created_by',", "        'cidade',\n        'estado',\n        'created_by',"),
+        "origens: q('candidatos', ['estado', 'faixa_etaria_materializada']),",
+        "origens: q('candidatos', ['faixa_etaria_materializada']),",
+      ),
+    );
+    const r = rodar();
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('DIREÇÃO ERRADA');
+    expect(r.stderr).toContain('candidatos.estado');
+  });
+});
+
 describe('gen-recibo-exclusao.cjs — os gates, provados mordendo', () => {
   it('(7) caminho feliz: o inventário real gera os três artefatos e sai 0', () => {
     montar();

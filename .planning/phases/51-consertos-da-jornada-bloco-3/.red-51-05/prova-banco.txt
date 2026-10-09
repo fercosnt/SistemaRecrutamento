@@ -1,0 +1,110 @@
+# 51-05 Task 2 — prova no banco (D-51), so leitura, via node p46apply.cjs sql "$(cat <arquivo>)"
+# medido em 2026-10-09T03:57:02Z
+
+## q1_motor.sql
+set transaction read only; with f as (select md5(p.prosrc) as m, regexp_replace(p.prosrc, '--[^\n]*', '', 'g') as c from pg_catalog.pg_proc p where p.oid = 'public.anonimizar_candidato(uuid,boolean)'::regprocedure) select m as md5_prosrc, position('faixa_etaria_materializada' in c) > 0 as materializa_faixa, c ~* 'cep\s*=\s*NULL' as anula_cep, c ~* 'genero\s*=\s*NULL' as anula_genero, c !~* '[^_a-z]estado\s*=' as nao_atribui_estado from f
+
+## q2_titulares.sql
+set transaction read only; select count(*) filter (where length(estado) = 2) as uf_ok, count(*) filter (where faixa_etaria_materializada is not null) as faixa_ok, count(*) filter (where cep is null and logradouro is null and bairro is null) as endereco_nulo, count(*) as anonimizados from public.candidatos where user_id is null and cpf is null and data_nascimento = date '1900-01-01'
+
+## q3_cobertura.sql
+set transaction read only; with f as (select regexp_replace(p.prosrc, '--[^\n]*', '', 'g') as c from pg_catalog.pg_proc p where p.oid = 'public.anonimizar_candidato(uuid,boolean)'::regprocedure) select position('disponibilidade' in c) > 0 as cita_disponibilidade, c ~* '[^_a-z]bairro\s*=' as "bairro", c ~* '[^_a-z]celular\s*=' as "celular", c ~* '[^_a-z]cep\s*=' as "cep", c ~* '[^_a-z]cidade\s*=' as "cidade", c ~* '[^_a-z]como_conheceu_detalhes\s*=' as "como_conheceu_detalhes", c ~* '[^_a-z]complemento\s*=' as "complemento", c ~* '[^_a-z]cpf\s*=' as "cpf", c ~* '[^_a-z]created_by\s*=' as "created_by", c ~* '[^_a-z]data_nascimento\s*=' as "data_nascimento", c ~* '[^_a-z]data_ultimo_acesso\s*=' as "data_ultimo_acesso", c ~* '[^_a-z]email\s*=' as "email", c ~* '[^_a-z]genero\s*=' as "genero", c ~* '[^_a-z]instagram\s*=' as "instagram", c ~* '[^_a-z]instagram_url\s*=' as "instagram_url", c ~* '[^_a-z]linkedin\s*=' as "linkedin", c ~* '[^_a-z]linkedin_url\s*=' as "linkedin_url", c ~* '[^_a-z]logradouro\s*=' as "logradouro", c ~* '[^_a-z]nome_completo\s*=' as "nome_completo", c ~* '[^_a-z]numero\s*=' as "numero", c ~* '[^_a-z]updated_by\s*=' as "updated_by" from f
+## q4_valores.sql
+set transaction read only; select count(*) as anonimizados, count(*) filter (where cep is null and logradouro is null and numero is null and complemento is null and bairro is null and genero is null) as endereco_e_genero_nulos, count(*) filter (where celular is null and instagram is null and linkedin is null and instagram_url is null and linkedin_url is null) as contato_redes_nulos, count(*) filter (where length(estado)=2) as uf_preservada from public.candidatos where user_id is null and cpf is null and data_nascimento = date '1900-01-01'
+
+## q5.sql
+set transaction read only; select count(*) filter (where celular is null) as celular_nulo, count(*) filter (where celular = '') as celular_vazio, count(*) filter (where instagram is null) as ig_nulo, count(*) filter (where instagram_url is null) as igurl_nulo, count(*) filter (where linkedin is null) as li_nulo, count(*) filter (where linkedin_url is null) as liurl_nulo, count(*) filter (where como_conheceu_detalhes is null) as ccd_nulo, count(*) filter (where avatar_url is null) as avatar_nulo, (select count(*) from public.disponibilidade d join public.candidatos c2 on c2.id = d.candidato_id where c2.user_id is null and c2.cpf is null and c2.data_nascimento = date '1900-01-01') as disponibilidade_restante from public.candidatos where user_id is null and cpf is null and data_nascimento = date '1900-01-01'
+
+## q7.sql
+set transaction read only; select (select count(*) from public.disponibilidade d join public.candidatos c on c.id=d.candidato_id where c.user_id is null and c.cpf is null and c.data_nascimento=date '1900-01-01' and (d.periodo_disponivel is not null or d.regime_trabalho is not null or d.disponibilidade_imediata is not null or d.data_disponibilidade is not null)) as linhas_com_valor, (select string_agg(p.proname, ', ') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosrc ~* '(delete\s+from|update)\s+(public\.)?disponibilidade') as funcoes_que_mutam_disponibilidade, (select string_agg(t.tgname||' on '||t.tgrelid::regclass::text, ', ') from pg_trigger t where not t.tgisinternal and (t.tgrelid='public.candidatos'::regclass or t.tgrelid='public.disponibilidade'::regclass)) as triggers, (select string_agg(conname::text||' '||confdeltype::text, ', ') from pg_constraint where conrelid='public.disponibilidade'::regclass and contype='f') as fks
+
+## q8.sql
+set transaction read only; select count(*) as candidaturas_dos_anonimizados, count(*) filter (where ca.curriculo_nome_original is null) as nome_arquivo_nulo from public.candidaturas ca join public.candidatos c on c.id = ca.candidato_id where c.user_id is null and c.cpf is null and c.data_nascimento = date '1900-01-01'
+
+## saidas (Q1..Q4)
+2026-10-09T03:57:02Z
+Q1:
+[
+  {
+    "md5_prosrc": "4624854408950110cbfebc971481145a",
+    "materializa_faixa": true,
+    "anula_cep": true,
+    "anula_genero": true,
+    "nao_atribui_estado": true
+  }
+]
+Q2:
+[
+  {
+    "uf_ok": 2,
+    "faixa_ok": 2,
+    "endereco_nulo": 2,
+    "anonimizados": 2
+  }
+]
+Q3:
+[
+  {
+    "cita_disponibilidade": false,
+    "bairro": true,
+    "celular": true,
+    "cep": true,
+    "cidade": true,
+    "como_conheceu_detalhes": true,
+    "complemento": true,
+    "cpf": true,
+    "created_by": true,
+    "data_nascimento": true,
+    "data_ultimo_acesso": true,
+    "email": true,
+    "genero": true,
+    "instagram": true,
+    "instagram_url": true,
+    "linkedin": true,
+    "linkedin_url": true,
+    "logradouro": true,
+    "nome_completo": true,
+    "numero": true,
+    "updated_by": true
+  }
+]
+Q4:
+[
+  {
+    "anonimizados": 2,
+    "endereco_e_genero_nulos": 2,
+    "contato_redes_nulos": 0,
+    "uf_preservada": 2
+  }
+]
+
+## Q5
+[
+  {
+    "celular_nulo": 0,
+    "celular_vazio": 0,
+    "ig_nulo": 2,
+    "igurl_nulo": 2,
+    "li_nulo": 2,
+    "liurl_nulo": 2,
+    "ccd_nulo": 2,
+    "avatar_nulo": 2,
+    "disponibilidade_restante": 2
+  }
+]
+## Q7
+[
+  {
+    "linhas_com_valor": 2,
+    "funcoes_que_mutam_disponibilidade": null,
+    "triggers": "update_candidatos_updated_at on candidatos, update_disponibilidade_updated_at on disponibilidade",
+    "fks": "disponibilidade_candidato_id_fkey c"
+  }
+]
+## Q8
+[
+  {
+    "candidaturas_dos_anonimizados": 3,
+    "nome_arquivo_nulo": 3
+  }
+]

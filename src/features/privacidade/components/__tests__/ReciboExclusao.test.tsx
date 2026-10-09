@@ -221,6 +221,52 @@ describe('ReciboExclusao — o layout é uma relação semântica, não uma tabe
   })
 })
 
+/**
+ * Phase 51 (51-05) · JORN-49 · D-23/D-34 — a tela diz o que sai e o que fica.
+ * Literais de propósito: a linha «sai» é a lista do que o motor apaga (medida no
+ * corpo vivo), e a linha «mantém» é a retenção do Art. 16, IV. Se o artefato voltar
+ * a prometer «endereço» ou perder a linha, a tela muda e estes casos reprovam.
+ */
+describe('ReciboExclusao — JORN-49: estado e faixa etária ficam, o endereço sai item a item', () => {
+  const linhaDe = (qual: 'sai' | 'mantem', id: string) =>
+    linhas(qual).find((no) => no.getAttribute('data-item-id') === id)
+
+  it('(r10) a coluna «mantém» renderiza «Estado e faixa etária» com a base legal LGPD, Art. 16, IV — nos dois tempos', () => {
+    for (const tempo of ['futuro', 'passado'] as const) {
+      const { unmount } = renderizar({ tempo })
+      const no = linhaDe('mantem', 'estado_e_faixa_etaria')
+      expect(no, `linha «Estado e faixa etária» ausente da coluna «mantém» (${tempo})`).toBeTruthy()
+      expect(within(no!).getByText('Estado e faixa etária')).toBeInTheDocument()
+      expect(within(no!).getByText('LGPD, Art. 16, IV')).toBeInTheDocument()
+      expect(no!.textContent).toContain('sem vínculo com o seu nome, para relatório agregado')
+      // E nunca na coluna «sai».
+      expect(linhaDe('sai', 'estado_e_faixa_etaria')).toBeUndefined()
+      unmount()
+    }
+  })
+
+  it('(r11) a linha «sai» dados_de_cadastro mostra a lista do motor, sem «endereço» genérico', () => {
+    for (const tempo of ['futuro', 'passado'] as const) {
+      const { unmount } = renderizar({ tempo })
+      const no = linhaDe('sai', 'dados_de_cadastro')
+      expect(no).toBeTruthy()
+      expect(no!.textContent).toContain('gênero, CEP, rua, número, complemento, bairro, cidade')
+      expect(no!.textContent ?? '').not.toMatch(/endere[cç]o/i)
+      unmount()
+    }
+  })
+
+  it('(r12) a linha «Estado e faixa etária» aparece em TODOS os recortes (aplicável sempre)', () => {
+    for (const temCurriculo of [true, false]) {
+      for (const temDecisaoRegistrada of [true, false]) {
+        const { unmount } = renderizar({ temCurriculo, temDecisaoRegistrada })
+        expect(idsRenderizados('mantem')).toContain('estado_e_faixa_etaria')
+        unmount()
+      }
+    }
+  })
+})
+
 describe('ReciboExclusao — derivação vazia é FALHA, nunca estado vazio', () => {
   it('(r9) sem itens aplicáveis o componente devolve null e AVISA o pai', async () => {
     // Um recibo vazio ao lado de um botão que apaga seria a pior tela desta fase

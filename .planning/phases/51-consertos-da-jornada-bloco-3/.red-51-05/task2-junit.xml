@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="28" failures="6" errors="0" time="0.338944332">
+    <testsuite name="docs/compliance/__tests__/genReciboExclusao.test.ts" timestamp="2026-10-09T03:56:20.365Z" hostname="macmini" tests="16" failures="3" errors="0" skipped="0" time="0.291147666">
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="recibo-exclusao.json — o artefato &gt; (1) E4·error, ida: toda linha «sai» carrega um passo_motor do vocabulário fechado" time="0.002063959">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="recibo-exclusao.json — o artefato &gt; (2) E4·error, volta: cada um dos oito passos tem ao menos uma linha «sai»" time="0.00045225">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="recibo-exclusao.json — o artefato &gt; (3) as três linhas obrigatórias da coluna «mantém» existem, por chave estável" time="0.000492667">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="recibo-exclusao.json — o artefato &gt; (4) nenhum texto de titular casa com os banidos de vocabulário nem com os de totalidade" time="0.005914459">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="recibo-exclusao.json — o artefato &gt; (5) E4·partial: o recorte omite a linha inaplicável, e nunca produz texto vazio" time="0.001244667">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="recibo-exclusao.json — o artefato &gt; (6) Pitfall 5: as oito tabelas `telemetria_interna` com PII do titular aparecem em colunas_origem" time="0.000571792">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="JORN-49 — «sai» sem endereço genérico, «mantém» com estado e faixa etária &gt; (14) dados_de_cadastro lista o que o motor apaga, sem «endereço» genérico e sem `estado` nas origens" time="0.002220833">
+            <failure message="promete apagar o endereço inteiro: expected &apos;Nome, e-mail, telefone, CPF, data de …&apos; not to match /endere[cç]o/i" type="AssertionError">
+AssertionError: promete apagar o endereço inteiro: expected &apos;Nome, e-mail, telefone, CPF, data de …&apos; not to match /endere[cç]o/i
+
+- Expected:
+/endere[cç]o/i
+
++ Received:
+&quot;Nome, e-mail, telefone, CPF, data de nascimento, endereço, redes sociais e disponibilidade vão ser apagados do seu cadastro.&quot;
+
+ ❯ docs/compliance/__tests__/genReciboExclusao.test.ts:295:62
+            </failure>
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="JORN-49 — «sai» sem endereço genérico, «mantém» com estado e faixa etária &gt; (15) a linha «mantém» estado_e_faixa_etaria existe, com base legal LGPD, Art. 16, IV e as duas origens" time="0.000419416">
+            <failure message="linha «mantém» estado_e_faixa_etaria ausente: expected undefined to be defined" type="AssertionError">
+AssertionError: linha «mantém» estado_e_faixa_etaria ausente: expected undefined to be defined
+ ❯ docs/compliance/__tests__/genReciboExclusao.test.ts:310:66
+            </failure>
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="JORN-49 — «sai» sem endereço genérico, «mantém» com estado e faixa etária &gt; (16) devolver `estado` à linha «sai» (e tirá-lo do «mantém») REPROVA a geração por DIREÇÃO" time="0.00132275">
+            <failure message="mutação inválida: «        &apos;cidade&apos;,
+        &apos;created_by&apos;,…» casa 0 vez(es), esperado exatamente 1" type="Error">
+Error: mutação inválida: «        &apos;cidade&apos;,
+        &apos;created_by&apos;,…» casa 0 vez(es), esperado exatamente 1
+ ❯ patch docs/compliance/__tests__/genReciboExclusao.test.ts:104:11
+ ❯ mutacao docs/compliance/__tests__/genReciboExclusao.test.ts:328:9
+ ❯ montar docs/compliance/__tests__/genReciboExclusao.test.ts:116:27
+ ❯ docs/compliance/__tests__/genReciboExclusao.test.ts:326:5
+            </failure>
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="gen-recibo-exclusao.cjs — os gates, provados mordendo &gt; (7) caminho feliz: o inventário real gera os três artefatos e sai 0" time="0.076274291">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="gen-recibo-exclusao.cjs — os gates, provados mordendo &gt; (8) um `passo_motor` inventado REPROVA a geração" time="0.034430459">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="gen-recibo-exclusao.cjs — os gates, provados mordendo &gt; (9) um passo do vocabulário SEM linha de recibo REPROVA a geração" time="0.033125958">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="gen-recibo-exclusao.cjs — os gates, provados mordendo &gt; (10) remover uma das três linhas obrigatórias REPROVA a geração" time="0.033245542">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="gen-recibo-exclusao.cjs — os gates, provados mordendo &gt; (11) um banido de vocabulário na copy REPROVA a geração" time="0.033012708">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="gen-recibo-exclusao.cjs — os gates, provados mordendo &gt; (12) Pitfall 5 pela porta dos fundos: silenciar coluna `apagar` REPROVA a geração" time="0.033130458">
+        </testcase>
+        <testcase classname="docs/compliance/__tests__/genReciboExclusao.test.ts" name="gen-recibo-exclusao.cjs — os gates, provados mordendo &gt; (13) coluna do inventário sem linha e sem razão REPROVA a geração" time="0.032541792">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" timestamp="2026-10-09T03:56:20.368Z" hostname="macmini" tests="12" failures="3" errors="0" skipped="0" time="0.047796666">
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — um componente, dois tempos &gt; (r1) o mesmo item diz coisas diferentes em futuro e em passado" time="0.013800583">
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — um componente, dois tempos &gt; (r2) BACKSTOP E4·error: toda linha de «sai» tem um passo do motor por trás" time="0.003115709">
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — um componente, dois tempos &gt; (r3) BACKSTOP E4·partial: os dois recortes perigosos OMITEM a linha inaplicável" time="0.0040985">
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — um componente, dois tempos &gt; (r4) as TRÊS linhas obrigatórias de «mantém» aparecem em TODOS os recortes" time="0.005616">
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — um componente, dois tempos &gt; (r5) cada linha de «mantém» traz a citação legal NO MESMO nó da lista" time="0.00425975">
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — o layout é uma relação semântica, não uma tabela &gt; (r6) as duas colunas têm tratamento visual IDÊNTICO" time="0.001439583">
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — o layout é uma relação semântica, não uma tabela &gt; (r7) cabeçalhos REAIS nos dois grupos — em coluna única é o que preserva o pareamento" time="0.003811625">
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — o layout é uma relação semântica, não uma tabela &gt; (r8) NEGATIVAS de fonte: item e citação renderizam íntegros, sem corte" time="0.001680292">
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — JORN-49: estado e faixa etária ficam, o endereço sai item a item &gt; (r10) a coluna «mantém» renderiza «Estado e faixa etária» com a base legal LGPD, Art. 16, IV — nos dois tempos" time="0.002689042">
+            <failure message="linha «Estado e faixa etária» ausente da coluna «mantém» (futuro): expected undefined to be truthy" type="AssertionError">
+AssertionError: linha «Estado e faixa etária» ausente da coluna «mantém» (futuro): expected undefined to be truthy
+
+- Expected:
+true
+
++ Received:
+undefined
+
+ ❯ src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx:238:89
+            </failure>
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — JORN-49: estado e faixa etária ficam, o endereço sai item a item &gt; (r11) a linha «sai» dados_de_cadastro mostra a lista do motor, sem «endereço» genérico" time="0.002584958">
+            <failure message="expected &apos;Os seus dados de cadastroNome, e-mail…&apos; to contain &apos;gênero, CEP, rua, número, complemento…&apos;" type="AssertionError">
+AssertionError: expected &apos;Os seus dados de cadastroNome, e-mail…&apos; to contain &apos;gênero, CEP, rua, número, complemento…&apos;
+
+Expected: &quot;gênero, CEP, rua, número, complemento, bairro, cidade&quot;
+Received: &quot;Os seus dados de cadastroNome, e-mail, telefone, CPF, data de nascimento, endereço, redes sociais e disponibilidade vão ser apagados do seu cadastro.&quot;
+
+ ❯ src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx:253:31
+            </failure>
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — JORN-49: estado e faixa etária ficam, o endereço sai item a item &gt; (r12) a linha «Estado e faixa etária» aparece em TODOS os recortes (aplicável sempre)" time="0.001470667">
+            <failure message="expected [ &apos;justificativa_do_recrutador&apos;, …(8) ] to include &apos;estado_e_faixa_etaria&apos;" type="AssertionError">
+AssertionError: expected [ &apos;justificativa_do_recrutador&apos;, …(8) ] to include &apos;estado_e_faixa_etaria&apos;
+ ❯ src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx:263:43
+            </failure>
+        </testcase>
+        <testcase classname="src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx" name="ReciboExclusao — derivação vazia é FALHA, nunca estado vazio &gt; (r9) sem itens aplicáveis o componente devolve null e AVISA o pai" time="0.00200775">
+        </testcase>
+    </testsuite>
+</testsuites>
