@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-01-PLAN.md
-last_updated: "2026-10-09T00:08:30.190Z"
+stopped_at: Completed 51-02-PLAN.md
+last_updated: "2026-10-09T03:14:15.484Z"
 last_activity: 2026-10-09
-state_head: e9ed52541c16e9073c76b1c2eb9afd83309d82e2
+state_head: e567e589d91494e17db7a6f86f53405d54f98085
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 148
-  percent: 90
+  completed_plans: 149
+  percent: 91
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-01 concluido (JORN-44, JORN-46): Ir ao painel na lista, Voltar as avaliacoes nas provas, nomes D-15 em 3 telas, guarda por forma com mordida; publicado c84715ce, marcador no index-_4uQIozX.js de PROD. Proximo: 51-02"
+last_activity_desc: "51-02 concluido (JORN-45, parcial ate o 51-17): Ver respostas no hub abre o ScorecardAvaliacao no lugar (contagem filtrada sjt+big_five), Big Five Concluido/Nao fez, texto integral do caso ao lado das citacoes; mordida provada; publicado 99ba6bf2, marcador no chunk lazy PerfilCandidatoRHPage-BXo3zA4t.js de PROD. Proximo: 51-03"
 ---
 
 # Project State
@@ -993,6 +993,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P15 | ~9min | 3 tasks | 3 files |
 | Phase 44 P16 | ~80min (inclui duas esperas do operador) | 3 tasks | 13 files |
 | Phase 51 P01 | 20 min | 3 tasks | 13 files |
+| Phase 51 P02 | 3h (~30 min de trabalho; sessao parada entre tasks) | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1399,6 +1400,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-01: o toast LOCKED do envio (redacao, SJT MC, caso pratico, Big Five) e o mesmo estado Sua etapa avancou do D-37 e vai direto a /candidato/dashboard; envio bem-sucedido continua voltando a lista
 - [Phase 51]: 51-01: ProvaCognitivaScreen — 42501 no envio vira estado proprio (Sua etapa avancou + Ir ao painel); antes caia em Prova registrada, que reconhecia envio recusado
 - [Phase 51]: 51-01: sem onBackToPanel o AvaliacaoShell nao renderiza Ir ao painel (nunca botao inerte); rotulos por tela em COPY_NAV local para evitar ciclo pelo barril components/
+- [Phase 51]: 51-02: o texto do candidato aparece no card do caso aberto mesmo com pontuacao falhou (citacoes/dimensoes so sem falha) — e conteudo do candidato, e o EDGE-PROBE pede caminho ate o conteudo de todo registro anunciado
+- [Phase 51]: 51-02: Big Five no detalhe do hub e UMA linha (estadoBigFive sobre linhasDeAvaliacao), Concluido/Nao fez; com zero linhas o detalhe mantem Sem avaliacoes registradas ainda
+- [Phase 51]: 51-02: o N do hub, o estado da secao Avaliacao Assincrona e o detalhe usam a mesma linhasDeAvaliacao (sjt+big_five) — entrevista/redacao fora (C-8)
 
 ### Roadmap Evolution
 
@@ -1733,8 +1737,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T00:08:07.399Z
-Stopped at: Completed 51-01-PLAN.md
+Last session: 2026-10-09T03:14:15.217Z
+Stopped at: Completed 51-02-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

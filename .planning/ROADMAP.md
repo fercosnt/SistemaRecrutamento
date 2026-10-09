@@ -665,14 +665,14 @@ Plans:
   7. Todo apply e deploy pela via do projeto (`p46apply.cjs`/`efdeploy.cjs`), o JORN-42 só depois de review bloqueante e decisão escrita do operador, e `git log origin/main..HEAD` vazio com os marcadores servidos no chunk certo
 **Guardrails**: os do Bloco 1/2 e da Phase 50 — migrations pelo `p46apply.cjs` (md5 do ledger conferido), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado. Mudança de controle de acesso (JORN-42): review bloqueante antes do apply e prova de que nada abriu (views incluídas). Ordem D-27: telas e textos primeiro, banco depois (migration → motor/LGPD → EF → cliente)
 **Fora de escopo**: JORN-50..52 (seguem sem fase); Bloco 4 da fila; portfólio visível ao RH e a Parte B do todo `49-producoes-do-candidato-sem-leitor-de-rh`
-**Plans**: 1/17 plans executed
+**Plans**: 2/17 plans executed
 
 Plans:
 **Wave 1**
 - [x] 51-01-PLAN.md — Navegação do candidato (JORN-44, JORN-46): «Ir ao painel» na lista, «Voltar às avaliações» nas provas, nomes do D-15 nas telas que toca, guarda por forma, publicação
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 51-02-PLAN.md — Hub do RH (JORN-45): «Ver respostas» expande o detalhe no lugar; Big Five «Concluído/Não fez»; texto integral do caso prático ao lado das citações; publicação
+- [x] 51-02-PLAN.md — Hub do RH (JORN-45): «Ver respostas» expande o detalhe no lugar; Big Five «Concluído/Não fez»; texto integral do caso prático ao lado das citações; publicação
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 51-03-PLAN.md — Instrumentos no RH (JORN-48): «Prova cognitiva» × «Raciocínio lógico (Matrizes)»; «Não se aplica a esta vaga» só com evidência positiva; publicação
@@ -732,7 +732,7 @@ Plans:
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
-| 51. Consertos da Jornada — Bloco 3 | v8.0 | 1/17 | In Progress | - |
+| 51. Consertos da Jornada — Bloco 3 | v8.0 | 2/17 | In Progress | - |
 
 ---
 
