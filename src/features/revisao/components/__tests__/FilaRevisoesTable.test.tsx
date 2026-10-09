@@ -51,12 +51,18 @@ vi.mock('../ResponderRevisaoDialog', () => ({
 }))
 
 import { FilaRevisoesTable } from '../FilaRevisoesTable'
+import { OrigemRevisaoBadge } from '../OrigemRevisaoBadge'
 import type { FilaRevisaoRow } from '../../services/revisaoService'
 
 const UUID = '44444444-4444-4444-8444-444444444444'
 
 function linha(over: Partial<FilaRevisaoRow> = {}): FilaRevisaoRow {
+  // 51-14 (C-12): a linha é identificada pelo PEDIDO. O padrão deriva o `pedido_id` da
+  // candidatura para que as suítes antigas (uma linha por candidatura) sigam com chaves
+  // distintas; os testes das três origens o fixam explicitamente.
   return {
+    origem: 'humana',
+    pedido_id: `pedido-${over.candidatura_id ?? UUID}`,
     candidatura_id: UUID,
     candidato_nome: 'Ana Souza',
     vaga_titulo: 'Dentista — Matriz',
@@ -466,5 +472,130 @@ describe('FilaRevisoesTable — backstop de transbordo', () => {
     expect(
       screen.getByText('Mostrando os 200 pedidos mais antigos.'),
     ).toBeInTheDocument()
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 51-14 (JORN-42 · D-10 · D-12 · D-33 · C-12) — as TRÊS origens na mesma fila.
+// ══════════════════════════════════════════════════════════════════════════════
+describe('FilaRevisoesTable — selo de origem, id do pedido e o autor do knockout (51-14)', () => {
+  const CAND_DUPLA = '99999999-9999-4999-8999-999999999999'
+
+  /** Três pedidos: um de cada origem, e DOIS da MESMA candidatura (C-12). */
+  function tresOrigens(): FilaRevisaoRow[] {
+    return [
+      linha({
+        pedido_id: 'p-decisao-final',
+        candidatura_id: UUID,
+        candidato_nome: 'Ana Decisão',
+        origem: 'humana',
+        decidido_por_nome: 'Carla RH',
+      }),
+      linha({
+        pedido_id: 'p-rejeicao-rh',
+        candidatura_id: CAND_DUPLA,
+        candidato_nome: 'Bia Rejeição',
+        origem: 'humana_triagem',
+        decidido_por_nome: 'Davi RH',
+      }),
+      linha({
+        pedido_id: 'p-knockout',
+        candidatura_id: CAND_DUPLA,
+        candidato_nome: 'Bia Knockout',
+        origem: 'automatica',
+        decidido_por_nome: null,
+      }),
+    ]
+  }
+
+  it('cada linha mostra o seu selo: «Decisão final», «Rejeição pelo RH», «Knockout»', () => {
+    useFilaMock.mockReturnValue(filaState({ data: tresOrigens() }))
+    render(<FilaRevisoesTable incluirRespondidos={false} />)
+    const selos = screen.getAllByTestId('fila-origem-badge').map((el) => el.textContent)
+    expect(selos).toEqual(['Decisão final', 'Rejeição pelo RH', 'Knockout'])
+  })
+
+  // D-33: nenhum selo — e nada na fila — diz «triagem».
+  it('nenhuma linha da fila diz «triagem» (D-33)', () => {
+    useFilaMock.mockReturnValue(filaState({ data: tresOrigens() }))
+    const { container } = render(<FilaRevisoesTable incluirRespondidos={false} />)
+    expect((container.textContent ?? '').toLowerCase()).not.toContain('triagem')
+  })
+
+  // C-12: duas linhas da MESMA candidatura. Com `key={candidatura_id}` o React avisaria
+  // de chave duplicada (e poderia reaproveitar o nó da linha errada).
+  it('duas linhas da MESMA candidatura → três linhas e NENHUM aviso de chave duplicada', () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    useFilaMock.mockReturnValue(filaState({ data: tresOrigens() }))
+    const { container } = render(<FilaRevisoesTable incluirRespondidos={false} />)
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(3)
+    const avisos = erro.mock.calls
+      .map((args) => args.map(String).join(' '))
+      .filter((m) => /same key|unique "key"/i.test(m))
+    erro.mockRestore()
+    expect(avisos).toEqual([])
+  })
+
+  it('o knockout mostra «Automático (knockout)» como autor, e NÃO «Não identificado»', () => {
+    useFilaMock.mockReturnValue(filaState({ data: tresOrigens() }))
+    const { container } = render(<FilaRevisoesTable incluirRespondidos={false} />)
+    const linhaKnockout = [...container.querySelectorAll('tbody tr')].find((tr) =>
+      tr.textContent?.includes('Bia Knockout'),
+    )
+    expect(linhaKnockout?.textContent).toContain('Automático (knockout)')
+    expect(linhaKnockout?.textContent).not.toContain('Não identificado')
+  })
+
+  it('a rejeição pelo RH sem nome resolvido continua «Não identificado» (há um autor)', () => {
+    useFilaMock.mockReturnValue(
+      filaState({
+        data: [linha({ pedido_id: 'p1', origem: 'humana_triagem', decidido_por_nome: null })],
+      }),
+    )
+    render(<FilaRevisoesTable incluirRespondidos={false} />)
+    expect(screen.getByText('Não identificado')).toBeInTheDocument()
+    expect(screen.queryByText('Automático (knockout)')).not.toBeInTheDocument()
+  })
+
+  it('o SLA interno aparece nas três linhas (mesma regra `revisao_art20`)', () => {
+    useFilaMock.mockReturnValue(filaState({ data: tresOrigens() }))
+    const { container } = render(<FilaRevisoesTable incluirRespondidos={false} />)
+    for (const tr of container.querySelectorAll('tbody tr')) {
+      expect(tr.textContent).toMatch(/\d+ dias/)
+    }
+  })
+
+  it('clicar em «Responder» no knockout abre o diálogo com AQUELE pedido', () => {
+    useFilaMock.mockReturnValue(filaState({ data: tresOrigens() }))
+    render(<FilaRevisoesTable incluirRespondidos={false} />)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Responder' })[2])
+    expect(dialogoProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        open: true,
+        linha: expect.objectContaining({ pedido_id: 'p-knockout', origem: 'automatica' }),
+      }),
+    )
+  })
+})
+
+describe('OrigemRevisaoBadge — vocabulário fechado (D-33)', () => {
+  it('os três rótulos, com o data-testid da fila', () => {
+    for (const [origem, rotulo] of [
+      ['humana', 'Decisão final'],
+      ['humana_triagem', 'Rejeição pelo RH'],
+      ['automatica', 'Knockout'],
+    ] as const) {
+      const { unmount } = render(<OrigemRevisaoBadge origem={origem} />)
+      expect(screen.getByTestId('fila-origem-badge')).toHaveTextContent(rotulo)
+      unmount()
+    }
+  })
+
+  it('valor desconhecido ou nulo → nada (nunca ecoa o identificador cru)', () => {
+    for (const valor of ['triagem', 'coisa_nova', '', null, undefined]) {
+      const { container, unmount } = render(<OrigemRevisaoBadge origem={valor} />)
+      expect(container.innerHTML).toBe('')
+      unmount()
+    }
   })
 })

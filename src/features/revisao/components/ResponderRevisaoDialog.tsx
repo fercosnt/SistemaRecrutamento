@@ -242,6 +242,9 @@ export function ResponderRevisaoDialog({
     if (!valido.success || responder.isPending || recusaDoGuard) return
     responder.mutate(
       {
+        // 51-14 (D-10): a origem escolhe a RPC no serviço; o pedido é a chave das novas.
+        origem: linha!.origem,
+        pedidoId: linha!.pedido_id,
         candidaturaId: linha!.candidatura_id,
         veredito: valido.data.veredito,
         justificativa: valido.data.justificativa,

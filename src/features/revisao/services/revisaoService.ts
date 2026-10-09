@@ -148,6 +148,14 @@ export function classificarErroRevisao(error: unknown): RevisaoError {
  *     além do RH, BD-9 segue em aberto, e ela não entra na fila.
  *
  * Também FORA, por invariante 3: `revisao_por_usuario` (o uuid do revisor).
+ *
+ * ⚠ 51-14 (JORN-42, D-10/D-12, C-12): as DUAS ÚNICAS chaves novas são `origem` e `pedido_id`,
+ * no fim, na ordem do `RETURNS TABLE` da migration `20261008000003` (51-10). A fila passou a
+ * juntar três origens — `humana` (decisão final, `pedido_id = decisao_final.id`),
+ * `humana_triagem` (rejeição pelo RH em qualquer etapa) e `automatica` (knockout), essas duas
+ * com `pedido_id = revisao_rejeicao.id` — e uma candidatura pode ter DOIS pedidos, então a
+ * linha é identificada pelo pedido. Nenhuma outra coluna nova atravessa (o UUID de quem
+ * rejeitou, `rejeitado_por`, fica no servidor, como o do revisor).
  */
 export const FILA_REVISAO_COLUNAS = [
   'candidatura_id',
@@ -161,10 +169,19 @@ export const FILA_REVISAO_COLUNAS = [
   'revisao_resultado',
   'respondida_por_nome',
   'pode_responder',
+  'origem',
+  'pedido_id',
 ] as const
 
 /** O tipo das chaves projetadas pela fila (derivado da allowlist, nunca duplicado). */
 export type ColunaFilaRevisao = (typeof FILA_REVISAO_COLUNAS)[number]
+
+/**
+ * A origem de um pedido de revisão, no vocabulário ÚNICO do sistema (o mesmo de
+ * `explicacao_rejeicao_origem` e de `revisao_rejeicao.origem`). Os rótulos de tela são do
+ * `OrigemRevisaoBadge` (D-33) — nenhum deles diz «triagem».
+ */
+export type OrigemRevisao = 'humana' | 'humana_triagem' | 'automatica'
 
 /**
  * Formata a contagem de revisões pendentes para o badge da `RHSidebar`.
@@ -212,6 +229,13 @@ export interface FilaRevisaoRow {
   respondida_por_nome: string | null
   /** Espelho COSMÉTICO do guard REVISAO-05 — quem impede a ação é o RPC de escrita. */
   pode_responder: boolean
+  /**
+   * 51-14: de onde vem o pedido. Nulo só se o servidor não projetar a coluna (a fila de antes
+   * da `20261008000003`) — e aí a linha é, por construção, da decisão final.
+   */
+  origem: OrigemRevisao | null
+  /** 51-14 (C-12): o id do PEDIDO — a identidade da linha (chave React, seleção e resposta). */
+  pedido_id: string
 }
 
 /** Filtro da fila — o único, e é o toggle "Incluir respondidos" da 42-UI-SPEC. */
@@ -296,8 +320,12 @@ export async function lerConfigSlaRevisao(): Promise<LimiaresSlaRevisao | null> 
   return { diasAtencao: dias_atencao, diasAtraso: dias_atraso }
 }
 
-/** As variáveis do único write-path da resposta à revisão. */
+/** As variáveis do write-path da resposta à revisão. */
 export interface ResponderRevisaoVars {
+  /** 51-14: escolhe a RPC. `humana` (ou nulo) → decisão final; as outras → registro do pedido. */
+  origem: OrigemRevisao | null
+  /** 51-14 (C-12): o id do pedido — a chave da RPC das origens novas. */
+  pedidoId: string
   candidaturaId: string
   veredito: ResponderRevisaoFormValues['veredito']
   justificativa: string
@@ -319,11 +347,30 @@ export interface ResponderRevisaoVars {
  * (`GUARD_DECISOR`) ou toast genérico (`VALIDACAO` / `DESCONHECIDO`).
  */
 export async function responderRevisao(vars: ResponderRevisaoVars): Promise<void> {
-  const { error } = await supabase.rpc('responder_revisao_decisao', {
-    p_candidatura_id: vars.candidaturaId,
-    p_veredito: vars.veredito,
-    p_justificativa: vars.justificativa,
-  })
+  // 51-14 (JORN-42, D-10, T-51-57): roteia pela ORIGEM que veio do servidor, nunca derivada
+  // aqui. Só as duas origens novas explícitas vão ao registro do pedido; qualquer outra coisa
+  // (inclusive nulo) é a decisão final — o caminho de antes, intocado. A RPC nova é
+  // `responder_revisao_rejeicao(p_pedido_id, p_veredito, p_justificativa)` (51-08), chamada
+  // por cast estreito confinado ao nome (molde de `solicitarRevisao`, 51-12); sai no db:types
+  // do 51-17. O REVISAO-05 dela levanta 42501 com «decisor» na mensagem, então o MESMO
+  // `classificarErroRevisao` separa a recusa do guard. Nenhuma decisão de autorização aqui.
+  const { error } =
+    vars.origem === 'humana_triagem' || vars.origem === 'automatica'
+      ? await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>
+        )('responder_revisao_rejeicao', {
+          p_pedido_id: vars.pedidoId,
+          p_veredito: vars.veredito,
+          p_justificativa: vars.justificativa,
+        })
+      : await supabase.rpc('responder_revisao_decisao', {
+          p_candidatura_id: vars.candidaturaId,
+          p_veredito: vars.veredito,
+          p_justificativa: vars.justificativa,
+        })
   if (error) throw classificarErroRevisao(error)
 }
 

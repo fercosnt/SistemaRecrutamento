@@ -166,7 +166,9 @@ describe('classificarErroRevisao — o 42501 do guard é discriminado por MENSAG
 })
 
 describe('FILA_REVISAO_COLUNAS — allowlist explícita do RETURNS TABLE da fila', () => {
-  it('declara exatamente as 11 chaves do contrato (D-P42-05 + estado da linha)', () => {
+  // 51-14 (JORN-42, D-10/D-12, C-12): a fila passou a ter TRÊS origens. As únicas chaves
+  // novas são `origem` e `pedido_id` (no FIM, como no `RETURNS TABLE` da 20261008000003).
+  it('declara exatamente as 13 chaves do contrato (D-P42-05 + estado da linha + origem/pedido_id)', () => {
     expect([...FILA_REVISAO_COLUNAS]).toEqual([
       'candidatura_id',
       'candidato_nome',
@@ -179,8 +181,10 @@ describe('FILA_REVISAO_COLUNAS — allowlist explícita do RETURNS TABLE da fila
       'revisao_resultado',
       'respondida_por_nome',
       'pode_responder',
+      'origem',
+      'pedido_id',
     ])
-    expect(FILA_REVISAO_COLUNAS).toHaveLength(11)
+    expect(FILA_REVISAO_COLUNAS).toHaveLength(13)
   })
 
   // ── As três asserções NEGATIVAS, uma por chave proibida ──────────────────────
@@ -270,6 +274,8 @@ function linhaRpc(over: Record<string, unknown> = {}): Record<string, unknown> {
     revisao_resultado: null,
     respondida_por_nome: null,
     pode_responder: true,
+    origem: 'humana',
+    pedido_id: '66666666-6666-4666-8666-666666666666',
     ...over,
   }
 }
@@ -347,6 +353,25 @@ describe('listarFilaRevisoes — a leitura da fila é RPC, nunca PostgREST (T-42
     })
     const linhas = await listarFilaRevisoes({ incluirRespondidos: false })
     expect(linhas[0]).not.toHaveProperty('revisao_por_usuario')
+  })
+
+  // 51-14 (T-51-55): as duas chaves novas atravessam a fronteira; uma estranha, NÃO.
+  it('mantém `origem` e `pedido_id` e descarta uma coluna estranha (`justificativa`)', async () => {
+    rpcMock.mockResolvedValue({
+      data: [
+        linhaRpc({
+          origem: 'automatica',
+          pedido_id: '77777777-7777-4777-8777-777777777777',
+          justificativa: 'texto interno do recrutador',
+        }),
+      ],
+      error: null,
+    })
+    const linhas = await listarFilaRevisoes({ incluirRespondidos: false })
+    expect(linhas[0].origem).toBe('automatica')
+    expect(linhas[0].pedido_id).toBe('77777777-7777-4777-8777-777777777777')
+    expect(linhas[0]).not.toHaveProperty('justificativa')
+    expect(JSON.stringify(linhas)).not.toContain('texto interno do recrutador')
   })
 
   it('a ordem devolvida é a do servidor — o serviço não reordena', async () => {
@@ -436,12 +461,15 @@ describe('lerConfigSlaRevisao — config ausente é faixa degenerada, NUNCA erro
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const CANDIDATURA = '55555555-5555-4555-8555-555555555555'
+const PEDIDO = '88888888-8888-4888-8888-888888888888'
 const JUSTIFICATIVA = 'Reexaminamos a avaliação comportamental e a decisão segue válida.'
 
 describe('responderRevisao — o único write-path da resposta (REVISAO-03)', () => {
   it('chama `responder_revisao_decisao` com os TRÊS parâmetros nomeados do servidor', async () => {
     rpcMock.mockResolvedValue({ data: {}, error: null })
     await responderRevisao({
+      origem: 'humana',
+      pedidoId: PEDIDO,
       candidaturaId: CANDIDATURA,
       veredito: 'mantida',
       justificativa: JUSTIFICATIVA,
@@ -456,6 +484,8 @@ describe('responderRevisao — o único write-path da resposta (REVISAO-03)', ()
   it('repassa `revertida` sem tradução — o vocabulário do cliente é o do banco', async () => {
     rpcMock.mockResolvedValue({ data: {}, error: null })
     await responderRevisao({
+      origem: 'humana',
+      pedidoId: PEDIDO,
       candidaturaId: CANDIDATURA,
       veredito: 'revertida',
       justificativa: JUSTIFICATIVA,
@@ -466,6 +496,8 @@ describe('responderRevisao — o único write-path da resposta (REVISAO-03)', ()
   it('NÃO usa `from()` — nenhuma escrita por PostgREST nesta operação', async () => {
     rpcMock.mockResolvedValue({ data: {}, error: null })
     await responderRevisao({
+      origem: 'humana',
+      pedidoId: PEDIDO,
       candidaturaId: CANDIDATURA,
       veredito: 'mantida',
       justificativa: JUSTIFICATIVA,
@@ -482,6 +514,8 @@ describe('responderRevisao — o único write-path da resposta (REVISAO-03)', ()
     })
     await expect(
       responderRevisao({
+        origem: 'humana',
+        pedidoId: PEDIDO,
         candidaturaId: CANDIDATURA,
         veredito: 'mantida',
         justificativa: JUSTIFICATIVA,
@@ -496,6 +530,8 @@ describe('responderRevisao — o único write-path da resposta (REVISAO-03)', ()
     })
     await expect(
       responderRevisao({
+        origem: 'humana',
+        pedidoId: PEDIDO,
         candidaturaId: CANDIDATURA,
         veredito: 'mantida',
         justificativa: JUSTIFICATIVA,
@@ -512,6 +548,8 @@ describe('responderRevisao — o único write-path da resposta (REVISAO-03)', ()
       rpcMock.mockResolvedValue({ data: null, error: { code: '22023', message } })
       await expect(
         responderRevisao({
+          origem: 'humana',
+          pedidoId: PEDIDO,
           candidaturaId: CANDIDATURA,
           veredito: 'mantida',
           justificativa: JUSTIFICATIVA,
@@ -525,6 +563,8 @@ describe('responderRevisao — o único write-path da resposta (REVISAO-03)', ()
     rpcMock.mockResolvedValue({ data: null, error: cru })
     await expect(
       responderRevisao({
+        origem: 'humana',
+        pedidoId: PEDIDO,
         candidaturaId: CANDIDATURA,
         veredito: 'mantida',
         justificativa: JUSTIFICATIVA,
@@ -544,11 +584,113 @@ describe('responderRevisao — o único write-path da resposta (REVISAO-03)', ()
     })
     await expect(
       responderRevisao({
+        origem: 'humana',
+        pedidoId: PEDIDO,
         candidaturaId: CANDIDATURA,
         veredito: 'mantida',
         justificativa: JUSTIFICATIVA,
       }),
     ).rejects.toBeInstanceOf(RevisaoError)
     expect(rpcMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Plano 51-14 Task 1 (JORN-42, D-10, T-51-57) — a resposta vai pela RPC DA ORIGEM.
+//
+// `humana` (decisão final) segue em `responder_revisao_decisao(p_candidatura_id, …)`, o
+// contrato de hoje. As origens novas (`humana_triagem` = rejeição pelo RH em qualquer etapa,
+// `automatica` = knockout) vão para `responder_revisao_rejeicao(p_pedido_id, …)` (51-08):
+// uma candidatura pode ter DOIS pedidos (C-12), então a chave é o pedido, não a candidatura.
+// Nenhuma decisão de autorização no cliente: a RPC é chamada também no caminho que falha.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('responderRevisao — roteia pela origem do pedido (51-14)', () => {
+  for (const origem of ['automatica', 'humana_triagem'] as const) {
+    it(`origem \`${origem}\` → \`responder_revisao_rejeicao\` com \`p_pedido_id\`, nunca a RPC da decisão final`, async () => {
+      rpcMock.mockResolvedValue({ data: {}, error: null })
+      await responderRevisao({
+        origem,
+        pedidoId: PEDIDO,
+        candidaturaId: CANDIDATURA,
+        veredito: 'revertida',
+        justificativa: JUSTIFICATIVA,
+      })
+      expect(rpcMock).toHaveBeenCalledTimes(1)
+      expect(rpcMock).toHaveBeenCalledWith('responder_revisao_rejeicao', {
+        p_pedido_id: PEDIDO,
+        p_veredito: 'revertida',
+        p_justificativa: JUSTIFICATIVA,
+      })
+      expect(rpcMock).not.toHaveBeenCalledWith('responder_revisao_decisao', expect.anything())
+    })
+  }
+
+  it('origem `humana` → `responder_revisao_decisao` com `p_candidatura_id` (contrato de hoje, intocado)', async () => {
+    rpcMock.mockResolvedValue({ data: {}, error: null })
+    await responderRevisao({
+      origem: 'humana',
+      pedidoId: PEDIDO,
+      candidaturaId: CANDIDATURA,
+      veredito: 'mantida',
+      justificativa: JUSTIFICATIVA,
+    })
+    expect(rpcMock).toHaveBeenCalledTimes(1)
+    expect(rpcMock).toHaveBeenCalledWith('responder_revisao_decisao', {
+      p_candidatura_id: CANDIDATURA,
+      p_veredito: 'mantida',
+      p_justificativa: JUSTIFICATIVA,
+    })
+  })
+
+  it('o guard REVISAO-05 da rejeição pelo RH (mensagem com «decisor») → `GUARD_DECISOR`', async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        code: '42501',
+        message: 'quem rejeitou a candidatura nao pode responder a revisao dela (decisor)',
+      },
+    })
+    await expect(
+      responderRevisao({
+        origem: 'humana_triagem',
+        pedidoId: PEDIDO,
+        candidaturaId: CANDIDATURA,
+        veredito: 'mantida',
+        justificativa: JUSTIFICATIVA,
+      }),
+    ).rejects.toMatchObject({ code: 'GUARD_DECISOR' })
+    // A RPC foi chamada: a recusa é do servidor, nunca do cliente.
+    expect(rpcMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('pedido inexistente (P0002 da RPC nova) → `VALIDACAO`', async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { code: 'P0002', message: 'pedido de revisao inexistente' },
+    })
+    await expect(
+      responderRevisao({
+        origem: 'automatica',
+        pedidoId: PEDIDO,
+        candidaturaId: CANDIDATURA,
+        veredito: 'mantida',
+        justificativa: JUSTIFICATIVA,
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDACAO' })
+  })
+
+  it('NÃO usa `from()` em nenhuma das duas rotas', async () => {
+    rpcMock.mockResolvedValue({ data: {}, error: null })
+    for (const origem of ['humana', 'humana_triagem', 'automatica'] as const) {
+      await responderRevisao({
+        origem,
+        pedidoId: PEDIDO,
+        candidaturaId: CANDIDATURA,
+        veredito: 'mantida',
+        justificativa: JUSTIFICATIVA,
+      })
+    }
+    expect(fromMock).not.toHaveBeenCalled()
   })
 })

@@ -57,7 +57,10 @@ let queryClient: QueryClient
 const wrapper = ({ children }: { children: ReactNode }) =>
   createElement(QueryClientProvider, { client: queryClient }, children)
 
+// 51-14: as vars ganharam `origem` e `pedidoId` (a RPC é escolhida pela origem do pedido).
 const VARS = {
+  origem: 'humana' as const,
+  pedidoId: '66666666-6666-4666-8666-666666666666',
   candidaturaId: '55555555-5555-4555-8555-555555555555',
   veredito: 'mantida' as const,
   justificativa: 'Reexaminamos a avaliação comportamental e a decisão segue válida.',

@@ -20,6 +20,15 @@
  *    outras células, porque as duas coisas são diferentes: travessão é "não há valor",
  *    "Não identificado" é "há um autor e não conseguimos nomeá-lo".
  *  · A justificativa INTERNA do recrutador (fica fora da allowlist do serviço).
+ *
+ * ── AS TRÊS ORIGENS (51-14 · JORN-42 · D-10 · D-12 · D-33 · C-12) ─────────────────
+ * A fila junta a decisão final, a rejeição pelo RH em qualquer etapa e o knockout. Cada linha
+ * leva um SELO de origem (`OrigemRevisaoBadge`, vocabulário fechado — nenhum diz «triagem»,
+ * D-33) na célula da decisão original, e é identificada pelo `pedido_id`: uma candidatura pode
+ * ter dois pedidos (C-12), então `candidatura_id` como chave React repetiria. O SLA interno é o
+ * MESMO para as três (`revisao_art20`, sobre `revisao_solicitada_em`, nunca exibido ao
+ * candidato). No knockout não há autor: a célula diz «Automático (knockout)» — e não «Não
+ * identificado», que continua significando «há um autor e não o nomeamos».
  *  · A mensagem crua do transporte: o estado de erro sai do `AsyncState` com copy própria.
  *
  * ── O ACOMPANHAMENTO É INTERNO (invariante 1) ─────────────────────────────────────
@@ -48,6 +57,7 @@ import { useConfigSlaRevisao } from '../hooks/useConfigSlaRevisao'
 import { diasEmEspera } from '../constants/slaRevisao'
 import type { FilaRevisaoRow } from '../services/revisaoService'
 import { ResponderRevisaoDialog } from './ResponderRevisaoDialog'
+import { OrigemRevisaoBadge } from './OrigemRevisaoBadge'
 import { RevisaoSlaBadge } from './RevisaoSlaBadge'
 import { VereditoBadge } from './VereditoBadge'
 
@@ -86,6 +96,11 @@ const FILA_COPY = {
     generic: 'Verifique sua conexão e tente novamente.',
   },
   naoIdentificado: 'Não identificado',
+  /**
+   * 51-14 (D-12): o autor de um knockout. Não há pessoa a nomear — a regra do formulário
+   * eliminou —, então NÃO é «Não identificado» (que afirma um autor sem nome).
+   */
+  autorKnockout: 'Automático (knockout)',
   semValor: '—',
   acao: {
     responder: 'Responder',
@@ -122,6 +137,15 @@ function formatarData(iso: string): string {
     month: '2-digit',
     year: 'numeric',
   })
+}
+
+/**
+ * Quem decidiu, por origem (51-14, D-12): o knockout não tem autor; nas outras, um nome nulo
+ * é um autor sem correspondência em `usuarios_rh` (invariante 4).
+ */
+function rotularAutor(linha: FilaRevisaoRow): string {
+  if (linha.origem === 'automatica') return FILA_COPY.autorKnockout
+  return linha.decidido_por_nome ?? FILA_COPY.naoIdentificado
 }
 
 /** Traduz a decisão original; um valor desconhecido cai no valor cru, nunca em branco. */
@@ -243,7 +267,8 @@ export function FilaRevisoesTable({ incluirRespondidos }: FilaRevisoesTableProps
 
                 return (
                   <TableRow
-                    key={linha.candidatura_id}
+                    // C-12: o PEDIDO é a identidade da linha — uma candidatura pode ter dois.
+                    key={linha.pedido_id}
                     className="border-white/10 hover:bg-white/5"
                   >
                     <TableCell
@@ -259,10 +284,15 @@ export function FilaRevisoesTable({ incluirRespondidos }: FilaRevisoesTableProps
                       {linha.vaga_titulo ?? FILA_COPY.semValor}
                     </TableCell>
                     <TableCell className="text-white/80">
-                      {rotularDecisao(linha.decisao)}
+                      {/* D-12/D-33: o selo de origem mora com a decisão original — é de onde
+                          ela veio. Origem fora do vocabulário → só a decisão, sem selo. */}
+                      <div className="flex flex-col items-start gap-1">
+                        <span>{rotularDecisao(linha.decisao)}</span>
+                        <OrigemRevisaoBadge origem={linha.origem} />
+                      </div>
                     </TableCell>
                     <TableCell className={cn(CELULA_TRUNCADA, 'text-white/80')}>
-                      {linha.decidido_por_nome ?? FILA_COPY.naoIdentificado}
+                      {rotularAutor(linha)}
                     </TableCell>
                     <TableCell className="text-white/80">
                       {respondida ? (

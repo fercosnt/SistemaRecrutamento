@@ -43,6 +43,7 @@ import { RevisaoError, type FilaRevisaoRow } from '../../services/revisaoService
 import { JUSTIFICATIVA_MAX } from '../../schemas/responderRevisaoSchema'
 
 const CANDIDATURA = '55555555-5555-4555-8555-555555555555'
+const PEDIDO = '66666666-6666-4666-8666-666666666666'
 
 function linha(over: Partial<FilaRevisaoRow> = {}): FilaRevisaoRow {
   return {
@@ -57,6 +58,9 @@ function linha(over: Partial<FilaRevisaoRow> = {}): FilaRevisaoRow {
     revisao_resultado: null,
     respondida_por_nome: null,
     pode_responder: true,
+    // 51-14: a origem e o id do pedido (a fila tem três origens; C-12).
+    origem: 'humana',
+    pedido_id: PEDIDO,
     ...over,
   }
 }
@@ -278,7 +282,7 @@ describe('ResponderRevisaoDialog — a confirmação aninhada ramifica por vered
     expect(corpo()).not.toContain(generico)
   })
 
-  it('confirmar → `mutate` com as três variáveis, a justificativa já sem espaços de borda', () => {
+  it('confirmar → `mutate` com as variáveis do pedido (origem, id, candidatura, veredito, justificativa sem espaços de borda)', () => {
     renderDialog()
     escolherVeredito('Reverter a decisão (reabrir a candidatura)')
     digitar(`  ${TEXTO_VALIDO}  `)
@@ -290,6 +294,8 @@ describe('ResponderRevisaoDialog — a confirmação aninhada ramifica por vered
     )
     expect(mutateMock).toHaveBeenCalledTimes(1)
     expect(mutateMock.mock.calls[0][0]).toEqual({
+      origem: 'humana',
+      pedidoId: PEDIDO,
       candidaturaId: CANDIDATURA,
       veredito: 'revertida',
       justificativa: TEXTO_VALIDO,
