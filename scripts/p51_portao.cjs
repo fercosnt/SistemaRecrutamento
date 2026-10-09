@@ -36,12 +36,12 @@
  *       <pin> -- . ':!.planning'` — o código do pin é o código revisado.
  *   A revisão é conferida ANTES do pin: sem revisão, todo modo recusa por ela, com ou sem `--pin`.
  *
- *   modo     | (1)(2)(3) revisão | (4-revisao) | (4) pin                         | (5) pin = revisado | (6) plano | (7) árvore
- *   ---------+-------------------+-------------+---------------------------------+--------------------+-----------+-----------
- *   revisao  | sim               | sim         | `--pin` é recusado              | —                  | sim       | sim
- *   apply    | sim               | —           | obrigatório; HEAD = pin         | sim                | sim       | sim
- *   deploy   | sim               | —           | obrigatório; só .planning/ após | sim                | sim       | sim
- *   push     | sim               | —           | obrigatório; só .planning/ após | sim                | sim       | sim
+ *   modo     | (1)(2)(3) revisão | (4-revisao) | (4) pin                         | (5) pin = revisado | (6) plano | (7) árvore | (8) ledger
+ *   ---------+-------------------+-------------+---------------------------------+--------------------+-----------+------------+-----------
+ *   revisao  | sim               | sim         | `--pin` é recusado              | —                  | sim       | sim        | —
+ *   apply    | sim               | —           | obrigatório; HEAD = pin         | sim                | sim       | sim        | —
+ *   deploy   | sim               | —           | obrigatório; só .planning/ após | sim                | sim       | sim        | sim
+ *   push     | sim               | —           | obrigatório; só .planning/ após | sim                | sim       | sim        | sim
  *   (6) o `--plano` (o programa que escreve em PROD) existia no `reviewed_head`, não mudou entre ele e
  *       HEAD e não está modificado na árvore — a revisão cobre o plano que vai rodar.
  *   (7) árvore limpa (rastreados, staged e não rastreados) nos caminhos que vão a PROD:
@@ -49,6 +49,14 @@
  *       (`efdeploy.cjs` e `p46apply.cjs` leem do disco: árvore suja publicaria o que não foi revisado).
  *       Arquivos sujos de outras sessões FORA dessa lista (docs/specs, docs/vagas, AGENTS.md,
  *       .planning/) não recusam — o auto-teste prova isso.
+ *   (8) SÓ deploy/push (WR-01 do 51-REVIEW-PORTAO-1): toda migration `supabase/migrations/<versão>_p51_*.sql`
+ *       da árvore do PIN (por forma, nunca lista literal; conjunto vazio recusa) está no ledger de PROD com
+ *       `md5(statements[1])` = md5 do arquivo no pin — leitura SÓ LEITURA por `node p46apply.cjs sql`, no
+ *       mesmo comando. Falta → `MIGRATION FORA DO LEDGER DE PROD`; md5 diferente → `LEDGER DIVERGE DO PIN`;
+ *       leitura que falha → `LEDGER ILEGIVEL (fail-closed)`. É a trava de ORDEM do D-55 (migration → EF →
+ *       cliente) por máquina: o pin nasce antes do apply, e sem (8) um Task 2 parado no meio passava o
+ *       deploy e o push. `apply` e `revisao` não leem o ledger (o apply é o que o escreve).
+ *       OK de deploy/push acrescenta ` ledger=[<versões conferidas>]` à linha `PORTAO OK`.
  *
  * POR QUE PROGRAMA, E NÃO LINHA DE SHELL: as cadeias da Phase 50 (WR-02, WR-03, WR-06) foram
  * reescritas e re-revisadas três vezes nas rodadas do 50-REVIEW-TRACER-1..3, e cada plano que as
@@ -56,8 +64,9 @@
  * repositório temporário, o caso OK de cada modo e CADA recusa com o motivo esperado.
  *
  * O QUE ESTE PROGRAMA NUNCA FAZ: escrever no repositório real, aplicar migration, publicar Edge
- * Function, empurrar. Só lê git (`--no-optional-locks`: nem o `status` reescreve o índice). O
- * `--auto-teste` escreve só no diretório que ele mesmo cria com `fs.mkdtempSync(os.tmpdir())`, com
+ * Function, empurrar. Só lê git (`--no-optional-locks`: nem o `status` reescreve o índice) e, nos
+ * modos deploy/push, o ledger de PROD em transação `read only` (8). O `--auto-teste` nunca usa a rede
+ * (o ledger dele é um dublê) e escreve só no diretório que ele mesmo cria com `fs.mkdtempSync(os.tmpdir())`, com
  * as variáveis `GIT_*` do ambiente removidas e a configuração global/sistema desligada, confere que
  * cada repositório de caso é a raiz de si mesmo antes de usá-lo, e apaga o diretório no fim
  * (inclusive em falha).
@@ -66,6 +75,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { execFileSync, spawnSync } = require('child_process');
 
 const MODOS = ['revisao', 'apply', 'deploy', 'push'];
@@ -103,7 +113,7 @@ function gitEm(cwd, env) {
   return g;
 }
 
-function verificar(o, cwd, env) {
+function verificar(o, cwd, env, deps) {
   /* (0) parâmetros */
   if (!MODOS.includes(o.modo)) recusar(`MODO INVALIDO: ${o.modo} (aceitos: ${MODOS.join('|')})`);
   for (const k of ['revisao', 'base', 'plano']) if (!o[k]) recusar(`SEM PARAMETRO: --${k}`);
@@ -239,12 +249,87 @@ function verificar(o, cwd, env) {
   }
   if (sujo) recusar(`ARVORE SUJA: ${sujo.split('\n').join(' | ')}`);
 
-  return `PORTAO OK: revisao=${arq} reviewed_head=${rh} pin=${pin || '-'} modo=${o.modo}`;
+  /* (8) deploy/push: toda migration p51 do PIN está no ledger de PROD com md5 = arquivo do pin (WR-01) */
+  let ledgerOk = '';
+  if (o.modo === 'deploy' || o.modo === 'push') ledgerOk = ` ledger=[${conferirLedger(G, pin, top, env, deps).join(',')}]`;
+
+  return `PORTAO OK: revisao=${arq} reviewed_head=${rh} pin=${pin || '-'} modo=${o.modo}${ledgerOk}`;
 }
 
-function checar(o, cwd, env) {
+/*
+ * (8) WR-01 do 51-REVIEW-PORTAO-1 — a trava de ORDEM do D-55 (migration → EF → cliente) por máquina.
+ * Até aqui ela existia só em prosa: o pin nasce ANTES do apply, então um Task 2 parado no meio (0003
+ * recusada por 55P03 com 0002 no ar) ou uma sessão retomada que pulasse para o Task 3 passava todos os
+ * portões, e o deploy de `exportar-meus-dados` (allowlist 1.5.0) ou o push do cliente iam ao ar sobre um
+ * banco sem `revisao_rejeicao`.
+ *
+ * O conjunto conferido é lido POR FORMA da árvore do PIN — todo `supabase/migrations/<14 dígitos>_p51_*.sql`
+ * —, nunca de uma lista literal: a migration nova (a do D-23, 51-16) entra na vigilância por existir no
+ * pin. Conjunto vazio = RECUSA (vacuidade não é prova). Cada uma tem de estar no ledger de PROD
+ * (`supabase_migrations.schema_migrations`) com `md5(statements[1])` = md5 do arquivo NO PIN, byte a
+ * byte (`git show <pin>:<arquivo>`; o p46apply grava o arquivo lido do disco, e o (4)/(5) já provaram
+ * disco = pin = revisado). A leitura do ledger é SÓ LEITURA (`set transaction read only`) pela via do
+ * projeto (`node p46apply.cjs sql`), no MESMO comando do deploy/push. Ledger ilegível = RECUSA
+ * (fail-closed). `deps.lerLedger(versoes)` substitui a leitura no auto-teste — nunca há rede nele.
+ */
+const RE_MIG_P51 = /^supabase\/migrations\/([0-9]{14})_p51_[a-z0-9_]+\.sql$/;
+
+function lerLedgerProd(top, env, versoes) {
+  const apply = path.join(top, 'p46apply.cjs');
+  if (!fs.existsSync(apply)) throw new Error(`p46apply.cjs ausente em ${top}`);
+  const vs = versoes.map((v) => `'${v}'`).join(',');
+  const q =
+    'set transaction read only; select coalesce((select json_object_agg(version, md5(statements[1])) ' +
+    `from supabase_migrations.schema_migrations where version in (${vs})), '{}'::json) as ledger`;
+  const s = execFileSync('node', [apply, 'sql', q], { cwd: top, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 });
+  const linhas = JSON.parse(s.slice(s.indexOf('[')));
+  const l = linhas && linhas[0] && linhas[0].ledger;
+  if (!l || typeof l !== 'object' || Array.isArray(l)) throw new Error('resposta sem o objeto ledger');
+  return l;
+}
+
+function conferirLedger(G, pin, top, env, deps) {
+  let arqs;
   try {
-    return { ok: true, linha: verificar(o, cwd, env || process.env) };
+    arqs = G('ls-tree', '-r', '--name-only', pin, '--', 'supabase/migrations').split('\n').filter((f) => RE_MIG_P51.test(f));
+  } catch {
+    recusar(`LEDGER: nao consegui listar supabase/migrations no pin ${pin.slice(0, 8)}`);
+  }
+  if (!arqs.length) recusar(`LEDGER: nenhuma migration p51 (supabase/migrations/<versao>_p51_*.sql) no pin ${pin.slice(0, 8)} — conjunto vazio nao prova a ordem do D-55`);
+  const esperado = {};
+  for (const f of arqs.sort()) {
+    const v = f.match(RE_MIG_P51)[1];
+    if (esperado[v]) recusar(`LEDGER: versao ${v} repetida no pin (${esperado[v].arq} e ${f})`);
+    let buf;
+    try {
+      buf = execFileSync('git', ['--no-optional-locks', 'show', `${pin}:${f}`], { cwd: top, env, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
+    } catch {
+      recusar(`LEDGER: nao consegui ler ${f} no pin ${pin.slice(0, 8)}`);
+    }
+    esperado[v] = { arq: f, md5: crypto.createHash('md5').update(buf).digest('hex') };
+  }
+  const versoes = Object.keys(esperado).sort();
+  let vivo;
+  try {
+    vivo = (deps && deps.lerLedger ? deps.lerLedger : (vs) => lerLedgerProd(top, env, vs))(versoes);
+  } catch (e) {
+    recusar(`LEDGER ILEGIVEL (fail-closed): ${String(e && e.message).split('\n')[0]}`);
+  }
+  if (!vivo || typeof vivo !== 'object') recusar('LEDGER ILEGIVEL (fail-closed): resposta sem objeto');
+  const faltam = versoes.filter((v) => !vivo[v]);
+  if (faltam.length) {
+    recusar(`MIGRATION FORA DO LEDGER DE PROD: ${faltam.map((v) => `${v} (${path.posix.basename(esperado[v].arq)})`).join(', ')} — deploy/push so depois do apply de TODA migration p51 do pin (D-55: migration -> EF -> cliente)`);
+  }
+  const div = versoes.filter((v) => vivo[v] !== esperado[v].md5);
+  if (div.length) {
+    recusar(`LEDGER DIVERGE DO PIN: ${div.map((v) => `${v} ledger=${vivo[v]} pin=${esperado[v].md5}`).join('; ')} — o que esta em PROD nao e o arquivo do pin`);
+  }
+  return versoes;
+}
+
+function checar(o, cwd, env, deps) {
+  try {
+    return { ok: true, linha: verificar(o, cwd, env || process.env, deps) };
   } catch (e) {
     if (e instanceof Recusa) return { ok: false, motivo: e.message };
     return { ok: false, motivo: `ERRO INESPERADO: ${String(e && e.message).split('\n')[0]}` };
@@ -318,6 +403,7 @@ function novoRepo(raiz, nome, env) {
 function basico(r, c = {}) {
   r.escrever('src/a.js', '1\n');
   r.escrever('supabase/m.sql', 'select 1;\n');
+  if (!c.semMigracaoP51) r.escrever(MIG_P51, '-- migration p51 de teste\nselect 1;\n');
   r.escrever(PLANO, 'plano\n');
   r.escrever('docs/specs/x.md', 'x\n');
   const c0 = r.commit('c0 base');
@@ -331,6 +417,32 @@ function basico(r, c = {}) {
 }
 
 const PIN_REF = 'refs/gsd/t/pin';
+const MIG_P51 = 'supabase/migrations/20261008000002_p51_teste.sql';
+
+/* (8) O ledger «verdadeiro» do dublê: md5 de cada migration p51 da árvore do pin (o que um apply correto
+ * teria gravado). Cada caso pode deformá-lo (`ledger: (verdade) => …`) ou trocar o leitor inteiro. */
+function ledgerDoPin(r) {
+  const pin = r.git('rev-parse', PIN_REF);
+  const verdade = {};
+  for (const f of r.git('ls-tree', '-r', '--name-only', pin, '--', 'supabase/migrations').split('\n')) {
+    const m = f.match(RE_MIG_P51);
+    if (!m) continue;
+    const buf = execFileSync('git', ['show', `${pin}:${f}`], { cwd: r.dir, env: envIsolado(), stdio: ['ignore', 'pipe', 'pipe'] });
+    verdade[m[1]] = crypto.createHash('md5').update(buf).digest('hex');
+  }
+  return verdade;
+}
+function dubleLedger(r, deformar) {
+  return {
+    lerLedger: (versoes) => {
+      const v = (deformar || ((x) => x))({ ...ledgerDoPin(r) });
+      const out = {};
+      for (const k of versoes) if (v[k]) out[k] = v[k];
+      return out;
+    },
+  };
+}
+const NUNCA_LER = { lerLedger: () => { throw new Error('o ledger NAO devia ser lido neste modo'); } };
 function fixarPin(r, sha) {
   r.git('update-ref', PIN_REF, sha);
 }
@@ -806,6 +918,78 @@ const CASOS = [
     },
     espera: rec(/^ARVORE SUJA: .*efdeploy\.cjs/),
   },
+  /* ---- (8) ledger de PROD nos modos deploy/push (WR-01 do 51-REVIEW-PORTAO-1) ---- */
+  {
+    nome: 'deploy: toda migration p51 do pin no ledger com md5 = arquivo do pin',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      return { o: { modo: 'deploy', pin: PIN_REF }, deps: dubleLedger(r) };
+    },
+    espera: OK,
+  },
+  {
+    nome: 'recusa: deploy com migration p51 do pin FORA do ledger (Task 2 parado no meio)',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      return { o: { modo: 'deploy', pin: PIN_REF }, deps: dubleLedger(r, () => ({})) };
+    },
+    espera: rec(/^MIGRATION FORA DO LEDGER DE PROD: 20261008000002 \(20261008000002_p51_teste\.sql\)/),
+  },
+  {
+    nome: 'recusa: push com migration NOVA no pin (por forma) ainda fora do ledger',
+    montar: (r) => {
+      const { c0 } = basico(r, { semRevisao: true });
+      r.escrever('supabase/migrations/20261008000005_p51_nova.sql', 'select 5;\n');
+      const c1b = r.commit('feat: migration nova');
+      r.revisao(1, { diff_base: c0, reviewed_head: c1b, critical: 0 });
+      fixarPin(r, r.commit('revisao 1'));
+      return { o: { modo: 'push', pin: PIN_REF }, deps: dubleLedger(r, (v) => (delete v['20261008000005'], v)) };
+    },
+    espera: rec(/^MIGRATION FORA DO LEDGER DE PROD: 20261008000005 \(20261008000005_p51_nova\.sql\) — /),
+  },
+  {
+    nome: 'recusa: push com md5 do ledger diferente do arquivo do pin',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      return { o: { modo: 'push', pin: PIN_REF }, deps: dubleLedger(r, (v) => ({ ...v, 20261008000002: '0'.repeat(32) })) };
+    },
+    espera: rec(/^LEDGER DIVERGE DO PIN: 20261008000002 ledger=0{32} pin=[0-9a-f]{32}/),
+  },
+  {
+    nome: 'recusa: deploy com ledger ilegivel (fail-closed)',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      return { o: { modo: 'deploy', pin: PIN_REF }, deps: { lerLedger: () => { throw new Error('HTTP 503'); } } };
+    },
+    espera: rec(/^LEDGER ILEGIVEL \(fail-closed\): HTTP 503/),
+  },
+  {
+    nome: 'recusa: push sem nenhuma migration p51 no pin (vacuidade nao prova)',
+    montar: (r) => {
+      const { c2 } = basico(r, { semMigracaoP51: true });
+      fixarPin(r, c2);
+      return { o: { modo: 'push', pin: PIN_REF }, deps: dubleLedger(r) };
+    },
+    espera: rec(/^LEDGER: nenhuma migration p51 /),
+  },
+  {
+    nome: 'apply: o ledger NAO e lido (o apply e quem o escreve)',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      return { o: { modo: 'apply', pin: PIN_REF }, deps: NUNCA_LER };
+    },
+    espera: OK,
+  },
+  {
+    nome: 'revisao: o ledger NAO e lido',
+    montar: (r) => (basico(r), { deps: NUNCA_LER }),
+    espera: OK,
+  },
 ];
 
 /* Casos de ponta a ponta: o programa como processo (argumentos, saída e código de saída). */
@@ -836,6 +1020,17 @@ const CASOS_CLI = [
     saida: /^PORTAO OK: revisao=\.planning\/f\/F-REVIEW-PORTAO-1\.md reviewed_head=[0-9a-f]{40} pin=[0-9a-f]{40} modo=apply$/m,
   },
   {
+    nome: 'cli: deploy sem p46apply.cjs no repositorio — LEDGER ILEGIVEL e saida 1 (fail-closed, sem rede)',
+    montar: (r) => {
+      const { c2 } = basico(r);
+      fixarPin(r, c2);
+      return {};
+    },
+    args: ['--revisao', REV, '--base', BASE_REF, '--pin', PIN_REF, '--plano', PLANO, '--modo', 'deploy'],
+    status: 1,
+    saida: /^PORTAO RECUSADO: LEDGER ILEGIVEL \(fail-closed\): p46apply\.cjs ausente em /m,
+  },
+  {
     nome: 'cli: opcao desconhecida recusa com saida 1',
     montar: (r) => (basico(r), {}),
     args: ['--revisao', REV, '--base', BASE_REF, '--plano', PLANO, '--modo', 'revisao', '--forcar', 'sim'],
@@ -857,7 +1052,9 @@ function autoTeste() {
         const r = novoRepo(raiz, `caso-${String(i + 1).padStart(2, '0')}`, env);
         const m = c.montar(r) || {};
         const o = { ...OPT, ...(m.o || {}) };
-        obtido = checar(o, m.cwd || r.dir, env);
+        // Sem dublê declarado, deploy/push leem o ledger «verdadeiro» do pin — nunca a rede.
+        const deps = m.deps || (o.modo === 'deploy' || o.modo === 'push' ? dubleLedger(r) : NUNCA_LER);
+        obtido = checar(o, m.cwd || r.dir, env, deps);
       } catch (e) {
         obtido = { ok: false, motivo: `MONTAGEM FALHOU: ${String(e && e.message).split('\n')[0]}` };
       }
@@ -938,4 +1135,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { checar, MODOS };
+module.exports = { checar, MODOS, lerLedgerProd, RE_MIG_P51 };
