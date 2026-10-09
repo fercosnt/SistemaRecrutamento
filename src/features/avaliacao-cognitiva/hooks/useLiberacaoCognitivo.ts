@@ -1,5 +1,5 @@
 /**
- * Liberação nominal da avaliação de raciocínio (Raven) — lado RH.
+ * Liberação nominal do Raciocínio lógico (Matrizes) — o Raven — lado RH.
  *
  * A escrita passa pelas RPCs `liberar_cognitivo`/`revogar_cognitivo` porque
  * `cognitivo_liberacao` NÃO tem policy de INSERT/UPDATE: uma policy de escrita
@@ -85,7 +85,7 @@ export function useLiberarCognitivo(candidaturaId: string) {
       if (error) throw error
     },
     onSuccess: () => {
-      toast.success('Avaliação de raciocínio liberada para este candidato.')
+      toast.success('Raciocínio lógico (Matrizes) liberado para este candidato.')
       void qc.invalidateQueries({ queryKey: ['cognitivo', 'liberacao-rh', candidaturaId] })
     },
     onError: (e: { code?: string; message?: string }) => {

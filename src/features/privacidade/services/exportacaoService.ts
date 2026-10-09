@@ -209,8 +209,11 @@ export const COPY_ARQUIVO = {
     avaliacoes_rh: 'Avaliações feitas pela equipe de recrutamento',
     candidate_ai_decisions: 'Resultado e explicação da avaliação automatizada',
     // G5 (44-11, allowlist 1.4.0): as duas tabelas que entraram em escopo.
-    cognitivo_liberacao: 'Liberação da avaliação cognitiva',
-    cognitivo_respostas: 'Suas respostas na avaliação cognitiva',
+    // 51-04 (D-15): `cognitivo_liberacao` é a liberação do RAVEN («Raciocínio lógico
+    // (Matrizes)»); `cognitivo_respostas` são as respostas do instrumento TEXTUAL («prova
+    // cognitiva»). As chaves (nomes de tabela) não mudam.
+    cognitivo_liberacao: 'Liberação do Raciocínio lógico (Matrizes)',
+    cognitivo_respostas: 'Suas respostas na prova cognitiva',
     decisao_final: 'Decisão final de cada candidatura',
     decisao_final_historico: 'Histórico das decisões finais',
     devolutivas_candidato: 'Devolutivas enviadas a você',
@@ -227,12 +230,12 @@ export const COPY_ARQUIVO = {
     respostas_cultura: 'Suas respostas sobre cultura',
     respostas_disc: 'Suas respostas no questionário de perfil comportamental',
     respostas_formulario: 'Suas respostas no formulário',
-    respostas_raven: 'Suas respostas na avaliação de raciocínio',
+    respostas_raven: 'Suas respostas no Raciocínio lógico (Matrizes)',
     retencao_hold: 'Conservação dos seus dados além do prazo',
     scores_bigfive: 'Resultados da avaliação comportamental',
     scores_candidato: 'Resultados das suas respostas',
     scores_disc: 'Resultados do perfil comportamental',
-    scores_raven: 'Resultados da avaliação de raciocínio',
+    scores_raven: 'Resultados do Raciocínio lógico (Matrizes)',
   } as Record<string, string>,
   /**
    * Rótulos só para as colunas cujo nome é técnico ou em inglês. As colunas de
