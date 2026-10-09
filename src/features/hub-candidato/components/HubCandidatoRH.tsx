@@ -40,6 +40,7 @@ import {
 } from '@/features/triagem/services/triagemService'
 import { useEntrevistaContexto, useEntrevistaScorecard } from '@/features/entrevista/hooks/useEntrevistaScorecard'
 import { useScorecardCandidato } from '@/features/avaliacao/hooks/useScorecardCandidato'
+import { linhasDeAvaliacao } from '@/features/avaliacao/components/ScorecardAvaliacao'
 import { useRedacaoRevisao } from '@/features/triagem/hooks/useRedacaoRevisao'
 import { useConsolidacao } from '@/features/decisao/hooks/useConsolidacao'
 import { useUpdateCandidaturaEtapa } from '@/features/vagas/hooks/useCandidaturas'
@@ -52,6 +53,10 @@ import { HubSection, type HubSectionEstado } from './HubSection'
 import { CvButton } from './CvButton'
 import { AnaliseIABlock } from './AnaliseIABlock'
 import { HistoricoBlock } from './HistoricoBlock'
+import {
+  AvaliacoesRespondidasBloco,
+  COPY_AVALIACOES_RESPONDIDAS,
+} from './AvaliacoesRespondidasBloco'
 import { AgendamentoBlock } from '@/features/agendamento/components/AgendamentoBlock'
 import { LiberacaoCognitivoBlock } from '@/features/avaliacao-cognitiva/components/LiberacaoCognitivoBlock'
 import { useAnaliseCandidato } from '../hooks/useAnaliseCandidato'
@@ -120,6 +125,9 @@ export function HubCandidatoRH() {
   const analiseQuery = useAnaliseCandidato(candidaturaId) // Análise da IA (VISRH-02 — RH-only)
   const historicoQuery = useHistoricoCandidatura(candidaturaId) // Histórico read-only (VISRH-03)
 
+  // 51-02 / C-8: o N da «Avaliação Assíncrona» conta só `sjt` + `big_five` — a MESMA função que
+  // decide o que o detalhe mostra. `getScores` lê também entrevista e redação.
+  const avaliacoesRespondidas = linhasDeAvaliacao(triagemQuery.data ?? []).length
   const cognitivoScores = (entrevistaQuery.data ?? []).filter((s) => s.tipo === 'cognitivo')
   const entrevistaScores = (entrevistaQuery.data ?? []).filter((s) => s.tipo === 'entrevista')
 
@@ -391,12 +399,18 @@ export function HubCandidatoRH() {
           titulo="Avaliação Assíncrona"
           isLoading={triagemQuery.isLoading}
           isError={triagemQuery.isError}
-          estado={estadoDaSecao('avaliacao_assincrona', etapaAtual, (triagemQuery.data?.length ?? 0) > 0)}
+          estado={estadoDaSecao('avaliacao_assincrona', etapaAtual, avaliacoesRespondidas > 0)}
         >
+          {/* D-18: a frase não promete mais uma revisão sem caminho («disponíveis para revisão»). */}
           <p className="text-sm text-white/80">
-            {triagemQuery.data?.length ?? 0} registro(s) de avaliação comportamental disponíveis para revisão.
+            {COPY_AVALIACOES_RESPONDIDAS.contagem(avaliacoesRespondidas)}
           </p>
         </HubSection>
+
+        {/* 51-02 / JORN-45 (D-17) — «Ver respostas» abre o detalhe AQUI MESMO. Irmão do
+            HubSection, não filho, pelo mesmo motivo do botão IN-04 da Redação: o HubSection só
+            renderiza filhos em `com_dados`, e o caminho tem de existir em qualquer etapa. */}
+        {candidaturaId ? <AvaliacoesRespondidasBloco candidaturaId={candidaturaId} /> : null}
 
         {/* Avaliação Cognitiva — contextual cognitive band (tipo='cognitivo') */}
         <HubSection

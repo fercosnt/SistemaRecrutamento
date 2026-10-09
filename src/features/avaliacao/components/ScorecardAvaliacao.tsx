@@ -333,6 +333,18 @@ function BigFiveBreakdown({ row }: { row: ScoreRow }) {
 }
 
 /**
+ * 51-02 / JORN-45 (C-8) — as linhas que são AVALIAÇÃO RESPONDIDA: `tipo IN ('sjt','big_five')`.
+ *
+ * `getScores` lê TODOS os tipos de `scores_candidato` da candidatura, e em PROD há também
+ * `entrevista` e `redacao`. Sem este filtro, o despacho abaixo mandava essas linhas para
+ * `CasoAbertoBreakdown` (viravam card de «caso aberto»), e o «N» do hub as contava. Uma fonte
+ * só: o hub conta com ESTA função e o detalhe mostra o que ELA devolve.
+ */
+export function linhasDeAvaliacao(rows: ScoreRow[]): ScoreRow[] {
+  return rows.filter((row) => row.tipo === 'sjt' || row.tipo === 'big_five')
+}
+
+/**
  * RH read-only scorecard for the SJT scores of one candidatura. Structured,
  * neutral, AI-as-suggestion (RNF-07a) — never an auto-decision.
  */
@@ -359,7 +371,8 @@ export function ScorecardAvaliacao({
     )
   }
 
-  const rows = data ?? []
+  // C-8: o filtro vem ANTES da checagem de vazio e do despacho — só entrevista/redação = vazio.
+  const rows = linhasDeAvaliacao(data ?? [])
   if (rows.length === 0) {
     return (
       <p className={cn('text-sm text-white/60', className)}>
