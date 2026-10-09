@@ -254,3 +254,9 @@ None.
 ---
 *Phase: 51-consertos-da-jornada-bloco-3*
 *Completed: 2026-10-09*
+
+## Self-Check: PASSED
+
+- FOUND: `scripts/p51_portao.cjs`, `51-09-SUMMARY.md`
+- FOUND (ancestrais de HEAD): `1d02c19f`, `cb1ff727`, `54b0117b`
+- `check evaluation-scope --plan 51-09 --commits-only`: `status: resolved`, 3 commits deste branch

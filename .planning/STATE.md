@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-08-PLAN.md
-last_updated: "2026-10-09T05:16:56.057Z"
+stopped_at: Completed 51-09-PLAN.md
+last_updated: "2026-10-09T05:36:51.866Z"
 last_activity: 2026-10-09
-state_head: 53d74506ad7860efbd398c435836f464fd7e05a7
+state_head: 54b0117b137b8cbcbb11ef177cbd8482e645e85e
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 155
+  completed_plans: 156
   percent: 95
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-08 concluido (tracer do JORN-42, NADA aplicado; JORN-42 segue aberto ate o fim do grupo de banco): migration 20261008000002 (registro proprio public.revisao_rejeicao, RLS sem policy e sem privilegio de tabela; solicitar/estado/responder_revisao_rejeicao; 2 triggers de notificacao) provada em PROD so por ensaio que aborta — smoke51b 12/12 com vistas=igual, RED em (a) sem a migration, mutacoes 20/20 (MA1..MA6 + MB1..MB14), regressao do ciclo decisao_final 9/9; caminho decisao_final byte-identico (md5 8/8); ledger sem 20261008000002. Proximo: 51-09 (mesma onda) / 51-10"
+last_activity_desc: "51-09 concluido (portao do JORN-42 como programa testado, NADA aplicado/publicado/empurrado): scripts/p51_portao.cjs --modo revisao|apply|deploy|push com PORTAO OK / PORTAO RECUSADO: <motivo>; --auto-teste 58 casos em repositorio temporario; 22/22 mutacoes do proprio portao mordem; no repositorio real recusa hoje (SEM REVISAO) — e o que o 51-16 amarra a cada apply, deploy e push. Proximo: 51-10"
 ---
 
 # Project State
@@ -1000,6 +1000,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P06 | 16 min | 3 tasks | 5 files |
 | Phase 51 P07 | 15 min | 3 tasks | 22 files |
 | Phase 51 P08 | 27min | 2 tasks | 3 files |
+| Phase 51 P09 | 16min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -1420,6 +1421,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-07: publicacao na ordem da dependencia — front (card) conferido em PROD antes do deploy de notificar-candidato v18, porque o e-mail novo aponta para o card; notificar-rh e executar-direito-titular nao redeployadas (so importam escapeHtml/layoutBase, inalterados)
 - [Phase 51]: 51-08: mecanismo (b) do JORN-42 executado em ensaio — registro proprio public.revisao_rejeicao (RLS sem policy, sem privilegio de tabela) + solicitar/estado/responder_revisao_rejeicao; caminho decisao_final byte-identico (PRE/POS md5 8/8); migration 20261008000002 NAO aplicada (apply no 51-16)
 - [Phase 51]: 51-08: MB6 redeclarada (f)->(b) (etapa_reabertura gravada no pedido); MB13 (c) e MB14 (g) acrescentadas; portao 20/20; para o 51-16: ASSUMPTION rejeicao RH sem ator -> P0002 (populacao 0), 3 marcas descartada_* dos knockouts de teste, rejeitado_por/respondida_por sem FK para auth.users
+- [Phase 51]: 51-09: portao do JORN-42 e programa testado (scripts/p51_portao.cjs, auto-teste 58 casos, 22/22 mutacoes mordem); a revisao e conferida ANTES do pin; acrescimos fail-closed (plano ausente no reviewed_head, plano sujo, campos de frontmatter repetidos, revisoes anteriores reescritas, --pin no modo revisao)
 
 ### Roadmap Evolution
 
@@ -1754,8 +1756,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T05:16:46.609Z
-Stopped at: Completed 51-08-PLAN.md
+Last session: 2026-10-09T05:36:51.588Z
+Stopped at: Completed 51-09-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
