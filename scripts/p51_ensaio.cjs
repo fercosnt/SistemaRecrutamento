@@ -186,7 +186,14 @@ if (P50.COMPARA.split('P50V FAIL (vistas)').length < 3) {
   throw new Error('p51_ensaio: a comparacao de vistas do p50 mudou de forma (rotulo P50V FAIL (vistas) nao encontrado) — revisar antes de usar');
 }
 
-const RE_SENTINELA = new RegExp(SENTINELA + ' smokes=\\[([^\\]]*)\\](?: fechou=(\\S+))? evidencia=([^"\\\\]*)');
+/* A evidência chega DENTRO de uma string JSON (o corpo do HTTP 400 da Management API), então uma
+ * aspa dupla dela vem escapada (`\"`) e o fim da mensagem é `\n` (CONTEXT) ou a aspa que fecha.
+ * Até o 51-15 a captura parava no primeiro `\` — uma evidência que é ela mesma JSON (a sonda de
+ * catálogo `p51_catalogo_revisao_rejeicao.sql`) saía cortada em `[{`. Agora a captura atravessa
+ * SÓ os pares `\"` e `\\` (e para em `\n`, como antes) e `rodar()` os desescapa. Evidência sem
+ * aspa nem barra — todas as anteriores — sai byte a byte igual. */
+const RE_SENTINELA = new RegExp(SENTINELA + ' smokes=\\[([^\\]]*)\\](?: fechou=(\\S+))? evidencia=((?:[^"\\\\]|\\\\["\\\\])*)');
+const desescapar = (s) => s.replace(/\\(["\\])/g, '$1');
 
 function versao(arq) {
   return path.basename(arq).slice(0, 14);
@@ -373,7 +380,7 @@ function rodar(corpo, rotulo) {
     sentinela: !!m,
     smokes: m ? m[1] : null,
     fechou: m && m[2] && m[2] !== '-' ? m[2] : null,
-    evidencia: m ? m[3].trim() : null,
+    evidencia: m ? desescapar(m[3]).trim() : null,
   };
 }
 
