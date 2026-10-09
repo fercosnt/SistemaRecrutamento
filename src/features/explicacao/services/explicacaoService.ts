@@ -405,6 +405,17 @@ export async function getEstadoRevisaoRejeicao(
 }
 
 /**
+ * WR-03 (51-REVIEW-PORTAO-1): o erro diz que a FUNÇÃO não existe — e só isso. `PGRST202` é o
+ * PostgREST sem a função no schema cache; `42883` (`undefined_function`) é o Postgres quando o
+ * cache ainda a tinha. Nenhum outro código entra: `PGRST203` (ambígua), `42501` (sem
+ * permissão) e erro de rede NÃO são ausência e continuam fail-closed.
+ */
+function rpcAusente(erro: unknown): boolean {
+  const code = objetoSimples(erro) ? erro.code : undefined
+  return code === 'PGRST202' || code === '42883'
+}
+
+/**
  * A explicação montada do estado do pedido (51-12): a razão pela ORIGEM — o texto de quem
  * decidiu continua distinto (D-01) — e os campos do ciclo a partir do PEDIDO.
  * `explicacao_solicitada_em` é carimbo de `decisao_final`, que este caminho não tem.
@@ -448,7 +459,19 @@ export async function getExplicacao(
   // reabertura continuam visíveis depois da revertida (armadilha 3 do RESEARCH), e a
   // rejeição pelo RH depois de uma decisão final em espera ou revertida também ganha
   // explicação e pedido. `null` → o fluxo de antes, intocado.
-  const estado = await getEstadoRevisaoRejeicao(candidaturaId)
+  //
+  // WR-03 do 51-REVIEW-PORTAO-1: a AUSÊNCIA da RPC (migration `20261008000002` fora do ar —
+  // cliente publicado fora de ordem, um desfazer, cache do PostgREST sem ela) também cai no
+  // fluxo de antes, em vez de derrubar a página — a explicação de `decisao_final` não
+  // depende da RPC nova. Só a ausência: todo outro erro segue lançando DATABASE_ERROR
+  // (engolir a falha poderia esconder do titular um pedido que ele fez).
+  let estado: EstadoRevisaoRejeicao | null
+  try {
+    estado = await getEstadoRevisaoRejeicao(candidaturaId)
+  } catch (e) {
+    if (!(e instanceof ExplicacaoServiceError) || !rpcAusente(e.details)) throw e
+    estado = null
+  }
   if (estado) return explicacaoDoEstado(estado)
 
   const { data, error } = await supabase
