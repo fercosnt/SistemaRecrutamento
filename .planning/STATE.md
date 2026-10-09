@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-04-PLAN.md
-last_updated: "2026-10-09T03:50:17.895Z"
+stopped_at: Completed 51-05-PLAN.md
+last_updated: "2026-10-09T04:05:06.392Z"
 last_activity: 2026-10-09
-state_head: 317471c4ea62c95a9b9da573617ba91157d2629e
+state_head: b694199c2fa90b2fb346e22cd092af6e96fed2bf
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 151
-  percent: 92
+  completed_plans: 152
+  percent: 93
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-04 concluido (JORN-47 e JORN-48 seguem abertos pelo gate de ID compartilhado ate o 51-17/51-07): Salvar da avaliacao de entrevista bloqueado com notas vazias depois de trim() e mensagem entrevista-notas-obrigatorias (espelho de salvar_avaliacao_entrevista, conferido nas 2 sobrecargas vivas: RECUSA + DELEGA); toast do Raven e rotulos do export com os nomes do D-15; guarda por forma nomes-instrumentos.grep.test.ts (mordida provada na base e em cca99243); publicado 4676feb6, marcador no chunk lazy EntrevistaWorkspace-BjR0b7D_.js de PROD. Proximo: 51-05"
+last_activity_desc: "51-05 concluido (JORN-49 segue aberto pelo gate de ID compartilhado ate o 51-17): recibo de exclusao troca «endereco» pela lista do motor e ganha a linha «mantem» estado_e_faixa_etaria (LGPD, Art. 16, IV); pii-inventory: estado e faixa_etaria_materializada como preservar_com_ressalva; allowlist sem bump (so proveniencia), VALUES intocados; prova no banco 4 flags true e 2=2=2=2; EFs executar-direito-titular v13 e exportar-meus-dados v7 ACTIVE; publicado da815714, marcador no chunk eager index-ChXz-NQd.js de PROD. ⚠ WINDOWS 89: o recibo promete apagar a disponibilidade e o motor nao apaga (pre-existente, decisao do operador). Proximo: 51-06 (Onda B)"
 ---
 
 # Project State
@@ -996,6 +996,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P02 | 3h (~30 min de trabalho; sessao parada entre tasks) | 2 tasks | 6 files |
 | Phase 51 P03 | 12min | 3 tasks | 11 files |
 | Phase 51 P04 | 18 min | 2 tasks | 6 files |
+| Phase 51 P05 | 10 min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -1410,6 +1411,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-03: o dado vence a configuracao — secao com linha do instrumento mostra o estado de hoje; Ver respostas so some quando a secao MOSTRA Nao se aplica (carregando/erro mantem o bloco)
 - [Phase 51]: 51-04: a sonda da regra viva do servidor classifica por forma (RECUSA | DELEGA | FURO); o wrapper de 3 argumentos de salvar_avaliacao_entrevista delega sem escrita a de 4 com p_notas intacto, e a premissa do D-22 nao mudou (md5 functiondef = pesquisa)
 - [Phase 51]: 51-04: guarda dos nomes do D-15 por conteudo inteiro; Cognitivo so capitalizado (a minuscula e chave tecnica, 31 literais em src/; com flag i reprovaria 17 linhas corretas)
+- [Phase 51]: 51-05: export allowlist sem bump — a reclassificacao de candidatos.estado so muda a proveniencia; conjunto exportado igual (395 colunas)
+- [Phase 51]: 51-05: achado da disponibilidade (recibo promete apagar, motor nao apaga) registrado como WINDOWS 89, nao consertado — decisao do operador (motor ou reclassificacao com base legal)
 
 ### Roadmap Evolution
 
@@ -1744,8 +1747,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T03:50:17.628Z
-Stopped at: Completed 51-04-PLAN.md
+Last session: 2026-10-09T04:05:06.127Z
+Stopped at: Completed 51-05-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
