@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-02-PLAN.md
-last_updated: "2026-10-09T03:14:15.484Z"
+stopped_at: Completed 51-03-PLAN.md
+last_updated: "2026-10-09T03:30:16.248Z"
 last_activity: 2026-10-09
-state_head: e567e589d91494e17db7a6f86f53405d54f98085
+state_head: 9bd476865c97def1fdf17366d2d3ca055abd2ed7
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 149
+  completed_plans: 150
   percent: 91
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-02 concluido (JORN-45, parcial ate o 51-17): Ver respostas no hub abre o ScorecardAvaliacao no lugar (contagem filtrada sjt+big_five), Big Five Concluido/Nao fez, texto integral do caso ao lado das citacoes; mordida provada; publicado 99ba6bf2, marcador no chunk lazy PerfilCandidatoRHPage-BXo3zA4t.js de PROD. Proximo: 51-03"
+last_activity_desc: "51-03 concluido (JORN-48, parcial ate o 51-04/51-07): hub do RH com «Prova cognitiva» (textual) distinta de «Raciocinio logico (Matrizes)» (Raven); estado «Nao se aplica a esta vaga» so com evidencia positiva (instrumentosDaVaga, tres valores; o dado vence a configuracao); nomes D-15 em CognitivoBandCard/Consolidacao/PesosSliders/LiberacaoCognitivoBlock/ScoreCard; publicado d5e2e8b9, marcador hub-secao-nao-se-aplica no chunk lazy PerfilCandidatoRHPage-BbItGj5Z.js de PROD. Proximo: 51-04"
 ---
 
 # Project State
@@ -994,6 +994,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P16 | ~80min (inclui duas esperas do operador) | 3 tasks | 13 files |
 | Phase 51 P01 | 20 min | 3 tasks | 13 files |
 | Phase 51 P02 | 3h (~30 min de trabalho; sessao parada entre tasks) | 2 tasks | 6 files |
+| Phase 51 P03 | 12min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -1403,6 +1404,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-02: o texto do candidato aparece no card do caso aberto mesmo com pontuacao falhou (citacoes/dimensoes so sem falha) — e conteudo do candidato, e o EDGE-PROBE pede caminho ate o conteudo de todo registro anunciado
 - [Phase 51]: 51-02: Big Five no detalhe do hub e UMA linha (estadoBigFive sobre linhasDeAvaliacao), Concluido/Nao fez; com zero linhas o detalhe mantem Sem avaliacoes registradas ainda
 - [Phase 51]: 51-02: o N do hub, o estado da secao Avaliacao Assincrona e o detalhe usam a mesma linhasDeAvaliacao (sjt+big_five) — entrevista/redacao fora (C-8)
+- [Phase 51]: 51-03: «Nao se aplica a esta vaga» so com evidencia positiva — instrumentosDaVaga em tres valores (aplica/nao_aplica/desconhecido); nao_aplica exige array nao vazio, todo da convencao atual, sem entrada que mapeie; vaga nao carregada ou convencao antiga = desconhecido
+- [Phase 51]: 51-03: entradas atuais triagem/entrevista/cognitivo contam como reconhecidas (senao nenhuma vaga de template chegaria a nao_aplica); a presenca da entrada decide aplica, nao o obrigatorio (mesma regra do deriveCards)
+- [Phase 51]: 51-03: o dado vence a configuracao — secao com linha do instrumento mostra o estado de hoje; Ver respostas so some quando a secao MOSTRA Nao se aplica (carregando/erro mantem o bloco)
 
 ### Roadmap Evolution
 
@@ -1737,8 +1741,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T03:14:15.217Z
-Stopped at: Completed 51-02-PLAN.md
+Last session: 2026-10-09T03:29:52.896Z
+Stopped at: Completed 51-03-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
