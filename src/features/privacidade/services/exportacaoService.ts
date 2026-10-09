@@ -232,6 +232,9 @@ export const COPY_ARQUIVO = {
     respostas_formulario: 'Suas respostas no formulário',
     respostas_raven: 'Suas respostas no Raciocínio lógico (Matrizes)',
     retencao_hold: 'Conservação dos seus dados além do prazo',
+    // 51-15 (JORN-42, allowlist 1.5.0): o pedido de revisão de uma rejeição na triagem
+    // ou no knockout (fora da decisão final).
+    revisao_rejeicao: 'Seus pedidos de revisão de rejeição',
     scores_bigfive: 'Resultados da avaliação comportamental',
     scores_candidato: 'Resultados das suas respostas',
     scores_disc: 'Resultados do perfil comportamental',

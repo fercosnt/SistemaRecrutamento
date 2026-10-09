@@ -672,6 +672,9 @@ const COLUNAS_BD6 = [
 
 describe('export-allowlist.json — o contrato congelado da cópia do titular', () => {
   it('(a) o conjunto de TABELAS do export está congelado', () => {
+    // ⚠ Phase 51 (51-15, 2026-10-09, JORN-42, allowlist 1.5.0): cresceu DE PROPÓSITO em
+    // UMA tabela, zero removidas — `revisao_rejeicao` (o pedido de revisão do Art. 20 de
+    // uma rejeição fora da decisão final, migration 20261008000002).
     expect(Object.keys(allowlist().tabelas).sort()).toMatchInlineSnapshot(`
       [
         "agendamentos_entrevista",
@@ -701,6 +704,7 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "respostas_formulario",
         "respostas_raven",
         "retencao_hold",
+        "revisao_rejeicao",
         "scores_bigfive",
         "scores_candidato",
         "scores_disc",
@@ -725,6 +729,13 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     // `candidaturas.encerrada_a_pedido_em` e `solicitacoes_dados.executar_em`/
     // `.cancelado_em` (BD-13 i) e os três `solicitacoes_dados.*_concluido_em`
     // (BD-13 iv, operador). As outras sete do G5 foram para o snapshot (j).
+    //
+    // ⚠ Phase 51 (51-15, 2026-10-09, JORN-42, allowlist 1.5.0): cresceu DE PROPÓSITO em
+    // DOZE chaves de `revisao_rejeicao`, zero removidas — `id`, `candidatura_id`,
+    // `historico_rejeicao_id`, `origem`, `etapa_rejeitada`, `etapa_reabertura`,
+    // `solicitada_em`, `veredito`, `resultado`, `respondida_em`, `reaberta_em`,
+    // `prazo_nova_decisao_em` (vereditos do bloco «PHASE 51» do export-scope-rules.yaml,
+    // por analogia com `decisao_final`). As outras quatro foram para o snapshot (j).
     expect(chavesAchatadas()).toMatchInlineSnapshot(`
       [
         "agendamentos_entrevista.candidatura_id",
@@ -1066,6 +1077,18 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "retencao_hold.id",
         "retencao_hold.liberado_em",
         "retencao_hold.motivo",
+        "revisao_rejeicao.candidatura_id",
+        "revisao_rejeicao.etapa_reabertura",
+        "revisao_rejeicao.etapa_rejeitada",
+        "revisao_rejeicao.historico_rejeicao_id",
+        "revisao_rejeicao.id",
+        "revisao_rejeicao.origem",
+        "revisao_rejeicao.prazo_nova_decisao_em",
+        "revisao_rejeicao.reaberta_em",
+        "revisao_rejeicao.respondida_em",
+        "revisao_rejeicao.resultado",
+        "revisao_rejeicao.solicitada_em",
+        "revisao_rejeicao.veredito",
         "scores_bigfive.analise_ia",
         "scores_bigfive.candidatura_id",
         "scores_bigfive.created_at",
@@ -1249,6 +1272,11 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
     // `cognitivo_liberacao.liberado_por`/`.revogado_por` (pela R2 de
     // `ponteiros.de_terceiro`, sem veredito próprio), `solicitacoes_dados.plano`
     // (BD-13 ii) e `solicitacoes_dados.recibo_enviado_em` (BD-13 iv, operador).
+    //
+    // ⚠ Phase 51 (51-15, 2026-10-09, JORN-42): cresceu DE PROPÓSITO em QUATRO chaves de
+    // `revisao_rejeicao`, zero removidas — `rejeitado_por` e `respondida_por` (UUID de
+    // funcionário, R2), `opcao_knockout_id` e `alerta_prazo_enviado_em`, as quatro por
+    // `decisoes_por_coluna`. A proibição nomeada está na (m), que sobrevive a um `-u`.
     expect(excluidasAchatadas()).toMatchInlineSnapshot(`
       [
         "agendamentos_entrevista.agendado_por",
@@ -1303,6 +1331,10 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "retencao_hold.criado_por",
         "retencao_hold.detalhe",
         "retencao_hold.liberado_por",
+        "revisao_rejeicao.alerta_prazo_enviado_em",
+        "revisao_rejeicao.opcao_knockout_id",
+        "revisao_rejeicao.rejeitado_por",
+        "revisao_rejeicao.respondida_por",
         "solicitacoes_dados.aviso_cancelamento_enviado_em",
         "solicitacoes_dados.aviso_pedido_enviado_em",
         "solicitacoes_dados.plano",
@@ -1792,6 +1824,28 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         t.proveniencia[coluna],
         `G5 (l): ${tabela}.${coluna} — proveniência deveria ser «decisoes_por_coluna»: o veredito escrito sumiu e a coluna entra calada pela R1 (o fecho do gerador não reprova isso; esta asserção sim)`,
       ).toBe('decisoes_por_coluna')
+    }
+  })
+
+  it('(m) proibições nomeadas do JORN-42 (51-15) — sobrevivem a um `vitest -u`', () => {
+    // T-51-46: a cópia do titular nunca leva UUID de funcionário nem a opção eliminatória
+    // a partir de `revisao_rejeicao`, e nunca omite o que a página de explicação já mostra
+    // (`estado_revisao_rejeicao`). Os snapshots (a)/(b)/(j) congelam o conjunto, mas um
+    // `-u` descuidado os re-carimba; esta lista não.
+    const t = allowlist().tabelas.revisao_rejeicao
+    expect(t, '51-15 (m): `revisao_rejeicao` sumiu de `tabelas` — os laços abaixo passariam vazios').toBeDefined()
+    const FORA = ['rejeitado_por', 'respondida_por', 'opcao_knockout_id', 'alerta_prazo_enviado_em'] as const
+    const DA_TELA = ['origem', 'solicitada_em', 'veredito', 'resultado', 'respondida_em', 'reaberta_em', 'prazo_nova_decisao_em'] as const
+    for (const coluna of FORA) {
+      expect(t.colunas, `51-15 (m): revisao_rejeicao.${coluna} está na CÓPIA — o veredito a deixa fora`).not.toContain(coluna)
+      expect(
+        (t.colunas_excluidas ?? {})[coluna]?.startsWith('decisoes_por_coluna:'),
+        `51-15 (m): revisao_rejeicao.${coluna} — o veto perdeu o veredito escrito (veio «${(t.colunas_excluidas ?? {})[coluna]?.slice(0, 40)}»)`,
+      ).toBe(true)
+    }
+    for (const coluna of DA_TELA) {
+      expect(t.colunas, `51-15 (m): revisao_rejeicao.${coluna} saiu da cópia — a página de explicação já a mostra`).toContain(coluna)
+      expect(t.proveniencia[coluna], `51-15 (m): revisao_rejeicao.${coluna} entra sem o veredito escrito`).toBe('decisoes_por_coluna')
     }
   })
 })
