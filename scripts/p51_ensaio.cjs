@@ -91,16 +91,18 @@ const APPLY = path.join(ROOT, 'p46apply.cjs');
 const SENTINELA = 'ENSAIO_P51_TERMINOU';
 
 /* Ordem de aplicação das migrations da Onda B (versões fixadas no planejamento, 51-06). As que
- * ainda não existem no disco simplesmente não são prefixadas (`ausentes=`). A 0005 (D-23 estendido a
- * `rejeitar_candidatura`) nasceu na rodada de conserto do 51-REVIEW-PORTAO-1 (WR-09, 51-16): ela lê
- * `revisao_rejeicao` e vem depois da 0004. O `p51_portao.cjs --modo deploy|push` NÃO lê esta lista: ele
- * confere o ledger por FORMA (toda `supabase/migrations/<versão>_p51_*.sql` do pin). */
+ * ainda não existem no disco simplesmente não são prefixadas (`ausentes=`). A 0005 (D-23 da 48 fechado
+ * nas 4 combinações — `rejeitar_candidatura` e `registrar_decisao`, reversão de `revisao_rejeicao` ou do
+ * ciclo `decisao_final`) nasceu na rodada de conserto do 51-REVIEW-PORTAO-1 (WR-09) e foi reescrita, ainda
+ * fora do ledger, na do 51-REVIEW-PORTAO-2 (WR-01/WR-03; o nome antigo era `…_p51_d23_rejeitar_candidatura`):
+ * ela lê `revisao_rejeicao` e vem depois da 0004. O `p51_portao.cjs --modo deploy|push` NÃO lê esta lista:
+ * ele confere o ledger por FORMA (toda `supabase/migrations/<versão>_p51_*.sql` do pin). */
 const MIGS = [
   'supabase/migrations/20261008000001_p51_raven_em_avaliacao_status.sql',
   'supabase/migrations/20261008000002_p51_revisao_rejeicao.sql',
   'supabase/migrations/20261008000003_p51_fila_tres_origens.sql',
   'supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql',
-  'supabase/migrations/20261008000005_p51_d23_rejeitar_candidatura.sql',
+  'supabase/migrations/20261008000005_p51_d23_decisor_revertido.sql',
 ];
 
 /* Pares de smoke que o sentinela conhece: <chave no relatório> -> prefixo das GUCs. */
