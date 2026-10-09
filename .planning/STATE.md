@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-06-PLAN.md
-last_updated: "2026-10-09T04:25:40.667Z"
+stopped_at: Completed 51-07-PLAN.md
+last_updated: "2026-10-09T04:46:27.264Z"
 last_activity: 2026-10-09
-state_head: bda4d25eba733f85389c4d7777e4eb6a8c08d6cc
+state_head: ec9ed412d650c9fd69bb454be00a32af2c6ac11c
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 153
-  percent: 93
+  completed_plans: 154
+  percent: 94
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-06 concluido (JORN-43 segue aberto ate o 51-07/51-17 pelo gate de ID compartilhado, ready-ids 0/1): get_avaliacao_status ganha a chave raven {liberado, registrado} so com booleanos (D-38, C-4), RLS do Raven intocada; aperto nomeado A4 — anon perde o EXECUTE (confirmacao do operador na pergunta (f) do 51-16); migration 20261008000001 aplicada por p46apply (ledger md5 bb008988 = arquivo, md5(prosrc) vivo 91109b66); smoke p51_raven_status 7/7 ao vivo pelo ensaio que aborta, FUNIL-12 verde; mutacoes MA1..MA6 6/6 antes e depois do apply, nada persistiu; ferramental da Onda B (p51_ensaio.cjs, p51_mutacoes.cjs); publicado 98bd0ba3 (sem mudanca de tela). Proximo: 51-07"
+last_activity_desc: "51-07 concluido (JORN-43 e JORN-48 seguem abertos ate o 51-17 pelo gate de ID compartilhado, ready-ids 0/2): card «Raciocinio logico (Matrizes)» no painel do candidato (RavenCandidatoCard, so liberado + pendente + candidatura em andamento; encerrada nem consulta) alimentado pela chave raven do 51-06; C-4 — consultarLiberacao().ja_respondeu lido de raven.registrado e a tela escreve a conclusao no cache (o convite some na mesma sessao); e-mail avaliacao_cognitiva_liberada nomeia o instrumento e aponta o card (D-31, chave do evento intacta); guarda nomes-instrumentos varre supabase/functions; publicado ad2790a3 (marcador no index-DcLoVKSN.js de PROD) e notificar-candidato v18 ACTIVE, nessa ordem. Proximo: 51-08"
 ---
 
 # Project State
@@ -998,6 +998,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P04 | 18 min | 2 tasks | 6 files |
 | Phase 51 P05 | 10 min | 3 tasks | 10 files |
 | Phase 51 P06 | 16 min | 3 tasks | 5 files |
+| Phase 51 P07 | 15 min | 3 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -1415,6 +1416,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-05: export allowlist sem bump — a reclassificacao de candidatos.estado so muda a proveniencia; conjunto exportado igual (395 colunas)
 - [Phase 51]: 51-05: achado da disponibilidade (recibo promete apagar, motor nao apaga) registrado como WINDOWS 89, nao consertado — decisao do operador (motor ou reclassificacao com base legal)
 - [Phase 51]: 51-06: aperto nomeado A4 aplicado — anon perde o EXECUTE de get_avaliacao_status (a guarda ja o recusava; unico chamador e RoleGuard candidato). Confirmacao/veto do operador na pergunta (f) do 51-16; desfazer = GRANT EXECUTE TO anon pela mesma via (51-06-CORPO-ANTES.sql)
+- [Phase 51]: 51-07: publicacao na ordem da dependencia — front (card) conferido em PROD antes do deploy de notificar-candidato v18, porque o e-mail novo aponta para o card; notificar-rh e executar-direito-titular nao redeployadas (so importam escapeHtml/layoutBase, inalterados)
 
 ### Roadmap Evolution
 
@@ -1749,8 +1751,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T04:25:19.475Z
-Stopped at: Completed 51-06-PLAN.md
+Last session: 2026-10-09T04:46:27.000Z
+Stopped at: Completed 51-07-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
