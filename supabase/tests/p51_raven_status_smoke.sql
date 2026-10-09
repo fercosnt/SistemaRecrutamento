@@ -256,7 +256,6 @@ BEGIN
         v_int := v_user;
       END IF;
     END LOOP;
-    PERFORM set_config('smoke51a.fixtures', v_cid::text, false);
 
     -- ── (a) · sob anon a chamada morre no ACL, não na guarda ──────────────────
     SET LOCAL ROLE anon;
@@ -356,6 +355,8 @@ BEGIN
 
   RESET ROLE;
   PERFORM set_config('request.jwt.claims', '', false);
+  -- FORA da subtransação: um set_config dentro dela volta junto com o ROLLBACK (até o de sessão).
+  PERFORM set_config('smoke51a.fixtures', coalesce(v_cid::text, ''), false);
 
   IF v_err IS NOT NULL THEN
     RAISE EXCEPTION 'P51A FAIL (fixture): a subtransacao abortou por erro INESPERADO (%) — nenhuma clausula foi julgada; o defeito e da FIXTURE, nao do objeto vigiado (cada chamada tem bloco de excecao proprio)', v_err;
