@@ -228,6 +228,14 @@ export interface EntrevistaContextoRow {
   entrevista_agendada_em: string | null
   /** Opt-in cognitive gate (default false). */
   aplica_cognitivo: boolean
+  /**
+   * `vagas.testes_aplicaveis` (jsonb), CRU — 51-03 / D-16: o hub decide «Não se aplica a esta
+   * vaga» por `instrumentosDaVaga`, que só afirma ausência com evidência positiva.
+   * `undefined` = o embed de `vagas` não veio (vaga não carregada). NÃO coagir para `[]`: um
+   * array vazio fabricado seria lido como configuração, e um `?? []` aqui apagaria a
+   * diferença entre «a vaga não tem» e «não sabemos».
+   */
+  testes_aplicaveis?: unknown
 }
 
 // ── Reads (allowlist projections) ────────────────────────────────────────────
@@ -275,7 +283,7 @@ export async function getEntrevistaContexto(
   const { data, error } = await supabase
     .from('candidaturas')
     .select(
-      'id, vaga_id, etapa_atual, status, candidatos ( nome_completo ), vagas ( entrevista_agendada_em, aplica_cognitivo )',
+      'id, vaga_id, etapa_atual, status, candidatos ( nome_completo ), vagas ( entrevista_agendada_em, aplica_cognitivo, testes_aplicaveis )',
     )
     .eq('id', candidaturaId)
     .maybeSingle()
@@ -295,7 +303,11 @@ export async function getEntrevistaContexto(
     etapa_atual: string
     status?: string | null
     candidatos?: { nome_completo?: string } | null
-    vagas?: { entrevista_agendada_em?: string | null; aplica_cognitivo?: boolean } | null
+    vagas?: {
+      entrevista_agendada_em?: string | null
+      aplica_cognitivo?: boolean
+      testes_aplicaveis?: unknown
+    } | null
   }
   // 2026-09-06: o horário vinha SÓ de `vagas.entrevista_agendada_em` — um campo por
   // VAGA (V1) que nada no app escreve. O painel dizia «Sem horário definido» com um
@@ -323,6 +335,8 @@ export async function getEntrevistaContexto(
     candidato_nome: raw.candidatos?.nome_completo ?? null,
     entrevista_agendada_em: agendadaEm,
     aplica_cognitivo: raw.vagas?.aplica_cognitivo ?? false,
+    // Sem embed → `undefined` (desconhecido). Com embed, o valor cru da coluna (null incluído).
+    testes_aplicaveis: raw.vagas ? raw.vagas.testes_aplicaveis : undefined,
   }
 }
 
@@ -1023,7 +1037,7 @@ export async function registrarRejeicaoCognitiva(input: {
   }
   if (!input.justificativa || input.justificativa.trim().length === 0) {
     throw new EntrevistaServiceError(
-      'A justificativa expandida é obrigatória ao rejeitar com base no raciocínio lógico.',
+      'A justificativa expandida é obrigatória ao rejeitar com base na prova cognitiva.',
       'INVALID_INPUT',
     )
   }

@@ -59,6 +59,7 @@ import {
 } from './AvaliacoesRespondidasBloco'
 import { AgendamentoBlock } from '@/features/agendamento/components/AgendamentoBlock'
 import { LiberacaoCognitivoBlock } from '@/features/avaliacao-cognitiva/components/LiberacaoCognitivoBlock'
+import { instrumentosDaVaga, type Aplicabilidade } from '../lib/instrumentosDaVaga'
 import { useAnaliseCandidato } from '../hooks/useAnaliseCandidato'
 import { useHistoricoCandidatura } from '../hooks/useHistoricoCandidatura'
 
@@ -106,6 +107,23 @@ function estadoDaSecao(
   return temDados ? 'com_dados' : 'sem_dados'
 }
 
+/**
+ * 51-03 / D-16 — o estado de uma seção de INSTRUMENTO (assíncrona, prova cognitiva, redação).
+ * `nao_se_aplica` só quando a configuração da vaga exclui o instrumento com evidência positiva
+ * (`instrumentosDaVaga` → `nao_aplica`) E a seção não tem linha dele. O dado vence a
+ * configuração: se a vaga mudou depois das respostas, o que existe continua aparecendo.
+ * Qualquer outro caso (`aplica`, `desconhecido`) é o `estadoDaSecao` de hoje.
+ */
+function estadoDoInstrumento(
+  aplicabilidade: Aplicabilidade,
+  secaoEtapa: EtapaFunilM2,
+  etapaAtual: EtapaFunilM2 | null,
+  temDados: boolean,
+): HubSectionEstado {
+  if (aplicabilidade === 'nao_aplica' && !temDados) return 'nao_se_aplica'
+  return estadoDaSecao(secaoEtapa, etapaAtual, temDados)
+}
+
 export function HubCandidatoRH() {
   const { id } = useParams<{ id: string }>()
   const candidaturaId = id ?? '' // ⚠ candidaturaId, NOT candidato.id (Pitfall 1)
@@ -137,6 +155,25 @@ export function HubCandidatoRH() {
   const temRedacaoDoCandidato = (redacaoQuery.data ?? []).some(
     (r) => r.candidatura_id === candidaturaId,
   )
+
+  // 51-03 / D-16: a vaga aplica cada instrumento? Três valores — `nao_aplica` só com evidência
+  // positiva; vaga não carregada ou configuração não reconhecida = `desconhecido`.
+  const aplic = instrumentosDaVaga({
+    aplica_cognitivo: contexto?.aplica_cognitivo,
+    testes_aplicaveis: contexto?.testes_aplicaveis,
+  })
+  // Calculado UMA vez: o mesmo valor desenha a seção e decide se o «Ver respostas» monta.
+  const estadoAssincrona = estadoDoInstrumento(
+    aplic.assincrona,
+    'avaliacao_assincrona',
+    etapaAtual,
+    avaliacoesRespondidas > 0,
+  )
+  // O bloco «Ver respostas» (51-02) só deixa de montar quando a seção MOSTRA «Não se aplica»:
+  // carregando ou com erro, o HubSection mostra skeleton/erro (precedência do AsyncState), e
+  // aí não sabemos se há linha — o caminho até elas não some por uma leitura que falhou.
+  const assincronaNaoSeAplica =
+    estadoAssincrona === 'nao_se_aplica' && !triagemQuery.isLoading && !triagemQuery.isError
 
   const nomeCandidato = contexto?.candidato_nome ?? 'Candidato'
   const etapaLabel = etapaAtual ? ETAPA_M2_LABELS[etapaAtual] : '—'
@@ -399,7 +436,7 @@ export function HubCandidatoRH() {
           titulo="Avaliação Assíncrona"
           isLoading={triagemQuery.isLoading}
           isError={triagemQuery.isError}
-          estado={estadoDaSecao('avaliacao_assincrona', etapaAtual, avaliacoesRespondidas > 0)}
+          estado={estadoAssincrona}
         >
           {/* D-18: a frase não promete mais uma revisão sem caminho («disponíveis para revisão»). */}
           <p className="text-sm text-white/80">
@@ -409,24 +446,31 @@ export function HubCandidatoRH() {
 
         {/* 51-02 / JORN-45 (D-17) — «Ver respostas» abre o detalhe AQUI MESMO. Irmão do
             HubSection, não filho, pelo mesmo motivo do botão IN-04 da Redação: o HubSection só
-            renderiza filhos em `com_dados`, e o caminho tem de existir em qualquer etapa. */}
-        {candidaturaId ? <AvaliacoesRespondidasBloco candidaturaId={candidaturaId} /> : null}
+            renderiza filhos em `com_dados`, e o caminho tem de existir em qualquer etapa.
+            51-03 / D-16: a ÚNICA exceção é a seção acima dizer «Não se aplica a esta vaga» —
+            não há o que ver, e «Nenhuma avaliação respondida ainda.» logo abaixo de «Não se
+            aplica» se contradiria. */}
+        {candidaturaId && !assincronaNaoSeAplica ? (
+          <AvaliacoesRespondidasBloco candidaturaId={candidaturaId} />
+        ) : null}
 
         {/* Prova cognitiva — o instrumento TEXTUAL liberado pela vaga (`aplica_cognitivo`),
             banda contextual `tipo='cognitivo'`. 51-03 / D-15: até aqui o título era «Avaliação
             Cognitiva», o mesmo nome genérico que servia ao Raven logo abaixo — o RH não tinha
             como distinguir os dois na mesma tela. Agora: «Prova cognitiva» aqui, «Raciocínio
-            lógico (Matrizes)» no bloco do Raven. D-16: se a vaga não aplica a prova, a seção
-            diz «Não se aplica a esta vaga» em vez de «Sem dados nesta etapa». */}
+            lógico (Matrizes)» no bloco do Raven. D-16: se a vaga não aplica a prova
+            (`aplica_cognitivo = false`, com a vaga carregada) e não há banda, a seção diz «Não
+            se aplica a esta vaga» em vez de «Sem dados nesta etapa». */}
         <HubSection
           titulo="Prova cognitiva"
           isLoading={entrevistaQuery.isLoading}
           isError={entrevistaQuery.isError}
-          estado={
-            contexto?.aplica_cognitivo === false
-              ? 'nao_se_aplica'
-              : estadoDaSecao('avaliacao_assincrona', etapaAtual, cognitivoScores.length > 0)
-          }
+          estado={estadoDoInstrumento(
+            aplic.cognitivo,
+            'avaliacao_assincrona',
+            etapaAtual,
+            cognitivoScores.length > 0,
+          )}
         >
           <p className="text-sm text-white/80">
             Banda da prova cognitiva registrada — disponível no workspace de entrevista.
@@ -450,7 +494,12 @@ export function HubCandidatoRH() {
           titulo="Redação"
           isLoading={redacaoQuery.isLoading}
           isError={redacaoQuery.isError}
-          estado={estadoDaSecao('avaliacao_assincrona', etapaAtual, temRedacaoDoCandidato)}
+          estado={estadoDoInstrumento(
+            aplic.redacao,
+            'avaliacao_assincrona',
+            etapaAtual,
+            temRedacaoDoCandidato,
+          )}
         >
           <p className="text-sm text-white/80">
             Há redação deste candidato na fila de revisão — abra o workspace de redação para revisar.
@@ -458,7 +507,8 @@ export function HubCandidatoRH() {
         </HubSection>
 
         {/* IN-04 — always-visible navigation affordance to the 3rd RH workspace
-            (RedacaoReviewPanel at /rh/candidato/:id/redacao). NOT gated on data state. */}
+            (RedacaoReviewPanel at /rh/candidato/:id/redacao). NOT gated on data state — nem
+            em «Não se aplica a esta vaga» (51-03): é atalho de navegação, não afirmação de dado. */}
         {candidaturaId ? (
           <button
             type="button"
