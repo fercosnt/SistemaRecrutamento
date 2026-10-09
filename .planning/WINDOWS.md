@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 38
+open_count: 37
 waived_count: 10
-fixed_count: 45
+fixed_count: 46
 total_count: 93
-last_updated: 2026-10-09T07:13:58.692Z
+last_updated: 2026-10-09T19:40:00.000Z
 ---
 
 # Broken Windows Ledger
@@ -104,7 +104,7 @@ last_updated: 2026-10-09T07:13:58.692Z
 | 87 | 50 | unmet-truth | supabase/tests/p50_acesso_recrutador_smoke.sql |  | 50-01 BORDA vacua: clausula (f) so julga mortas/rascunhos se n_borda > 0; PROD 2026-10-05 tem 0 candidaturas com deleted_at/is_rascunho, entao 'rh ativo nao ve morta/rascunho' nao foi provado por execucao | open |  | 2026-10-05T18:10:28.492Z |  |
 | 88 | 51 | unrun-verify | e2e/prova-cognitiva.spec.ts | 62 | 51-01: PC-01/PC-02 heading «Prova cognitiva» e botão «Voltar às avaliações» editados sem execução (spec gated em E2E_REAL_LOGIN + candidaturas semeadas) | open |  | 2026-10-09T00:05:57.950Z |  |
 | 89 | 51 | unmet-truth | docs/compliance/sql/gen-recibo-exclusao.cjs | 296 | 51-05 EDGE-PROBE JORN-49: o recibo (dados_de_cadastro, passo tombstone_candidato) promete apagar a disponibilidade, e o motor anonimizar_candidato (md5 46248544...) nao toca a tabela disponibilidade; em PROD 2026-10-09, 2 de 2 titulares anonimizados mantem a linha com valor. Pre-existente; conserto = decisao do operador (motor apaga, ou linha vai para «mantém» com base legal) | open |  | 2026-10-09T04:02:33.586Z |  |
-| 90 | 51 | deviation | supabase/tests/p48_prazo_reabertura_smoke.sql | 77 | 51-10: premissa v_real so conta decisao_final; depois do apply da 20261008000003 uma reabertura viva de revisao_rejeicao vencida sem alerta faria a_q_total=2 (:306) reprovar com diagnostico de fixture — decidir no portao 51-16 | open |  | 2026-10-09T06:01:54.666Z |  |
+| 90 | 51 | deviation | supabase/tests/p48_prazo_reabertura_smoke.sql | 77 | 51-10: premissa v_real so conta decisao_final; depois do apply da 20261008000003 uma reabertura viva de revisao_rejeicao vencida sem alerta faria a_q_total=2 (:306) reprovar com diagnostico de fixture — decidir no portao 51-16 | fixed | 51-16 (WR-07 do 51-REVIEW-PORTAO-1): a pre-condicao virou baseline POR EXECUCAO — a propria varrer_prazos_reabertura() roda numa subtransacao que reverte (P48P0) e devolve quantos alertaria, todas as fontes. Provado no ensaio que aborta: cenario com reabertura vencida de revisao_rejeicao -> o smoke ANTIGO reprova (a) «devolveu 2 com UMA» (diagnostico falso), o NOVO reprova (baseline) com a causa certa; sem o cenario, verde (com 0002..0004 e sem migracoes); mutacao (laco 1 sem marcacao) -> (a) ainda morde. | 2026-10-09T06:01:54.666Z | 2026-10-09T19:40:00.000Z |
 | 91 | 51 | deviation | docs/compliance/export-scope-rules.yaml |  | 51-15: revisao_rejeicao.id/candidatura_id/historico_rejeicao_id ENTRAM na copia (export true) por analogia com decisao_final e toda tabela em escopo, contra a lista literal do plano que as punha FORA como chave tecnica (o mesmo paragrafo mandava seguir as analogas). Reversao = uma palavra por linha; decidir no portao 51-16 | open |  | 2026-10-09T07:13:58.555Z |  |
 | 92 | 51 | deviation | docs/compliance/export-scope-rules.yaml |  | 51-15: revisao_rejeicao.opcao_knockout_id fica FORA (plano/RESEARCH V8 «nunca ao candidato», citado como D-15 da 48 — a D-15 do 48-CONTEXT e sobre tsc, fonte nao localizada), mas o MESMO UUID ja sai em candidaturas.opcao_knockout_id (export true desde 44). Operador decide se a opcao vai ou nao ao titular; o veredito a revisar e o de candidaturas | open |  | 2026-10-09T07:13:58.624Z |  |
 | 93 | 51 | deviation | docs/compliance/sql/gen-recibo-exclusao.cjs |  | 51-15: as linhas resposta_ao_seu_pedido_de_revisao e registro_da_decisao aparecem quando tem_decisao_registrada = soma do bloco tombstone_decisao_final do plano > 0 (executar-direito-titular/index.ts:1369); a chave revisao_rejeicao_resultado (51-13) entra nessa soma, entao pedido RESPONDIDO as liga. Lacuna: pedido de revisao_rejeicao NAO respondido, sem decisao_final — o registro (origem, etapas, solicitada_em) sobrevive e a linha «mantem» registro_da_decisao nao aparece (recibo diz MENOS do que fica). Conferir ao vivo no 51-16/51-17 | open |  | 2026-10-09T07:13:58.692Z |  |

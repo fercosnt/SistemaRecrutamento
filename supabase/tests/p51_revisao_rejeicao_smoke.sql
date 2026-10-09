@@ -259,6 +259,8 @@
 --     `revisao_rejeicao` vencida e não alertada faria o `a_q_total = 1` dele (:306) ver 2 e reprovar com
 --     diagnóstico de fixture. Hoje a tabela é vazia em PROD e o smoke é verde com a 0003 — levado ao
 --     portão 51-16 como pendência nomeada (não editado aqui: fora dos arquivos do plano).
+--     ⇒ RESOLVIDO no 51-16 (WR-07, WINDOWS #90 fixed): a pré-condição do p48 virou baseline POR EXECUÇÃO
+--     (a própria varredura numa subtransação que reverte, todas as fontes) — ver o cabeçalho dele.
 --   · `p48_prazo_reabertura_smoke.sql:303/306/322/328/337/346/391/421` — contagens da PRÓPRIA fixture
 --     e o esperado 6 (escopo).
 --   · `p50_acesso_recrutador_smoke.sql` (k) — não casa o padrão (é md5 admin × rh), mas é o portão que

@@ -23,10 +23,20 @@
 --       `decisao_final_historico`, `candidaturas`, `historico_candidatura` e da fila do `pg_net`
 --       são as de antes (baseline capturada NESTA execução — não fotografia, D-17).
 --
--- PRÉ-CONDIÇÃO (checada, não presumida): o predicado da varredura devolve 0 linhas REAIS no
--- início. Sem isso, o «devolve 1» de (a) não discriminaria a fixture — e a varredura dentro da
+-- PRÉ-CONDIÇÃO (checada, não presumida): a varredura não tem alerta REAL a dar no início. Sem
+-- isso, o «devolve 1» e o «1 no total» de (a) não discriminariam a fixture — e a varredura dentro da
 -- subtransação estaria processando (e revertendo) alertas reais. Se houver prazo real vencido, o
 -- smoke para com essa mensagem: aquilo é um alerta a ser dado pelo cron, não um defeito do smoke.
+--
+-- ⚠ WR-07 do 51-REVIEW-PORTAO-1 (WINDOWS #90), 2026-10-09: até aqui a pré-condição era uma CÓPIA do
+-- predicado do laço de `decisao_final` (`v_real <> 0`). A migration 20261008000003 (P51) deu à
+-- varredura um SEGUNDO laço, sobre `revisao_rejeicao`, que a cópia não via: com uma reabertura real
+-- do registro novo vencida e sem alerta, a pré-condição passava e (a) reprovava com «2 no total
+-- (esperado 1 e 1)» — acusando a FIXTURE, com diagnóstico FALSO (CLAUDE.md §Portões: contagem contra
+-- constante). Agora a pré-condição é medida POR EXECUÇÃO: a própria `varrer_prazos_reabertura()` roda
+-- numa subtransação que reverte (`P48P0`) e devolve quantos alertaria — todas as fontes, as de hoje
+-- e as que nascerem, sem cópia de predicado para envelhecer. Nada sai: a subtransação reverte a
+-- marcação e a fila do pg_net, como as de (a)..(d).
 --
 -- A FIXTURE NÃO É UMA CANDIDATURA REAL (idioma do 48-08..48-11): o operador pode estar exercitando
 -- as contas `+claude` em PROD (48-05) e um UPDATE nelas, mesmo revertido, disputa lock de linha com
@@ -66,16 +76,16 @@ DECLARE
   v_vaga uuid;
   v_real int;
 BEGIN
-  SELECT count(*) INTO v_real
-    FROM public.decisao_final d
-    JOIN public.candidaturas c ON c.id = d.candidatura_id
-   WHERE d.reaberta_em IS NOT NULL
-     AND d.prazo_nova_decisao_em < now()
-     AND d.alerta_prazo_enviado_em IS NULL
-     AND c.deleted_at IS NULL
-     AND NOT public.candidatura_encerrada(c.etapa_atual, c.status);
-  IF v_real <> 0 THEN
-    RAISE EXCEPTION 'P48P FAIL (baseline): há % prazo(s) de reabertura REAL(IS) vencido(s) sem alerta — é trabalho do cron (alerta real ao RH), não deste smoke; rodar depois das 11:00 UTC ou conferir o job prazo-reabertura-sweep', v_real;
+  -- WR-07: baseline POR EXECUÇÃO — a varredura inteira (todas as fontes) numa subtransação que reverte.
+  -- A variável sobrevive ao ROLLBACK da subtransação; a marcação e a fila do pg_net, não.
+  BEGIN
+    v_real := public.varrer_prazos_reabertura();
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P48P0';
+  EXCEPTION
+    WHEN SQLSTATE 'P48P0' THEN NULL;
+  END;
+  IF v_real IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'P48P FAIL (baseline): a propria varredura alertaria AGORA % prazo(s) de reabertura REAL(IS) vencido(s) sem alerta (todas as fontes: decisao_final e revisao_rejeicao) — é trabalho do cron (alerta real ao RH), não defeito deste smoke nem da fixture; rodar depois das 11:00 UTC ou conferir o job prazo-reabertura-sweep', v_real;
   END IF;
 
   SELECT u.user_id INTO v_a
