@@ -592,7 +592,10 @@ describe('gerarHtmlExport', () => {
 
     // Títulos de seção em português de produto…
     expect(html).toContain('<h2>Conservação dos seus dados além do prazo</h2>')
-    expect(html).toContain('<h2>Liberação da avaliação cognitiva</h2>')
+    // 51-04 (D-15): a liberação é do Raven — «Raciocínio lógico (Matrizes)», não mais o nome
+    // genérico que os dois instrumentos dividiam.
+    expect(html).toContain('<h2>Liberação do Raciocínio lógico (Matrizes)</h2>')
+    expect(html).not.toContain('Liberação da avaliação cognitiva')
     // …e nunca o nome técnico humanizado pelo fallback.
     expect(html).not.toContain('Retencao hold')
     expect(html).not.toContain('Cognitivo liberacao')
