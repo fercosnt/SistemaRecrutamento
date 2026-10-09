@@ -33,7 +33,7 @@
  */
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, cleanup } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ScoreRow } from '@/features/avaliacao/services/scoresRhService'
 
@@ -231,3 +231,65 @@ describe('HubCandidatoRH — «Prova cognitiva» distinta do Raven e «Não se a
     ).toBeInTheDocument()
   })
 })
+
+describe('HubCandidatoRH — «Não se aplica» só com evidência positiva, e nunca por cima de dado (51-03 / D-16)', () => {
+  /** Vaga cuja configuração (convenção atual, toda reconhecida) EXCLUI a avaliação assíncrona. */
+  const SO_REDACAO = { aplica_cognitivo: true, testes_aplicaveis: [{ teste: 'redacao_cultural' }] }
+
+  it('assíncrona nao_aplica e SEM linha → «Não se aplica a esta vaga» e sem o bloco «Ver respostas»', () => {
+    montarHub({ vaga: SO_REDACAO })
+    expect(secao('Avaliação Assíncrona').textContent).toContain('Não se aplica a esta vaga')
+    expect(screen.queryByTestId('hub-ver-respostas')).toBeNull()
+  })
+
+  it('assíncrona nao_aplica mas COM linha (config mudou depois) → o estado de hoje com dados e o «Ver respostas»', () => {
+    montarHub({ vaga: SO_REDACAO, avaliacoes: [linhaScore('mc-1', 'sjt')] })
+    const s = secao('Avaliação Assíncrona')
+    expect(within(s).queryByTestId('hub-secao-nao-se-aplica')).toBeNull()
+    expect(s.textContent).toContain('1 avaliação respondida')
+    expect(screen.getByTestId('hub-ver-respostas')).toBeInTheDocument()
+  })
+
+  it('vaga desconhecida (testes_aplicaveis não carregado) → estado de hoje, «Ver respostas» presente, nenhum «Não se aplica»', () => {
+    montarHub({ vaga: { aplica_cognitivo: false } })
+    expect(within(secao('Avaliação Assíncrona')).getByText('Sem dados nesta etapa')).toBeInTheDocument()
+    expect(screen.getByTestId('hub-ver-respostas')).toBeInTheDocument()
+    expect(screen.queryByTestId('hub-secao-nao-se-aplica')).toBeNull()
+  })
+
+  it('redação nao_aplica e sem redação do candidato → «Não se aplica»; o atalho ao workspace continua', () => {
+    montarHub({ vaga: { aplica_cognitivo: true, testes_aplicaveis: [{ teste: 'work_sample_sjt' }, { teste: 'big_five' }] } })
+    expect(secao('Redação').textContent).toContain('Não se aplica a esta vaga')
+    expect(screen.getByRole('button', { name: 'Abrir workspace de redação' })).toBeInTheDocument()
+    expect(screen.getByTestId('hub-ver-respostas')).toBeInTheDocument()
+  })
+
+  it('prova cognitiva nao_aplica mas COM banda registrada → o dado vence a configuração', () => {
+    montarHub({
+      vaga: { aplica_cognitivo: false, testes_aplicaveis: [{ teste: 'work_sample_sjt' }] },
+      entrevistaRows: [linhaScore('cg-1', 'cognitivo')],
+    })
+    const s = secao('Prova cognitiva')
+    expect(within(s).queryByTestId('hub-secao-nao-se-aplica')).toBeNull()
+    expect(s.textContent).toContain('Banda da prova cognitiva registrada')
+  })
+
+  it('leitura da avaliação com erro numa vaga nao_aplica → o erro aparece e «Ver respostas» continua', () => {
+    montarHub({ vaga: SO_REDACAO })
+    useScorecardCandidatoMock.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    cleanupAndRemount()
+    expect(secao('Avaliação Assíncrona').textContent).toContain('Não foi possível carregar esta seção.')
+    expect(screen.getByTestId('hub-ver-respostas')).toBeInTheDocument()
+  })
+})
+
+/** Remonta o hub com os mocks já ajustados (para variar um hook depois do `montarHub`). */
+function cleanupAndRemount() {
+  cleanup()
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={qc}>
+      <HubCandidatoRH />
+    </QueryClientProvider>,
+  )
+}
