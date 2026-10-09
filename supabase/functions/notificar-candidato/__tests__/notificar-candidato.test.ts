@@ -320,12 +320,23 @@ function makeRetryMockSupabase(opts: {
   decisaoFinalRow?: Record<string, unknown> | null;
   /** 48-08: linha de `historico_candidatura` lida quando o corpo traz `historico_id`. */
   historicoRow?: Record<string, unknown> | null;
+  /**
+   * 51-11 (JORN-42): as linhas de `revisao_rejeicao`. Ao contrário das demais tabelas do
+   * mock, os filtros `.eq(col, val)` são APLICADOS de verdade — o teste do pedido de outra
+   * candidatura só morde se o filtro existir. `maybeSingle` devolve a única que sobra (ou
+   * null); `await` direto na cadeia devolve a lista filtrada (a leitura por ciclo).
+   */
+  revisaoRejeicaoRows?: Array<Record<string, unknown>>;
+  /** 51-11: simula falha da leitura de `revisao_rejeicao` (`error` preenchido, `data` null). */
+  revisaoRejeicaoErro?: boolean;
   apiKey?: string | null;
 } = {}) {
   const updates: UpdateCapt[] = [];
   const upserts: UpsertCapt[] = [];
   /** 48-08: toda leitura, com as colunas pedidas e os filtros — prova de allowlist. */
   const selects: Array<{ table: string; cols?: string; eqs: Array<[string, unknown]> }> = [];
+  const linhasRevisao = (eqs: Array<[string, unknown]>) =>
+    (opts.revisaoRejeicaoRows ?? []).filter((r) => eqs.every(([c, v]) => r[c] === v));
   const rowFor = (table: string): Record<string, unknown> | null => {
     switch (table) {
       case "notificacoes_enviadas":
@@ -355,13 +366,36 @@ function makeRetryMockSupabase(opts: {
         select: (cols?: string) => {
           const reg = { table, cols, eqs: [] as Array<[string, unknown]> };
           selects.push(reg);
+          const erroRevisao = table === "revisao_rejeicao" && opts.revisaoRejeicaoErro === true;
+          const umaRevisao = () => {
+            const ls = linhasRevisao(reg.eqs);
+            return ls.length === 1 ? ls[0] : null;
+          };
           const chain = {
             eq: (c: string, v: unknown) => {
               reg.eqs.push([c, v]);
               return chain;
             },
-            maybeSingle: () => Promise.resolve({ data: rowFor(table), error: null }),
+            maybeSingle: () =>
+              Promise.resolve(
+                erroRevisao
+                  ? { data: null, error: { message: "falha simulada" } }
+                  : { data: table === "revisao_rejeicao" ? umaRevisao() : rowFor(table), error: null },
+              ),
             single: () => Promise.resolve({ data: rowFor(table), error: null }),
+            // 51-11: `await` direto na cadeia (lista) — só `revisao_rejeicao` é lida assim.
+            then: (
+              ok: (v: { data: unknown; error: unknown }) => unknown,
+              ko?: (e: unknown) => unknown,
+            ) =>
+              Promise.resolve(
+                erroRevisao
+                  ? { data: null, error: { message: "falha simulada" } }
+                  : {
+                    data: table === "revisao_rejeicao" ? linhasRevisao(reg.eqs) : [],
+                    error: null,
+                  },
+              ).then(ok, ko),
           };
           return chain;
         },
@@ -1383,4 +1417,252 @@ Deno.test("48-16 — a DECISÃO também leva ao login: aprovado, rejeitado e kno
     const html = await enviarComBase({ evento: "decisao", candidatura_id: "cand-dec" }, undefined, row);
     assert(html.includes(`href="${LOGIN_PADRAO}"`), `decisao ${String(row.etapa_atual)}: sem o link`);
   }
+});
+
+// ─── 51-11 / JORN-42 — a resposta de revisão de TRIAGEM/KNOCKOUT lê o PRÓPRIO pedido ──────
+//
+// RESEARCH 51, armadilha 2: o pedido de revisão de uma rejeição pelo RH na triagem ou de um
+// knockout vive em `revisao_rejeicao` (51-08), não em `decisao_final`. Ler `decisao_final`
+// (`maybeSingle`) para esse e-mail dá a frase NEUTRA (não há linha) ou — pior — o veredito de
+// OUTRO ciclo (a linha de `decisao_final` de uma decisão anterior). O trigger
+// `trg_notif_revisao_rejeicao_respondida` manda `{evento, candidatura_id, ciclo, pedido_id}`;
+// a varredura de retry manda só `{retry_id, evento, candidatura_id}` e o `ciclo` sai da
+// `dedupe_key` da linha. Ordem de resolução: `pedido_id` → `ciclo` → `decisao_final` (hoje).
+//
+// Os epochs abaixo foram medidos em PROD (PostgreSQL 17.6, leitura pura, 2026-10-09):
+// `extract(epoch from '2026-10-01T12:00:00.6+00')::bigint` = 1790856001 — o cast ARREDONDA
+// (numeric → bigint), não trunca. `Math.floor` daria 1790856000 e o retry não acharia o pedido.
+
+const CAND_R = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const OUTRA_CAND = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+const PEDIDO_A = "aaaaaaaa-1111-4aaa-8aaa-aaaaaaaaaaaa";
+const PEDIDO_B = "bbbbbbbb-2222-4bbb-8bbb-bbbbbbbbbbbb";
+/** solicitada_em com fração ≥ .5: o ciclo do trigger é o ARREDONDADO. */
+const SOLIC_A = "2026-10-01T12:00:00.600000+00:00";
+const CICLO_A = "1790856001";
+const SOLIC_B = "2026-09-15T08:30:00.200000+00:00";
+const CICLO_B = "1789461000";
+const FRASE_MANTIDA = "a decisão foi mantida";
+
+function pedido(
+  id: string,
+  solicitada_em: string,
+  veredito: string | null,
+  prazo: string | null = null,
+  candidatura_id = CAND_R,
+) {
+  return { id, candidatura_id, solicitada_em, veredito, prazo_nova_decisao_em: prazo };
+}
+
+async function enviarRevisaoRejeicao(
+  corpo: Record<string, unknown>,
+  opts: {
+    revisaoRejeicaoRows?: Array<Record<string, unknown>>;
+    decisaoFinalRow?: Record<string, unknown> | null;
+    notifRow?: Record<string, unknown> | null;
+    revisaoRejeicaoErro?: boolean;
+  },
+) {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, status: "em_analise", opcao_knockout_id: null },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    ...opts,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_51_11" });
+  const res = await handler(makeRequest(corpo, RETRY_BEARER), {
+    supabaseAdmin: supa,
+    fetchImpl: fetchMock.impl,
+    serviceKey: RETRY_BEARER,
+  });
+  return { res, supa, fetchMock };
+}
+
+type LeituraCapt = { table: string; cols?: string; eqs: Array<[string, unknown]> };
+const leuTabela = (supa: { selects: LeituraCapt[] }, t: string): LeituraCapt[] =>
+  supa.selects.filter((s) => s.table === t);
+
+Deno.test("51-11 — pedido_id: pedido REVERTIDA com prazo ⇒ frase de reabertura com a data, lida de revisao_rejeicao (nunca decisao_final)", async () => {
+  const { res, supa, fetchMock } = await enviarRevisaoRejeicao(
+    { evento: "revisao_respondida", candidatura_id: CAND_R, ciclo: CICLO_A, pedido_id: PEDIDO_A },
+    {
+      revisaoRejeicaoRows: [pedido(PEDIDO_A, SOLIC_A, "revertida", "2026-10-04T03:00:00Z")],
+      decisaoFinalRow: { revisao_veredito: "mantida", prazo_nova_decisao_em: null },
+    },
+  );
+  assertEquals(res.status, 200);
+  assertEquals(fetchMock.calls.length, 1);
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(`${FRASE_D01} até 03/10/2026.`), "o e-mail não diz a reabertura com a data do PEDIDO");
+  assert(!html.includes(FRASE_MANTIDA), "o e-mail carregou o veredito de decisao_final");
+  assertEquals(leuTabela(supa, "decisao_final").length, 0, "decisao_final foi lida com pedido_id no corpo");
+  const leituras = leuTabela(supa, "revisao_rejeicao");
+  assertEquals(leituras.length, 1);
+  // Allowlist: as três colunas — nunca a justificativa (`resultado`) nem quem respondeu.
+  assertEquals(
+    String(leituras[0].cols).split(",").map((c) => c.trim()).sort(),
+    ["prazo_nova_decisao_em", "solicitada_em", "veredito"],
+  );
+  // Leitura casada com a candidatura do corpo (T-51-49).
+  const eqs = leituras[0].eqs;
+  assert(eqs.some(([c, v]) => c === "id" && v === PEDIDO_A), "não filtrou pelo id do pedido");
+  assert(eqs.some(([c, v]) => c === "candidatura_id" && v === CAND_R), "não filtrou pela candidatura");
+  // A chave de dedupe NÃO muda: continua sendo o ciclo.
+  assertEquals(supa.upserts[0].row.dedupe_key, `${CAND_R}:revisao_respondida:${CICLO_A}`);
+});
+
+Deno.test("51-11 — pedido_id: pedido MANTIDA ⇒ «mantida», mesmo com decisao_final dizendo revertida (veredito antigo)", async () => {
+  const { supa, fetchMock } = await enviarRevisaoRejeicao(
+    { evento: "revisao_respondida", candidatura_id: CAND_R, ciclo: CICLO_A, pedido_id: PEDIDO_A },
+    {
+      revisaoRejeicaoRows: [pedido(PEDIDO_A, SOLIC_A, "mantida")],
+      decisaoFinalRow: { revisao_veredito: "revertida", prazo_nova_decisao_em: "2026-10-04T03:00:00Z" },
+    },
+  );
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(FRASE_MANTIDA), "o e-mail não diz «mantida»");
+  assert(!/reaberta|03\/10\/2026/.test(html), "o veredito antigo de decisao_final vazou para o e-mail");
+  assertEquals(leuTabela(supa, "decisao_final").length, 0);
+});
+
+Deno.test("51-11 — pedido_id de OUTRA candidatura (ou inexistente) ⇒ frase NEUTRA, e decisao_final NÃO é usada como plano B", async () => {
+  for (
+    const linhas of [
+      [pedido(PEDIDO_A, SOLIC_A, "revertida", "2026-10-04T03:00:00Z", OUTRA_CAND)],
+      [],
+    ]
+  ) {
+    const { fetchMock, supa } = await enviarRevisaoRejeicao(
+      { evento: "revisao_respondida", candidatura_id: CAND_R, ciclo: CICLO_A, pedido_id: PEDIDO_A },
+      {
+        revisaoRejeicaoRows: linhas,
+        decisaoFinalRow: { revisao_veredito: "mantida", prazo_nova_decisao_em: null },
+      },
+    );
+    assertEquals(fetchMock.calls.length, 1, "o e-mail neutro ainda deve sair");
+    const { html } = corpoEnviado(fetchMock.calls[0]);
+    assert(
+      !/decis[ãa]o foi mantida|anterior foi revista|reaberta e ser[áa] decidida/.test(html),
+      "afirmou um desfecho que o servidor não confirmou para ESTE pedido",
+    );
+    assert(html.includes("foi respondida"));
+    assertEquals(leuTabela(supa, "decisao_final").length, 0);
+  }
+});
+
+Deno.test("51-11 — falha na leitura de revisao_rejeicao ⇒ NEUTRO (nunca cair em decisao_final de outro ciclo)", async () => {
+  for (const corpo of [
+    { evento: "revisao_respondida", candidatura_id: CAND_R, ciclo: CICLO_A, pedido_id: PEDIDO_A },
+    { evento: "revisao_respondida", candidatura_id: CAND_R, ciclo: CICLO_A },
+  ]) {
+    const { fetchMock, supa } = await enviarRevisaoRejeicao(corpo, {
+      revisaoRejeicaoErro: true,
+      decisaoFinalRow: { revisao_veredito: "mantida", prazo_nova_decisao_em: null },
+    });
+    const { html } = corpoEnviado(fetchMock.calls[0]);
+    assert(!html.includes(FRASE_MANTIDA), "erro de leitura virou o veredito de decisao_final");
+    assertEquals(leuTabela(supa, "decisao_final").length, 0);
+  }
+});
+
+Deno.test("51-11 — sem pedido_id, com ciclo de um pedido ⇒ acha o pedido pelo epoch ARREDONDADO de solicitada_em", async () => {
+  const { supa, fetchMock } = await enviarRevisaoRejeicao(
+    { evento: "revisao_respondida", candidatura_id: CAND_R, ciclo: CICLO_A },
+    {
+      revisaoRejeicaoRows: [
+        pedido(PEDIDO_B, SOLIC_B, "mantida"),
+        pedido(PEDIDO_A, SOLIC_A, "revertida", "2026-10-10T03:00:00Z"),
+      ],
+      decisaoFinalRow: { revisao_veredito: "mantida", prazo_nova_decisao_em: null },
+    },
+  );
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(`${FRASE_D01} até 09/10/2026.`), "não usou o pedido do ciclo (A, revertida)");
+  assert(!html.includes(FRASE_MANTIDA), "usou o pedido de outro ciclo (B) ou decisao_final");
+  assertEquals(leuTabela(supa, "decisao_final").length, 0);
+  const lista = leuTabela(supa, "revisao_rejeicao")[0];
+  assertEquals(lista.eqs, [["candidatura_id", CAND_R]]);
+});
+
+Deno.test("51-11 — LEGADO: ciclo sem pedido correspondente ⇒ decisao_final, como hoje", async () => {
+  const { supa, fetchMock } = await enviarRevisaoRejeicao(
+    { evento: "revisao_respondida", candidatura_id: CAND_R, ciclo: CICLO_A },
+    {
+      revisaoRejeicaoRows: [pedido(PEDIDO_B, SOLIC_B, "revertida", "2026-10-04T03:00:00Z")],
+      decisaoFinalRow: { revisao_veredito: "mantida", prazo_nova_decisao_em: null },
+    },
+  );
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(FRASE_MANTIDA), "o ciclo de decisao_final não foi lido");
+  assert(!/reaberta/.test(html), "usou o pedido de OUTRO ciclo");
+  const df = leuTabela(supa, "decisao_final");
+  assertEquals(df.length, 1);
+  assertEquals(df[0].eqs, [["candidatura_id", CAND_R]]);
+});
+
+Deno.test("51-11 — LEGADO sem ciclo e sem pedido_id: nenhuma leitura de revisao_rejeicao, decisao_final como hoje", async () => {
+  const { supa, fetchMock } = await enviarRevisaoRejeicao(
+    { evento: "revisao_respondida", candidatura_id: CAND_R },
+    { decisaoFinalRow: { revisao_veredito: "mantida", prazo_nova_decisao_em: null } },
+  );
+  assert(corpoEnviado(fetchMock.calls[0]).html.includes(FRASE_MANTIDA));
+  assertEquals(leuTabela(supa, "revisao_rejeicao").length, 0);
+});
+
+Deno.test("51-11 — RETRY: ciclo vem da dedupe_key da linha; o pedido do ciclo dá o veredito (sem claim, Idempotency-Key = retry_id)", async () => {
+  const { res, supa, fetchMock } = await enviarRevisaoRejeicao(
+    { retry_id: "n-rr", evento: "revisao_respondida", candidatura_id: CAND_R },
+    {
+      notifRow: {
+        id: "n-rr",
+        status: "falhou",
+        tentativas: 1,
+        dedupe_key: `${CAND_R}:revisao_respondida:${CICLO_A}`,
+      },
+      revisaoRejeicaoRows: [
+        pedido(PEDIDO_A, SOLIC_A, "mantida"),
+        pedido(PEDIDO_B, SOLIC_B, "revertida", "2026-10-04T03:00:00Z"),
+      ],
+      decisaoFinalRow: { revisao_veredito: "revertida", prazo_nova_decisao_em: "2026-10-04T03:00:00Z" },
+    },
+  );
+  assertEquals((await res.json()).status, "enviado");
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(FRASE_MANTIDA), "o retry não achou o pedido do ciclo da dedupe_key");
+  assert(!/reaberta/.test(html), "o retry usou o veredito de outro ciclo");
+  assertEquals(leuTabela(supa, "decisao_final").length, 0);
+  assertEquals(supa.upserts.length, 0);
+  const headers = (fetchMock.calls[0].init?.headers ?? {}) as Record<string, string>;
+  assertEquals(headers["Idempotency-Key"], "n-rr");
+});
+
+Deno.test("51-11 — pedido_id não-uuid ⇒ 400 VALIDATION sem leitura nem claim; null ⇒ ausente", async () => {
+  for (const pid of ["nao-uuid", 42, "", {}]) {
+    const { res, supa, fetchMock } = await enviarRevisaoRejeicao(
+      { evento: "revisao_respondida", candidatura_id: CAND_R, ciclo: CICLO_A, pedido_id: pid },
+      { revisaoRejeicaoRows: [pedido(PEDIDO_A, SOLIC_A, "mantida")] },
+    );
+    assertEquals(res.status, 400, `pedido_id ${JSON.stringify(pid)}: esperado 400`);
+    assertEquals((await res.json()).error_code, "VALIDATION");
+    assertEquals(supa.selects.length, 0, "leu antes de validar");
+    assertEquals(supa.upserts.length, 0);
+    assertEquals(fetchMock.calls.length, 0);
+  }
+  // null = ausente: cai na resolução por ciclo (o pedido A é achado pelo epoch).
+  const { res, fetchMock } = await enviarRevisaoRejeicao(
+    { evento: "revisao_respondida", candidatura_id: CAND_R, ciclo: CICLO_A, pedido_id: null },
+    { revisaoRejeicaoRows: [pedido(PEDIDO_A, SOLIC_A, "mantida")] },
+  );
+  assertEquals(res.status, 200);
+  assert(corpoEnviado(fetchMock.calls[0]).html.includes(FRASE_MANTIDA));
+});
+
+Deno.test("51-11 — os OUTROS eventos não ganham consulta a revisao_rejeicao (nem com pedido_id no corpo)", async () => {
+  const { supa } = await enviarRevisaoRejeicao(
+    { evento: "decisao", candidatura_id: CAND_R, pedido_id: PEDIDO_A },
+    { revisaoRejeicaoRows: [pedido(PEDIDO_A, SOLIC_A, "mantida")] },
+  );
+  assertEquals(leuTabela(supa, "revisao_rejeicao").length, 0);
+  assertEquals(leuTabela(supa, "decisao_final").length, 0);
 });

@@ -100,6 +100,16 @@ interface CorpoRequisicao {
    */
   ciclo?: string;
   /**
+   * 51-11 (JORN-42 · RESEARCH 51, armadilha 2): o id do pedido de `revisao_rejeicao` cuja
+   * resposta este e-mail anuncia — mandado por `trg_notif_revisao_rejeicao_respondida`
+   * (`20261008000002`, junto do `ciclo` = epoch de `solicitada_em`). Só `revisao_respondida`
+   * o usa: é a FONTE do veredito e do prazo (ver `lerVereditoRevisao`). NÃO entra na chave
+   * de dedupe — o `ciclo` continua sendo a identidade do ciclo, e um pedido tem um só ciclo.
+   * Opcional por tolerância (a EF vai ao ar antes de o trigger existir em PROD); `null`
+   * vale como ausente (jsonb_build_object, molde do 48-08); presente e não-uuid ⇒ 400.
+   */
+  pedido_id?: string;
+  /**
    * P41 / RECON-03: presente APENAS quando a varredura `pg_cron`
    * (`varrer_retry_notificacoes`) reenvia. Sinaliza o BRANCH RETRY — a EF re-tenta
    * a linha EXISTENTE por id em vez de reivindicar uma nova (claim-before-send).
@@ -149,6 +159,107 @@ export function formatarDataLimiteReabertura(prazo: unknown): string | undefined
     month: "2-digit",
     year: "numeric",
   }).format(new Date(ms - 1000));
+}
+
+type VereditoRevisao = "mantida" | "revertida";
+
+/** Vocabulário fechado: fora de `mantida|revertida` ⇒ `undefined` ⇒ frase neutra. */
+function vereditoFechado(v: unknown): VereditoRevisao | undefined {
+  return v === "mantida" || v === "revertida" ? v : undefined;
+}
+
+/**
+ * 51-11 — o `ciclo` que o trigger mandaria para um instante de `solicitada_em`: o MESMO valor
+ * de `extract(epoch from solicitada_em)::bigint::text`.
+ *
+ * ⚠ É `Math.round`, não `Math.floor`: no PostgreSQL (≥ 14) `extract(epoch …)` é `numeric`, e o
+ * cast `numeric → bigint` ARREDONDA (meio para longe do zero). Medido em PROD (PG 17.6,
+ * 2026-10-09, leitura pura): `'… 12:34:56.6+00'` ⇒ `…897`, `'….5'` ⇒ `…897`, `'….4999'` ⇒
+ * `…896`. Com `floor`, todo pedido com fração ≥ .5 s — metade deles — seria invisível ao retry.
+ * O `Date.parse` trunca os microssegundos em milissegundos, o que preserva o lado do
+ * arredondamento (`.4999xx` → `.499`, `.5000xx` → `.500`).
+ *
+ * Valor ilegível ⇒ `undefined` (nunca casa com ciclo nenhum).
+ */
+export function cicloDoInstante(instante: unknown): string | undefined {
+  if (typeof instante !== "string" || instante.length === 0) return undefined;
+  const ms = Date.parse(instante);
+  if (!Number.isFinite(ms)) return undefined;
+  return String(Math.round(ms / 1000));
+}
+
+/**
+ * 51-11 (JORN-42 · RESEARCH 51, armadilha 2) — DE ONDE vem o veredito de `revisao_respondida`.
+ *
+ * Até a 51 havia uma só fonte: `decisao_final` (`maybeSingle` pela candidatura, UNIQUE). A 51-08
+ * criou a segunda — `revisao_rejeicao`, o pedido de revisão de uma rejeição pelo RH na triagem
+ * ou de um knockout, um registro por pedido (uma reabertura gera direito novo, D-06). Ler
+ * `decisao_final` para a resposta de um desses pedidos dá a frase NEUTRA (não há linha) ou,
+ * pior, o veredito de OUTRO ciclo (a decisão final de antes). Ordem de resolução:
+ *
+ *   1. `pedido_id` (corpo do `trg_notif_revisao_rejeicao_respondida`) ⇒ `revisao_rejeicao`
+ *      pelo `id` E pela `candidatura_id` (um id de outra candidatura não acha nada). Não
+ *      achou ⇒ NEUTRO — e NÃO cai em `decisao_final`: o corpo disse qual pedido é, e
+ *      qualquer outra fonte seria o veredito de outro ciclo.
+ *   2. sem `pedido_id`, com `ciclo` (o caminho do RETRY: a varredura manda só `retry_id` e o
+ *      ciclo sai da `dedupe_key`) ⇒ os pedidos da candidatura, e o escolhido é o de
+ *      `cicloDoInstante(solicitada_em) === ciclo`. Nenhum casou ⇒ passo 3.
+ *   3. `decisao_final` — o comportamento de antes, byte-igual (mesmas duas colunas, mesmo
+ *      `maybeSingle`). É o ciclo de revisão da decisão final, que manda `ciclo` sem `pedido_id`.
+ *
+ * Erro de leitura em `revisao_rejeicao` ⇒ NEUTRO, nunca o passo 3: um erro transitório não
+ * pode virar o veredito de outro ciclo. A dedupe NÃO muda (o `ciclo` é a identidade do ciclo;
+ * um pedido tem um ciclo só) — por isso o `pedido_id` não entra na chave.
+ *
+ * Allowlist: `veredito, prazo_nova_decisao_em, solicitada_em` — nunca `resultado` (a
+ * justificativa do revisor), `respondida_por` nem `rejeitado_por` (COMM-05 / D-15 da 48).
+ */
+async function lerVereditoRevisao(
+  // deno-lint-ignore no-explicit-any
+  supabaseAdmin: any,
+  candidatura_id: string,
+  ciclo: string | undefined,
+  pedido_id: string | undefined,
+): Promise<{ veredito?: VereditoRevisao; prazo?: unknown }> {
+  const COLS_PEDIDO = "veredito, prazo_nova_decisao_em, solicitada_em";
+
+  if (pedido_id) {
+    const { data: pedido, error } = await supabaseAdmin
+      .from("revisao_rejeicao")
+      .select(COLS_PEDIDO)
+      .eq("id", pedido_id)
+      .eq("candidatura_id", candidatura_id)
+      .maybeSingle();
+    if (error || !pedido) return {};
+    return { veredito: vereditoFechado(pedido.veredito), prazo: pedido.prazo_nova_decisao_em };
+  }
+
+  if (ciclo) {
+    const { data: pedidos, error } = await supabaseAdmin
+      .from("revisao_rejeicao")
+      .select(COLS_PEDIDO)
+      .eq("candidatura_id", candidatura_id);
+    if (error) return {};
+    const doCiclo = Array.isArray(pedidos)
+      ? pedidos.find((p: { solicitada_em?: unknown }) => cicloDoInstante(p?.solicitada_em) === ciclo)
+      : undefined;
+    if (doCiclo) {
+      return {
+        veredito: vereditoFechado(doCiclo.veredito),
+        prazo: doCiclo.prazo_nova_decisao_em,
+      };
+    }
+  }
+
+  const { data: decisao } = await supabaseAdmin
+    .from("decisao_final")
+    .select("revisao_veredito, prazo_nova_decisao_em")
+    .eq("candidatura_id", candidatura_id)
+    .maybeSingle();
+  return {
+    veredito: vereditoFechado(decisao?.revisao_veredito),
+    prazo: decisao?.prazo_nova_decisao_em,
+  };
 }
 
 /**
@@ -214,6 +325,14 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     ) {
       return errorResponse("VALIDATION", "ciclo inválido.");
     }
+    // 51-11: mesma regra do `historico_id` — forma conferida ANTES de qualquer leitura/claim
+    // (T-51-49); `null` = ausente.
+    if (
+      raw.pedido_id !== undefined && raw.pedido_id !== null &&
+      (typeof raw.pedido_id !== "string" || !RE_UUID.test(raw.pedido_id))
+    ) {
+      return errorResponse("VALIDATION", "pedido_id inválido.");
+    }
     body = {
       evento: raw.evento as EventoLedger,
       candidatura_id: raw.candidatura_id,
@@ -221,6 +340,7 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
       reagendamento: raw.reagendamento === true,
       historico_id: typeof raw.historico_id === "string" ? raw.historico_id : undefined,
       ciclo: typeof raw.ciclo === "string" ? raw.ciclo : undefined,
+      pedido_id: typeof raw.pedido_id === "string" ? raw.pedido_id : undefined,
       retry_id: typeof raw.retry_id === "string" && raw.retry_id ? raw.retry_id : undefined,
     };
   } catch {
@@ -235,6 +355,12 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
   let historico_id: string | undefined = eventoPorHistorico(evento)
     ? body.historico_id
     : undefined;
+
+  // 51-11: o ciclo da revisão cuja resposta este e-mail anuncia — SÓ para escolher a fonte do
+  // veredito (`lerVereditoRevisao`). No caminho normal vem do corpo; no branch retry é
+  // DERIVADO da `dedupe_key` da linha (a varredura não manda `ciclo`). A chave de dedupe
+  // continua montada com `body.ciclo`, como antes — nada nela muda.
+  let cicloRevisao: string | undefined = body.ciclo;
 
   // No caminho normal a 1ª falha grava tentativas=1; no branch retry incrementamos
   // a partir da linha existente (row.tentativas + 1). Fixado logo abaixo (2b).
@@ -269,6 +395,14 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     historico_id = typeof row.dedupe_key === "string"
       ? extrairVersaoDaChave(row.dedupe_key, evento)
       : undefined;
+    // 51-11: `{candidatura}:revisao_respondida:{ciclo}` ⇒ o ciclo. Chave legada (sem o 3º
+    // segmento) ou malformada ⇒ `undefined` ⇒ `decisao_final`, o comportamento anterior.
+    if (evento === "revisao_respondida" && typeof row.dedupe_key === "string") {
+      const partes = row.dedupe_key.split(":");
+      cicloRevisao = partes.length === 3 && partes[1] === evento && RE_CICLO.test(partes[2])
+        ? partes[2]
+        : undefined;
+    }
   }
 
   // ---- 3) Resolver dados por ALLOWLIST de colunas (nunca projeção-estrela) ----
@@ -405,18 +539,20 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
   // 48-13 (JORN-19 · D-01): a allowlist passa a DUAS colunas — `prazo_nova_decisao_em` entra
   // porque o veredito `revertida` REABRE a candidatura (48-11) e o e-mail diz a data-limite da
   // nova decisão. Só é formatada para `revertida`; `mantida` nunca fala de prazo.
-  let vereditoRevisao: "mantida" | "revertida" | undefined;
+  //
+  // 51-11 (JORN-42): a leitura passa a ESCOLHER A FONTE — ver `lerVereditoRevisao`.
+  let vereditoRevisao: VereditoRevisao | undefined;
   let prazoNovaDecisaoFmt: string | undefined;
   if (evento === "revisao_respondida") {
-    const { data: decisao } = await supabaseAdmin
-      .from("decisao_final")
-      .select("revisao_veredito, prazo_nova_decisao_em")
-      .eq("candidatura_id", candidatura_id)
-      .maybeSingle();
-    const v = decisao?.revisao_veredito;
-    vereditoRevisao = v === "mantida" || v === "revertida" ? v : undefined;
+    const lido = await lerVereditoRevisao(
+      supabaseAdmin,
+      candidatura_id,
+      cicloRevisao,
+      body.pedido_id,
+    );
+    vereditoRevisao = lido.veredito;
     if (vereditoRevisao === "revertida") {
-      prazoNovaDecisaoFmt = formatarDataLimiteReabertura(decisao?.prazo_nova_decisao_em);
+      prazoNovaDecisaoFmt = formatarDataLimiteReabertura(lido.prazo);
     }
   }
 
