@@ -1,8 +1,8 @@
 /**
  * EntrevistaScorecardInline — the inline-editable interview scorecard (ENTREV-02).
  *
- * BARS `Slider` rows per competência (`notas_humanas`, 1-5) + optional gestor notes
- * + "Salvar avaliação" via the LIVE `salvar_avaliacao_entrevista` RPC. Built on the
+ * BARS `Slider` rows per competência (`notas_humanas`, 1-5) + notas do gestor obrigatórias
+ * (espelho de `salvar_avaliacao_entrevista`, D-22) + "Salvar avaliação" via the LIVE RPC. Built on the
  * neutral `ScorecardAvaliacao` presentation idiom — NO red/green tint on the scores
  * (mirrors the Phase-11/13 neutrality). The AI suggestion (if any transcript-analysis
  * row exists) seeds the slider defaults; the gestor always decides (RNF-07a).
@@ -14,6 +14,13 @@
  * só o padrão. Sem vigente não há onde gravar, e o Salvar fica desabilitado com a frase do
  * que falta. Quem acrescenta o id ao payload é o workspace; aqui o `onSalvar` continua
  * entregando `{ scoresHumanos, notas }`.
+ *
+ * 51-04 (JORN-47, D-22): as notas do gestor são obrigatórias nos dois lados. O servidor recusa
+ * `p_notas` nulo ou vazio depois de `btrim` (`notas_humanas obrigatorias`, 23514), e a tela
+ * deixava clicar com o campo vazio — o RH via só o toast genérico de erro. Agora o cliente
+ * espelha a regra: com `notas.trim()` vazio o Salvar fica desabilitado e a tela diz por quê
+ * (`entrevista-notas-obrigatorias`). O `trim()` remove todo espaço em branco e o `btrim` do
+ * servidor só espaços — o cliente é igual ou mais estrito; nada que o servidor recusa passa.
  *
  * @module features/entrevista/components/EntrevistaScorecardInline
  * @see src/features/triagem/components/RedacaoOverrideForm.tsx (BARS Slider + notes + save)
@@ -39,6 +46,8 @@ export const SCORECARD_COPY = {
   registradaSobre: 'Esta avaliação será registrada sobre a análise da',
   escolherLegenda: 'Qual análise você está avaliando?',
   semVigente: 'Nenhuma análise vigente: analise a transcrição antes de registrar a avaliação.',
+  /** 51-04 (D-22): notas vazias depois de `trim()` — o servidor recusaria com 23514. */
+  notasObrigatorias: 'Escreva as notas do gestor para salvar a avaliação.',
 } as const
 
 /** Default Beauty Smile interview competencies (used when the AI gives none). */
@@ -69,7 +78,7 @@ export interface EntrevistaScorecardInlineProps {
 }
 
 /**
- * The inline-editable scorecard — BARS sliders per competência + optional notes +
+ * The inline-editable scorecard — BARS sliders per competência + notas obrigatórias +
  * Salvar via the RPC. The AI seeds the defaults (badge on the header); the gestor
  * always decides.
  */
@@ -102,13 +111,15 @@ export function EntrevistaScorecardInline({
     Object.fromEntries(competencias.map((c) => [c.key, clampScore(c.ia)])),
   )
   const [notas, setNotas] = useState('')
+  // D-22: mesma regra do servidor (ou mais estrita) — vazio depois de trim() não salva.
+  const semNotas = notas.trim().length === 0
 
   function setDim(key: string, value: number) {
     setScores((prev) => ({ ...prev, [key]: value }))
   }
 
   function handleSalvar() {
-    if (saving || semAnalise) return
+    if (saving || semAnalise || semNotas) return
     onSalvar?.({ scoresHumanos: scores, notas })
   }
 
@@ -195,16 +206,18 @@ export function EntrevistaScorecardInline({
         ))}
       </div>
 
-      {/* Optional gestor notes. */}
+      {/* Notas do gestor obrigatórias (espelho de `salvar_avaliacao_entrevista`, D-22). */}
       <div className="space-y-2">
         <Label htmlFor="entrevista-notas" className="text-sm font-semibold text-white/90">
-          Notas do gestor (opcional)
+          Notas do gestor
         </Label>
         <Textarea
           id="entrevista-notas"
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
-          placeholder="Observações sobre a entrevista (opcional)."
+          placeholder="Observações sobre a entrevista."
+          required
+          aria-required="true"
           className="min-h-24 bg-white/5 text-base text-white placeholder:text-white/40"
           disabled={saving}
         />
@@ -213,9 +226,14 @@ export function EntrevistaScorecardInline({
       {semAnalise ? (
         <p className="text-sm text-white/75">{SCORECARD_COPY.semVigente}</p>
       ) : null}
+      {semNotas ? (
+        <p data-testid="entrevista-notas-obrigatorias" className="text-sm text-white/75">
+          {SCORECARD_COPY.notasObrigatorias}
+        </p>
+      ) : null}
       <Button
         type="button"
-        disabled={saving || semAnalise}
+        disabled={saving || semAnalise || semNotas}
         onClick={handleSalvar}
         className="min-h-[44px] w-full bg-white/20 text-white hover:bg-white/30"
       >
