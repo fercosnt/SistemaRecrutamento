@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-03-PLAN.md
-last_updated: "2026-10-09T03:30:16.248Z"
+stopped_at: Completed 51-04-PLAN.md
+last_updated: "2026-10-09T03:50:17.895Z"
 last_activity: 2026-10-09
-state_head: 9bd476865c97def1fdf17366d2d3ca055abd2ed7
+state_head: 317471c4ea62c95a9b9da573617ba91157d2629e
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 150
-  percent: 91
+  completed_plans: 151
+  percent: 92
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-03 concluido (JORN-48, parcial ate o 51-04/51-07): hub do RH com «Prova cognitiva» (textual) distinta de «Raciocinio logico (Matrizes)» (Raven); estado «Nao se aplica a esta vaga» so com evidencia positiva (instrumentosDaVaga, tres valores; o dado vence a configuracao); nomes D-15 em CognitivoBandCard/Consolidacao/PesosSliders/LiberacaoCognitivoBlock/ScoreCard; publicado d5e2e8b9, marcador hub-secao-nao-se-aplica no chunk lazy PerfilCandidatoRHPage-BbItGj5Z.js de PROD. Proximo: 51-04"
+last_activity_desc: "51-04 concluido (JORN-47 e JORN-48 seguem abertos pelo gate de ID compartilhado ate o 51-17/51-07): Salvar da avaliacao de entrevista bloqueado com notas vazias depois de trim() e mensagem entrevista-notas-obrigatorias (espelho de salvar_avaliacao_entrevista, conferido nas 2 sobrecargas vivas: RECUSA + DELEGA); toast do Raven e rotulos do export com os nomes do D-15; guarda por forma nomes-instrumentos.grep.test.ts (mordida provada na base e em cca99243); publicado 4676feb6, marcador no chunk lazy EntrevistaWorkspace-BjR0b7D_.js de PROD. Proximo: 51-05"
 ---
 
 # Project State
@@ -995,6 +995,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P01 | 20 min | 3 tasks | 13 files |
 | Phase 51 P02 | 3h (~30 min de trabalho; sessao parada entre tasks) | 2 tasks | 6 files |
 | Phase 51 P03 | 12min | 3 tasks | 11 files |
+| Phase 51 P04 | 18 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1407,6 +1408,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-03: «Nao se aplica a esta vaga» so com evidencia positiva — instrumentosDaVaga em tres valores (aplica/nao_aplica/desconhecido); nao_aplica exige array nao vazio, todo da convencao atual, sem entrada que mapeie; vaga nao carregada ou convencao antiga = desconhecido
 - [Phase 51]: 51-03: entradas atuais triagem/entrevista/cognitivo contam como reconhecidas (senao nenhuma vaga de template chegaria a nao_aplica); a presenca da entrada decide aplica, nao o obrigatorio (mesma regra do deriveCards)
 - [Phase 51]: 51-03: o dado vence a configuracao — secao com linha do instrumento mostra o estado de hoje; Ver respostas so some quando a secao MOSTRA Nao se aplica (carregando/erro mantem o bloco)
+- [Phase 51]: 51-04: a sonda da regra viva do servidor classifica por forma (RECUSA | DELEGA | FURO); o wrapper de 3 argumentos de salvar_avaliacao_entrevista delega sem escrita a de 4 com p_notas intacto, e a premissa do D-22 nao mudou (md5 functiondef = pesquisa)
+- [Phase 51]: 51-04: guarda dos nomes do D-15 por conteudo inteiro; Cognitivo so capitalizado (a minuscula e chave tecnica, 31 literais em src/; com flag i reprovaria 17 linhas corretas)
 
 ### Roadmap Evolution
 
@@ -1741,8 +1744,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T03:29:52.896Z
-Stopped at: Completed 51-03-PLAN.md
+Last session: 2026-10-09T03:50:17.628Z
+Stopped at: Completed 51-04-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

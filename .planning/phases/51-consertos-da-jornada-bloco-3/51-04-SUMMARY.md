@@ -317,7 +317,7 @@ None - no external service configuration required.
 ## Next Phase Readiness
 
 - 51-05: `origin/main` == HEAD (`4676feb6`) nos caminhos de código. Só os commits de docs deste plano ficam à frente.
-- **JORN-48** é declarado também pelo 51-07: pelo gate de ID compartilhado, fica aberto até o 51-07 fechar. O JORN-47 é só deste plano.
+- **JORN-48** é declarado também pelo 51-07, e o **JORN-47** pelo 51-17. Pelo gate de ID compartilhado (`requirements.ready-ids` → 0/2), os dois ficam abertos no REQUIREMENTS até esses planos fecharem.
 - A conferência no navegador (D-28) fica para a UAT da fase (coverage D6).
 
 ## Self-Check: PASSED
