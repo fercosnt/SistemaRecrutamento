@@ -1,5 +1,5 @@
 /**
- * Phase 14 / Plan 14-06 (ENTREV-05) — the candidate cognitive-reasoning prova.
+ * Phase 14 / Plan 14-06 (ENTREV-05) — the candidate «Prova cognitiva» (textual items).
  *
  * The opt-in (`vaga.aplica_cognitivo`, default false) mobile-first prova on the
  * established SJT `ScreenShell` (BackgroundImage gradient + overlay 15% + max-w-2xl
@@ -18,9 +18,15 @@
  * sees the NEUTRAL "Prova registrada. Acompanhe o andamento pelo seu painel." — never
  * a score/band/threshold/pass-fail (RNF-07a); a 42501 back-lock → "Sua etapa avançou."
  *
- * Product language is non-clinical — "prova de raciocínio lógico" / "avaliação
- * cognitiva contextual"; the LGPD-04 forbidden-strings guard enforces that the
+ * Product language is non-clinical — "prova cognitiva" / "avaliação cognitiva
+ * contextual"; the LGPD-04 forbidden-strings guard enforces that the
  * clinical/psychometric framing never appears in any candidate-facing copy.
+ *
+ * Phase 51 / Plan 51-01 (D-15, D-37): named «Prova cognitiva» — «Raciocínio lógico
+ * (Matrizes)» is the Raven (`AvaliacaoRavenScreen`), a different instrument. This screen
+ * lives INSIDE the assessment container, so its way back says «Voltar às avaliações»
+ * and goes to the list; only the «Sua etapa avançou» state says «Ir ao painel» and goes
+ * straight to `/candidato/dashboard` (C-11: never bounced through the list's lock).
  *
  * @see src/features/avaliacao/components/SjtMultiplaEscolhaScreen.tsx (the ScreenShell + soft-timer + radio-group + irreversible AlertDialog this clones)
  * @see src/features/avaliacao-cognitiva/services/cognitivoService.ts (getContexto/listItens/submitProva)
@@ -64,12 +70,12 @@ import { useProctoring } from '@/features/avaliacao-cognitiva/hooks/useProctorin
 
 /** Verbatim pt-BR copy from 14-UI-SPEC §Copywriting Contract (candidate cognitive prova). */
 const COPY = {
-  heading: 'Prova de raciocínio lógico',
+  heading: 'Prova cognitiva',
   // FX-13: the prova has NO autosave (picks live in local state and are posted only
   // at submit, unlike the Big Five). Softened to not promise persistence the screen
   // does not deliver — directs the candidate to finish in one sitting.
   intro:
-    'Esta etapa avalia raciocínio lógico. Faça com calma — não há limite rígido de tempo. Conclua a prova em uma única sessão; suas respostas são enviadas ao finalizar.',
+    'Esta é a prova cognitiva desta etapa. Faça com calma — não há limite rígido de tempo. Conclua a prova em uma única sessão; suas respostas são enviadas ao finalizar.',
   proctoring:
     'Para garantir uma avaliação justa, registramos quando a aba perde o foco e o campo de resposta não aceita colar. Nenhuma câmera, gravação ou biometria é usada.',
   questionLabel: (n: number, total: number) => `Questão ${n} de ${total}`,
@@ -87,7 +93,8 @@ const COPY = {
   loadFailedHeading: 'Não foi possível carregar a prova.',
   loadFailedBody: 'Verifique sua conexão e tente novamente.',
   retry: 'Tentar novamente',
-  backToPanel: 'Voltar ao painel',
+  voltarAvaliacoes: 'Voltar às avaliações',
+  irAoPainel: 'Ir ao painel',
   dialogTitle: 'Enviar prova?',
   dialogBody: 'Após enviar, você não poderá editar suas respostas.',
   dialogConfirm: 'Enviar prova',
@@ -104,7 +111,10 @@ export function ProvaCognitivaScreen() {
   const navigate = useNavigate()
   const { candidaturaId } = useParams<{ candidaturaId: string }>()
 
-  const backToPanel = () => navigate('/candidato/dashboard')
+  // D-37: inside the container → back to the assessment list.
+  const backToList = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
+  // D-37 / C-11: the etapa moved on → straight to the panel.
+  const goToPanel = () => navigate('/candidato/dashboard')
 
   // Context — resolves the opt-in gate (vaga.aplica_cognitivo) + the etapa.
   const {
@@ -138,6 +148,9 @@ export function ProvaCognitivaScreen() {
   const [respostas, setRespostas] = useState<Record<string, number>>({})
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  // 42501 back-lock on submit: the etapa moved on. Rendered as its own state (it was a
+  // toast over the «Prova registrada» screen — an acknowledgment of a submit the server refused).
+  const [etapaAvancou, setEtapaAvancou] = useState(false)
 
   // A stable per-session shuffle seed (advisory anti-cheat context, NOT a score). The
   // prova presents items in `ordem`; the seed records the session for the audit trail.
@@ -151,7 +164,7 @@ export function ProvaCognitivaScreen() {
   // CR-02: blurCount + events are now read and persisted via submitProva (the
   // "registramos quando a aba perde o foco" disclosure is truthful).
   const { seconds, blurCount, events, pasteBlockHandler } = useProctoring({
-    enabled: optedIn && !done,
+    enabled: optedIn && !done && !etapaAvancou,
   })
 
   const handleSubmit = async () => {
@@ -163,8 +176,7 @@ export function ProvaCognitivaScreen() {
         completionTimeSeconds: seconds,
       })
       if (outcome === 'locked') {
-        toast.info(COPY.etapaAdvanced)
-        setDone(true)
+        setEtapaAvancou(true)
         return
       }
       setDone(true)
@@ -214,8 +226,8 @@ export function ProvaCognitivaScreen() {
         <GlassPanel variant="white" blur="xl" className="text-white text-center p-12 space-y-4">
           <p className="text-white text-xl font-semibold drop-shadow-md">{COPY.notAvailableHeading}</p>
           <p className="text-white/80">{COPY.notAvailableBody}</p>
-          <GlassButton variant="white" hover onClick={backToPanel} className="text-white min-h-[44px]">
-            {COPY.backToPanel}
+          <GlassButton variant="white" hover onClick={backToList} className="text-white min-h-[44px]">
+            {COPY.voltarAvaliacoes}
           </GlassButton>
         </GlassPanel>
       </ScreenShell>
@@ -251,14 +263,28 @@ export function ProvaCognitivaScreen() {
     )
   }
 
+  // ── Etapa advanced (42501 on submit) — straight to the panel (D-37 / C-11) ──────
+  if (etapaAvancou) {
+    return (
+      <ScreenShell>
+        <GlassPanel variant="white" blur="xl" className="text-white text-center p-12 space-y-4">
+          <p className="text-white text-xl font-semibold drop-shadow-md">{COPY.etapaAdvanced}</p>
+          <GlassButton variant="white" hover onClick={goToPanel} className="text-white min-h-[44px]">
+            {COPY.irAoPainel}
+          </GlassButton>
+        </GlassPanel>
+      </ScreenShell>
+    )
+  }
+
   // ── Post-submit — NEUTRAL acknowledgment (no score/band, RNF-07a) ──────────────
   if (done) {
     return (
       <ScreenShell>
         <GlassPanel variant="white" blur="xl" className="text-white text-center p-12 space-y-4">
           <p className="text-white text-xl font-semibold drop-shadow-md">{COPY.postSubmit}</p>
-          <GlassButton variant="white" hover onClick={backToPanel} className="text-white min-h-[44px]">
-            {COPY.backToPanel}
+          <GlassButton variant="white" hover onClick={backToList} className="text-white min-h-[44px]">
+            {COPY.voltarAvaliacoes}
           </GlassButton>
         </GlassPanel>
       </ScreenShell>
@@ -272,8 +298,8 @@ export function ProvaCognitivaScreen() {
         <GlassPanel variant="white" blur="xl" className="text-white text-center p-12 space-y-4">
           <p className="text-white text-xl font-semibold drop-shadow-md">{COPY.notAvailableHeading}</p>
           <p className="text-white/80">{COPY.notAvailableBody}</p>
-          <GlassButton variant="white" hover onClick={backToPanel} className="text-white min-h-[44px]">
-            {COPY.backToPanel}
+          <GlassButton variant="white" hover onClick={backToList} className="text-white min-h-[44px]">
+            {COPY.voltarAvaliacoes}
           </GlassButton>
         </GlassPanel>
       </ScreenShell>

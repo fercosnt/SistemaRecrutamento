@@ -21,6 +21,10 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
 
+// The real client throws without VITE_SUPABASE_* (.env.local); every network call below
+// is mocked, so the client is a stub — the test runs in a clean checkout too.
+vi.mock('@/lib/supabase/client', () => ({ supabase: {} }))
+
 const state = vi.hoisted(() => ({ locked: false }))
 
 vi.mock('@/features/avaliacao/hooks/useAutosaveAvaliacao', () => ({

@@ -33,7 +33,8 @@ import {
 import { useProctoring } from '../hooks/useProctoring'
 
 const COPY = {
-  titulo: 'Avaliação de raciocínio',
+  // Phase 51 / D-15: distinct from the textual «Prova cognitiva» of the vaga.
+  titulo: 'Raciocínio lógico (Matrizes)',
   subtitulo:
     'São 60 itens em ordem crescente de dificuldade. Escolha a peça que completa cada figura.',
   semVolta: 'Não é possível voltar a um item já respondido.',
@@ -43,7 +44,8 @@ const COPY = {
   concluida: 'Avaliação concluída. Obrigado!',
   selecione: 'Escolha uma alternativa para continuar.',
   erroEnvio: 'Não foi possível enviar suas respostas agora. Tente novamente.',
-  voltar: 'Voltar ao painel',
+  // D-37: this screen lives OUTSIDE the assessment container → its way back is the panel.
+  voltar: 'Ir ao painel',
 } as const
 
 function hhmmss(total: number): string {

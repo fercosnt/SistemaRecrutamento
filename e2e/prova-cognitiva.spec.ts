@@ -7,7 +7,7 @@
  *   - PC-01 (opt-in OFF): aplica_cognitivo=false → the candidate sees the
  *     "Esta etapa não está disponível" empty state (no prova mounts).
  *   - PC-02 (opt-in ON): aplica_cognitivo=true → the prova flow renders (heading
- *     "Prova de raciocínio lógico" + proctoring disclosure + soft timer) up to the
+ *     "Prova cognitiva" + proctoring disclosure + soft timer) up to the
  *     neutral acknowledgment "Prova registrada." — NEVER a score/band.
  *   - PC-03 (irreversible / blocked 2nd submission): after submitting, the prova is
  *     closed (neutral acknowledgment); re-opening shows the not-available / closed
@@ -25,7 +25,9 @@
  *
  * The candidate NEVER sees a score/band/threshold (RNF-07a); the proctoring
  * disclosure explicitly states no camera/recording/biometria; product language is
- * "prova de raciocínio lógico" (LGPD-04).
+ * "prova cognitiva" (LGPD-04; Phase 51 / D-15 — «Raciocínio lógico (Matrizes)» is the
+ * Raven, a different instrument). Phase 51 / D-37: inside the assessment container the
+ * way back says «Voltar às avaliações» (→ the list), never «Voltar ao painel».
  */
 import { test, expect, type Page } from '@playwright/test'
 
@@ -59,8 +61,8 @@ test.describe('Prova cognitiva — opt-in gate (Plan 14-06 / ENTREV-05)', () => 
 
     // The opt-in gate is closed → the not-available empty state, never the prova.
     await expect(page.getByText(/Esta etapa não está disponível/i)).toBeVisible({ timeout: 10000 })
-    await expect(page.getByRole('heading', { name: /Prova de raciocínio lógico/i })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: /Voltar ao painel/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Prova cognitiva/i })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Voltar às avaliações/i })).toBeVisible()
   })
 
   test('PC-02: aplica_cognitivo=true → prova renders + neutral acknowledgment, never a score', async ({ page }) => {
@@ -71,7 +73,7 @@ test.describe('Prova cognitiva — opt-in gate (Plan 14-06 / ENTREV-05)', () => 
     await page.goto(`/candidato/prova-cognitiva/${CANDIDATURA_OPTIN_ON}`)
 
     // The prova mounts: heading + transparent proctoring disclosure + soft timer.
-    await expect(page.getByRole('heading', { name: /Prova de raciocínio lógico/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /Prova cognitiva/i })).toBeVisible({ timeout: 10000 })
     await expect(page.getByText(/Nenhuma câmera, gravação ou biometria é usada/i)).toBeVisible()
     await expect(page.getByText(/Tempo nesta prova:/i)).toBeVisible()
 
