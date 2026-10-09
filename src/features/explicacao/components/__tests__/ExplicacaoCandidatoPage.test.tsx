@@ -492,12 +492,15 @@ describe('ExplicacaoCandidatoPage — a rejeição automática (§7.18)', () => 
 })
 
 /**
- * JORN-22 / D-20 (Phase 48) — a rejeição HUMANA na triagem: explicação + canal, SEM
- * pedido de revisão, espelhando o knockout. Mas com texto PRÓPRIO: os textos do caminho
- * automático afirmam «sem avaliação de uma pessoa», e aqui uma pessoa decidiu. Reusá-los
- * seria mentir sobre quem decidiu — o defeito que a RPC do §7.18 existe para impedir.
+ * JORN-22 (Phase 48) — a rejeição HUMANA fora da decisão final, com texto PRÓPRIO: os
+ * textos do caminho automático afirmam «sem avaliação de uma pessoa», e aqui uma pessoa
+ * decidiu. Reusá-los seria mentir sobre quem decidiu — o defeito que a RPC do §7.18 existe
+ * para impedir.
  *
- * O canal é a constante importada (D-07): o endereço literal não aparece neste arquivo.
+ * 51-12 (JORN-42 · D-01): a D-20 da 48 («explicação + canal, SEM pedido de revisão») foi
+ * revogada pelo operador em 29/09. Dois casos deste bloco foram RE-ESPECIFICADOS (D-56): o
+ * que asseria a ausência do pedido passa a asserir a presença e a origem levada à mutação;
+ * o que asseria o bloco sem-revisão com o canal passa a asserir a sua ausência.
  */
 describe('ExplicacaoCandidatoPage — a rejeição humana na triagem (JORN-22 / D-20)', () => {
   const PROIBIDO =
@@ -539,27 +542,31 @@ describe('ExplicacaoCandidatoPage — a rejeição humana na triagem (JORN-22 / 
     expect(screen.queryByText(/Após avaliarmos seu processo/i)).not.toBeInTheDocument()
   })
 
-  it('NÃO oferece pedido de revisão — nem o CTA, nem a frase do direito', () => {
+  // D-56 (51-12): este caso asseria «NÃO oferece pedido de revisão — nem o CTA, nem a frase
+  // do direito». Agora asserte a presença dos dois e a ORIGEM levada à mutação.
+  it('OFERECE o pedido de revisão, e confirmar leva a origem `humana_triagem` à mutação', () => {
     carregadaHumanaTriagem()
     render(<ExplicacaoCandidatoPage />)
-    expect(screen.queryByRole('button', { name: /revis(ã|a)o/i })).not.toBeInTheDocument()
     expect(
-      screen.queryByText(/pedir que uma pessoa da nossa equipe revise/i),
-    ).not.toBeInTheDocument()
-    expect(screen.queryByText(/não há uma revisão a pedir por aqui/i)).not.toBeInTheDocument()
+      screen.getByText(/pedir que uma pessoa da nossa equipe revise/i),
+    ).toBeInTheDocument()
+    pedirRevisao()
+    expect(mutateMock).toHaveBeenCalledTimes(1)
+    expect(mutateMock).toHaveBeenCalledWith('humana_triagem')
   })
 
-  it('dá o bloco sem-revisão próprio e o canal vindo da constante importada', () => {
+  // D-56 (51-12): este caso asseria «dá o bloco sem-revisão próprio e o canal vindo da
+  // constante importada». Com o pedido disponível, o desvio para o canal sai.
+  it('não desvia mais para o bloco sem-revisão nem para o canal de privacidade', () => {
     carregadaHumanaTriagem()
     render(<ExplicacaoCandidatoPage />)
-    expect(screen.getByText('Se você quiser falar sobre esta decisão')).toBeInTheDocument()
+    expect(screen.queryByText('Se você quiser falar sobre esta decisão')).not.toBeInTheDocument()
     expect(
-      screen.getByText(
-        'Esta decisão foi tomada por uma pessoa da nossa equipe. Se quiser falar sobre ela, entre em contato pelo canal abaixo.',
-      ),
-    ).toBeInTheDocument()
-    const canal = screen.getByRole('link', { name: CANAL_PRIVACIDADE_EMAIL })
-    expect(canal).toHaveAttribute('href', `mailto:${CANAL_PRIVACIDADE_EMAIL}`)
+      screen.queryByText(/Esta decisão foi tomada por uma pessoa da nossa equipe/i),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: CANAL_PRIVACIDADE_EMAIL }),
+    ).not.toBeInTheDocument()
   })
 
   it('nenhum texto da superfície casa o grep-guard de palavras', () => {
@@ -672,5 +679,132 @@ describe('ExplicacaoCandidatoPage — a candidatura reaberta (JORN-19 / D-01)', 
     for (const padrao of [/dias em espera/i, /atrasad/i, /faixa/i, /\bsla\b/i, /prazo/i, /\d+\s*dias?\b/i]) {
       expect(container.innerHTML).not.toMatch(padrao)
     }
+  })
+})
+
+/**
+ * 51-12 (JORN-42 · D-01) — as três origens são IGUAIS no direito e DIFERENTES no relato de
+ * quem decidiu. O pedido, o estado «já solicitou», a resposta e a reabertura valem para
+ * qualquer origem; a linha de resultado e a razão continuam por origem.
+ */
+describe('ExplicacaoCandidatoPage — o pedido e a reabertura em qualquer origem (JORN-42)', () => {
+  const RESULT_LINE = {
+    humana:
+      'Após avaliarmos seu processo, decidimos não seguir com a sua candidatura nesta vaga.',
+    automatica:
+      'Sua candidatura foi encerrada automaticamente na inscrição, sem avaliação de uma pessoa e sem passar pelas etapas do processo.',
+    humana_triagem:
+      'Após a análise da sua candidatura por uma pessoa da nossa equipe, decidimos não seguir com ela nesta vaga.',
+  } as const
+
+  const SEM_REVISAO = [
+    /não há uma revisão a pedir por aqui/i,
+    /Se você quiser falar sobre esta decisão/i,
+    /Esta decisão foi tomada por uma pessoa da nossa equipe\. Se quiser falar/i,
+    /entre em contato pelo canal abaixo/i,
+  ]
+
+  /** A razão de cada origem (o serviço a escolhe pela origem; aqui, um texto por origem). */
+  const REASON = {
+    humana: 'Avaliamos seu processo de forma global e decidimos não seguir adiante.',
+    automatica: 'Esta vaga define alguns requisitos objetivos de elegibilidade…',
+    humana_triagem: 'A sua candidatura foi analisada por uma pessoa da nossa equipe…',
+  } as const
+
+  function naOrigem(origem: 'humana' | 'automatica' | 'humana_triagem', over = {}) {
+    carregada({
+      origem,
+      reason: REASON[origem],
+      revisao_solicitada_em: null,
+      explicacao_solicitada_em: null,
+      ...over,
+    })
+  }
+
+  it.each(['humana', 'automatica', 'humana_triagem'] as const)(
+    'origem %s: a linha de QUEM decidiu é a própria — e nenhuma das outras duas',
+    (origem) => {
+      naOrigem(origem)
+      const { container } = render(<ExplicacaoCandidatoPage />)
+      for (const [o, linha] of Object.entries(RESULT_LINE)) {
+        if (o === origem) expect(container.textContent).toContain(linha)
+        else expect(container.textContent).not.toContain(linha)
+      }
+    },
+  )
+
+  it.each(['humana', 'automatica', 'humana_triagem'] as const)(
+    'origem %s: o CTA está lá, e nenhum texto do antigo bloco sem-revisão',
+    (origem) => {
+      naOrigem(origem)
+      const { container } = render(<ExplicacaoCandidatoPage />)
+      expect(screen.getByRole('button', { name: CTA })).toBeEnabled()
+      for (const padrao of SEM_REVISAO) expect(container.textContent).not.toMatch(padrao)
+    },
+  )
+
+  it.each(['automatica', 'humana_triagem'] as const)(
+    'origem %s com pedido feito e sem resposta → «você já solicitou» (CTA desabilitado)',
+    (origem) => {
+      naOrigem(origem, { revisao_solicitada_em: '2026-10-01T12:00:00+00:00' })
+      render(<ExplicacaoCandidatoPage />)
+      expect(screen.getByText('Você já solicitou a revisão desta decisão.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: CTA })).toBeDisabled()
+    },
+  )
+
+  it.each(['automatica', 'humana_triagem'] as const)(
+    'origem %s com pedido REVERTIDO e reaberta → «reaberta … até DD/MM/AAAA», sem a rejeição como vigente',
+    (origem) => {
+      naOrigem(origem, {
+        revisao_solicitada_em: '2026-10-01T12:00:00+00:00',
+        revisao_veredito: 'revertida',
+        revisao_respondida_em: '2026-10-02T15:00:00+00:00',
+        revisao_resultado: JUSTIFICATIVA,
+        reaberta_em: '2026-10-02T15:00:00+00:00',
+        // 00:00 de SP do dia SEGUINTE à data-limite → a data dita é 12/10/2026.
+        prazo_nova_decisao_em: '2026-10-13T03:00:00+00:00',
+      })
+      const { container } = render(<ExplicacaoCandidatoPage />)
+      expect(
+        linhaVeredito(container, COPY_SPEC.revertidaComData('12/10/2026')),
+      ).not.toBeNull()
+      expect(container.textContent).not.toMatch(/decidimos não seguir/i)
+      expect(container.textContent).not.toContain(RESULT_LINE[origem])
+      expect(container.textContent).not.toContain(REASON[origem])
+      expect(screen.queryByText('Por que esta decisão')).not.toBeInTheDocument()
+      // Não há decisão vigente a revisar: nem o CTA, nem a frase do direito.
+      expect(screen.queryByRole('button', { name: /revis(ã|a)o/i })).not.toBeInTheDocument()
+      expect(screen.getByText(JUSTIFICATIVA)).toBeInTheDocument()
+    },
+  )
+
+  it('origem automatica: só o VEREDITO revertida (sem reaberta_em ainda) já basta para não mostrar a rejeição', () => {
+    naOrigem('automatica', {
+      revisao_solicitada_em: '2026-10-01T12:00:00+00:00',
+      revisao_veredito: 'revertida',
+      revisao_respondida_em: '2026-10-02T15:00:00+00:00',
+    })
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(container.textContent).not.toContain(RESULT_LINE.automatica)
+    expect(linhaVeredito(container, COPY_SPEC.revertida)).not.toBeNull()
+  })
+
+  it('origem humana_triagem com pedido MANTIDO → «Resultado da revisão» com veredito e resposta, sem reabertura', () => {
+    naOrigem('humana_triagem', {
+      revisao_solicitada_em: '2026-10-01T12:00:00+00:00',
+      revisao_veredito: 'mantida',
+      revisao_respondida_em: '2026-10-02T15:00:00+00:00',
+      revisao_resultado: JUSTIFICATIVA,
+    })
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(screen.getByText(COPY_SPEC.eyebrow)).toBeInTheDocument()
+    expect(linhaVeredito(container, COPY_SPEC.mantida)).not.toBeNull()
+    expect(screen.getByText(JUSTIFICATIVA)).toBeInTheDocument()
+    expect(screen.getByText('Respondida em 02/10/2026')).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/reaberta/i)
+    // A rejeição continua vigente: a linha de quem decidiu e o estado terminal do CTA.
+    expect(container.textContent).toContain(RESULT_LINE.humana_triagem)
+    expect(screen.getByText('Sua solicitação de revisão foi respondida.')).toBeInTheDocument()
   })
 })

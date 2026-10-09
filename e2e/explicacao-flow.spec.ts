@@ -12,6 +12,9 @@
  *     score/band/percentile (RNF-07a / LGPD-04).
  *   - EX-03 (idempotent revision): requesting revision flips the CTA to the disabled
  *     "Você já solicitou a revisão desta decisão." state.
+ *   - EX-04 (51-12 · JORN-42 · D-01): a candidatura encerrada pelo KNOCKOUT shows the
+ *     text that no person evaluated it AND the review-request CTA — the right exists in
+ *     every origin, and the text of WHO decided stays the knockout's.
  *
  * Gating (Plan 14-06 precedent — real auth login + a live rejected candidatura are
  * flaky in CI; gate behind explicit opt-in env flags so default `playwright test`
@@ -37,6 +40,10 @@ const TEST_USER = {
 // Provide via env when running the real-login battery; the UAT runbook seeds them.
 const CANDIDATURA_REJEITADO = process.env.E2E_CANDIDATURA_REJEITADO || ''
 const CANDIDATURA_SEM_DECISAO = process.env.E2E_CANDIDATURA_SEM_DECISAO || ''
+// 51-12: a candidatura of the logged-in titular closed by the KNOCKOUT, with no review
+// request yet. Only reachable once the 51-16 gate has applied `20261008000002` and
+// published the client — before that the page cannot ask `estado_revisao_rejeicao`.
+const CANDIDATURA_KNOCKOUT = process.env.E2E_CANDIDATURA_KNOCKOUT || ''
 
 async function login(page: Page) {
   await page.goto('/auth/login')
@@ -122,5 +129,31 @@ test.describe('Explicação candidato — LGPD Art. 20 (Plan 15-04 / DECISAO-04)
     await expect(
       page.getByText(/Você já solicitou a revisão desta decisão/i),
     ).toBeVisible({ timeout: 15000 })
+  })
+
+  test('EX-04: knockout → "nenhuma pessoa avaliou" + the review-request CTA (JORN-42)', async ({
+    page,
+  }) => {
+    test.skip(!process.env.E2E_REAL_LOGIN, 'Requires E2E_REAL_LOGIN=1')
+    test.skip(
+      !CANDIDATURA_KNOCKOUT,
+      'Requires E2E_CANDIDATURA_KNOCKOUT (a knockout candidatura with no review request yet)',
+    )
+    await login(page)
+
+    await page.goto(`/candidato/explicacao/${CANDIDATURA_KNOCKOUT}`)
+    await expect(
+      page.getByRole('heading', { name: /Sobre a sua candidatura/i }),
+    ).toBeVisible({ timeout: 10000 })
+
+    // WHO decided stays the knockout's (D-01): no person evaluated it.
+    await expect(page.getByText(/encerrada automaticamente na inscrição/i)).toBeVisible()
+    await expect(page.getByText(/sem avaliação de uma pessoa/i)).toBeVisible()
+    // …and the right exists all the same (the CTA copy of 43-UI-SPEC BD-3).
+    await expect(
+      page.getByRole('button', { name: /Pedir que uma pessoa revise esta decisão/i }),
+    ).toBeVisible()
+    // The old detour to the privacy channel is gone.
+    await expect(page.getByText(/não há uma revisão a pedir por aqui/i)).toHaveCount(0)
   })
 })

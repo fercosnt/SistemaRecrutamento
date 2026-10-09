@@ -24,6 +24,13 @@
  *    tone, and NEVER a score/band/percentile. The internal justificativa never
  *    crosses to the candidate surface verbatim.
  *
+ *  - 51-12 (JORN-42): `getExplicacao` asks `estado_revisao_rejeicao` FIRST (the review
+ *    request of a rejection OUTSIDE the final decision — knockout or RH rejection at any
+ *    stage), and `solicitarRevisao(candidaturaId, origem)` routes by the server-given
+ *    origin: `humana` → `solicitar_revisao_decisao`; the other two →
+ *    `solicitar_revisao_rejeicao`. The D-20 of Phase 48 (no request outside `humana`) was
+ *    revoked by the operator on 29/09.
+ *
  *  - `solicitarRevisao` invokes the LIVE `solicitar_revisao_decisao` SECURITY
  *    DEFINER RPC (own-row guarded, idempotent — DECISAO-04 / LGPD Art. 20). On RPC
  *    success it fires a fire-and-forget N8N webhook (the established thin-client
@@ -139,20 +146,20 @@ export function normalizarVeredito(valor: unknown): RevisaoVeredito | null {
 export interface ExplicacaoCandidato {
   /**
    * De onde veio a rejeição — o discriminador que a página usa para decidir QUE texto
-   * mostrar e se existe direito de revisão a oferecer (§7.18, JORN-22):
+   * mostrar sobre quem decidiu, e que escolhe a RPC do pedido de revisão (§7.18, JORN-22):
    *
-   *  - `'humana'` — a decisão final registrada por uma pessoa em `decisao_final`. Único
-   *    caminho COM pedido de revisão.
-   *  - `'automatica'` — o knockout da inscrição. Não cria linha em `decisao_final`, não
-   *    tem revisão a pedir, e o texto diz que nenhuma pessoa avaliou.
-   *  - `'humana_triagem'` — rejeição por uma pessoa da equipe ANTES da decisão final
-   *    (`rejeitar_candidatura`, D-20). Também sem linha em `decisao_final`, portanto sem
-   *    revisão a pedir — mas o texto diz que uma pessoa decidiu, porque foi o que houve.
+   *  - `'humana'` — a decisão final registrada por uma pessoa em `decisao_final`. O pedido
+   *    segue o ciclo dela (`solicitar_revisao_decisao`).
+   *  - `'automatica'` — o knockout da inscrição. O texto diz que nenhuma pessoa avaliou.
+   *  - `'humana_triagem'` — rejeição por uma pessoa da equipe fora da decisão final, em
+   *    qualquer etapa (`rejeitar_candidatura`). O texto diz que uma pessoa decidiu,
+   *    porque foi o que houve.
    *
-   * Não é cosmético: `solicitar_revisao_decisao` exige a linha em `decisao_final`, então
-   * oferecer o CTA fora do caminho `'humana'` seria um botão que o servidor sempre recusa.
-   * E trocar os textos entre `'automatica'` e `'humana_triagem'` seria mentir ao
-   * candidato sobre QUEM decidiu.
+   * JORN-42 (operador, 29/09) revogou a D-20 da 48: o pedido existe nas três origens, pelo
+   * registro próprio do pedido (`revisao_rejeicao`, 51-08) nas duas últimas; a origem vem
+   * do servidor (`estado_revisao_rejeicao`), nunca derivada aqui — do lado do cliente, o
+   * knockout e a rejeição pelo RH são a mesma linha. Trocar os textos entre `'automatica'`
+   * e `'humana_triagem'` continua sendo mentir ao candidato sobre QUEM decidiu (D-01).
    */
   origem: 'humana' | 'automatica' | 'humana_triagem'
   /** Always `'rejeitado'` here — the reachability gate returns null otherwise. */
@@ -180,8 +187,9 @@ export interface ExplicacaoCandidato {
    * 48-14 (JORN-19 · D-01/D-10) — quando o veredito `revertida` REABRIU a candidatura (48-11).
    * Não nulo ⇒ a rejeição deixou de ser vigente: `decisao` continua `rejeitado` no banco até
    * a nova decisão, e é ESTE campo — não `decisao` — que diz à página que não há rejeição a
-   * explicar. Nulo nos caminhos `automatica` e `humana_triagem` (não há linha em
-   * `decisao_final`) e depois da nova decisão (a `registrar_decisao` zera o ciclo).
+   * explicar. Nulo depois da nova decisão (a `registrar_decisao` zera o ciclo). 51-12: nos
+   * caminhos `automatica` e `humana_triagem` ele vem do PEDIDO (`revisao_rejeicao.reaberta_em`,
+   * via `estado_revisao_rejeicao`) — e continua lá depois da reabertura (armadilha 3).
    */
   reaberta_em: string | null
   /**
@@ -269,13 +277,15 @@ function reasonForDecisao(decisao: DecisaoResultado): string {
  * Ela nomeia o MECANISMO e cala o CRITÉRIO, e essa fronteira é a única coisa
  * load-bearing aqui. O Art. 20 dá ao titular o direito de saber que a decisão foi
  * automatizada e em que ela se baseou; D-15 mantém fora da superfície do candidato QUAL
- * resposta o eliminou (o `opcao_knockout_id` sequer atravessa a rede — a RPC devolve um
- * booleano). Dizer «uma das respostas do formulário» é verdade suficiente para o Art. 20
- * sem virar o feedback de critério que a política do produto recusa.
+ * resposta o eliminou (o `opcao_knockout_id` sequer atravessa a rede — nem a RPC de
+ * origem nem a allowlist de `estado_revisao_rejeicao` o devolvem). Dizer «uma das
+ * respostas do formulário» é verdade suficiente para o Art. 20 sem virar o feedback de
+ * critério que a política do produto recusa.
  *
- * E ela NÃO promete revisão. Esse é o veredito: explicação sim, revisão não. Uma tela que
- * oferecesse o pedido sem que o `solicitar_revisao_decisao` o aceitasse (ele exige linha
- * em `decisao_final`, que o knockout não cria) seria pior que o silêncio de antes.
+ * O pedido de revisão NÃO vive neste texto, vive no bloco do direito da página. JORN-42
+ * (operador, 29/09) revogou a D-20 da 48: o pedido existe nas três origens, pelo registro
+ * próprio do pedido (`revisao_rejeicao`, 51-08); a origem vem do servidor
+ * (`estado_revisao_rejeicao`). O texto mostrado ao candidato NÃO mudou com isso.
  */
 export const REASON_KNOCKOUT =
   'Esta vaga define alguns requisitos objetivos de elegibilidade, e uma das respostas ' +
@@ -285,8 +295,13 @@ export const REASON_KNOCKOUT =
   'nesta seleção e não impede que você se candidate a outras.'
 
 /**
- * A razão templated da rejeição HUMANA fora da decisão final (JORN-22 / D-20 — decisão
- * do operador: explicação + canal, sem pedido de revisão).
+ * A razão templated da rejeição HUMANA fora da decisão final (JORN-22).
+ *
+ * JORN-42 (operador, 29/09) revogou a D-20 da 48 («explicação + canal, sem pedido de
+ * revisão»): o pedido existe nas três origens, pelo registro próprio do pedido
+ * (`revisao_rejeicao`, 51-08); a origem vem do servidor (`estado_revisao_rejeicao`). O
+ * texto mostrado ao candidato NÃO mudou com isso — ele diz quem decidiu, e o direito
+ * vive no bloco da página.
  *
  * Ela diz QUEM decidiu — uma pessoa da equipe — e nada sobre o PORQUÊ: nem o motivo que
  * o RH escolheu, nem a justificativa escrita, nem critério ou nota. O motivo sequer
@@ -543,8 +558,9 @@ async function getExplicacaoSemDecisaoFinal(
     origem,
     decisao: 'rejeitado',
     reason,
-    // Nenhum dos dois caminhos cria linha em `decisao_final`, então NENHUM estado do
-    // ciclo de revisão existe — e não existir é o ponto, não uma lacuna a preencher.
+    // Nenhum dos dois caminhos cria linha em `decisao_final`. E, se houvesse PEDIDO no
+    // registro próprio (51-08), `estado_revisao_rejeicao` já o teria devolvido antes deste
+    // fallback — chegar aqui é não ter pedido, então o ciclo vem todo nulo.
     revisao_solicitada_em: null,
     revisao_resultado: null,
     explicacao_solicitada_em: null,

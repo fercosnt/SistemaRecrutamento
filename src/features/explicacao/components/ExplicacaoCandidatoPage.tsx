@@ -32,7 +32,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { BackgroundImage } from '@/components/BackgroundImage'
 import { Glass, GlassButton, GlassPanel } from '@/components/ui/glass'
-import { CANAL_PRIVACIDADE_EMAIL } from '@/features/privacidade/constants/canalPrivacidade'
 import { formatDataLimiteReabertura } from '@/lib/datetime/formatDataHoraSP'
 import { useExplicacao, type RevisaoVeredito } from '../hooks/useExplicacao'
 import { SolicitarRevisaoCTA } from './SolicitarRevisaoCTA'
@@ -59,24 +58,12 @@ const COPY = {
   resultLineHumanaTriagem:
     'Após a análise da sua candidatura por uma pessoa da nossa equipe, decidimos não seguir com ela nesta vaga.',
   reasonEyebrow: 'Por que esta decisão',
-  /**
-   * O bloco que substitui o direito de revisão no caminho automático. Ele NÃO oferece
-   * pedido de revisão (veredito do responsável: explicação sim, revisão não) — mas
-   * também não finge que a porta não existe: nomeia o canal por onde o titular fala com
-   * a empresa. Uma tela que apenas omitisse o assunto deixaria o candidato sem saber se
-   * há alguém para procurar.
-   */
-  semRevisaoEyebrow: 'Se você quiser falar sobre esta decisão',
-  semRevisaoBody:
-    'Como esta decisão não envolveu avaliação de uma pessoa da nossa equipe, não há uma revisão a pedir por aqui. Se você acredita que respondeu ao formulário por engano, ou quer falar sobre esta decisão, entre em contato pelo canal abaixo.',
-  /**
-   * JORN-22 / D-20 — o bloco sem-revisão da rejeição humana fora da decisão final. Sem
-   * pedido de revisão (o servidor não o aceita: `solicitar_revisao_decisao` exige linha
-   * em `decisao_final`), mas com o canal humano — espelhando o knockout. NÃO reusa
-   * `semRevisaoBody`, que afirma que a decisão «não envolveu avaliação de uma pessoa».
-   */
-  semRevisaoBodyHumanaTriagem:
-    'Esta decisão foi tomada por uma pessoa da nossa equipe. Se quiser falar sobre ela, entre em contato pelo canal abaixo.',
+  // 51-12 (JORN-42 · D-01): os dois blocos sem-revisão (`semRevisaoBody` do knockout e
+  // `semRevisaoBodyHumanaTriagem` da rejeição pelo RH) SAÍRAM. Eles existiam porque a
+  // D-20 da 48 negava o pedido fora da decisão final e desviavam o titular para o canal de
+  // privacidade. O operador revogou a D-20 em 29/09: o pedido existe nas três origens, pelo
+  // registro próprio do pedido (`revisao_rejeicao`, 51-08), e «não há uma revisão a pedir
+  // por aqui» passaria a ser falso. O canal de privacidade continua nas superfícies dele.
   gratitude: 'Agradecemos seu interesse e o tempo dedicado ao processo.',
   /**
    * 43-UI-SPEC (BD-3) — reescrita em linguagem que o titular decodifica, COM a citação
@@ -208,30 +195,28 @@ export function ExplicacaoCandidatoPage() {
   // triagem e o knockout automático são a mesma linha, e derivar isto aqui daria a uma
   // decisão escrita por uma pessoa o texto da automática.
   //
-  // Três origens (JORN-22 / D-20): `humana` (decisão final, com revisão), `automatica`
-  // (knockout) e `humana_triagem` (uma pessoa rejeitou antes da decisão final). As duas
-  // últimas não têm revisão a pedir; cada uma tem texto PRÓPRIO sobre quem decidiu.
+  // Três origens: `humana` (decisão final), `automatica` (knockout) e `humana_triagem`
+  // (uma pessoa rejeitou fora da decisão final, em qualquer etapa — JORN-22). 51-12
+  // (JORN-42 · D-01): as três são IGUAIS no direito — todas têm o pedido de revisão — e
+  // DIFERENTES no relato de quem decidiu: cada uma tem a sua linha de resultado.
   const { origem } = explicacao
-  // 48-14 (JORN-19 · D-01): a candidatura REABERTA. `decisao` continua `rejeitado` no banco
-  // até a nova decisão, então a página não pode ler `decisao` para saber se a rejeição vale:
-  // lê `reaberta_em`. E o veredito `revertida` também conta — desde o 48-11 ele SEMPRE
-  // reabre, e mostrar «decidimos não seguir» ao lado de «sua candidatura foi reaberta» seria
-  // a contradição que este plano existe para eliminar. Reaberta ⇒ sem linha de rejeição, sem
-  // razão da rejeição, sem CTA de revisão (não há decisão vigente a revisar); o bloco de
-  // resultado da revisão passa a ser a informação principal.
+  // 48-14 (JORN-19 · D-01): a candidatura REABERTA. O status/`decisao` não diz se a
+  // rejeição ainda vale; quem diz é `reaberta_em`. E o veredito `revertida` também conta —
+  // ele SEMPRE reabre (48-11 na decisão final; 51-08 no registro do pedido), e mostrar
+  // «decidimos não seguir» ao lado de «sua candidatura foi reaberta» seria a contradição
+  // que o 48-14 existe para eliminar. 51-12 (armadilha 3 do RESEARCH): vale para QUALQUER
+  // origem — a leitura parte do registro do pedido, não do status, então a página do
+  // knockout ou da rejeição pelo RH revertidos continua mostrando a resposta e a data.
+  // Reaberta ⇒ sem linha de rejeição, sem razão, sem CTA (não há decisão vigente a
+  // revisar); o bloco de resultado da revisão passa a ser a informação principal.
   const reaberta =
-    origem === 'humana' &&
-    (Boolean(explicacao.reaberta_em) || explicacao.revisao_veredito === 'revertida')
+    Boolean(explicacao.reaberta_em) || explicacao.revisao_veredito === 'revertida'
   const resultLine =
     origem === 'automatica'
       ? COPY.resultLineAutomatica
       : origem === 'humana_triagem'
         ? COPY.resultLineHumanaTriagem
         : COPY.resultLine
-  // 51-12 (JORN-42 · D-01): o knockout passa a ter pedido de revisão (registro próprio do
-  // pedido, 51-08) — o `semRevisaoBody` deixa de ser usado neste ramo.
-  const semRevisaoBody =
-    origem === 'humana_triagem' ? COPY.semRevisaoBodyHumanaTriagem : null
 
   return (
     <ScreenShell>
@@ -291,26 +276,12 @@ export function ExplicacaoCandidatoPage() {
           )
         )}
 
-        {/* LGPD Art. 20 revision-right block + the CTA — SOMENTE no caminho da decisão
-            final. §7.18 e D-20: o knockout e a rejeição humana na triagem ganham
-            explicação e canal, não revisão. E a exclusão é estrutural, não só de
-            produto: `solicitar_revisao_decisao` exige a linha em `decisao_final` que
-            nenhum dos dois cria, então o CTA ali seria um botão que o servidor sempre
-            recusa. */}
-        {reaberta ? null : semRevisaoBody ? (
-          <div className="space-y-2 border-t border-white/15 pt-6">
-            <p className="text-sm font-semibold text-white/70 uppercase tracking-wide">
-              {COPY.semRevisaoEyebrow}
-            </p>
-            <p className="text-base leading-relaxed text-white/90">{semRevisaoBody}</p>
-            <a
-              href={`mailto:${CANAL_PRIVACIDADE_EMAIL}`}
-              className="inline-block text-base font-semibold text-white underline underline-offset-4"
-            >
-              {CANAL_PRIVACIDADE_EMAIL}
-            </a>
-          </div>
-        ) : (
+        {/* LGPD Art. 20 revision-right block + the CTA — nas TRÊS origens (51-12, JORN-42
+            · D-01; a D-20 da 48 foi revogada pelo operador em 29/09). A ORIGEM que o
+            servidor deu vai ao CTA e escolhe a RPC do pedido: `humana` → o ciclo da
+            decisão final; `automatica` / `humana_triagem` → o registro próprio do pedido
+            (51-08). Numa candidatura reaberta não há decisão vigente a revisar. */}
+        {reaberta ? null : (
           <div className="space-y-3 border-t border-white/15 pt-6">
             <p className="text-base leading-relaxed text-white/90">
               {COPY.revisionIntro}
