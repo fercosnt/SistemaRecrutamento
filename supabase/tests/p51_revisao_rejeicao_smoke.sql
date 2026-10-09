@@ -133,9 +133,35 @@
 --       `auth.users` e a fila `net.http_request_queue` —, com o número de tabelas impresso (zero
 --       = FALHA).
 --
--- O PORTÃO MORDE — mutações MB1..MB12 por `scripts/p51_mutacoes.cjs` (Task 2 do 51-08), cada uma
+-- O PORTÃO MORDE — mutações MB1..MB14 por `scripts/p51_mutacoes.cjs` (Task 2 do 51-08), cada uma
 -- numa requisição que aborta: prefixo do ensaio + migration intacta + MUTAÇÃO + este smoke +
--- sentinela. (Tabela preenchida na Task 2.)
+-- sentinela. Cada uma tem de reprovar na letra abaixo e NÃO chegar ao sentinela; toda mordida é
+-- sobre linhas que a FIXTURE cria (a `revisao_rejeicao` viva nasce vazia, D-08). Medido em
+-- 2026-10-09, ANTES do apply (20261008000002 prefixada; CONTROLE verde `51b=12/12` em 772 ms;
+-- `20/20 mutacoes mordem; nada persistiu`, MA1..MA6 do 51-06 incluídas):
+--   | Mutação | Inversão                                                         | Reprova | Linha mordida (fixture)              | Duração |
+--   |---------|------------------------------------------------------------------|---------|--------------------------------------|---------|
+--   | MB1     | REVISAO-05 desligada (IF do decisor → IF false)                  | (e)     | A responde o pedido de `tri`: ACEITO | 751 ms  |
+--   | MB2     | `is_active_rh_user()` fora do ramo rh (→ IF false)               | (e)     | recrutador inativo responde `tri`    | 735 ms  |
+--   | MB3     | `GRANT EXECUTE solicitar_revisao_rejeicao TO anon`               | (a)     | ACL da RPC: anon EXECUTE = t         | 738 ms  |
+--   | MB4     | `GRANT SELECT ON revisao_rejeicao TO anon`                       | (a)     | privilégio de tabela anon:SELECT     | 811 ms  |
+--   | MB5     | reabertura só pelo status (sem `etapa_atual` no SET)             | (f)     | `tri` reaberta fica etapa rejeitado  | 716 ms  |
+--   | MB6     | knockout reabre em `inscricao` (+ CHECK derrubado)               | (b) *   | pedido de `ko`: etapa_reabertura     | 638 ms  |
+--   | MB7     | UNIQUE removida + INSERT sem ON CONFLICT                         | (d)     | 2º pedido de `c400` grava 2ª linha   | 751 ms  |
+--   | MB8     | guarda de titular por `candidatos.id` (forma do C-4)             | (b)     | titular T pede `tri`: 42501          | 739 ms  |
+--   | MB9     | `public.p51_mutacao_knockout()` faz UPDATE … knockout_automatico | (i)     | conjunto por forma ganha a função    | 762 ms  |
+--   | MB10    | despacho da análise removido da revertida do knockout            | (h)     | revertida de `ko`: 0 POST à EF       | 790 ms  |
+--   | MB11    | `estado` expõe `rejeitado_por` dentro de `pedido`                | (k)     | estado k1 do pedido de `k`           | 795 ms  |
+--   | MB12    | predicado de dono `decisao_final` desligado (nas duas RPCs)      | (j)     | `rd` (registrar_decisao) elegível    | 657 ms  |
+--   | MB13    | guarda de titular do pedido desligada (→ IF false)               | (c)     | intruso X pede `tri`: ACEITO         | 798 ms  |
+--   | MB14    | guarda «já respondida» desligada (→ IF false)                    | (g)     | 2ª resposta ao pedido de `mant`      | 770 ms  |
+--   * MB6 REDECLARADA de (f) para (b): a etapa de reabertura é GRAVADA NO PEDIDO (escolha 3 do
+--     planejador), e (b) assere `etapa_reabertura = triagem` no pedido do knockout (D-30) — a
+--     mutação aparece ali, antes da reabertura. Nenhuma cláusula foi afrouxada: (f) segue exigindo
+--     `triagem` na candidatura reaberta do knockout, e MB5 morde (f).
+--   MB13 e MB14 foram acrescentadas na execução (precedente MA6 do 51-06): sem elas (c) e (g) não
+--   tinham mutação própria — MB8 reprova (b) antes de (c). (z) é a negativa de resíduo, vigiada
+--   também pelo `capturar()` do ensaio. A próxima redefinição destas funções re-prova esta tabela.
 --
 -- Varredura D-56 (forma) — 2026-10-09, padrão LITERAL do CLAUDE.md §«Portões» sobre
 -- `supabase/tests/*.sql` (antes deste arquivo existir):
@@ -535,7 +561,9 @@ BEGIN
     -- ── (f)/(h)/(i) · revertida: tri, df, arq por B; ko por A ─────────────────
     SET LOCAL ROLE authenticated;
     PERFORM set_config('request.jwt.claims', j_tit, true);
-    PERFORM public.solicitar_revisao_rejeicao(c_arq);   -- o pedido de arq (julgado só em (f))
+    BEGIN v_ret := public.solicitar_revisao_rejeicao(c_arq); st := 'ACEITO';   -- o pedido de arq (julgado em (f))
+    EXCEPTION WHEN OTHERS THEN st := SQLSTATE || ':' || SQLERRM; END;
+    m := m || jsonb_build_object('f_sol_arq', st);
     RESET ROLE;
     m := m || jsonb_build_object('prazo_esp',
                (((now() AT TIME ZONE 'America/Sao_Paulo')::date + 11)::timestamp AT TIME ZONE 'America/Sao_Paulo'));
@@ -928,6 +956,9 @@ DECLARE
 BEGIN
   IF m ->> 'arq_vaga' IS DISTINCT FROM 'arquivada' THEN
     RAISE EXCEPTION 'P51B FAIL (f): a vaga da fixture arq nao esta arquivada (%) — D-04 seria vacuo', m ->> 'arq_vaga';
+  END IF;
+  IF coalesce(m ->> 'f_sol_arq', '<nao rodou>') <> 'ACEITO' THEN
+    RAISE EXCEPTION 'P51B FAIL (f): o titular pediu revisao da rejeicao na vaga ARQUIVADA e recebeu «%» (esperado aceito — D-04: o direito nao depende da vaga)', coalesce(m ->> 'f_sol_arq', '<nao rodou>');
   END IF;
   FOREACH lbl IN ARRAY ARRAY['tri', 'df', 'arq', 'ko'] LOOP
     v := m -> ('f_' || lbl);  c := v -> 'cand';  p := v -> 'pedido';  h := v -> 'hist_novas';

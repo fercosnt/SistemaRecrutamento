@@ -143,6 +143,13 @@ const V01 = '20261008000001';
 const S51A = 'supabase/tests/p51_raven_status_smoke.sql';
 const fnStatus = () => fn(V01, 'get_avaliacao_status');
 
+// ── 51-08: pedido de revisão para toda rejeição (migration 20261008000002) ──
+const V02 = '20261008000002';
+const S51B = 'supabase/tests/p51_revisao_rejeicao_smoke.sql';
+const fnSol = () => fn(V02, 'solicitar_revisao_rejeicao');
+const fnEst = () => fn(V02, 'estado_revisao_rejeicao');
+const fnResp = () => fn(V02, 'responder_revisao_rejeicao');
+
 const MUTACOES = [
   {
     // (b) RNF-07a: um número do Raven entra na chave. Com a fixture sem score a folha é null; com
@@ -212,6 +219,157 @@ const MUTACOES = [
         '\n  PERFORM (SELECT s.percentil FROM public.scores_raven s WHERE s.candidatura_id = p_candidatura_id);\n  RETURN r;',
         'MA6'
       ),
+  },
+
+  // ── 51-08: pedido de revisão para toda rejeição (migration 20261008000002) ──
+  // Toda mutação morde sobre linhas que a FIXTURE da cláusula alvo cria: a `revisao_rejeicao` viva
+  // nasce vazia (D-08), então nenhuma cláusula depende dela para morder.
+  {
+    // (e) REVISAO-05 desligada — A responde a revisão da própria rejeição (fixture `tri`).
+    id: 'MB1',
+    desc: 'REVISAO-05 desligada (IF da guarda do decisor vira IF false)',
+    smoke: S51B,
+    letra: 'e',
+    requer: [V02],
+    sql: () => trocar(fnResp(), 'IF v_row.rejeitado_por IS NOT NULL AND v_row.rejeitado_por = v_uid THEN', 'IF false THEN', 'MB1'),
+  },
+  {
+    // (e) helper fora do ramo rh — o recrutador INATIVO responde o pedido de `tri`.
+    id: 'MB2',
+    desc: 'is_active_rh_user() fora do ramo rh (a linha vira IF false)',
+    smoke: S51B,
+    letra: 'e',
+    requer: [V02],
+    sql: () => trocar(fnResp(), "IF v_role = 'rh' AND NOT public.is_active_rh_user() THEN", 'IF false THEN', 'MB2'),
+  },
+  {
+    // (a) EXECUTE de volta a anon na RPC do titular.
+    id: 'MB3',
+    desc: 'GRANT EXECUTE de solicitar_revisao_rejeicao a anon',
+    smoke: S51B,
+    letra: 'a',
+    requer: [V02],
+    sql: 'GRANT EXECUTE ON FUNCTION public.solicitar_revisao_rejeicao(uuid) TO anon;',
+  },
+  {
+    // (a) privilégio de tabela a anon — a RLS sozinha devolveria 0 linhas; a sonda distingue.
+    id: 'MB4',
+    desc: 'GRANT SELECT em revisao_rejeicao a anon',
+    smoke: S51B,
+    letra: 'a',
+    requer: [V02],
+    sql: 'GRANT SELECT ON public.revisao_rejeicao TO anon;',
+  },
+  {
+    // (f) reabertura só pelo status — sem etapa_atual no SET, avancar_etapa não roda: a candidatura
+    // fica na etapa `rejeitado` (ou `inscricao`) com status em_analise e sem trilha.
+    id: 'MB5',
+    desc: 'reabertura so pelo status (sem etapa_atual no SET)',
+    smoke: S51B,
+    letra: 'f',
+    requer: [V02],
+    sql: () => trocar(fnResp(), "SET etapa_atual = v_row.etapa_reabertura,\n           status = 'em_analise',", "SET status = 'em_analise',", 'MB5'),
+  },
+  {
+    // REDECLARADA de (f) para (b) na execução do 51-08: a etapa de reabertura é GRAVADA NO PEDIDO
+    // (escolha 3 do planejador), e (b) assere `etapa_reabertura = triagem` no pedido do knockout
+    // (D-30) — a mutação aparece ali, antes de chegar à reabertura de (f). Nenhuma cláusula foi
+    // afrouxada: (f) continua exigindo `triagem` na candidatura reaberta (MB5 morde (f)).
+    id: 'MB6',
+    desc: 'knockout reabre em inscricao (etapa_reabertura do knockout vira inscricao e o CHECK cai)',
+    smoke: S51B,
+    letra: 'b',
+    requer: [V02],
+    sql: () =>
+      'ALTER TABLE public.revisao_rejeicao DROP CONSTRAINT ck_revisao_rejeicao_knockout_triagem;\n' +
+      trocar(
+        fnSol(),
+        "CASE WHEN v_origem = 'automatica' THEN 'triagem'::public.etapa_processo ELSE v_de END",
+        "CASE WHEN v_origem = 'automatica' THEN 'inscricao'::public.etapa_processo ELSE v_de END",
+        'MB6'
+      ),
+  },
+  {
+    // (d) um pedido por rejeição desfeito — o segundo pedido de `c400` grava outra linha.
+    id: 'MB7',
+    desc: 'UNIQUE de historico_rejeicao_id removida e ON CONFLICT trocado por INSERT simples',
+    smoke: S51B,
+    letra: 'd',
+    requer: [V02],
+    sql: () =>
+      'ALTER TABLE public.revisao_rejeicao DROP CONSTRAINT uq_revisao_rejeicao_historico;\n' +
+      trocar(fnSol(), '\n  ON CONFLICT (historico_rejeicao_id) DO NOTHING;', ';', 'MB7'),
+  },
+  {
+    // (b) a forma do defeito C-4: guarda de titular comparando candidatos.id com auth.uid().
+    id: 'MB8',
+    desc: 'guarda de titular compara candidatos.id com auth.uid() (forma do C-4)',
+    smoke: S51B,
+    letra: 'b',
+    requer: [V02],
+    sql: () => trocar(fnSol(), 'SELECT ca.user_id, c.status, c.opcao_knockout_id', 'SELECT ca.id, c.status, c.opcao_knockout_id', 'MB8'),
+  },
+  {
+    // (i) uma segunda escritora do knockout aparece em public (D-03 por forma).
+    id: 'MB9',
+    desc: 'cria public.p51_mutacao_knockout() que faz UPDATE public.candidaturas SET motivo_rejeicao = knockout_automatico',
+    smoke: S51B,
+    letra: 'i',
+    requer: [V02],
+    sql:
+      'CREATE FUNCTION public.p51_mutacao_knockout() RETURNS void LANGUAGE sql AS $mb9$ ' +
+      "UPDATE public.candidaturas SET motivo_rejeicao = 'knockout_automatico' WHERE false $mb9$;",
+  },
+  {
+    // (h) D-36 desligado — a revertida do knockout não despacha a análise.
+    id: 'MB10',
+    desc: 'despacho da analise removido da revertida do knockout',
+    smoke: S51B,
+    letra: 'h',
+    requer: [V02],
+    sql: () => trocar(fnResp(), "IF v_row.origem = 'automatica' THEN", 'IF false THEN', 'MB10'),
+  },
+  {
+    // (k) a allowlist do titular vaza o UUID de quem rejeitou dentro de `pedido` (fixture `k`).
+    id: 'MB11',
+    desc: 'estado_revisao_rejeicao expoe rejeitado_por dentro de pedido',
+    smoke: S51B,
+    letra: 'k',
+    requer: [V02],
+    sql: () => trocar(fnEst(), "'solicitada_em', r.solicitada_em,", "'solicitada_em', r.solicitada_em,\n        'rejeitado_por', r.rejeitado_por,", 'MB11'),
+  },
+  {
+    // (j) predicado de dono desligado nas duas RPCs do titular: a rejeição por registrar_decisao
+    // (fixture `rd`) fica elegível TAMBÉM no registro novo — dois caminhos para uma rejeição.
+    id: 'MB12',
+    desc: 'predicado de dono decisao_final desligado (rejeicao por registrar_decisao fica elegivel no registro novo)',
+    smoke: S51B,
+    letra: 'j',
+    requer: [V02],
+    sql: () =>
+      trocar(fnSol(), 'IF EXISTS (SELECT 1 FROM public.decisao_final d', 'IF false AND EXISTS (SELECT 1 FROM public.decisao_final d', 'MB12 solicitar') +
+      '\n' +
+      trocar(fnEst(), 'IF EXISTS (SELECT 1 FROM public.decisao_final d', 'IF false AND EXISTS (SELECT 1 FROM public.decisao_final d', 'MB12 estado'),
+  },
+  {
+    // (c) guarda de titular DESLIGADA no pedido — o intruso X pede a revisão de `tri`. Acrescentada
+    // na execução do 51-08 para que (c) tenha mutação própria (MB8, a forma C-4, reprova (b) antes).
+    id: 'MB13',
+    desc: 'guarda de titular do pedido desligada (IF da guarda vira IF false)',
+    smoke: S51B,
+    letra: 'c',
+    requer: [V02],
+    sql: () => trocar(fnSol(), 'IF v_uid IS NULL OR v_dono IS DISTINCT FROM v_uid THEN', 'IF false THEN', 'MB13'),
+  },
+  {
+    // (g) «já respondida» desligada — a segunda resposta ao pedido de `mant` (mantida) é aceita e
+    // reabre. Acrescentada na execução do 51-08 para que (g) tenha mutação própria.
+    id: 'MB14',
+    desc: 'guarda de revisao ja respondida desligada (IF vira IF false)',
+    smoke: S51B,
+    letra: 'g',
+    requer: [V02],
+    sql: () => trocar(fnResp(), 'IF v_row.respondida_em IS NOT NULL THEN', 'IF false THEN', 'MB14'),
   },
 ];
 
