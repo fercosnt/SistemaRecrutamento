@@ -27,7 +27,9 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
 }))
 
-vi.mock('../../services/triagemService', () => ({
+// A tradução do erro (`mensagemErroRejeitarCandidatura`) é a REAL — só a chamada à RPC é dublada.
+vi.mock('../../services/triagemService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/triagemService')>()),
   rejeitarCandidatura: mocks.rejeitarCandidatura,
 }))
 
@@ -36,6 +38,7 @@ vi.mock('sonner', () => ({
 }))
 
 import { useRejeitarCandidatura } from '../useRejeitarCandidatura'
+import { REJEICAO_ERRO_COPY, TriagemServiceError } from '../../services/triagemService'
 import { candidaturasKeys } from '@/features/vagas/hooks/useCandidaturas'
 import { vagasKeys } from '@/features/vagas/hooks/useVagas'
 import { triagemKeys } from '../useTriagemPanel'
@@ -78,5 +81,21 @@ describe('useRejeitarCandidatura — 3-tree invalidation + toast (OPER-01/02/03)
     expect(mocks.toastError).toHaveBeenCalledWith(
       'Não foi possível rejeitar o candidato. Tente novamente.',
     )
+  })
+
+  // 51-16 (WR-02 do 51-REVIEW-PORTAO-2): a recusa D-23 é permanente para esta pessoa — o toast diz o
+  // motivo real e quem pode seguir, nunca «Tente novamente» (padrão do 48-15 em registrar_decisao).
+  it('on D-23 refusal → toasts the real reason (outra pessoa do RH), not «Tente novamente»', async () => {
+    mocks.rejeitarCandidatura.mockRejectedValue(
+      new TriagemServiceError(REJEICAO_ERRO_COPY.FORBIDDEN_DECISOR_REVERTIDO, 'FORBIDDEN_DECISOR_REVERTIDO'),
+    )
+
+    const { result } = renderHook(() => useRejeitarCandidatura(), { wrapper })
+    result.current.mutate({ candidaturaId: 'c1', motivo: 'outro', justificativa: 'y'.repeat(60) })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(mocks.toastError).toHaveBeenCalledTimes(1)
+    expect(mocks.toastError).toHaveBeenCalledWith(REJEICAO_ERRO_COPY.FORBIDDEN_DECISOR_REVERTIDO)
+    expect(mocks.toastError.mock.calls[0][0]).not.toMatch(/Tente novamente/)
   })
 })

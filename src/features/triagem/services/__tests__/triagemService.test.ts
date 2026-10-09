@@ -75,6 +75,9 @@ import {
   invokeComparativo,
   updateCandidaturaEtapa,
   rejeitarCandidatura,
+  mensagemErroRejeitarCandidatura,
+  REJEICAO_ERRO_COPY,
+  TriagemServiceError,
 } from '../triagemService'
 
 describe('triagemService — TRIAGEM-02 panel read (allowlist projection)', () => {
@@ -365,5 +368,65 @@ describe('triagemService — rejeitarCandidatura (OPER-02)', () => {
       rejeitarCandidatura('', 'outro', 'z'.repeat(60)),
     ).rejects.toMatchObject({ name: 'TriagemServiceError', code: 'INVALID_INPUT' })
     expect(rpcMock).not.toHaveBeenCalled()
+  })
+
+  /*
+   * 51-16 (WR-02 do 51-REVIEW-PORTAO-2; operador, 2026-10-09 — «Incluir»): a migration 20261008000005
+   * faz `rejeitar_candidatura` recusar o DECISOR REVERTIDO com 42501 e a marca «D-23» — a MESMA recusa
+   * que o 48-15 já traduz em `registrar_decisao`. O servidor decide; o cliente só diz o motivo real,
+   * sem «Tente novamente» (a recusa é permanente para esta pessoa). O papel não autorizado recebe o
+   * MESMO SQLSTATE (`forbidden`): é a marca na mensagem que separa as duas recusas, nunca o código só.
+   */
+  it('42501 com a marca D-23 → FORBIDDEN_DECISOR_REVERTIDO, com a cópia do motivo real', async () => {
+    rpcMock.mockResolvedValue({
+      error: { code: '42501', message: 'quem teve a decisao revertida nao registra a nova decisao deste caso (D-23)' },
+    })
+    await expect(rejeitarCandidatura('cand-9', 'outro', 'y'.repeat(60))).rejects.toMatchObject({
+      name: 'TriagemServiceError',
+      code: 'FORBIDDEN_DECISOR_REVERTIDO',
+      message: REJEICAO_ERRO_COPY.FORBIDDEN_DECISOR_REVERTIDO,
+    })
+  })
+
+  it('42501 SEM a marca D-23 (papel/recrutador inativo) → FORBIDDEN, não a cópia do D-23', async () => {
+    rpcMock.mockResolvedValue({ error: { code: '42501', message: 'forbidden' } })
+    await expect(rejeitarCandidatura('cand-9', 'outro', 'y'.repeat(60))).rejects.toMatchObject({
+      name: 'TriagemServiceError',
+      code: 'FORBIDDEN',
+      message: REJEICAO_ERRO_COPY.FORBIDDEN,
+    })
+  })
+
+  it('a marca D-23 sem o 42501 não basta (outro SQLSTATE segue DATABASE_ERROR)', async () => {
+    rpcMock.mockResolvedValue({ error: { code: '23514', message: 'algo (D-23) que nao e a recusa' } })
+    await expect(rejeitarCandidatura('cand-9', 'outro', 'y'.repeat(60))).rejects.toMatchObject({
+      code: 'DATABASE_ERROR',
+    })
+  })
+})
+
+describe('mensagemErroRejeitarCandidatura — o texto do toast (51-16, padrão do 48-15)', () => {
+  it('D-23 → o motivo real, sem «Tente novamente»', () => {
+    const m = mensagemErroRejeitarCandidatura(
+      new TriagemServiceError('x', 'FORBIDDEN_DECISOR_REVERTIDO'),
+    )
+    expect(m).toBe(REJEICAO_ERRO_COPY.FORBIDDEN_DECISOR_REVERTIDO)
+    expect(m).toMatch(/outra pessoa do RH/)
+    expect(m).not.toMatch(/Tente novamente/)
+  })
+
+  it('FORBIDDEN → a cópia de permissão', () => {
+    expect(mensagemErroRejeitarCandidatura(new TriagemServiceError('x', 'FORBIDDEN'))).toBe(
+      REJEICAO_ERRO_COPY.FORBIDDEN,
+    )
+  })
+
+  it('qualquer outro erro → a cópia genérica de antes, byte a byte', () => {
+    expect(REJEICAO_ERRO_COPY.GENERICO).toBe('Não foi possível rejeitar o candidato. Tente novamente.')
+    expect(mensagemErroRejeitarCandidatura(new TriagemServiceError('x', 'DATABASE_ERROR'))).toBe(
+      REJEICAO_ERRO_COPY.GENERICO,
+    )
+    expect(mensagemErroRejeitarCandidatura(new Error('boom'))).toBe(REJEICAO_ERRO_COPY.GENERICO)
+    expect(mensagemErroRejeitarCandidatura(undefined)).toBe(REJEICAO_ERRO_COPY.GENERICO)
   })
 })
