@@ -189,6 +189,10 @@ const fnNomeada = (versao, nome) => {
   return t.slice(a, d2 + D.length) + ';';
 };
 const fnMotor = () => fnNomeada(V04, 'anonimizar_candidato');
+
+// ── 51-16 (WR-09): o D-23 estendido a rejeitar_candidatura (migration 20261008000005) ──
+const V05 = '20261008000005';
+const fnRejeitar = () => fn(V05, 'rejeitar_candidatura');
 /* O statement que comeca na ancora (unica) e termina no primeiro `;` FORA DE LITERAL — varredura que
  * alterna dentro/fora a cada aspa (o '' de escape alterna duas vezes e volta ao mesmo estado). A
  * sentinela que o passo copia contem `foi removido;`: um indexOf(';') cortaria DENTRO dela e a 0004
@@ -607,6 +611,39 @@ const MUTACOES = [
       'END\n' +
       '$md2$;\n' +
       trocar(fnMotor(), 'CASE WHEN r.resultado IS NULL THEN NULL', 'CASE WHEN false THEN NULL', 'MD2'),
+  },
+
+  // ── 51-16 (WR-09): o D-23 estendido a rejeitar_candidatura (migration 20261008000005) ──
+  // Cada uma morde (q) sobre a fixture da própria (q) (`rv`, `mt`): a `revisao_rejeicao` viva é vazia.
+  {
+    // (q) a trava desligada — A, o decisor revertido de `rv`, rejeita de novo (o comportamento de antes).
+    id: 'ME1',
+    desc: 'D-23 de rejeitar_candidatura desligado (IF EXISTS do bloco (2c) vira IF false)',
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRejeitar(), 'IF EXISTS (SELECT 1 FROM public.revisao_rejeicao rr', 'IF false AND EXISTS (SELECT 1 FROM public.revisao_rejeicao rr', 'ME1'),
+  },
+  {
+    // REDECLARADA de (q) para (f) na execução do 51-16 (precedente MB6): a trava larga demais — qualquer RH
+    // travado por qualquer revertida — aparece PRIMEIRO na re-rejeição do D-06 de (f), feita por B (outro
+    // RH, não o decisor revertido de `tri`) desde esta mesma rodada; (f) é a primeira sonda de «outro RH
+    // rejeita depois da reabertura». Nenhuma cláusula foi afrouxada: (q) continua exigindo B aceito em `rv`.
+    id: 'ME2',
+    desc: 'D-23 de rejeitar_candidatura sem o filtro do decisor (trava todo RH)',
+    smoke: S51B,
+    letra: 'f',
+    requer: [V02, V05],
+    sql: () => trocar(fnRejeitar(), "\n                AND rr.rejeitado_por = (select auth.uid())) THEN", ') THEN', 'ME2'),
+  },
+  {
+    // (q) a trava ignora o veredito — o pedido MANTIDO de `mt` passa a dar o D-23 em vez da recusa de encerrada.
+    id: 'ME3',
+    desc: 'D-23 de rejeitar_candidatura sem o filtro do veredito (pedido mantido tambem trava)',
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRejeitar(), "\n                AND rr.veredito = 'revertida'", '', 'ME3'),
   },
 ];
 

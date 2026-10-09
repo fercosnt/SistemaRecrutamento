@@ -72,7 +72,7 @@
 --
 -- ⚠ CADA chamada vai no SEU PRÓPRIO bloco `BEGIN … EXCEPTION WHEN OTHERS` que guarda
 -- `SQLSTATE:SQLERRM`. As medições ficam numa GUC de sessão (`smoke51b.m`); o julgamento roda FORA
--- da subtransação, UMA cláusula por bloco `DO`, na ordem a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, z — a
+-- da subtransação, UMA cláusula por bloco `DO`, na ordem a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, z — a
 -- primeira que reprova encerra a requisição, e as letras seguintes não aparecem nessa corrida.
 -- Passos da fixture que usam só código vivo (criar titular, `rejeitar_candidatura`,
 -- `submit_candidatura_atomic`) propagam erro: isso é `P51B FAIL (fixture)` com «erro INESPERADO»
@@ -170,6 +170,15 @@
 --       irmão) —, cada um com exatamente {evento: prazo_reabertura_vencido, candidatura_id, ciclo = epoch
 --       do prazo}, e marca SÓ esses dois; `mov` (movida) e `dfx` (nova decisão de verdade depois da
 --       reabertura) ficam sem alerta; a 2ª não enfileira nada para a fixture; nenhum status muda.
+--   v3 (51-16, WR-09 do 51-REVIEW-PORTAO-1 — migration 20261008000005, D-23 estendido):
+--   (q) fixture própria (envelope `P51B1`): `rv` (A rejeita pelo RH, o titular pede, B REVERTE), `mt` (A
+--       rejeita, B MANTÉM), `sr` (nunca rejeitada) e `kr` (knockout pela RPC real, B reverte); a forma de
+--       cada uma é conferida antes (vácua = FALHA). Sondas que revertem (`P51B2`): A rejeitando `rv` de
+--       novo → 42501 com a marca `(D-23)` (o decisor revertido não re-rejeita); B rejeitando `rv` →
+--       aceito (outro RH pode); A rejeitando `mt` → a recusa de antes (23514, candidatura encerrada),
+--       NUNCA o D-23 (só a revertida trava); A rejeitando `sr` e `kr` → aceito (o caminho sem revisão
+--       revertida não muda; o knockout não tem decisor). ⚠ Por isso a re-rejeição do D-06 em (f) passou
+--       de A para B na mesma rodada: com a 0005, A é exatamente o decisor revertido de `tri`.
 --   (z) resíduo: nenhum id da fixture sobrevive; contagens globais = baseline DESTA execução,
 --       sobre um conjunto lido POR FORMA do catálogo — toda tabela base de `public` mais
 --       `auth.users` e a fila `net.http_request_queue` —, com o número de tabelas impresso (zero
@@ -227,6 +236,18 @@
 --   |---------|---------------------------------------------------------------------|---------|-----------------------------------------------------------------|---------|
 --   | MC9     | o comportamento de ANTES do WR-06 (em_espera cala o alerta)          | (p)     | `dfd` sem alerta: «1a varredura enfileirou 1 despacho(s)»       | 1109 ms |
 --   | MC10    | «nova decisão depois da reabertura» desligada (`AND false`)          | (p)     | `dfx` alertado apesar da nova decisão de B                      | 992 ms  |
+--   WR-09 (migration 20261008000005, D-23 estendido a `rejeitar_candidatura`), com 0002..0005 PREFIXADAS:
+--   RED antes da 0005 (só 0002..0004): «P51B FAIL (q): A (decisor revertido) rejeitando de novo rv =
+--   «ACEITO»»; com a 0005: CONTROLE verde `51b=18/18` em 1181 ms; «controle verde; 36/36 mutacoes mordem;
+--   nada persistiu».
+--   | Mutação | Inversão                                                            | Reprova | Linha mordida (fixture)                                         | Duração |
+--   |---------|---------------------------------------------------------------------|---------|-----------------------------------------------------------------|---------|
+--   | ME1     | a trava desligada (`IF false AND EXISTS …`) — o comportamento de antes | (q)     | A, o decisor revertido de `rv`, rejeita de novo: ACEITO          | 2238 ms |
+--   | ME2 *   | a trava sem o filtro do decisor (trava todo RH)                      | (f)     | B (outro RH) recusado na re-rejeição do D-06 de `tri`            | 1159 ms |
+--   | ME3     | a trava sem o filtro do veredito (pedido mantido também trava)       | (q)     | A em `mt` (mantido) recebe o D-23 em vez da recusa de encerrada  | 1204 ms |
+--   * ME2 REDECLARADA de (q) para (f) (precedente MB6): a re-rejeição do D-06 em (f) é feita por B desde
+--     esta rodada e é a PRIMEIRA sonda de «outro RH rejeita depois da reabertura»; (q) segue exigindo B
+--     aceito em `rv` — nenhuma cláusula afrouxada.
 --
 -- Varredura D-56 (forma) — 2026-10-09, padrão LITERAL do CLAUDE.md §«Portões» sobre
 -- `supabase/tests/*.sql` (antes deste arquivo existir):
@@ -245,7 +266,7 @@
 --     escopo deliberado: as três tabelas que AQUELE bloco muta.
 --   · `p50_acesso_recrutador_smoke.sql:1830/1985` (`v_rc <> 1`) — escritas de semeadura de uma
 --     linha; a fila (k) dele é do 51-10 (C-12), não deste plano.
---   Este arquivo tem constantes DELIBERADAS, todas escopo: o esperado 17 (o número de cláusulas
+--   Este arquivo tem constantes DELIBERADAS, todas escopo: o esperado 18 (o número de cláusulas
 --   DESTE arquivo), os destinos de reabertura (D-02/D-30), as contagens 1 de escrita da fixture e, em
 --   (l)..(p), os tamanhos das PRÓPRIAS fixtures (3 pedidos em (l); +2 pendentes e 1 respondido em
 --   (m); 1→0 knockout em (o); 1 despacho em (p)) — nunca a população viva, que entra só como
@@ -278,7 +299,8 @@
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
 -- deliberado), não uma fotografia do banco. Vive num ÚNICO literal (`smoke51b.esperado`, abaixo);
--- o gate e o JSON final LEEM a GUC. Hoje: 17 — a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, z.
+-- o gate e o JSON final LEEM a GUC. Hoje: 18 — a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, z
+-- (a (q) é do 51-16, WR-09: era 17 até a rodada de conserto do 51-REVIEW-PORTAO-1).
 -- =============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -306,7 +328,7 @@ SELECT set_config('request.jwt.claim.sub', '', false);
 SELECT set_config('app.rejeicao_sancionada', '', false);
 SELECT set_config('app.transicao_sancionada', '', false);
 SELECT set_config('smoke51b.pass', '0', false);
-SELECT set_config('smoke51b.esperado', '17', false);
+SELECT set_config('smoke51b.esperado', '18', false);
 SELECT set_config('smoke51b.fixtures', '', false);
 SELECT set_config('smoke51b.m', '', false);
 
@@ -679,9 +701,12 @@ BEGIN
         'pedido', (SELECT to_jsonb(r) FROM public.revisao_rejeicao r WHERE r.id = p_x)));
     END LOOP;
     -- D-06: uma rejeição NOVA depois da reabertura gera direito novo (envelhece as linhas de tri).
+    -- Rejeitada de novo por B, não por A: desde a 20261008000005 (WR-09, D-23 estendido) A é o decisor
+    -- REVERTIDO de tri e rejeitar_candidatura o recusa — a trava é provada em (q); aqui o que se julga é
+    -- o direito novo da rejeição nova, seja de quem for.
     UPDATE public.historico_candidatura SET criado_em = criado_em - interval '1 hour' WHERE candidatura_id = c_tri;
     SET LOCAL ROLE authenticated;
-    PERFORM set_config('request.jwt.claims', j_a, true);
+    PERFORM set_config('request.jwt.claims', j_b, true);
     BEGIN PERFORM public.rejeitar_candidatura(c_tri, 'outro'::public.motivo_rejeicao_rh, c_just); st := 'ACEITO';
     EXCEPTION WHEN OTHERS THEN st := SQLSTATE || ':' || SQLERRM; END;
     m := m || jsonb_build_object('f_rerej', st);
@@ -2214,6 +2239,164 @@ BEGIN
   PERFORM set_config('smoke51b.pass', (current_setting('smoke51b.pass')::int + 1)::text, false);
 END
 $p$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (q) D-23 ESTENDIDO A `rejeitar_candidatura` (WR-09 do 51-REVIEW-PORTAO-1, operador 2026-10-09,
+--     migration 20261008000005): o decisor revertido — quem fez a rejeição que uma `revisao_rejeicao`
+--     REVERTEU — não rejeita de novo a mesma candidatura (42501, a mensagem do D-23 da 48); outro RH
+--     rejeita; o caminho sem revisão revertida não muda.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $q$
+DECLARE
+  v_a    uuid := current_setting('smoke51b.a')::uuid;
+  v_b    uuid := current_setting('smoke51b.b')::uuid;
+  r_a    text := current_setting('smoke51b.ra');
+  r_b    text := current_setting('smoke51b.rb');
+  c_just constant text := 'Justificativa sintetica do smoke P51B (q): rejeicao registrada pela fixture, com mais de cinquenta caracteres.';
+  c_resp constant text := 'Resposta sintetica do revisor no smoke P51B (q): texto ao titular, com mais de cinquenta caracteres no total.';
+  j_tit  text;  j_a text;  j_b text;
+  v_user uuid;  v_email text;  v_ctit uuid;  v_vaga uuid;  v_cid uuid;
+  c_rv   uuid;  c_mt uuid;  c_sr uuid;  c_kr uuid;
+  v_vko  uuid;  v_pko uuid;  v_opn uuid;  v_ret jsonb;
+  v_ped  uuid;
+  lbl    text;  parts text[];  st text;
+  m      jsonb := '{}'::jsonb;
+  v_err  text;
+  v_ran  boolean := false;
+  v_bad  text := '';
+BEGIN
+  BEGIN
+    v_user  := gen_random_uuid();
+    v_email := 'p51b-smoke-' || replace(v_user::text, '-', '') || '@invalido.local';
+    INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', v_email, '', now(), now(),
+            '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+    INSERT INTO public.candidatos (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
+    VALUES (v_user, 'SMOKE P51B Titular Q', v_email, '(11) 95108-5126', DATE '1991-04-12', 'Santos', 'SP', 'site')
+    RETURNING id INTO v_ctit;
+    j_tit := json_build_object('sub', v_user::text, 'role', 'authenticated', 'app_metadata', json_build_object('role', 'candidato'))::text;
+    j_a   := json_build_object('sub', v_a::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', r_a))::text;
+    j_b   := json_build_object('sub', v_b::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', r_b))::text;
+
+    -- `rv` (A rejeita, B REVERTE), `mt` (A rejeita, B MANTÉM) e `sr` (nunca rejeitada), todas em triagem.
+    FOREACH lbl IN ARRAY ARRAY['rv', 'mt', 'sr'] LOOP
+      v_vaga := gen_random_uuid();
+      INSERT INTO public.vagas (id, titulo, slug, status)
+      VALUES (v_vaga, '[SMOKE P51B] q-' || lbl, 'p51b-smoke-' || replace(v_vaga::text, '-', ''), 'ativa');
+      INSERT INTO public.candidaturas (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+      VALUES (v_ctit, v_vaga, 'triagem', 'rejeitado', false, now() - interval '20 days')
+      RETURNING id INTO v_cid;
+      UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_cid;
+      CASE lbl WHEN 'rv' THEN c_rv := v_cid; WHEN 'mt' THEN c_mt := v_cid; ELSE c_sr := v_cid; END CASE;
+    END LOOP;
+    -- `kr`: knockout pela RPC real, REVERTIDO por B (não tem decisor: rejeitado_por NULL).
+    v_vko := gen_random_uuid();  v_pko := gen_random_uuid();  v_opn := gen_random_uuid();
+    INSERT INTO public.vagas (id, titulo, slug, status)
+    VALUES (v_vko, '[SMOKE P51B] q-kr', 'p51b-smoke-' || replace(v_vko::text, '-', ''), 'ativa');
+    INSERT INTO public.perguntas_formulario (id, vaga_id, bloco, ordem, texto_pergunta, tipo_resposta, opcoes_resposta)
+    VALUES (v_pko, v_vko, 'valores', 1, '[SMOKE P51B] Pergunta eliminatoria (q)', 'single_choice',
+            jsonb_build_array(jsonb_build_object('id', v_opn, 'texto', 'Nao'), jsonb_build_object('id', gen_random_uuid(), 'texto', 'Sim')));
+    INSERT INTO public.pergunta_opcao_metadata (pergunta_id, opcao_id, opcao_texto, tag, peso, ordem)
+    VALUES (v_pko, v_opn, 'Nao', 'knockout', 0, 1);
+    v_ret := public.submit_candidatura_atomic(v_ctit, v_vko, 'smoke://cv', 'smoke.pdf', 0,
+               jsonb_build_array(jsonb_build_object('pergunta_id', v_pko, 'resposta_opcoes', jsonb_build_array('Nao'))));
+    PERFORM set_config('app.rejeicao_sancionada', '', true);
+    c_kr := (v_ret ->> 'candidatura_id')::uuid;
+
+    -- rejeições de A (RPC real), pedidos do titular, respostas de B (revertida em rv e kr, mantida em mt)
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', j_a, true);
+    PERFORM public.rejeitar_candidatura(c_rv, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
+    PERFORM public.rejeitar_candidatura(c_mt, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
+    PERFORM set_config('request.jwt.claims', j_tit, true);
+    PERFORM public.solicitar_revisao_rejeicao(c_rv);
+    PERFORM public.solicitar_revisao_rejeicao(c_mt);
+    PERFORM public.solicitar_revisao_rejeicao(c_kr);
+    RESET ROLE;
+    FOREACH lbl IN ARRAY ARRAY['rv:revertida', 'mt:mantida', 'kr:revertida'] LOOP
+      parts := string_to_array(lbl, ':');
+      v_ped := (SELECT r.id FROM public.revisao_rejeicao r
+                 WHERE r.candidatura_id = CASE parts[1] WHEN 'rv' THEN c_rv WHEN 'mt' THEN c_mt ELSE c_kr END);
+      SET LOCAL ROLE authenticated;
+      PERFORM set_config('request.jwt.claims', j_b, true);
+      PERFORM public.responder_revisao_rejeicao(v_ped, parts[2], c_resp);
+      RESET ROLE;
+    END LOOP;
+    PERFORM set_config('request.jwt.claims', '', true);
+
+    -- a população julgada, na forma pretendida (senão a cláusula seria vácua)
+    m := m || jsonb_build_object('estado', (SELECT jsonb_object_agg(x.l, x.v) FROM (
+               SELECT l, jsonb_build_object('status', c.status, 'etapa', c.etapa_atual,
+                        'veredito', (SELECT r.veredito FROM public.revisao_rejeicao r WHERE r.candidatura_id = c.id),
+                        'por_a', (SELECT r.rejeitado_por = v_a FROM public.revisao_rejeicao r WHERE r.candidatura_id = c.id)) AS v
+                 FROM unnest(ARRAY['rv', 'mt', 'sr', 'kr'], ARRAY[c_rv, c_mt, c_sr, c_kr]) AS u(l, id)
+                 JOIN public.candidaturas c ON c.id = u.id) x));
+
+    -- SONDAS: cada rejeição revertida por P51B2 mesmo quando ACEITA (nenhuma deixa efeito na seguinte).
+    FOREACH lbl IN ARRAY ARRAY['a:rv', 'b:rv', 'a:mt', 'a:sr', 'a:kr'] LOOP
+      parts := string_to_array(lbl, ':');
+      SET LOCAL ROLE authenticated;
+      PERFORM set_config('request.jwt.claims', CASE parts[1] WHEN 'a' THEN j_a ELSE j_b END, true);
+      BEGIN
+        PERFORM public.rejeitar_candidatura(CASE parts[2] WHEN 'rv' THEN c_rv WHEN 'mt' THEN c_mt WHEN 'sr' THEN c_sr ELSE c_kr END,
+                                            'outro'::public.motivo_rejeicao_rh, c_just);
+        RAISE EXCEPTION 'sonda revertida' USING ERRCODE = 'P51B2';
+      EXCEPTION
+        WHEN SQLSTATE 'P51B2' THEN st := 'ACEITO';
+        WHEN OTHERS THEN st := SQLSTATE || ':' || SQLERRM;
+      END;
+      RESET ROLE;
+      m := m || jsonb_build_object(parts[1] || '_' || parts[2], st);
+    END LOOP;
+    PERFORM set_config('request.jwt.claims', '', true);
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P51B1';
+  EXCEPTION
+    WHEN SQLSTATE 'P51B1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P51B FAIL (q): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e da FIXTURE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+
+  IF (m -> 'estado') IS DISTINCT FROM jsonb_build_object(
+       'rv', jsonb_build_object('status', 'em_analise', 'etapa', 'triagem',   'veredito', 'revertida', 'por_a', true),
+       'mt', jsonb_build_object('status', 'rejeitado',  'etapa', 'rejeitado', 'veredito', 'mantida',   'por_a', true),
+       'sr', jsonb_build_object('status', 'em_analise', 'etapa', 'triagem',   'veredito', NULL,        'por_a', NULL),
+       'kr', jsonb_build_object('status', 'em_analise', 'etapa', 'triagem',   'veredito', 'revertida', 'por_a', NULL)) THEN
+    RAISE EXCEPTION 'P51B FAIL (q): a fixture nao tem a forma pretendida: % — a clausula seria vacua', m -> 'estado';
+  END IF;
+  -- o decisor revertido é recusado, com o código e a marca do D-23
+  IF coalesce(m ->> 'a_rv', '<nao rodou>') NOT LIKE '42501:%(D-23)%' THEN
+    v_bad := v_bad || format('A (decisor revertido) rejeitando de novo rv = «%s» (esperado 42501 com a marca (D-23) — o D-23 da 48 estendido a rejeitar_candidatura); ', m ->> 'a_rv');
+  END IF;
+  -- outro RH rejeita
+  IF coalesce(m ->> 'b_rv', '<nao rodou>') <> 'ACEITO' THEN
+    v_bad := v_bad || format('B (outro RH) rejeitando rv = «%s» (esperado aceito — so o decisor revertido e travado); ', m ->> 'b_rv');
+  END IF;
+  -- o caminho sem revisão revertida não muda: mantida segue encerrada (a trava de antes, não o D-23),
+  -- nunca rejeitada aceita, knockout revertido (sem decisor) aceita
+  IF coalesce(m ->> 'a_mt', '<nao rodou>') NOT LIKE '23514:%encerrada%' OR m ->> 'a_mt' LIKE '%(D-23)%' THEN
+    v_bad := v_bad || format('A rejeitando mt (pedido MANTIDO) = «%s» (esperado a recusa de candidatura encerrada, 23514 — nao o D-23: so a revertida trava); ', m ->> 'a_mt');
+  END IF;
+  IF coalesce(m ->> 'a_sr', '<nao rodou>') <> 'ACEITO' THEN
+    v_bad := v_bad || format('A rejeitando sr (sem rejeicao anterior) = «%s» (esperado aceito — o caminho sem revisao nao muda); ', m ->> 'a_sr');
+  END IF;
+  IF coalesce(m ->> 'a_kr', '<nao rodou>') <> 'ACEITO' THEN
+    v_bad := v_bad || format('A rejeitando kr (knockout revertido, sem decisor) = «%s» (esperado aceito — o knockout nao tem decisor a travar); ', m ->> 'a_kr');
+  END IF;
+  IF v_bad <> '' THEN
+    RAISE EXCEPTION 'P51B FAIL (q): %', v_bad;
+  END IF;
+  PERFORM set_config('p51.evidencia',
+    btrim(coalesce(current_setting('p51.evidencia', true), '') || ' 51b.q=d23(a_rv=42501,b_rv=ok,a_mt=encerrada,a_sr=ok,a_kr=ok)'), false);
+  PERFORM set_config('smoke51b.pass', (current_setting('smoke51b.pass')::int + 1)::text, false);
+END
+$q$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────

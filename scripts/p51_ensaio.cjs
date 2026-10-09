@@ -91,12 +91,16 @@ const APPLY = path.join(ROOT, 'p46apply.cjs');
 const SENTINELA = 'ENSAIO_P51_TERMINOU';
 
 /* Ordem de aplicação das migrations da Onda B (versões fixadas no planejamento, 51-06). As que
- * ainda não existem no disco simplesmente não são prefixadas (`ausentes=`). */
+ * ainda não existem no disco simplesmente não são prefixadas (`ausentes=`). A 0005 (D-23 estendido a
+ * `rejeitar_candidatura`) nasceu na rodada de conserto do 51-REVIEW-PORTAO-1 (WR-09, 51-16): ela lê
+ * `revisao_rejeicao` e vem depois da 0004. O `p51_portao.cjs --modo deploy|push` NÃO lê esta lista: ele
+ * confere o ledger por FORMA (toda `supabase/migrations/<versão>_p51_*.sql` do pin). */
 const MIGS = [
   'supabase/migrations/20261008000001_p51_raven_em_avaliacao_status.sql',
   'supabase/migrations/20261008000002_p51_revisao_rejeicao.sql',
   'supabase/migrations/20261008000003_p51_fila_tres_origens.sql',
   'supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql',
+  'supabase/migrations/20261008000005_p51_d23_rejeitar_candidatura.sql',
 ];
 
 /* Pares de smoke que o sentinela conhece: <chave no relatório> -> prefixo das GUCs. */
@@ -255,7 +259,7 @@ const MD5_SET = (expr, from) => `(SELECT md5(coalesce(string_agg(x, E'\\n' ORDER
  * Impressão digital do que NENHUM ensaio pode mudar — baseline capturada NA execução, sem
  * constante; leitura só-leitura com `search_path = ''`. Usada pelo CLI deste arquivo E por
  * `p51_mutacoes.cjs` (o mesmo critério nos dois runners). Cobre:
- *   ledger         as linhas das quatro versões p51, com md5(statements[1]);
+ *   ledger         as linhas das versões p51 de MIGS, com md5(statements[1]);
  *   revisao        `to_regclass('public.revisao_rejeicao')` e, quando ela existir, relacl,
  *                  relrowsecurity/relforcerowsecurity, constraints (conname + def), índices,
  *                  policies (`to_jsonb` da linha de pg_policies) e triggers não internos — cada
