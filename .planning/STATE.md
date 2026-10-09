@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-12-PLAN.md
-last_updated: "2026-10-09T06:29:31.157Z"
+stopped_at: Completed 51-13-PLAN.md
+last_updated: "2026-10-09T06:47:39.004Z"
 last_activity: 2026-10-09
-state_head: d06f78907e1e03779b0b7915a4366bab596d5614
+state_head: da6ea422c00d78f5735a4c143b7b24ff137a0277
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 159
-  percent: 97
+  completed_plans: 160
+  percent: 98
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-12 concluido (pagina de explicacao, NADA aplicado/publicado/empurrado): getExplicacao pergunta estado_revisao_rejeicao PRIMEIRO (cast estreito, coercao estrita T-51-53) e monta a explicacao do pedido; solicitarRevisao roteia pela origem do servidor (humana -> solicitar_revisao_decisao; automatica/humana_triagem -> solicitar_revisao_rejeicao); CTA nas tres origens, reaberta em qualquer origem, blocos sem-revisao e canal fora; vitest 143/143, 46 casos mordem a base, tsc 89; e2e EX-04 condicional; ledger segue em 20261008000001. Proximo: 51-13"
+last_activity_desc: "51-13 concluido (motor de exclusao, NADA aplicado/publicado/empurrado): migration 20261008000004 faz anonimizar_candidato raspar revisao_rejeicao.resultado com a sentinela de decisao_final.revisao_resultado (CASE WHEN ... IS NULL THEN NULL) e plano_exclusao_titular contar pela mesma expressao; p45 com (C3/ix) rodada VERMELHA antes do re-pin, (B25) cinco sub-rotulos, pins do arquivo a68e4a6a/0a4996fe, v_esperado 39; ensaio verde vistas=igual, capturar identico; runner 31/31 (MD1/MD2 nos rotulos da B25); p46_purga verde; ledger segue em 20261008000001. Proximo: 51-14"
 ---
 
 # Project State
@@ -1004,6 +1004,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P10 | 22min | 3 tasks | 5 files |
 | Phase 51 P11 | 15min | 2 tasks | 4 files |
 | Phase 51 P12 | 11min | 2 tasks | 8 files |
+| Phase 51 P13 | 14min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1432,6 +1433,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-12: estado_revisao_rejeicao e a PRIMEIRA pergunta de getExplicacao; elegivel lido como coercao (false+pedido = ja pediu), nao como portao — exigir true apagaria resposta/reabertura (armadilha 3)
 - [Phase 51]: 51-12: origem e variavel da mutacao e prop OBRIGATORIA do SolicitarRevisaoCTA (default esconderia call site esquecido); EX-04 usa o rotulo vivo do CTA (BD-3), nao o do plano
 - [Phase 51]: 51-12: cliente so vai ao ar no 51-16 depois do apply da 0002 e do deploy de notificar-candidato — antes disso estado_revisao_rejeicao nao existe e getExplicacao lanca DATABASE_ERROR
+- [Phase 51]: 51-13: a contagem revisao_rejeicao_resultado mora DENTRO de tombstone_decisao_final (sem chave de topo) — a EF executar-direito-titular soma os numeros do bloco e nao fixa chaves; nenhum smoke le a mensagem do terminador por regex
+- [Phase 51]: 51-13: pins do (C3/i) do p45 re-carimbados do ARQUIVO 20261008000004 (anon a68e4a6a, plano 0a4996fe), nunca do catalogo; a rede (C3/ix) cresceu e foi rodada VERMELHA contra o corpo do 49-29 antes; conferencia viva x arquivo e da corrida ao vivo do 51-16
+- [Phase 51]: 51-13: MD2 derruba por FORMA o CHECK de coerencia veredito/resultado da 0002 na propria mutacao (sem ele o 23514 atravessa o handler P45B0 sem rotulo); o CHECK fica como segunda defesa
 
 ### Roadmap Evolution
 
@@ -1766,8 +1770,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T06:29:30.878Z
-Stopped at: Completed 51-12-PLAN.md
+Last session: 2026-10-09T06:47:08.214Z
+Stopped at: Completed 51-13-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
