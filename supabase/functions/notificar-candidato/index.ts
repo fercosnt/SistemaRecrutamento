@@ -655,6 +655,15 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     }).format(new Date(agendamento.data_hora))
     : undefined;
 
+  // gap-closure da P39 / CR-01: o evento `decisao` do trigger cobre aprovado E rejeitado.
+  // Sem isto, TODO aprovado recebia a COPY_REJEICAO.
+  // 48-08 / L1: com `historico_id`, o desfecho é o da TRANSIÇÃO da chave (`etapa_para`),
+  // não o estado da candidatura na hora do envio. Sem ele (corpo legado), `etapa_atual`.
+  // Tudo que não é 'aprovado' (inclusive o knockout, que preserva etapa 'inscricao') é a
+  // cópia neutra de rejeição — o fail-safe de sempre.
+  const desfecho: "aprovado" | "rejeitado" =
+    (etapaDaTransicao ?? candidatura.etapa_atual) === "aprovado" ? "aprovado" : "rejeitado";
+
   const { subject, html } = renderarEmail(eventoNotif, {
     nomeCandidato: candidato.nome_completo ?? "candidato(a)",
     tituloVaga: vaga.titulo,
@@ -662,15 +671,8 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     localOuLink: agendamento?.local_ou_link ?? null,
     tipoEntrevista: agendamento?.tipo ?? undefined,
     reagendada: evento === "convite" && reagendamento === true,
-    // gap-closure da P39 / CR-01: o evento `decisao` do trigger cobre aprovado E rejeitado.
-    // Sem isto, TODO aprovado recebia a COPY_REJEICAO.
-    // 48-08 / L1: com `historico_id`, o desfecho é o da TRANSIÇÃO da chave (`etapa_para`),
-    // não o estado da candidatura na hora do envio. Sem ele (corpo legado), `etapa_atual`.
-    // Tudo que não é 'aprovado' (inclusive o knockout, que preserva etapa 'inscricao') é a
-    // cópia neutra de rejeição — o fail-safe de sempre.
-    desfecho: (etapaDaTransicao ?? candidatura.etapa_atual) === "aprovado"
-      ? "aprovado"
-      : "rejeitado",
+    // Ver o cálculo de `desfecho` logo acima (CR-01 / L1).
+    desfecho,
     // 42-08 / REVISAO-04: `undefined` para os 4 eventos vivos (nenhum corpo deles o lê).
     vereditoRevisao,
     // 48-13: só `revisao_respondida` + `revertida` com prazo legível; senão a frase sai sem data.
@@ -678,6 +680,14 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     // 48-16 (JORN-U2 · D-09): TODO e-mail ao candidato leva ao login dele. Sem `redirect`: o
     // login leva ao painel (`/candidato/dashboard`, default do `resolveRedirect`).
     urlLogin: montarUrlLogin(deps.appBaseUrl),
+    // 51-11 · D-09 (JORN-42): na REJEIÇÃO — pelo RH ou por knockout, as três origens chegam
+    // aqui pelo `trg_notif_transicao` —, o e-mail diz que existe o direito de pedir revisão e
+    // leva à página de explicação, passando pelo login. Só `montarUrlLogin`: as guardas de
+    // open-redirect valem para este link também (T-51-50). Só no evento de decisão: os
+    // demais corpos não leem o campo, e não o recebem.
+    urlExplicacao: evento === "decisao" && desfecho === "rejeitado"
+      ? montarUrlLogin(deps.appBaseUrl, `/candidato/explicacao/${candidatura_id}`)
+      : undefined,
   });
 
   let icsBase64: string | undefined;

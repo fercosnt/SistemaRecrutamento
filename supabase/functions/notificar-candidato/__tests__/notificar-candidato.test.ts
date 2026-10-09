@@ -1666,3 +1666,97 @@ Deno.test("51-11 — os OUTROS eventos não ganham consulta a revisao_rejeicao (
   assertEquals(leuTabela(supa, "revisao_rejeicao").length, 0);
   assertEquals(leuTabela(supa, "decisao_final").length, 0);
 });
+
+// ─── 51-11 · D-09 — a EF monta o link da explicação SÓ para o desfecho rejeitado ─────────
+//
+// O template prova o BLOCO; estes provam a LIGAÇÃO (a assimetria testado × entregue do W-01):
+// o handler passa `urlExplicacao = montarUrlLogin(appBaseUrl, '/candidato/explicacao/<id>')`
+// quando o desfecho CALCULADO é rejeitado — as três origens (RH, knockout, histórico) chegam
+// aqui pelo `trg_notif_transicao` — e não passa no aprovado. Só `montarUrlLogin`: as guardas de
+// open-redirect valem para o link novo também (T-51-50).
+
+const DIREITO_D09 =
+  "Você pode pedir que uma pessoa da nossa equipe revise esta decisão. É um direito seu (LGPD, Art. 20).";
+const urlExplicacaoDe = (origem: string, cand: string) =>
+  `${origem}/auth/login?redirect=${encodeURIComponent(`/candidato/explicacao/${cand}`)}`;
+
+Deno.test("51-11 · D-09 — decisao REJEITADA (RH e knockout) leva o direito e o link da explicação da própria candidatura", async () => {
+  const casos: Array<Record<string, unknown>> = [
+    { ...CANDIDATURA_FIX, etapa_atual: "rejeitado", status: "rejeitado", opcao_knockout_id: null },
+    { ...CANDIDATURA_FIX, etapa_atual: "inscricao", status: "rejeitado", opcao_knockout_id: "opt-ko" },
+  ];
+  for (const row of casos) {
+    const html = await enviarComBase({ evento: "decisao", candidatura_id: CAND_R }, undefined, row);
+    const url = urlExplicacaoDe("https://rh.beautysmile.com.br", CAND_R);
+    assert(html.includes(COPY_REJEICAO), `${String(row.etapa_atual)}: a cópia congelada sumiu`);
+    assert(html.includes(DIREITO_D09), `${String(row.etapa_atual)}: falta o direito de pedir revisão`);
+    assert(html.includes(`href="${url}"`), `${String(row.etapa_atual)}: falta o link da explicação`);
+    assert(html.includes(`href="${LOGIN_PADRAO}"`), `${String(row.etapa_atual)}: o acesso ao painel sumiu`);
+  }
+});
+
+Deno.test("51-11 · D-09 — decisao APROVADA não monta o link nem diz o direito", async () => {
+  const html = await enviarComBase(
+    { evento: "decisao", candidatura_id: CAND_R },
+    undefined,
+    { ...CANDIDATURA_FIX, etapa_atual: "aprovado", status: "aguardando_resposta", opcao_knockout_id: null },
+  );
+  assert(html.includes(COPY_APROVACAO));
+  assert(!html.includes("candidato%2Fexplicacao"), "o aprovado recebeu a URL da explicação");
+  assert(!html.includes(DIREITO_D09), "o aprovado recebeu o direito de revisão");
+});
+
+Deno.test("51-11 · D-09 — o link usa a base do app (montarUrlLogin), e uma base hostil cai no default", async () => {
+  const rej = { ...CANDIDATURA_FIX, etapa_atual: "rejeitado", status: "rejeitado", opcao_knockout_id: null };
+  const ok = await enviarComBase({ evento: "decisao", candidatura_id: CAND_R }, "https://preview.example.com/x", rej);
+  assert(ok.includes(`href="${urlExplicacaoDe("https://preview.example.com", CAND_R)}"`), "a base válida não foi usada");
+  for (const base of ["javascript:alert(1)", "http://rh.beautysmile.com.br", "lixo"]) {
+    const html = await enviarComBase({ evento: "decisao", candidatura_id: CAND_R }, base, rej);
+    assert(
+      html.includes(`href="${urlExplicacaoDe("https://rh.beautysmile.com.br", CAND_R)}"`),
+      `base ${base}: não caiu no default`,
+    );
+    assert(!/javascript:/i.test(html), `base ${base}: esquema hostil no e-mail`);
+  }
+});
+
+Deno.test("51-11 · D-09 — o desfecho é o CALCULADO (L1): histórico rejeitado com candidatura hoje aprovada ⇒ link; o inverso ⇒ sem link", async () => {
+  const { handler } = await loadHandler();
+  for (
+    const [etapaPara, etapaHoje, temLink] of [
+      ["rejeitado", "aprovado", true],
+      ["aprovado", "rejeitado", false],
+    ] as const
+  ) {
+    const supa = makeRetryMockSupabase({
+      candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: etapaHoje, status: "x", opcao_knockout_id: null },
+      candidatoRow: CANDIDATO_FIX,
+      vagaRow: VAGA_FIX,
+      historicoRow: { etapa_para: etapaPara, candidatura_id: CAND_H },
+    });
+    const fetchMock = makeFetchMock(200, { id: "re_d09_l1" });
+    await handler(
+      makeRequest({ evento: "decisao", candidatura_id: CAND_H, historico_id: H1 }, RETRY_BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+    );
+    const { html } = corpoEnviado(fetchMock.calls[0]);
+    assertEquals(
+      html.includes(urlExplicacaoDe("https://rh.beautysmile.com.br", CAND_H)),
+      temLink,
+      `etapa_para=${etapaPara}: link da explicação ${temLink ? "ausente" : "indevido"}`,
+    );
+  }
+});
+
+Deno.test("51-11 · D-09 — os outros eventos não ganham o link da explicação", async () => {
+  for (const evento of ["confirmacao", "avanco"]) {
+    const html = await enviarComBase({ evento, candidatura_id: CAND_R }, undefined, {
+      ...CANDIDATURA_FIX,
+      etapa_atual: "avaliacao_assincrona",
+      status: "em_analise",
+      opcao_knockout_id: null,
+    });
+    assert(!html.includes("candidato%2Fexplicacao"), `${evento}: recebeu o link da explicação`);
+    assert(!html.includes(DIREITO_D09), `${evento}: recebeu o direito de revisão`);
+  }
+});

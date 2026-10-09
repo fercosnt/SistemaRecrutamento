@@ -16,6 +16,7 @@ import {
   SUBJECTS,
 } from "../email-templates.ts";
 import type { EventoNotificacao } from "../email-config.ts";
+import * as tpl51 from "../email-templates.ts";
 
 const EVENTOS: EventoNotificacao[] = [
   "candidatura_recebida",
@@ -639,4 +640,106 @@ Deno.test("T-48-16h — NENHUM corpo de candidato promete aviso em cada etapa", 
       assert(!subject.includes(PROMESSA_ANTIGA), `${evento}: assunto promete aviso em cada etapa`);
     }
   }
+});
+
+// ── 51-11 · D-09 (JORN-42) — o e-mail de REJEIÇÃO diz que existe o direito de pedir revisão ──
+//
+// Decisão do operador na Phase 51 (D-09, revogando a D-20 da 48): toda rejeição — pelo RH ou
+// por um requisito (knockout) — passa a dizer, no próprio e-mail, que a pessoa pode pedir que
+// alguém da equipe revise a decisão, com o link da página de explicação. A `COPY_REJEICAO`
+// congelada NÃO muda: o direito é um parágrafo PRÓPRIO, depois dela. O texto é o MESMO do
+// `revisionIntro` da página (`ExplicacaoCandidatoPage.tsx`), para e-mail e tela dizerem igual.
+//
+// Os casos usam o texto LITERAL (e não só a constante importada) para morderem também contra
+// a base, onde a constante não existe.
+
+const DIREITO_51 =
+  "Você pode pedir que uma pessoa da nossa equipe revise esta decisão. É um direito seu (LGPD, Art. 20).";
+const BOTAO_51 = "Ver a explicação e pedir revisão";
+const URL_EXPL_51 =
+  "https://rh.beautysmile.com.br/auth/login?redirect=%2Fcandidato%2Fexplicacao%2Feeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const URL_LOGIN_51 = "https://rh.beautysmile.com.br/auth/login";
+const VOCAB_PROIBIDO_51 = /score|percentil|trait|motivo|nota|ranking|pontuaç|crit[ée]rio/i;
+
+Deno.test("51-11 · D-09 — rejeitado com urlExplicacao: COPY_REJEICAO intacta, depois o direito, o botão e o link; e o acesso ao painel", () => {
+  const { html } = renderarEmail("decisao_final", {
+    ...DADOS,
+    desfecho: "rejeitado",
+    urlExplicacao: URL_EXPL_51,
+    urlLogin: URL_LOGIN_51,
+  } as Parameters<typeof renderarEmail>[1]);
+  assert(html.includes(COPY_REJEICAO), "a COPY_REJEICAO congelada sumiu ou mudou");
+  assert(html.includes(DIREITO_51), "falta o parágrafo do direito de pedir revisão");
+  assert(html.includes(BOTAO_51), "falta o botão da explicação");
+  assert(html.includes(`href="${URL_EXPL_51}"`), "o botão não aponta para a explicação");
+  assert(
+    html.includes(`Se o botão não funcionar, copie este endereço no navegador: ${URL_EXPL_51}`),
+    "falta o link por extenso",
+  );
+  assert(html.includes(`href="${URL_LOGIN_51}"`), "o bloco de acesso ao painel sumiu");
+  // Ordem: a rejeição, DEPOIS o direito, DEPOIS o botão; o painel por último.
+  const iRej = html.indexOf(COPY_REJEICAO);
+  const iDir = html.indexOf(DIREITO_51);
+  const iBot = html.indexOf(BOTAO_51);
+  const iPainel = html.indexOf("Acessar meu painel");
+  assert(iRej < iDir && iDir < iBot && iBot < iPainel, `ordem errada: ${iRej} ${iDir} ${iBot} ${iPainel}`);
+  assert(!VOCAB_PROIBIDO_51.test(html), "o e-mail de rejeição com o direito vazou vocabulário de avaliação");
+});
+
+Deno.test("51-11 · D-09 — a URL da explicação é ESCAPADA no href e no texto", () => {
+  const hostil = 'https://rh.beautysmile.com.br/auth/login?redirect=%2Fx&y="><script>';
+  const { html } = renderarEmail("decisao_final", {
+    ...DADOS,
+    desfecho: "rejeitado",
+    urlExplicacao: `  ${hostil}  `,
+  } as Parameters<typeof renderarEmail>[1]);
+  assert(!html.includes('"><script>'), "URL entrou crua no HTML");
+  assert(
+    html.includes('href="https://rh.beautysmile.com.br/auth/login?redirect=%2Fx&amp;y=&quot;&gt;&lt;script&gt;"'),
+    "o href não foi escapado (ou não foi aparado)",
+  );
+});
+
+Deno.test("51-11 · D-09 — APROVADO não leva nem o direito nem a URL da explicação", () => {
+  const { html } = renderarEmail("decisao_final", {
+    ...DADOS,
+    desfecho: "aprovado",
+    urlExplicacao: URL_EXPL_51,
+  } as Parameters<typeof renderarEmail>[1]);
+  assert(html.includes(COPY_APROVACAO));
+  assert(!html.includes(DIREITO_51), "o aprovado recebeu o parágrafo do direito de revisão");
+  assert(!html.includes(BOTAO_51), "o aprovado recebeu o botão da explicação");
+  assert(!html.includes("candidato%2Fexplicacao"), "o aprovado recebeu a URL da explicação");
+});
+
+Deno.test("51-11 · D-09 — rejeitado SEM urlExplicacao (ausente, vazia, espaços): o direito é dito, sem botão nem link quebrado", () => {
+  for (const urlExplicacao of [undefined, "", "   "]) {
+    const { html } = renderarEmail("decisao_final", {
+      ...DADOS,
+      desfecho: "rejeitado",
+      urlExplicacao,
+    } as Parameters<typeof renderarEmail>[1]);
+    assert(html.includes(COPY_REJEICAO));
+    assert(html.includes(DIREITO_51), `${JSON.stringify(urlExplicacao)}: o direito sumiu sem a URL`);
+    assert(!html.includes(BOTAO_51), `${JSON.stringify(urlExplicacao)}: botão sem destino`);
+    assert(!/href="\s*"/.test(html), `${JSON.stringify(urlExplicacao)}: link quebrado (href vazio)`);
+  }
+});
+
+Deno.test("51-11 · D-09 — desfecho AUSENTE (fail-safe de rejeição) também informa o direito", () => {
+  const { html } = renderarEmail("decisao_final", DADOS);
+  assert(html.includes(COPY_REJEICAO));
+  assert(html.includes(DIREITO_51), "o default histórico de rejeição não informa o direito");
+});
+
+Deno.test("51-11 · D-09 — COPY_DIREITO_REVISAO é exportada e é a MESMA frase do revisionIntro da página", async () => {
+  const exportada = (tpl51 as Record<string, unknown>).COPY_DIREITO_REVISAO;
+  assertEquals(exportada, DIREITO_51, "COPY_DIREITO_REVISAO ausente ou com outro texto");
+  const pagina = await Deno.readTextFile(
+    new URL(
+      "../../../../src/features/explicacao/components/ExplicacaoCandidatoPage.tsx",
+      import.meta.url,
+    ),
+  );
+  assert(pagina.includes(`'${DIREITO_51}'`), "o revisionIntro da página mudou — e-mail e tela divergem");
 });

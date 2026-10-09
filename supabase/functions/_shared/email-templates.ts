@@ -71,6 +71,24 @@ export const COPY_APROVACAO =
   "Temos uma ótima notícia: sua candidatura foi aprovada neste processo seletivo. " +
   "Nossa equipe entrará em contato em breve com os próximos passos.";
 
+/**
+ * 51-11 · D-09 (JORN-42) — O DIREITO DE PEDIR REVISÃO, dito no próprio e-mail de rejeição.
+ *
+ * Decisão do operador na Phase 51 (D-09), que REVOGA a D-20 da 48 (o e-mail de rejeição não
+ * mencionava a revisão): toda rejeição — por uma pessoa do RH, na decisão final ou na
+ * triagem, ou por um requisito (knockout) — passa a informar que existe o direito de pedir
+ * que alguém da equipe revise a decisão, e onde pedir (a página de explicação).
+ *
+ * É um parágrafo PRÓPRIO, depois da `COPY_REJEICAO` — que continua congelada e intacta (D-15 /
+ * RNF-07a). O texto é LITERALMENTE o `revisionIntro` da página de explicação
+ * (`ExplicacaoCandidatoPage.tsx`, 43-UI-SPEC/BD-3): o e-mail e a tela dizem a mesma coisa
+ * (pinado por teste). Sem nenhum token do grep-guard de vocabulário da decisão. O Art. 20 é
+ * citado porque é a base do direito — não há prazo nem promessa de desfecho aqui.
+ */
+export const COPY_DIREITO_REVISAO =
+  "Você pode pedir que uma pessoa da nossa equipe revise esta decisão. " +
+  "É um direito seu (LGPD, Art. 20).";
+
 /** Escapa HTML nos valores interpolados (nome, vaga, local vindos de dado do usuário). */
 export function escapeHtml(s: string): string {
   return s
@@ -139,6 +157,17 @@ export interface DadosEmail {
    * O recibo é a EXCEÇÃO registrada ao JORN-U2 (pinada em `executar-direito-titular/index.test.ts`).
    */
   urlLogin?: string;
+  /**
+   * 51-11 · D-09 (JORN-42): a URL ABSOLUTA da página de explicação da rejeição, passando pelo
+   * login (`/auth/login?redirect=/candidato/explicacao/<candidatura_id>`). A EF monta com
+   * `montarUrlLogin(appBaseUrl, redirect)` — as guardas de open-redirect de `email-config.ts`
+   * — e SÓ quando o desfecho calculado é `rejeitado`. Nunca concatenar um redirect à mão.
+   *
+   * Só `corpoDecisao` a lê, e só na rejeição. OPCIONAL, com caminho honesto para a ausência:
+   * sem URL (ou só espaços) o parágrafo do direito sai SEM botão — o texto ainda informa o
+   * direito, e o bloco do painel leva ao login —, nunca um botão com `href` vazio.
+   */
+  urlExplicacao?: string;
 }
 
 /** Wrapper table-based inline-CSS: header (logo) + conteúdo + footer LGPD transacional. */
@@ -245,17 +274,36 @@ ${d.tipoEntrevista ? `<tr><td style="padding:4px 0;"><strong>Modalidade:</strong
 <p style="margin:0;">Até lá!</p>`;
 }
 
+/**
+ * 51-11 · D-09 — o parágrafo do direito de pedir revisão e, havendo URL, o botão para a página
+ * de explicação (molde de `blocoAcessoPainel`: botão + o mesmo link por extenso, a URL
+ * aparada e escapada nos DOIS lugares). Só a rejeição o recebe (ver `corpoDecisao`).
+ */
+function blocoDireitoRevisao(url?: string): string {
+  const paragrafo = `<p style="margin:0 0 16px;">${escapeHtml(COPY_DIREITO_REVISAO)}</p>`;
+  if (typeof url !== "string" || url.trim() === "") return `\n${paragrafo}`;
+  const u = escapeHtml(url.trim());
+  return `
+${paragrafo}
+<p style="margin:0 0 8px;"><a href="${u}" style="display:inline-block;padding:12px 24px;background:${DEEP_BLUE};color:${BRANCO};text-decoration:none;border-radius:8px;font-weight:bold;">Ver a explicação e pedir revisão</a></p>
+<p style="margin:0 0 16px;font-size:14px;color:${CINZA};">Se o botão não funcionar, copie este endereço no navegador: ${u}</p>`;
+}
+
 function corpoDecisao(d: DadosEmail): string {
   // CONGELADO NOS DOIS DESFECHOS — o corpo sensível é exclusivamente COPY_APROVACAO ou
   // COPY_REJEICAO. O título da vaga dá contexto e NÃO é dado de avaliação; nada da avaliação
   // é interpolado aqui. `desfecho` ausente ⇒ rejeição (fail-safe, default histórico).
+  //
+  // 51-11 · D-09: na rejeição (e só nela), DEPOIS do parágrafo da COPY_REJEICAO — que não muda —
+  // vem o direito de pedir revisão e o link da explicação. O aprovado segue byte-igual.
   const aprovado = d.desfecho === "aprovado";
   const copy = aprovado ? COPY_APROVACAO : COPY_REJEICAO;
+  const direito = aprovado ? "" : blocoDireitoRevisao(d.urlExplicacao);
   return `${saudacao(d)}
 <p style="margin:0 0 16px;">Referente à sua candidatura para a vaga <strong>${
     escapeHtml(d.tituloVaga)
   }</strong>:</p>
-<p style="margin:0 0 16px;">${escapeHtml(copy)}</p>
+<p style="margin:0 0 16px;">${escapeHtml(copy)}</p>${direito}
 <p style="margin:0;">Atenciosamente,<br>Equipe Beauty Smile</p>`;
 }
 
