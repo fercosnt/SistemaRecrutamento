@@ -70,3 +70,32 @@ Infos: ver o review (IN-01..IN-16). IN-16: `solicitar_revisao_decisao` ainda tem
 
 Responder (a)–(f) e as disposições acima; então `/gsd-execute-phase 51` retoma no 51-16: rodada de conserto →
 `51-REVIEW-PORTAO-2.md` → Task 2 (apply) → Task 3 (EFs → push) → 51-17.
+
+---
+
+## ✅ Respostas do operador — 2026-10-09 ~15:25 -03 (via `/gsd-execute-phase 51`, AskUserQuestion)
+
+Antes de perguntar, o orquestrador repetiu as medições só-leitura em PROD às **15:21:23 -03**:
+ledger head `20261008000001`, `0002..0004` ausentes (0 no ledger), `to_regclass('public.revisao_rejeicao')` = null,
+`config_purga.modo` = `dry_run`, A5 = 0, `origin/main` = `ad2790a3` (fetch), `main` local 41 à frente.
+Ou seja, o pacote acima continuava valendo.
+
+Respostas registradas como foram dadas (opção escolhida em cada pergunta):
+
+- **(a)** «**Aplicar**». O fluxo será: conserto → `51-REVIEW-PORTAO-2` com 0 critical → apply de 0002..0004 (e da
+  migration do D-23, ver WR-09) → EFs → push do cliente.
+- **Disposição do review -1**: «**Seguir recomendações**». Consertar WR-01, WR-02, WR-03, WR-04, WR-07 e WR-08.
+  **WR-06**: o laço novo ignora `decisao = 'em_espera'`, alinhado com o A5 do laço irmão (P48).
+  **WR-05** (`knockout_rate`): aceito e registrado, sem conserto.
+- **WR-09**: «**Estender o D-23**» a `rejeitar_candidatura`. A semântica é a do D-23 da 48: **o decisor revertido**
+  (quem fez a rejeição que a revisão reverteu) não re-rejeita a mesma candidatura. Outro RH pode. Vai numa
+  migration própria e entra no escopo do review -2.
+- **(b)** Confirmado: nenhuma outra janela do Claude publica (apply/deploy/push) até o fim da Task 3.
+- **(c)+(d)** Confirmado: A5 = 0 e purga em `dry_run`, nada a decidir.
+- **(e)** Confirmado: as 3 candidaturas de teste do 51-08 (0f7b217c, 25a4231c, 92522073) ficam como auditoria histórica,
+  sem conserto.
+- **(f)** Confirmado o aperto A4: `anon` continua sem EXECUTE em `get_avaliacao_status`.
+
+**Fora do portão e ainda sem resposta** (não bloqueiam o 51-16; ficam para o fecho da fase): WINDOWS 89 (`disponibilidade`
+no recibo), 51-03 (`aplica_cognitivo=false`), 51-14 (texto neutro), WINDOWS 91-93 (51-15) e IN-16
+(`solicitar_revisao_decisao` com EXECUTE para `anon`).
