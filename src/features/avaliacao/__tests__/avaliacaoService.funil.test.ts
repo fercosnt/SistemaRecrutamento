@@ -213,6 +213,34 @@ describe('avaliacaoService.getAvaliacaoStatus — FUNIL-12 neutral card status',
     expect(status.big_five.registrado).toBe(false)
   })
 
+  // ── 51-07 (JORN-43 · D-13 · C-4) — a chave `raven` que o 51-06 pôs no ar ──────────────
+  // O Raven não pertence a etapa nenhuma: a chave tem `liberado` (liberação vigente) e
+  // `registrado` (concluído), e o mesmo coerçor estrito dos cards — só `=== true` vira true.
+  it('raven: lê {liberado, registrado} da chave raven (51-06)', async () => {
+    state.statusPayload = { raven: { liberado: true, registrado: false } }
+
+    const status = await getAvaliacaoStatus(CID)
+
+    expect(status.raven).toEqual({ liberado: true, registrado: false })
+  })
+
+  it('raven: payload sem a chave raven → {liberado: false, registrado: false}', async () => {
+    state.statusPayload = { sjt_mc: { registrado: true } }
+
+    const status = await getAvaliacaoStatus(CID)
+
+    expect(status.raven).toEqual({ liberado: false, registrado: false })
+  })
+
+  it('raven: folha não booleana (número) vira false — nenhum número atravessa (RNF-07a)', async () => {
+    state.statusPayload = { raven: { liberado: 1, registrado: 'true' } }
+
+    const status = await getAvaliacaoStatus(CID)
+
+    expect(status.raven).toEqual({ liberado: false, registrado: false })
+    expect(Object.values(status.raven).every((v) => typeof v === 'boolean')).toBe(true)
+  })
+
   it('throws a neutral AvaliacaoServiceError when the status RPC errors', async () => {
     // A foreign candidatura RAISEs 42501 'forbidden' server-side (IDOR guard).
     state.statusError = { message: 'forbidden' }
