@@ -190,9 +190,11 @@ const fnNomeada = (versao, nome) => {
 };
 const fnMotor = () => fnNomeada(V04, 'anonimizar_candidato');
 
-// ── 51-16 (WR-09): o D-23 estendido a rejeitar_candidatura (migration 20261008000005) ──
+// ── 51-16 (WR-09 do review -1; WR-01/WR-03/IN-06 do review -2): o D-23 fechado nas 4 combinações
+//    (migration 20261008000005 — `rejeitar_candidatura` E `registrar_decisao`) ──
 const V05 = '20261008000005';
 const fnRejeitar = () => fn(V05, 'rejeitar_candidatura');
+const fnRegistrar = () => fn(V05, 'registrar_decisao');
 /* O statement que comeca na ancora (unica) e termina no primeiro `;` FORA DE LITERAL — varredura que
  * alterna dentro/fora a cada aspa (o '' de escape alterna duas vezes e volta ao mesmo estado). A
  * sentinela que o passo copia contem `foi removido;`: um indexOf(';') cortaria DENTRO dela e a 0004
@@ -613,37 +615,114 @@ const MUTACOES = [
       trocar(fnMotor(), 'CASE WHEN r.resultado IS NULL THEN NULL', 'CASE WHEN false THEN NULL', 'MD2'),
   },
 
-  // ── 51-16 (WR-09): o D-23 estendido a rejeitar_candidatura (migration 20261008000005) ──
-  // Cada uma morde (q) sobre a fixture da própria (q) (`rv`, `mt`): a `revisao_rejeicao` viva é vazia.
+  // ── 51-16: o D-23 fechado nas 4 combinações (migration 20261008000005) ──
+  // Cada uma tira UM ramo da trava (ou um filtro dele) e morde (q) — ou (f), ver ME2 — sobre a fixture da
+  // própria cláusula (`rv`, `rvd`, `dv`, `dh`, `mt`, `kr` e o recrutador C): a `revisao_rejeicao` viva é vazia.
+  //   rejeitar_candidatura (2c): ramo revisao_rejeicao (ME1..ME3, ME10), ramo decisao_final vigente (ME4) e
+  //   arquivo (ME5); registrar_decisao: (2c) novo (ME6, ME9, ME11) e o (2b) da P48, vigente (ME7) e arquivo (ME8).
   {
-    // (q) a trava desligada — A, o decisor revertido de `rv`, rejeita de novo (o comportamento de antes).
+    // combinação 1 (revisao_rejeicao × rejeitar_candidatura) — A, o decisor revertido de `rv`/`rvd`, rejeita de novo.
     id: 'ME1',
-    desc: 'D-23 de rejeitar_candidatura desligado (IF EXISTS do bloco (2c) vira IF false)',
+    desc: 'rejeitar_candidatura: ramo revisao_rejeicao do D-23 desligado (IF false AND EXISTS …)',
     smoke: S51B,
     letra: 'q',
     requer: [V02, V05],
     sql: () => trocar(fnRejeitar(), 'IF EXISTS (SELECT 1 FROM public.revisao_rejeicao rr', 'IF false AND EXISTS (SELECT 1 FROM public.revisao_rejeicao rr', 'ME1'),
   },
   {
-    // REDECLARADA de (q) para (f) na execução do 51-16 (precedente MB6): a trava larga demais — qualquer RH
-    // travado por qualquer revertida — aparece PRIMEIRO na re-rejeição do D-06 de (f), feita por B (outro
-    // RH, não o decisor revertido de `tri`) desde esta mesma rodada; (f) é a primeira sonda de «outro RH
-    // rejeita depois da reabertura». Nenhuma cláusula foi afrouxada: (q) continua exigindo B aceito em `rv`.
+    // REDECLARADA de (q) para (f) no 51-16 (precedente MB6): a trava larga demais — qualquer RH travado por
+    // qualquer revertida — aparece PRIMEIRO na re-rejeição do D-06 de (f), feita por B (outro RH, não o decisor
+    // revertido de `tri`); (q) continua exigindo B e C aceitos — nenhuma cláusula afrouxada.
     id: 'ME2',
-    desc: 'D-23 de rejeitar_candidatura sem o filtro do decisor (trava todo RH)',
+    desc: 'rejeitar_candidatura: ramo revisao_rejeicao sem o filtro do decisor (trava todo RH)',
     smoke: S51B,
     letra: 'f',
     requer: [V02, V05],
-    sql: () => trocar(fnRejeitar(), "\n                AND rr.rejeitado_por = (select auth.uid())) THEN", ') THEN', 'ME2'),
+    sql: () => trocar(fnRejeitar(), '\n                AND rr.rejeitado_por = (select auth.uid()))', ')', 'ME2'),
   },
   {
-    // (q) a trava ignora o veredito — o pedido MANTIDO de `mt` passa a dar o D-23 em vez da recusa de encerrada.
+    // o pedido MANTIDO de `mt` passa a dar o D-23 em vez da recusa de encerrada.
     id: 'ME3',
-    desc: 'D-23 de rejeitar_candidatura sem o filtro do veredito (pedido mantido tambem trava)',
+    desc: 'rejeitar_candidatura: ramo revisao_rejeicao sem o filtro do veredito (pedido mantido tambem trava)',
     smoke: S51B,
     letra: 'q',
     requer: [V02, V05],
     sql: () => trocar(fnRejeitar(), "\n                AND rr.veredito = 'revertida'", '', 'ME3'),
+  },
+  {
+    // combinação 4, linha VIGENTE (ciclo decisao_final × rejeitar_candidatura) — A rejeita `dv` de novo.
+    id: 'ME4',
+    desc: 'rejeitar_candidatura: ramo decisao_final (linha vigente) do D-23 desligado',
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRejeitar(), 'OR EXISTS (SELECT 1 FROM public.decisao_final d', 'OR false AND EXISTS (SELECT 1 FROM public.decisao_final d', 'ME4'),
+  },
+  {
+    // combinação 4, ARQUIVO (decisao_final_historico) — A rejeita `dh` (vigente em_espera de B) de novo.
+    id: 'ME5',
+    desc: 'rejeitar_candidatura: ramo decisao_final_historico (arquivo) do D-23 desligado',
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRejeitar(), 'OR EXISTS (SELECT 1 FROM public.decisao_final_historico h', 'OR false AND EXISTS (SELECT 1 FROM public.decisao_final_historico h', 'ME5'),
+  },
+  {
+    // combinação 2 (revisao_rejeicao × registrar_decisao) — o bypass do WR-01 do review -2 de volta.
+    id: 'ME6',
+    desc: 'registrar_decisao: (2c) novo desligado (o decisor revertido do registro novo re-rejeita pela RPC irma)',
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRegistrar(), "IF p_decisao = 'rejeitado' AND EXISTS (SELECT 1 FROM public.revisao_rejeicao rr", "IF false AND p_decisao = 'rejeitado' AND EXISTS (SELECT 1 FROM public.revisao_rejeicao rr", 'ME6'),
+  },
+  {
+    // combinação 3, linha VIGENTE (ciclo decisao_final × registrar_decisao) — o (2b) da P48, que a 0005 carrega
+    // byte-igual; a (q) prova que ele continua mordendo depois da reescrita da função.
+    id: 'ME7',
+    desc: 'registrar_decisao: (2b) da P48, ramo linha vigente, desligado',
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRegistrar(), 'IF EXISTS (SELECT 1 FROM public.decisao_final d', 'IF false AND EXISTS (SELECT 1 FROM public.decisao_final d', 'ME7'),
+  },
+  {
+    // combinação 3, ARQUIVO — o (2b) da P48 lendo decisao_final_historico.
+    id: 'ME8',
+    desc: 'registrar_decisao: (2b) da P48, ramo arquivo (decisao_final_historico), desligado',
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRegistrar(), 'OR EXISTS (SELECT 1 FROM public.decisao_final_historico h', 'OR false AND EXISTS (SELECT 1 FROM public.decisao_final_historico h', 'ME8'),
+  },
+  {
+    // escopo do operador («não re-rejeita»): o (2c) de registrar_decisao sem o filtro de p_decisao trava
+    // também o `aprovado` de A em `rvd`.
+    id: 'ME9',
+    desc: 'registrar_decisao: (2c) novo sem o filtro p_decisao = rejeitado (trava qualquer decisao)',
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRegistrar(), "IF p_decisao = 'rejeitado' AND EXISTS (SELECT 1 FROM public.revisao_rejeicao rr", 'IF EXISTS (SELECT 1 FROM public.revisao_rejeicao rr', 'ME9'),
+  },
+  {
+    // IN-06 do review -2: a trava que prende todo `rh` (sem o filtro do decisor, só para v_role = rh). Com B
+    // administrador na população viva ela passaria; o recrutador C da fixture (q) a pega.
+    id: 'ME10',
+    desc: "rejeitar_candidatura: ramo revisao_rejeicao trava todo v_role = 'rh' (sem o filtro do decisor)",
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRejeitar(), '\n                AND rr.rejeitado_por = (select auth.uid()))', "\n                AND v_role = 'rh')", 'ME10'),
+  },
+  {
+    // IN-06, o espelho em registrar_decisao: C (rh) rejeitando `rvd` pela decisão final.
+    id: 'ME11',
+    desc: "registrar_decisao: (2c) novo trava todo v_role = 'rh' (sem o filtro do decisor)",
+    smoke: S51B,
+    letra: 'q',
+    requer: [V02, V05],
+    sql: () => trocar(fnRegistrar(), '\n                AND rr.rejeitado_por = v_uid) THEN', "\n                AND v_role = 'rh') THEN", 'ME11'),
   },
 ];
 
