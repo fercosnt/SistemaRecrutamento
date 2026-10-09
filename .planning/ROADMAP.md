@@ -665,7 +665,7 @@ Plans:
   7. Todo apply e deploy pela via do projeto (`p46apply.cjs`/`efdeploy.cjs`), o JORN-42 só depois de review bloqueante e decisão escrita do operador, e `git log origin/main..HEAD` vazio com os marcadores servidos no chunk certo
 **Guardrails**: os do Bloco 1/2 e da Phase 50 — migrations pelo `p46apply.cjs` (md5 do ledger conferido), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado. Mudança de controle de acesso (JORN-42): review bloqueante antes do apply e prova de que nada abriu (views incluídas). Ordem D-27: telas e textos primeiro, banco depois (migration → motor/LGPD → EF → cliente)
 **Fora de escopo**: JORN-50..52 (seguem sem fase); Bloco 4 da fila; portfólio visível ao RH e a Parte B do todo `49-producoes-do-candidato-sem-leitor-de-rh`
-**Plans**: 14/17 plans executed
+**Plans**: 15/17 plans executed
 
 Plans:
 **Wave 1**
@@ -703,7 +703,7 @@ Plans:
 - [x] 51-14-PLAN.md — Fila do RH: selo de origem, id do pedido, resposta pela RPC certa, contexto do knockout (D-11) — sem publicar
 
 **Wave 11** *(blocked on Wave 10 completion)*
-- [ ] 51-15-PLAN.md — D-57 completo da tabela nova: catálogo medido no ensaio, export (1.5.0), inventário, recibo, drift, snapshots; mordida dos portões editados
+- [x] 51-15-PLAN.md — D-57 completo da tabela nova: catálogo medido no ensaio, export (1.5.0), inventário, recibo, drift, snapshots; mordida dos portões editados
 
 **Wave 12** *(blocked on Wave 11 completion)*
 - [ ] 51-16-PLAN.md — Portão: review bloqueante + decisão escrita (porta de mão única, A4), apply `20261008000002..4`, EFs, push do cliente
@@ -732,7 +732,7 @@ Plans:
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
-| 51. Consertos da Jornada — Bloco 3 | v8.0 | 14/17 | In Progress | - |
+| 51. Consertos da Jornada — Bloco 3 | v8.0 | 15/17 | In Progress | - |
 
 ---
 

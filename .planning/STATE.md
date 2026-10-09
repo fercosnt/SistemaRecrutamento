@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-14-PLAN.md
-last_updated: "2026-10-09T06:59:28.826Z"
+stopped_at: Completed 51-15-PLAN.md
+last_updated: "2026-10-09T07:16:07.912Z"
 last_activity: 2026-10-09
-state_head: 68a3424d5f75d64665f97d202d6179ff42af6e21
+state_head: f7f144aed7b77d84daf1854e0c3ef9bd61d61d49
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 161
-  percent: 98
+  completed_plans: 162
+  percent: 99
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-14 concluido (cliente da fila de revisoes, NADA aplicado/publicado/empurrado): selo de origem por linha (Decisao final / Rejeicao pelo RH / Knockout, nenhum diz triagem), key={linha.pedido_id} (C-12), autor do knockout Automatico (knockout); responderRevisao roteia pela origem (humana_triagem/automatica -> responder_revisao_rejeicao por cast estreito; humana/nulo -> responder_revisao_decisao); ContextoKnockoutRevisao le ler_contexto_knockout_revisao sob demanda (D-11); desvios: reversao com copia por origem (reabre na etapa), removida sem a pedido do titular (motor tambem roda na purga) — a confirmar pelo operador; mordida base 8 assercoes+2 cargas, forte 14; vitest 351/351; tsc 89; ledger segue em 20261008000001. ORDEM: cliente so depois do apply da 0002/0003 (51-16). Proximo: 51-15"
+last_activity_desc: "51-15 concluido (D-57 da tabela nova, NADA aplicado/publicado/empurrado): revisao_rejeicao medida DENTRO de ensaio que aborta (16 colunas, acrescimo 51-15 do catalogo); export-scope-rules 1.5.0 com 16 vereditos por analogia com decisao_final (12 entram, 4 fora); inventario, recibo (251/251), allowlist 1.5.0 (407+60, 76 disposicoes) e os tres VALUES do drift regenerados; quatro check: verdes; drift verde no ensaio com 0002..0004; mordidas (i) drift n_drift=1 e (ii) snapshots (a)/(b) com controle verde; (m) nova; p51_ensaio carrega evidencia JSON; WINDOWS 91-93 para o operador; tsc 89; ledger segue em 20261008000001. TRANSITORIO: drift contra PROD vivo acusa revisao_rejeicao ate o apply do 51-16. Proximo: 51-16"
 ---
 
 # Project State
@@ -1006,6 +1006,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P12 | 11min | 2 tasks | 8 files |
 | Phase 51 P13 | 14min | 2 tasks | 3 files |
 | Phase 51 P14 | 7 min | 2 tasks | 9 files |
+| Phase 51 P15 | 14 min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -1441,6 +1442,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-14: responderRevisao roteia so origem explicita humana_triagem/automatica para responder_revisao_rejeicao; humana ou nulo (fila anterior a 0003) seguem em responder_revisao_decisao
 - [Phase 51]: 51-14: a reversao das origens novas tem copia propria (reabre na etapa: triagem no knockout, etapa da rejeicao na rejeicao pelo RH); a de Decisao final so vale para a decisao final
 - [Phase 51]: 51-14: removida no contexto do knockout diz apagada na exclusao de dados pessoais, NAO a pedido do titular (anonimizar_candidato tambem roda na purga de retencao) — desvio da frase do plano, a confirmar pelo operador
+- [Phase 51]: 51-15: revisao_rejeicao entra no export 1.5.0 com 16 vereditos escritos por analogia com decisao_final (12 entram, 4 fora: rejeitado_por, respondida_por, opcao_knockout_id, alerta_prazo_enviado_em); id/candidatura_id/historico_rejeicao_id ENTRAM contra a lista literal do plano (WINDOWS 91)
+- [Phase 51]: 51-15: opcao_knockout_id fora com familia configuracao_do_produto (ponteiro para pergunta_opcao_metadata); a citacao «D-15 da 48» nao confere e candidaturas.opcao_knockout_id ja e export true (WINDOWS 92)
+- [Phase 51]: 51-15: catalogo da tabela nova medido DENTRO de ensaio que aborta (acrescimo 51-15); p51_ensaio passou a carregar evidencia JSON (aspas escapadas)
 
 ### Roadmap Evolution
 
@@ -1775,8 +1779,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T06:59:00.942Z
-Stopped at: Completed 51-14-PLAN.md
+Last session: 2026-10-09T07:16:07.629Z
+Stopped at: Completed 51-15-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
