@@ -80,6 +80,7 @@ import {
   contarRevisoesPendentes,
   lerConfigSlaRevisao,
   responderRevisao,
+  lerContextoKnockout,
   CHAVE_SLA_REVISAO,
 } from '../revisaoService'
 
@@ -692,5 +693,73 @@ describe('responderRevisao — roteia pela origem do pedido (51-14)', () => {
       })
     }
     expect(fromMock).not.toHaveBeenCalled()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Plano 51-14 Task 2 (JORN-42, D-11) — o contexto do knockout, lido SOB DEMANDA.
+//
+// `ler_contexto_knockout_revisao(p_pedido_id)` (51-10) devolve `{situacao, pergunta, resposta,
+// opcao_eliminatoria}`. A coerção é estrita: qualquer forma estranha vira `indisponivel`, e
+// `removida`/`indisponivel` nunca carregam texto (mesmo que o servidor mande).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('lerContextoKnockout — RPC do contexto do knockout, coerção estrita (51-14)', () => {
+  it('chama `ler_contexto_knockout_revisao` com `p_pedido_id` e devolve o `disponivel`', async () => {
+    rpcMock.mockResolvedValue({
+      data: {
+        situacao: 'disponivel',
+        pergunta: 'Você tem CRO ativo?',
+        resposta: 'Não',
+        opcao_eliminatoria: 'Não',
+      },
+      error: null,
+    })
+    await expect(lerContextoKnockout(PEDIDO)).resolves.toEqual({
+      situacao: 'disponivel',
+      pergunta: 'Você tem CRO ativo?',
+      resposta: 'Não',
+      opcaoEliminatoria: 'Não',
+    })
+    expect(rpcMock).toHaveBeenCalledWith('ler_contexto_knockout_revisao', {
+      p_pedido_id: PEDIDO,
+    })
+    expect(fromMock).not.toHaveBeenCalled()
+  })
+
+  it('`removida` → os três textos nulos, mesmo que o servidor mande algum', async () => {
+    rpcMock.mockResolvedValue({
+      data: { situacao: 'removida', pergunta: 'x', resposta: 'y', opcao_eliminatoria: 'z' },
+      error: null,
+    })
+    await expect(lerContextoKnockout(PEDIDO)).resolves.toEqual({
+      situacao: 'removida',
+      pergunta: null,
+      resposta: null,
+      opcaoEliminatoria: null,
+    })
+  })
+
+  it('forma estranha (nulo, situação desconhecida, `disponivel` sem texto) → `indisponivel`', async () => {
+    for (const data of [
+      null,
+      'disponivel',
+      { situacao: 'outra' },
+      { situacao: 'disponivel', pergunta: 'P?', resposta: null, opcao_eliminatoria: 'Não' },
+      { situacao: 'disponivel', pergunta: 'P?', resposta: 'Não', opcao_eliminatoria: 42 },
+    ]) {
+      rpcMock.mockResolvedValue({ data, error: null })
+      await expect(lerContextoKnockout(PEDIDO)).resolves.toEqual({
+        situacao: 'indisponivel',
+        pergunta: null,
+        resposta: null,
+        opcaoEliminatoria: null,
+      })
+    }
+  })
+
+  it('erro da RPC → lança `RevisaoError` (a tela mostra a falha com «Tentar novamente»)', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'x' } })
+    await expect(lerContextoKnockout(PEDIDO)).rejects.toBeInstanceOf(RevisaoError)
   })
 })

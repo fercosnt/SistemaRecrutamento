@@ -32,6 +32,14 @@
  *    aditiva e auditável, e reverter uma decisão é o Art. 20 funcionando como deve. Pintar
  *    isso de vermelho leria o direito exercido como falha do sistema.
  *
+ * ── AS ORIGENS NOVAS (51-14 · JORN-42 · D-10 · D-11 · D-12) ──────────────────────
+ * O mesmo diálogo responde aos três tipos de pedido da fila. A origem vem do servidor e escolhe
+ * a RPC no serviço (`responderRevisao`); o diálogo só repassa `origem` e `pedidoId`. Num pedido
+ * de KNOCKOUT (`automatica`) não há autor — «Automático (knockout)», nunca «Não identificado» —
+ * e o RH vê o que encerrou a candidatura (`ContextoKnockoutRevisao`, lido ao abrir). A reversão
+ * das origens novas reabre na ETAPA (D-02; triagem no knockout, D-30), e a cópia da reversão
+ * diz isso — a de «Decisão final» só vale para a decisão final.
+ *
  * ⚠ EFEITO EXTERNO IRREVERSÍVEL: um sucesso aqui dispara `trg_notif_revisao_respondida`
  * → EF `notificar-candidato` → e-mail REAL ao candidato. Não há desfazer. É por isso que
  * a confirmação aninhada existe e roda ANTES da chamada, não depois.
@@ -75,6 +83,7 @@ import {
 } from '../schemas/responderRevisaoSchema'
 import { RevisaoError, type FilaRevisaoRow } from '../services/revisaoService'
 import { useResponderRevisao } from '../hooks/useResponderRevisao'
+import { ContextoKnockoutRevisao } from './ContextoKnockoutRevisao'
 import { VereditoBadge } from './VereditoBadge'
 
 type Veredito = ResponderRevisaoFormValues['veredito']
@@ -124,6 +133,8 @@ const DIALOGO_COPY = {
   } as Record<string, string>,
   semValor: '—',
   naoIdentificado: 'Não identificado',
+  /** 51-14 (D-12): no knockout não há pessoa a nomear — a regra do formulário eliminou. */
+  autorKnockout: 'Automático (knockout)',
 } as const
 
 /** A confirmação aninhada ramifica por veredito — título, corpo E rótulo do botão. */
@@ -148,6 +159,30 @@ const CONFIRMACAO_COPY: Record<
     corpo:
       'Quem registrou a decisão original não poderá registrar a nova. A resposta fica registrada na trilha de auditoria e o candidato é avisado por e-mail, com a data limite da nova decisão.',
     confirmar: 'Registrar e reabrir',
+  },
+}
+
+/**
+ * 51-14 (D-02 · D-30): a reversão das origens NOVAS reabre na etapa, não em «Decisão final».
+ * Substitui, só para elas, a ajuda da opção `revertida` e o destaque/corpo da confirmação — o
+ * resto (título, botão, prazo de 10 dias corridos, D-04) é o mesmo. Não afirma impedimento do
+ * autor da rejeição na nova decisão: isso é regra da decisão final (48-11), não destas origens.
+ */
+const REVERSAO_POR_ORIGEM: Record<
+  'humana_triagem' | 'automatica',
+  { destino: string; corpo: string }
+> = {
+  automatica: {
+    destino:
+      'A candidatura volta para a etapa de triagem e precisa de uma nova decisão em até 10 dias corridos.',
+    corpo:
+      'A resposta fica registrada na trilha de auditoria e o candidato é avisado por e-mail.',
+  },
+  humana_triagem: {
+    destino:
+      'A candidatura volta para a etapa em que foi rejeitada e precisa de uma nova decisão em até 10 dias corridos.',
+    corpo:
+      'A resposta fica registrada na trilha de auditoria e o candidato é avisado por e-mail.',
   },
 }
 
@@ -211,7 +246,9 @@ export function ResponderRevisaoDialog({
   // O diálogo é montado uma vez pela tabela e reusado para todas as linhas: sem este
   // reset, abrir a linha B mostraria o rascunho (e o erro) da linha A — e o operador
   // registraria, na candidatura errada, um texto que ele acha que já revisou.
-  const candidaturaId = linha?.candidatura_id ?? null
+  // 51-14 (C-12): a identidade é o PEDIDO — uma candidatura pode ter dois, e trocar entre eles
+  // com a chave na candidatura levaria o rascunho de um pedido para o outro.
+  const pedidoId = linha?.pedido_id ?? null
   const { reset: resetMutacao } = responder
   useEffect(() => {
     if (open) {
@@ -219,7 +256,7 @@ export function ResponderRevisaoDialog({
       setJustificativa('')
       resetMutacao()
     }
-  }, [open, candidaturaId, resetMutacao])
+  }, [open, pedidoId, resetMutacao])
 
   if (!linha) return null
 
@@ -253,7 +290,16 @@ export function ResponderRevisaoDialog({
     )
   }
 
-  const confirmacao = veredito ? CONFIRMACAO_COPY[veredito] : null
+  const knockout = linha.origem === 'automatica'
+  const reversaoOrigem =
+    linha.origem === 'automatica' || linha.origem === 'humana_triagem'
+      ? REVERSAO_POR_ORIGEM[linha.origem]
+      : null
+  const confirmacaoBase = veredito ? CONFIRMACAO_COPY[veredito] : null
+  const confirmacao =
+    confirmacaoBase && veredito === 'revertida' && reversaoOrigem
+      ? { ...confirmacaoBase, forte: reversaoOrigem.destino, corpo: reversaoOrigem.corpo }
+      : confirmacaoBase
 
   return (
     <Dialog
@@ -289,13 +335,20 @@ export function ResponderRevisaoDialog({
           {/* Invariante 4: nunca um UUID como identidade humana. */}
           <Contexto
             rotulo={DIALOGO_COPY.contexto.quemDecidiu}
-            valor={linha.decidido_por_nome ?? DIALOGO_COPY.naoIdentificado}
+            valor={
+              knockout
+                ? DIALOGO_COPY.autorKnockout
+                : (linha.decidido_por_nome ?? DIALOGO_COPY.naoIdentificado)
+            }
           />
           <Contexto
             rotulo={DIALOGO_COPY.contexto.pedidoEm}
             valor={formatarData(linha.revisao_solicitada_em)}
           />
         </div>
+
+        {/* D-11: o que encerrou a candidatura — só no knockout, buscado ao abrir. */}
+        {knockout ? <ContextoKnockoutRevisao pedidoId={linha.pedido_id} /> : null}
 
         {somenteLeitura ? (
           // ── MODO SOMENTE-LEITURA ("Ver resposta") ─────────────────────────────
@@ -344,7 +397,11 @@ export function ResponderRevisaoDialog({
                       />
                       <span className="flex flex-col gap-1">
                         <span className="text-sm font-semibold">{opt.label}</span>
-                        <span className="text-sm font-normal opacity-80">{opt.ajuda}</span>
+                        <span className="text-sm font-normal opacity-80">
+                          {opt.value === 'revertida' && reversaoOrigem
+                            ? reversaoOrigem.destino
+                            : opt.ajuda}
+                        </span>
                       </span>
                     </Label>
                   )

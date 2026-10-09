@@ -374,6 +374,71 @@ export async function responderRevisao(vars: ResponderRevisaoVars): Promise<void
   if (error) throw classificarErroRevisao(error)
 }
 
+/**
+ * O contexto de um pedido de revisão de KNOCKOUT (D-11), já coagido — o que a tela recebe.
+ *
+ * · `disponivel` — os três textos presentes (pergunta, resposta do candidato, opção que eliminou).
+ * · `removida` — as respostas do formulário foram apagadas pelo motor de exclusão; nada sai,
+ *   porque a opção que eliminou É a resposta.
+ * · `indisponivel` — a opção não resolve na vaga, ou o servidor devolveu forma estranha.
+ */
+export interface ContextoKnockout {
+  situacao: 'disponivel' | 'removida' | 'indisponivel'
+  pergunta: string | null
+  resposta: string | null
+  opcaoEliminatoria: string | null
+}
+
+const CONTEXTO_KNOCKOUT_VAZIO = {
+  pergunta: null,
+  resposta: null,
+  opcaoEliminatoria: null,
+} as const
+
+/** Texto não vazio, ou `null` — a coerção não inventa nem converte tipo. */
+function textoOuNulo(valor: unknown): string | null {
+  return typeof valor === 'string' && valor.trim() !== '' ? valor : null
+}
+
+/**
+ * Lê o contexto do knockout de UM pedido pela RPC `ler_contexto_knockout_revisao(p_pedido_id)`
+ * (51-10, migration `20261008000003`) — 51-14 · JORN-42 · D-11.
+ *
+ * Chamada SOB DEMANDA (o diálogo só a monta para `origem = 'automatica'`), por cast estreito
+ * confinado ao nome até o db:types do 51-17. A coerção é ESTRITA: `disponivel` exige os três
+ * textos; `removida`/`indisponivel` nunca carregam texto, mesmo que o servidor mande; qualquer
+ * outra forma vira `indisponivel`. Erro da RPC (42501 do guarda, P0002 de pedido que não é de
+ * knockout) é LANÇADO classificado — a tela mostra a falha com «Tentar novamente», nunca a
+ * mensagem do banco.
+ */
+export async function lerContextoKnockout(pedidoId: string): Promise<ContextoKnockout> {
+  const { data, error } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>
+  )('ler_contexto_knockout_revisao', { p_pedido_id: pedidoId })
+  if (error) throw classificarErroRevisao(error)
+
+  const bruto =
+    data !== null && typeof data === 'object' && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : null
+  const situacao = bruto?.situacao
+
+  if (situacao === 'disponivel') {
+    const pergunta = textoOuNulo(bruto?.pergunta)
+    const resposta = textoOuNulo(bruto?.resposta)
+    const opcaoEliminatoria = textoOuNulo(bruto?.opcao_eliminatoria)
+    if (pergunta && resposta && opcaoEliminatoria) {
+      return { situacao: 'disponivel', pergunta, resposta, opcaoEliminatoria }
+    }
+    return { situacao: 'indisponivel', ...CONTEXTO_KNOCKOUT_VAZIO }
+  }
+  if (situacao === 'removida') return { situacao: 'removida', ...CONTEXTO_KNOCKOUT_VAZIO }
+  return { situacao: 'indisponivel', ...CONTEXTO_KNOCKOUT_VAZIO }
+}
+
 /** Export namespaced (convenção `camelCaseService`). */
 export const revisaoService = {
   classificarErroRevisao,
@@ -382,4 +447,5 @@ export const revisaoService = {
   contarRevisoesPendentes,
   lerConfigSlaRevisao,
   responderRevisao,
+  lerContextoKnockout,
 }

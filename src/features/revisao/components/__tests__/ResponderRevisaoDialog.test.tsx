@@ -23,17 +23,25 @@
  * @see .planning/phases/42-invent-rio-gates-fila-art-20/42-UI-SPEC.md (§Diálogo · §Confirmação · §Recusa do servidor)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
 
-const { mutateMock, resetMock, useResponderMock } = vi.hoisted(() => ({
+const { mutateMock, resetMock, useResponderMock, lerContextoMock } = vi.hoisted(() => ({
   mutateMock: vi.fn(),
   resetMock: vi.fn(),
   useResponderMock: vi.fn(),
+  lerContextoMock: vi.fn(),
 }))
 
 vi.mock('../../hooks/useResponderRevisao', () => ({
   useResponderRevisao: useResponderMock,
+}))
+
+// 51-14 (D-11): o contexto do knockout é lido pelo serviço; aqui só ele é trocado.
+vi.mock('../../services/revisaoService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/revisaoService')>()),
+  lerContextoKnockout: lerContextoMock,
 }))
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -41,6 +49,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 import { ResponderRevisaoDialog } from '../ResponderRevisaoDialog'
 import { RevisaoError, type FilaRevisaoRow } from '../../services/revisaoService'
 import { JUSTIFICATIVA_MAX } from '../../schemas/responderRevisaoSchema'
+import { COPY_CONTEXTO_KNOCKOUT } from '../ContextoKnockoutRevisao'
 
 const CANDIDATURA = '55555555-5555-4555-8555-555555555555'
 const PEDIDO = '66666666-6666-4666-8666-666666666666'
@@ -477,5 +486,176 @@ describe('ResponderRevisaoDialog — piso de acessibilidade', () => {
     const texto = corpo().toLowerCase()
     expect(texto).not.toContain('prazo legal')
     expect(texto).not.toContain('prazo da lei')
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 51-14 (JORN-42 · D-10 · D-11 · D-12 · C-12) — as origens novas no diálogo.
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** O contexto do knockout usa `useQuery`: estas suítes montam um cliente próprio. */
+function renderComQuery(l: FilaRevisaoRow) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <ResponderRevisaoDialog linha={l} open onOpenChange={vi.fn()} />
+    </QueryClientProvider>,
+  )
+}
+
+const KNOCKOUT = linha({
+  origem: 'automatica',
+  pedido_id: '77777777-7777-4777-8777-777777777777',
+  decidido_por_nome: null,
+})
+
+const DISPONIVEL = {
+  situacao: 'disponivel' as const,
+  pergunta: 'Você tem registro ativo no CRO?',
+  resposta: 'Não',
+  opcaoEliminatoria: 'Não',
+}
+
+describe('ResponderRevisaoDialog — pedido de knockout (D-11, D-12)', () => {
+  it('o autor é «Automático (knockout)», e NÃO «Não identificado»', async () => {
+    lerContextoMock.mockResolvedValue(DISPONIVEL)
+    renderComQuery(KNOCKOUT)
+    expect(screen.getByText('Automático (knockout)')).toBeInTheDocument()
+    expect(screen.queryByText('Não identificado')).not.toBeInTheDocument()
+    await screen.findByText(DISPONIVEL.pergunta)
+  })
+
+  it('busca o contexto UMA vez, pelo id do pedido, e mostra pergunta, resposta e opção', async () => {
+    lerContextoMock.mockResolvedValue(DISPONIVEL)
+    renderComQuery(KNOCKOUT)
+    expect(await screen.findByText(DISPONIVEL.pergunta)).toBeInTheDocument()
+    expect(lerContextoMock).toHaveBeenCalledTimes(1)
+    expect(lerContextoMock).toHaveBeenCalledWith('77777777-7777-4777-8777-777777777777')
+    const bloco = screen.getByTestId('revisao-contexto-knockout')
+    expect(within(bloco).getByText(COPY_CONTEXTO_KNOCKOUT.pergunta)).toBeInTheDocument()
+    expect(within(bloco).getByText(COPY_CONTEXTO_KNOCKOUT.resposta)).toBeInTheDocument()
+    expect(within(bloco).getByText(COPY_CONTEXTO_KNOCKOUT.opcao)).toBeInTheDocument()
+    expect(within(bloco).getAllByText('Não')).toHaveLength(2)
+  })
+
+  it('`removida` → a frase de que a resposta foi apagada, sem texto do candidato', async () => {
+    lerContextoMock.mockResolvedValue({
+      situacao: 'removida',
+      pergunta: null,
+      resposta: null,
+      opcaoEliminatoria: null,
+    })
+    renderComQuery(KNOCKOUT)
+    expect(await screen.findByText(COPY_CONTEXTO_KNOCKOUT.removida)).toBeInTheDocument()
+    expect(screen.queryByText(COPY_CONTEXTO_KNOCKOUT.pergunta)).not.toBeInTheDocument()
+  })
+
+  it('`indisponivel` → frase neutra', async () => {
+    lerContextoMock.mockResolvedValue({
+      situacao: 'indisponivel',
+      pergunta: null,
+      resposta: null,
+      opcaoEliminatoria: null,
+    })
+    renderComQuery(KNOCKOUT)
+    expect(await screen.findByText(COPY_CONTEXTO_KNOCKOUT.indisponivel)).toBeInTheDocument()
+  })
+
+  it('erro → frase de falha com «Tentar novamente», que busca de novo', async () => {
+    lerContextoMock.mockRejectedValueOnce(new RevisaoError('x', 'DESCONHECIDO'))
+    lerContextoMock.mockResolvedValueOnce(DISPONIVEL)
+    renderComQuery(KNOCKOUT)
+    expect(await screen.findByText(COPY_CONTEXTO_KNOCKOUT.erro)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: COPY_CONTEXTO_KNOCKOUT.tentarNovamente }))
+    expect(await screen.findByText(DISPONIVEL.pergunta)).toBeInTheDocument()
+    expect(lerContextoMock).toHaveBeenCalledTimes(2)
+  })
+
+  // T-51-56: o texto do candidato é NÓ DE TEXTO, nunca HTML.
+  it('marcação HTML na resposta do candidato aparece LITERAL', async () => {
+    const malicioso = '<img src=x onerror="alert(1)"><b>negrito</b>'
+    lerContextoMock.mockResolvedValue({ ...DISPONIVEL, resposta: malicioso })
+    renderComQuery(KNOCKOUT)
+    expect(await screen.findByText(malicioso)).toBeInTheDocument()
+    expect(document.querySelector('img[src="x"]')).toBeNull()
+    expect(document.querySelector('b')).toBeNull()
+  })
+
+  it('enviar a resposta passa `origem` e `pedidoId` ao serviço', async () => {
+    lerContextoMock.mockResolvedValue(DISPONIVEL)
+    renderComQuery(KNOCKOUT)
+    await screen.findByText(DISPONIVEL.pergunta)
+    escolherVeredito('Manter a decisão')
+    digitar(TEXTO_VALIDO)
+    fireEvent.click(primario())
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Registrar resposta',
+      }),
+    )
+    expect(mutateMock).toHaveBeenCalledTimes(1)
+    expect(mutateMock.mock.calls[0][0]).toMatchObject({
+      origem: 'automatica',
+      pedidoId: '77777777-7777-4777-8777-777777777777',
+    })
+  })
+
+  // Rule 1 (51-14): a reversão de um knockout reabre na TRIAGEM (D-02/D-30), não em
+  // «Decisão final». Mostrar o texto da decisão final antes de um e-mail irreversível
+  // afirmaria ao RH um efeito que não acontece.
+  it('reverter um knockout NÃO promete «Decisão final» — diz a etapa em que reabre', async () => {
+    lerContextoMock.mockResolvedValue(DISPONIVEL)
+    renderComQuery(KNOCKOUT)
+    await screen.findByText(DISPONIVEL.pergunta)
+    expect(corpo()).not.toContain('«Decisão final»')
+    escolherVeredito('Reverter a decisão (reabrir a candidatura)')
+    digitar(TEXTO_VALIDO)
+    fireEvent.click(primario())
+    const confirmacao = screen.getByRole('alertdialog')
+    expect(within(confirmacao).getByText('Reabrir a candidatura?')).toBeInTheDocument()
+    expect(confirmacao.textContent).toContain('etapa de triagem')
+    expect(confirmacao.textContent).not.toContain('Decisão final')
+    expect(confirmacao.textContent).toContain('10 dias corridos')
+  })
+})
+
+describe('ResponderRevisaoDialog — origens sem knockout não buscam contexto', () => {
+  for (const origem of ['humana', 'humana_triagem'] as const) {
+    it(`origem \`${origem}\` → o contexto do knockout não monta e não há chamada`, () => {
+      renderComQuery(linha({ origem }))
+      expect(screen.queryByTestId('revisao-contexto-knockout')).not.toBeInTheDocument()
+      expect(lerContextoMock).not.toHaveBeenCalled()
+    })
+  }
+
+  it('a rejeição pelo RH reverte para a etapa em que foi rejeitada, não para «Decisão final»', () => {
+    renderComQuery(linha({ origem: 'humana_triagem' }))
+    escolherVeredito('Reverter a decisão (reabrir a candidatura)')
+    digitar(TEXTO_VALIDO)
+    fireEvent.click(primario())
+    const confirmacao = screen.getByRole('alertdialog')
+    expect(confirmacao.textContent).toContain('etapa em que foi rejeitada')
+    expect(confirmacao.textContent).not.toContain('Decisão final')
+  })
+
+  // C-12: dois pedidos da MESMA candidatura. Trocar de um para o outro tem de limpar o
+  // rascunho — senão o texto escrito para um pedido seria enviado no outro.
+  it('trocar para OUTRO pedido da mesma candidatura reinicia o formulário', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const a = linha({ origem: 'humana_triagem', pedido_id: 'pedido-a' })
+    const b = linha({ origem: 'humana', pedido_id: 'pedido-b' })
+    const { rerender } = render(
+      <QueryClientProvider client={client}>
+        <ResponderRevisaoDialog linha={a} open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    )
+    digitar(TEXTO_VALIDO)
+    expect(screen.getByLabelText(/Justificativa/i)).toHaveValue(TEXTO_VALIDO)
+    rerender(
+      <QueryClientProvider client={client}>
+        <ResponderRevisaoDialog linha={b} open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    )
+    await waitFor(() => expect(screen.getByLabelText(/Justificativa/i)).toHaveValue(''))
   })
 })
