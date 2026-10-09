@@ -72,7 +72,7 @@
 --
 -- ⚠ CADA chamada vai no SEU PRÓPRIO bloco `BEGIN … EXCEPTION WHEN OTHERS` que guarda
 -- `SQLSTATE:SQLERRM`. As medições ficam numa GUC de sessão (`smoke51b.m`); o julgamento roda FORA
--- da subtransação, UMA cláusula por bloco `DO`, na ordem a, b, c, d, e, f, g, h, i, j, k, l, m, n, z — a
+-- da subtransação, UMA cláusula por bloco `DO`, na ordem a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, z — a
 -- primeira que reprova encerra a requisição, e as letras seguintes não aparecem nessa corrida.
 -- Passos da fixture que usam só código vivo (criar titular, `rejeitar_candidatura`,
 -- `submit_candidatura_atomic`) propagam erro: isso é `P51B FAIL (fixture)` com «erro INESPERADO»
@@ -153,6 +153,18 @@
 --       fixture (o que o motor faz) → {situacao: removida} e o resto nulo; pedido de rejeição pelo RH
 --       e pedido inexistente → P0002; RH inativo (pedido real E inexistente) e candidato → 42501 (sem
 --       oráculo de existência); `anon` → ACL.
+--   (o) D-35: fixture com UMA candidatura, knockout por `submit_candidatura_atomic`, numa vaga só
+--       dela; sob o administrador, `funil_kpis(<vaga>) -> knockout_rate` = {knockouts: 1, total: 1}
+--       ANTES (senão FALHA — vácuo) e {knockouts: 0, total: 1} DEPOIS da revertida por B (RPC real),
+--       na mesma execução; a candidatura fica `em_analise/knockout_automatico` (o motivo é auditoria).
+--   (p) A3 / D-04: fixture com três pedidos REVERTIDOS por B — `ko` (knockout, reaberto em triagem),
+--       `mov` (rejeição de A em triagem, reaberta e depois MOVIDA para avaliacao_assincrona) e `dfd`
+--       (rejeição de A na etapa decisao_final, reaberta e depois com `registrar_decisao` em_espera);
+--       `reaberta_em`/prazo envelhecidos SÓ nas linhas da fixture (prazo vencido); Vault presente
+--       (senão FALHA — a varredura pularia tudo); como o dono, a 1ª `varrer_prazos_reabertura()`
+--       enfileira para a fixture EXATAMENTE UM `notificar-rh` — do `ko` — com exatamente {evento:
+--       prazo_reabertura_vencido, candidatura_id, ciclo = epoch do prazo} e marca SÓ o alerta do `ko`;
+--       a 2ª não enfileira nada para a fixture; nenhum status de candidatura muda.
 --   (z) resíduo: nenhum id da fixture sobrevive; contagens globais = baseline DESTA execução,
 --       sobre um conjunto lido POR FORMA do catálogo — toda tabela base de `public` mais
 --       `auth.users` e a fila `net.http_request_queue` —, com o número de tabelas impresso (zero
@@ -220,7 +232,7 @@
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
 -- deliberado), não uma fotografia do banco. Vive num ÚNICO literal (`smoke51b.esperado`, abaixo);
--- o gate e o JSON final LEEM a GUC. Hoje: 15 — a, b, c, d, e, f, g, h, i, j, k, l, m, n, z.
+-- o gate e o JSON final LEEM a GUC. Hoje: 17 — a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, z.
 -- =============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -248,7 +260,7 @@ SELECT set_config('request.jwt.claim.sub', '', false);
 SELECT set_config('app.rejeicao_sancionada', '', false);
 SELECT set_config('app.transicao_sancionada', '', false);
 SELECT set_config('smoke51b.pass', '0', false);
-SELECT set_config('smoke51b.esperado', '15', false);
+SELECT set_config('smoke51b.esperado', '17', false);
 SELECT set_config('smoke51b.fixtures', '', false);
 SELECT set_config('smoke51b.m', '', false);
 
@@ -1832,6 +1844,307 @@ BEGIN
   PERFORM set_config('smoke51b.pass', (current_setting('smoke51b.pass')::int + 1)::text, false);
 END
 $n$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (o) D-35 — o `knockout_rate` de `funil_kpis` conta o knockout da fixture e deixa de contá-lo
+--     depois da revertida (a diferença medida na MESMA execução); o motivo fica (auditoria).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $o$
+DECLARE
+  v_b    uuid := current_setting('smoke51b.b')::uuid;
+  v_adm  uuid := current_setting('smoke51b.adm')::uuid;
+  r_b    text := current_setting('smoke51b.rb');
+  c_resp constant text := 'Resposta sintetica do revisor no smoke P51B (o): texto ao titular, com mais de cinquenta caracteres no total.';
+  j_tit  text;  j_b text;  j_adm text;
+  v_user uuid;  v_email text;  v_ctit uuid;
+  c_ko   uuid;  p_ko uuid;
+  v_vko  uuid;  v_pko uuid;  v_opn uuid;  v_ret jsonb;
+  st     text;  k jsonb;
+  m      jsonb := '{}'::jsonb;
+  v_err  text;
+  v_ran  boolean := false;
+BEGIN
+  BEGIN
+    v_user  := gen_random_uuid();
+    v_email := 'p51b-smoke-' || replace(v_user::text, '-', '') || '@invalido.local';
+    INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', v_email, '', now(), now(),
+            '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+    INSERT INTO public.candidatos (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
+    VALUES (v_user, 'SMOKE P51B Titular O', v_email, '(11) 95108-5124', DATE '1991-04-12', 'Santos', 'SP', 'site')
+    RETURNING id INTO v_ctit;
+    j_tit := json_build_object('sub', v_user::text, 'role', 'authenticated', 'app_metadata', json_build_object('role', 'candidato'))::text;
+    j_b   := json_build_object('sub', v_b::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', r_b))::text;
+    j_adm := json_build_object('sub', v_adm::text, 'role', 'authenticated', 'app_metadata', json_build_object('role', 'administrador'))::text;
+
+    -- uma vaga sintética só com o knockout da fixture (o KPI é medido nela)
+    v_vko := gen_random_uuid();  v_pko := gen_random_uuid();  v_opn := gen_random_uuid();
+    INSERT INTO public.vagas (id, titulo, slug, status)
+    VALUES (v_vko, '[SMOKE P51B] o-ko', 'p51b-smoke-' || replace(v_vko::text, '-', ''), 'ativa');
+    INSERT INTO public.perguntas_formulario (id, vaga_id, bloco, ordem, texto_pergunta, tipo_resposta, opcoes_resposta)
+    VALUES (v_pko, v_vko, 'valores', 1, '[SMOKE P51B] Pergunta eliminatoria (o)', 'single_choice',
+            jsonb_build_array(jsonb_build_object('id', v_opn, 'texto', 'Nao'), jsonb_build_object('id', gen_random_uuid(), 'texto', 'Sim')));
+    INSERT INTO public.pergunta_opcao_metadata (pergunta_id, opcao_id, opcao_texto, tag, peso, ordem)
+    VALUES (v_pko, v_opn, 'Nao', 'knockout', 0, 1);
+    v_ret := public.submit_candidatura_atomic(v_ctit, v_vko, 'smoke://cv', 'smoke.pdf', 0,
+               jsonb_build_array(jsonb_build_object('pergunta_id', v_pko, 'resposta_opcoes', jsonb_build_array('Nao'))));
+    PERFORM set_config('app.rejeicao_sancionada', '', true);
+    c_ko := (v_ret ->> 'candidatura_id')::uuid;
+
+    -- ANTES: o KPI da vaga sob o administrador
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', j_adm, true);
+    BEGIN k := public.funil_kpis(v_vko) -> 'knockout_rate'; st := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN st := SQLSTATE || ':' || SQLERRM; k := NULL; END;
+    RESET ROLE;
+    m := m || jsonb_build_object('antes', jsonb_build_object('st', st, 'k', k),
+                                 'cand_antes', (SELECT c.status::text || '/' || c.motivo_rejeicao::text FROM public.candidaturas c WHERE c.id = c_ko));
+
+    -- o titular pede, B responde REVERTIDA (RPCs reais)
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', j_tit, true);
+    PERFORM public.solicitar_revisao_rejeicao(c_ko);
+    RESET ROLE;
+    p_ko := (SELECT r.id FROM public.revisao_rejeicao r WHERE r.candidatura_id = c_ko);
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', j_b, true);
+    BEGIN PERFORM public.responder_revisao_rejeicao(p_ko, 'revertida', c_resp); st := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN st := SQLSTATE || ':' || SQLERRM; END;
+    m := m || jsonb_build_object('rev_st', st);
+    -- DEPOIS: o mesmo KPI, na mesma execução
+    PERFORM set_config('request.jwt.claims', j_adm, true);
+    BEGIN k := public.funil_kpis(v_vko) -> 'knockout_rate'; st := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN st := SQLSTATE || ':' || SQLERRM; k := NULL; END;
+    RESET ROLE;
+    m := m || jsonb_build_object('depois', jsonb_build_object('st', st, 'k', k),
+                                 'cand_depois', (SELECT c.status::text || '/' || c.motivo_rejeicao::text FROM public.candidaturas c WHERE c.id = c_ko));
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P51B1';
+  EXCEPTION
+    WHEN SQLSTATE 'P51B1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P51B FAIL (o): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e da FIXTURE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+
+  -- a população julgada: o knockout da fixture, contado ANTES (senão a diferença seria vácua).
+  IF m ->> 'cand_antes' IS DISTINCT FROM 'rejeitado/knockout_automatico' OR coalesce(m -> 'antes' ->> 'st', '<nao rodou>') <> 'ACEITO'
+     OR (m -> 'antes' -> 'k' ->> 'knockouts')::int IS DISTINCT FROM 1 OR (m -> 'antes' -> 'k' ->> 'total')::int IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P51B FAIL (o): ANTES da revertida a vaga da fixture tem candidatura %, knockout_rate «%» % (esperado rejeitado/knockout_automatico e {knockouts:1, total:1} — senao a clausula seria vacua)',
+      m ->> 'cand_antes', m -> 'antes' ->> 'st', m -> 'antes' -> 'k';
+  END IF;
+  IF coalesce(m ->> 'rev_st', '<nao rodou>') <> 'ACEITO' OR m ->> 'cand_depois' IS DISTINCT FROM 'em_analise/knockout_automatico' THEN
+    RAISE EXCEPTION 'P51B FAIL (o): a revertida do knockout deu «%» e deixou a candidatura % (esperado aceita e em_analise/knockout_automatico — o motivo FICA, D-35)',
+      m ->> 'rev_st', m ->> 'cand_depois';
+  END IF;
+  IF coalesce(m -> 'depois' ->> 'st', '<nao rodou>') <> 'ACEITO'
+     OR (m -> 'depois' -> 'k' ->> 'knockouts')::int IS DISTINCT FROM 0 OR (m -> 'depois' -> 'k' ->> 'total')::int IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P51B FAIL (o): DEPOIS da revertida o knockout_rate da vaga e «%» % (esperado {knockouts:0, total:1} — quem a revisao reabriu nao e mais knockout no funil, D-35)',
+      m -> 'depois' ->> 'st', m -> 'depois' -> 'k';
+  END IF;
+  PERFORM set_config('p51.evidencia',
+    btrim(coalesce(current_setting('p51.evidencia', true), '') || format(' 51b.o=ko1:%s->%s', m -> 'antes' -> 'k' ->> 'knockouts', m -> 'depois' -> 'k' ->> 'knockouts')), false);
+  PERFORM set_config('smoke51b.pass', (current_setting('smoke51b.pass')::int + 1)::text, false);
+END
+$o$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (p) A3 / D-04 — o alerta de prazo para as reaberturas fora da decisão final: UM despacho para o
+--     pedido revertido com prazo vencido, marca o alerta, não repete; a candidatura movida de etapa
+--     e a que ganhou decisão final depois da reabertura não são alertadas.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $p$
+DECLARE
+  v_a    uuid := current_setting('smoke51b.a')::uuid;
+  v_b    uuid := current_setting('smoke51b.b')::uuid;
+  r_a    text := current_setting('smoke51b.ra');
+  r_b    text := current_setting('smoke51b.rb');
+  c_just constant text := 'Justificativa sintetica do smoke P51B (p): rejeicao registrada pela fixture, com mais de cinquenta caracteres.';
+  c_resp constant text := 'Resposta sintetica do revisor no smoke P51B (p): texto ao titular, com mais de cinquenta caracteres no total.';
+  j_tit  text;  j_a text;  j_b text;
+  v_user uuid;  v_email text;  v_ctit uuid;  v_vaga uuid;  v_cid uuid;
+  c_ko   uuid;  c_mov uuid;  c_dfd uuid;
+  v_vko  uuid;  v_pko uuid;  v_opn uuid;  v_ret jsonb;
+  lbl    text;  st text;
+  v_q    bigint[];
+  v_fila jsonb;
+  v_r1   int;  v_r2 int;
+  v_fx   uuid[];
+  v_ped  uuid[];
+  m      jsonb := '{}'::jsonb;
+  v_err  text;
+  v_ran  boolean := false;
+  v_bad  text := '';
+  v_k    text[];
+  f      jsonb;
+BEGIN
+  BEGIN
+    v_user  := gen_random_uuid();
+    v_email := 'p51b-smoke-' || replace(v_user::text, '-', '') || '@invalido.local';
+    INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', v_email, '', now(), now(),
+            '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+    INSERT INTO public.candidatos (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
+    VALUES (v_user, 'SMOKE P51B Titular P', v_email, '(11) 95108-5125', DATE '1991-04-12', 'Santos', 'SP', 'site')
+    RETURNING id INTO v_ctit;
+    j_tit := json_build_object('sub', v_user::text, 'role', 'authenticated', 'app_metadata', json_build_object('role', 'candidato'))::text;
+    j_a   := json_build_object('sub', v_a::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', r_a))::text;
+    j_b   := json_build_object('sub', v_b::text,   'role', 'authenticated', 'app_metadata', json_build_object('role', r_b))::text;
+
+    -- `mov` (rejeição pelo RH em triagem) e `dfd` (rejeição pelo RH na etapa decisao_final)
+    FOREACH lbl IN ARRAY ARRAY['mov:triagem', 'dfd:decisao_final'] LOOP
+      v_vaga := gen_random_uuid();
+      INSERT INTO public.vagas (id, titulo, slug, status)
+      VALUES (v_vaga, '[SMOKE P51B] p-' || split_part(lbl, ':', 1), 'p51b-smoke-' || replace(v_vaga::text, '-', ''), 'ativa');
+      INSERT INTO public.candidaturas (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+      VALUES (v_ctit, v_vaga, split_part(lbl, ':', 2)::public.etapa_processo, 'rejeitado', false, now() - interval '20 days')
+      RETURNING id INTO v_cid;
+      UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_cid;
+      IF split_part(lbl, ':', 1) = 'mov' THEN c_mov := v_cid; ELSE c_dfd := v_cid; END IF;
+    END LOOP;
+    -- `ko`: knockout pela RPC real
+    v_vko := gen_random_uuid();  v_pko := gen_random_uuid();  v_opn := gen_random_uuid();
+    INSERT INTO public.vagas (id, titulo, slug, status)
+    VALUES (v_vko, '[SMOKE P51B] p-ko', 'p51b-smoke-' || replace(v_vko::text, '-', ''), 'ativa');
+    INSERT INTO public.perguntas_formulario (id, vaga_id, bloco, ordem, texto_pergunta, tipo_resposta, opcoes_resposta)
+    VALUES (v_pko, v_vko, 'valores', 1, '[SMOKE P51B] Pergunta eliminatoria (p)', 'single_choice',
+            jsonb_build_array(jsonb_build_object('id', v_opn, 'texto', 'Nao'), jsonb_build_object('id', gen_random_uuid(), 'texto', 'Sim')));
+    INSERT INTO public.pergunta_opcao_metadata (pergunta_id, opcao_id, opcao_texto, tag, peso, ordem)
+    VALUES (v_pko, v_opn, 'Nao', 'knockout', 0, 1);
+    v_ret := public.submit_candidatura_atomic(v_ctit, v_vko, 'smoke://cv', 'smoke.pdf', 0,
+               jsonb_build_array(jsonb_build_object('pergunta_id', v_pko, 'resposta_opcoes', jsonb_build_array('Nao'))));
+    PERFORM set_config('app.rejeicao_sancionada', '', true);
+    c_ko := (v_ret ->> 'candidatura_id')::uuid;
+    v_fx := ARRAY[c_ko, c_mov, c_dfd];
+
+    -- rejeições de A, pedidos do titular e as três REVERTIDAS por B (RPCs reais)
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', j_a, true);
+    PERFORM public.rejeitar_candidatura(c_mov, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
+    PERFORM public.rejeitar_candidatura(c_dfd, 'perfil_desalinhado'::public.motivo_rejeicao_rh, c_just);
+    PERFORM set_config('request.jwt.claims', j_tit, true);
+    PERFORM public.solicitar_revisao_rejeicao(c_ko);
+    PERFORM public.solicitar_revisao_rejeicao(c_mov);
+    PERFORM public.solicitar_revisao_rejeicao(c_dfd);
+    RESET ROLE;
+    -- os ids dos pedidos são lidos como postgres (a tabela não tem privilégio para authenticated).
+    v_ped := ARRAY(SELECT r.id FROM public.revisao_rejeicao r WHERE r.candidatura_id = ANY (v_fx) ORDER BY r.id);
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', j_b, true);
+    FOR i IN 1 .. cardinality(v_ped) LOOP
+      PERFORM public.responder_revisao_rejeicao(v_ped[i], 'revertida', c_resp);
+    END LOOP;
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claims', '', true);
+
+    -- ⚠ TEMPO: dentro da requisição todo now() é igual. A reabertura da fixture é envelhecida (só nas
+    -- linhas dela) para que «decisão final DEPOIS da reabertura» e «prazo vencido» existam.
+    UPDATE public.revisao_rejeicao
+       SET reaberta_em = now() - interval '12 days', prazo_nova_decisao_em = now() - interval '1 day'
+     WHERE candidatura_id = ANY (v_fx);
+    -- `mov`: o RH moveu a candidatura depois da reabertura (como postgres, sem JWT — a trilha nasce).
+    UPDATE public.candidaturas SET etapa_atual = 'avaliacao_assincrona' WHERE id = c_mov;
+    -- `dfd`: o RH registrou a decisão final depois da reabertura (RPC real, por A).
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', j_a, true);
+    PERFORM public.registrar_decisao(c_dfd, 'em_espera'::public.decisao_final_resultado, c_just);
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claims', '', true);
+    m := m || jsonb_build_object('estado', (SELECT jsonb_object_agg(CASE c.id WHEN c_ko THEN 'ko' WHEN c_mov THEN 'mov' ELSE 'dfd' END,
+                                                 jsonb_build_object('etapa', c.etapa_atual, 'status', c.status, 'reab', r.etapa_reabertura,
+                                                                    'vencido', r.prazo_nova_decisao_em < now(),
+                                                                    'df_depois', EXISTS (SELECT 1 FROM public.decisao_final d WHERE d.candidatura_id = c.id AND d.em > r.reaberta_em)))
+                                              FROM public.candidaturas c JOIN public.revisao_rejeicao r ON r.candidatura_id = c.id
+                                             WHERE c.id = ANY (v_fx)),
+                                 'prazo_ko', (SELECT extract(epoch FROM r.prazo_nova_decisao_em)::bigint::text FROM public.revisao_rejeicao r WHERE r.candidatura_id = c_ko),
+                                 'vault', (SELECT count(*) FROM vault.decrypted_secrets s WHERE s.name IN ('project_url', 'edge_invoke_key')));
+
+    -- 1ª varredura (como o dono, o caminho do pg_cron)
+    v_q := ARRAY(SELECT q.id FROM net.http_request_queue q);
+    BEGIN v_r1 := public.varrer_prazos_reabertura(); st := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN st := SQLSTATE || ':' || SQLERRM; END;
+    SELECT coalesce(jsonb_agg(jsonb_build_object('fn', regexp_replace(q.url, '^.*/functions/v1/', ''),
+                                                 'b', convert_from(q.body, 'UTF8')::jsonb) ORDER BY q.id), '[]'::jsonb)
+      INTO v_fila FROM net.http_request_queue q
+     WHERE NOT (q.id = ANY (v_q)) AND (convert_from(q.body, 'UTF8')::jsonb ->> 'candidatura_id')::uuid = ANY (v_fx);
+    m := m || jsonb_build_object('v1', jsonb_build_object('st', st, 'fila', v_fila),
+                                 'alerta1', (SELECT jsonb_object_agg(CASE r.candidatura_id WHEN c_ko THEN 'ko' WHEN c_mov THEN 'mov' ELSE 'dfd' END,
+                                                                     r.alerta_prazo_enviado_em IS NOT NULL)
+                                               FROM public.revisao_rejeicao r WHERE r.candidatura_id = ANY (v_fx)));
+    -- 2ª varredura: nada de novo para a fixture
+    v_q := ARRAY(SELECT q.id FROM net.http_request_queue q);
+    BEGIN v_r2 := public.varrer_prazos_reabertura(); st := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN st := SQLSTATE || ':' || SQLERRM; END;
+    SELECT coalesce(jsonb_agg(jsonb_build_object('fn', regexp_replace(q.url, '^.*/functions/v1/', ''),
+                                                 'b', convert_from(q.body, 'UTF8')::jsonb) ORDER BY q.id), '[]'::jsonb)
+      INTO v_fila FROM net.http_request_queue q
+     WHERE NOT (q.id = ANY (v_q)) AND (convert_from(q.body, 'UTF8')::jsonb ->> 'candidatura_id')::uuid = ANY (v_fx);
+    m := m || jsonb_build_object('v2', jsonb_build_object('st', st, 'fila', v_fila),
+                                 'ids', jsonb_build_object('ko', c_ko, 'mov', c_mov, 'dfd', c_dfd),
+                                 'escrita_cand', (SELECT count(*) FROM public.candidaturas c WHERE c.id = ANY (v_fx) AND c.status <> 'em_analise'));
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P51B1';
+  EXCEPTION
+    WHEN SQLSTATE 'P51B1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P51B FAIL (p): a subtransacao abortou por erro INESPERADO (%) — nada foi julgado; o defeito e da FIXTURE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+
+  -- a população julgada: as três reaberturas com prazo vencido, cada uma na forma pretendida.
+  IF (m ->> 'vault')::int IS DISTINCT FROM 2 THEN
+    RAISE EXCEPTION 'P51B FAIL (p): Vault sem project_url/edge_invoke_key (% de 2) — a varredura pula tudo e a clausula seria vacua', m ->> 'vault';
+  END IF;
+  IF (m -> 'estado') IS DISTINCT FROM jsonb_build_object(
+       'ko',  jsonb_build_object('etapa', 'triagem', 'status', 'em_analise', 'reab', 'triagem', 'vencido', true, 'df_depois', false),
+       'mov', jsonb_build_object('etapa', 'avaliacao_assincrona', 'status', 'em_analise', 'reab', 'triagem', 'vencido', true, 'df_depois', false),
+       'dfd', jsonb_build_object('etapa', 'decisao_final', 'status', 'em_analise', 'reab', 'decisao_final', 'vencido', true, 'df_depois', true)) THEN
+    RAISE EXCEPTION 'P51B FAIL (p): a fixture nao tem a forma pretendida: % — a clausula seria vacua', m -> 'estado';
+  END IF;
+  IF coalesce(m -> 'v1' ->> 'st', '<nao rodou>') <> 'ACEITO' OR coalesce(m -> 'v2' ->> 'st', '<nao rodou>') <> 'ACEITO' THEN
+    RAISE EXCEPTION 'P51B FAIL (p): varrer_prazos_reabertura deu «%» / «%» (esperado aceita nas duas chamadas)', m -> 'v1' ->> 'st', m -> 'v2' ->> 'st';
+  END IF;
+  -- 1ª: exatamente UM despacho para a fixture — o do `ko` —, com as três chaves de hoje.
+  IF jsonb_array_length(m -> 'v1' -> 'fila') <> 1 THEN
+    v_bad := v_bad || format('1a varredura enfileirou %s despacho(s) para a fixture: %s (esperado UM, so para ko — mov foi movida de etapa e dfd ganhou decisao final depois da reabertura); ',
+                             jsonb_array_length(m -> 'v1' -> 'fila'), m -> 'v1' -> 'fila');
+  ELSE
+    f := m -> 'v1' -> 'fila' -> 0;
+    SELECT array_agg(x ORDER BY x) INTO v_k FROM jsonb_object_keys(f -> 'b') x;
+    IF f ->> 'fn' IS DISTINCT FROM 'notificar-rh' OR v_k IS DISTINCT FROM ARRAY['candidatura_id', 'ciclo', 'evento']
+       OR f -> 'b' ->> 'evento' IS DISTINCT FROM 'prazo_reabertura_vencido'
+       OR f -> 'b' ->> 'candidatura_id' IS DISTINCT FROM m -> 'ids' ->> 'ko'
+       OR f -> 'b' ->> 'ciclo' IS DISTINCT FROM m ->> 'prazo_ko' THEN
+      v_bad := v_bad || format('despacho %s (esperado notificar-rh com exatamente {evento:prazo_reabertura_vencido, candidatura_id:ko, ciclo:%s}); ', f, m ->> 'prazo_ko');
+    END IF;
+  END IF;
+  IF (m -> 'alerta1') IS DISTINCT FROM '{"ko": true, "mov": false, "dfd": false}'::jsonb THEN
+    v_bad := v_bad || format('alerta_prazo_enviado_em depois da 1a varredura: %s (esperado so ko marcado); ', m -> 'alerta1');
+  END IF;
+  IF jsonb_array_length(m -> 'v2' -> 'fila') <> 0 THEN
+    v_bad := v_bad || format('a 2a varredura enfileirou de novo: %s (esperado nada — um alerta por ciclo); ', m -> 'v2' -> 'fila');
+  END IF;
+  IF (m ->> 'escrita_cand')::int <> 0 THEN
+    v_bad := v_bad || 'a varredura mudou o status de candidatura da fixture (o vencimento NAO decide); ';
+  END IF;
+  IF v_bad <> '' THEN
+    RAISE EXCEPTION 'P51B FAIL (p): %', v_bad;
+  END IF;
+  PERFORM set_config('p51.evidencia',
+    btrim(coalesce(current_setting('p51.evidencia', true), '') || ' 51b.p=reab3(ko,mov,dfd):alerta=ko,2a=0'), false);
+  PERFORM set_config('smoke51b.pass', (current_setting('smoke51b.pass')::int + 1)::text, false);
+END
+$p$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────

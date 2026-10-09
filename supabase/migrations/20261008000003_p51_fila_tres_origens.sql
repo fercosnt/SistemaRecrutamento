@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Migration 20261008000003 — a fila de revisões do RH com as TRÊS origens, o id do pedido e o
 --                            contexto do knockout
--- Phase 51 / Plano 51-10 · JORN-42 · D-10, D-11, D-12, D-33, C-12
+-- Phase 51 / Plano 51-10 · JORN-42 · D-10, D-11, D-12, D-33, D-35, D-04 (A3), C-12
 -- =============================================================================
 --
 -- O QUE ESTAVA ERRADO. A 20261008000002 deu a toda rejeição um pedido de revisão (registro
@@ -40,6 +40,19 @@
 --      nulo — a opção que eliminou É a resposta); `indisponivel` quando a opção não resolve. Não é
 --      dado novo para o RH (D-11): ele já lê essas tabelas por RLS de RH ativo (medido no
 --      51-RESEARCH). Uma RPC de detalhe em vez de engordar a fila (p42 (d)).
+--   4. `funil_kpis(uuid)` (CREATE OR REPLACE, mesma assinatura) — D-35: na reabertura do knockout,
+--      `motivo_rejeicao = 'knockout_automatico'` FICA (auditoria); o `knockout_rate` passa a contar só
+--      knockouts AINDA rejeitados (`… AND c.status = 'rejeitado'` no CTE `ko`). Corpo vivo com
+--      EXATAMENTE essa troca (o POS prova por md5); `v_ve_tudo`, `candidatura_encerrada(` e a ACL sem
+--      `anon` preservados. Varredura por forma dos outros leitores de `knockout_automatico` (2026-10-09):
+--      `explicacao_rejeicao_automatica` e `explicacao_rejeicao_origem` já exigem `status = 'rejeitado'`;
+--      `submit_candidatura_atomic` é a escritora; `src/` e `supabase/functions/` não citam o valor.
+--   5. `varrer_prazos_reabertura()` (CREATE OR REPLACE) — A3 / D-04: um segundo laço, irmão do de
+--      `decisao_final` (que fica BYTE-IGUAL), sobre `revisao_rejeicao` revertidas com prazo vencido, sem
+--      alerta, candidatura não excluída nem encerrada, que CONTINUA na `etapa_reabertura` e não ganhou
+--      `decisao_final` depois da reabertura (o RH não mexeu nela); despacha `prazo_reabertura_vencido`
+--      com as três chaves de hoje (`ciclo` = epoch do prazo) e marca `alerta_prazo_enviado_em` DEPOIS
+--      do despacho. O job `prazo-reabertura-sweep` não muda.
 --
 -- TROCA DE `RETURNS TABLE` ⇒ DROP + CREATE + ACL RECRIADA POR DIFERENÇA. `CREATE OR REPLACE` não
 --   troca o tipo de retorno (42P13). O DROP é SEM a cláusula de cascata: o PRE-PORTAO conta os
@@ -61,6 +74,10 @@
 --   função                                md5(prosrc)                        md5(functiondef)
 --   listar_revisoes_decisao(boolean)      85642fe45f6bb786fc7e965476b727a6   a3889a20…
 --   contar_revisoes_pendentes()           63b7abffd3eee25a26810d9fc01fbadf   1c5f3ccb…
+--   funil_kpis(uuid)                      52583cd9fbe981cd92c307853a9604af   34181e8b…
+--   varrer_prazos_reabertura()            8407510d618883efcf28b4af826e509f   7bc05cdd…
+--   funil_kpis: plpgsql, VOLATILE, DEFINER, ACL {postgres, authenticated, service_role} (anon fora desde
+--   o P50). varrer_prazos_reabertura: plpgsql, VOLATILE, DEFINER, ACL {postgres, service_role}.
 --   As duas: plpgsql, STABLE, SECURITY DEFINER, `search_path=""`, dono postgres, ACL
 --   {postgres, authenticated, service_role} (sem PUBLIC, sem anon), com comentário. O corpo de
 --   partida é o `pg_get_functiondef` VIVO (= o do arquivo 20261005000003). Nenhum dependente em
@@ -74,6 +91,11 @@
 --   e ACL iguais às capturadas (o `result` de `listar` é a exceção deliberada e declarada:
 --   o capturado + as duas colunas novas); `anon` sem EXECUTE nas três; marcadores no código sem
 --   comentários; anexa `03a:…` a `p51.evidencia`.
+-- POS-PORTAO (P51-03, KPI e prazo): `funil_kpis` = corpo capturado com EXATAMENTE a troca do D-35
+--   (md5), `v_ve_tudo` nos 4 CTEs, `candidatura_encerrada(`, sem `anon`; `varrer_prazos_reabertura` com o
+--   laço de `decisao_final` capturado presente byte a byte, `alerta_prazo_enviado_em IS NULL` nas duas
+--   fontes, sem escrita em `candidaturas`; propriedades, RETURNS e ACL iguais aos capturados; o
+--   comentário capturado no começo do novo; D-08 igual; anexa `03b:…` a `p51.evidencia`.
 --
 -- LOCK. DROP/CREATE/CREATE OR REPLACE de função tocam só linhas de `pg_proc` (lock de objeto da
 --   função, sem lock de tabela de dados). `lock_timeout`/`statement_timeout` são as DUAS primeiras
@@ -83,9 +105,9 @@
 --   existente; o `p46apply migrate` recusa versão já no ledger.
 --
 -- EVIDÊNCIA. `03a:…` em `p51.evidencia`; prova comportamental no smoke
---   `supabase/tests/p51_revisao_rejeicao_smoke.sql` (cláusulas (l), (m), (n)), só pelo ensaio que
---   aborta; mutações MC1a..MC5 em `scripts/p51_mutacoes.cjs`; regressão p42/p50 com esta migration
---   prefixada.
+--   `supabase/tests/p51_revisao_rejeicao_smoke.sql` (cláusulas (l), (m), (n), (o), (p)), só pelo ensaio
+--   que aborta; mutações MC1a..MC6 em `scripts/p51_mutacoes.cjs`; regressão p42/p48/p50/funil34 com
+--   esta migration prefixada.
 --
 -- NÃO APLICADA NO 51-10: o apply é do portão 51-16 (review bloqueante, D-12 da 50). Todo uso em
 -- PROD neste plano é ensaio que aborta.
@@ -133,7 +155,9 @@ BEGIN
   FOR r IN
     SELECT * FROM (VALUES
       ('public.listar_revisoes_decisao(boolean)', 'listar_revisoes_decisao',   '85642fe45f6bb786fc7e965476b727a6'),
-      ('public.contar_revisoes_pendentes()',      'contar_revisoes_pendentes', '63b7abffd3eee25a26810d9fc01fbadf')
+      ('public.contar_revisoes_pendentes()',      'contar_revisoes_pendentes', '63b7abffd3eee25a26810d9fc01fbadf'),
+      ('public.funil_kpis(uuid)',                 'funil_kpis',                '52583cd9fbe981cd92c307853a9604af'),
+      ('public.varrer_prazos_reabertura()',       'varrer_prazos_reabertura',  '8407510d618883efcf28b4af826e509f')
     ) AS e(sig, nome, md5)
   LOOP
     v_oid := pg_catalog.to_regprocedure(r.sig);
@@ -176,6 +200,8 @@ BEGIN
     PERFORM set_config('p51.p03.' || r.nome || '.props', v_props, true);
     PERFORM set_config('p51.p03.' || r.nome || '.result', v_res, true);
     PERFORM set_config('p51.p03.' || r.nome || '.aclset', v_acl, true);
+    PERFORM set_config('p51.p03.' || r.nome || '.comment', v_com, true);
+    PERFORM set_config('p51.p03.' || r.nome || '.src', (SELECT p.prosrc FROM pg_catalog.pg_proc p WHERE p.oid = v_oid), true);
     v_esc := v_esc || r.sig;
   END LOOP;
 
@@ -681,3 +707,383 @@ BEGIN
     btrim(coalesce(current_setting('p51.evidencia', true), '') || ' 03a:' || array_to_string(v_ev, ',') || ',anon=false,d08=igual'), false);
 END
 $pos_fila$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 4 · funil_kpis — D-35: o knockout_rate conta só knockouts AINDA rejeitados
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Corpo VIVO (= o do arquivo 20261005000003), com UMA troca: no CTE ko, o FILTER passa a exigir
+-- `c.status = 'rejeitado'`. Na reabertura do knockout, `motivo_rejeicao = 'knockout_automatico'` FICA
+-- (é auditoria, D-35/D-03); sem o filtro de status, quem a revisão reabriu seguiria contado como
+-- knockout. `total` não muda. `v_ve_tudo`, o `candidatura_encerrada(` e o estreitamento por
+-- `p_vaga_id` (que o POS-PORTAO do P50 assere) ficam byte-iguais — o POS abaixo prova que o corpo
+-- novo é o vivo com exatamente essa troca.
+CREATE OR REPLACE FUNCTION public.funil_kpis(p_vaga_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  -- P50 / D-02, D-04 (2026-10-05): o escopo é v_ve_tudo — administrador, ou rh ATIVO pelo
+  -- helper vivo — e ele é o ÚNICO controle desta função (ela não tem guard de papel). Nunca
+  -- um predicado incondicional: anon (que perde EXECUTE aqui), candidato, sem claims e o token
+  -- de um recrutador desativado recebem KPIs vazios. Antes: administrador OU posse da vaga.
+  v_role     text    := (select auth.jwt() #>> '{app_metadata,role}');
+  v_ve_tudo  boolean := coalesce(v_role = 'administrador' OR (v_role = 'rh' AND public.is_active_rh_user()), false);
+  r          jsonb;
+BEGIN
+  WITH scoped_hist AS (
+    SELECT h.candidatura_id, h.etapa_de, h.etapa_para, h.criado_em, c.vaga_id
+      FROM public.historico_candidatura h
+      JOIN public.candidaturas c ON c.id = h.candidatura_id
+      JOIN public.vagas        v ON v.id = c.vaga_id
+     WHERE v_ve_tudo
+       AND (p_vaga_id IS NULL OR v.id = p_vaga_id)
+       AND c.deleted_at IS NULL
+  ),
+  deltas AS (
+    SELECT etapa_para AS stage,
+           (LEAD(criado_em) OVER (PARTITION BY candidatura_id ORDER BY criado_em) - criado_em) AS dwell
+      FROM scoped_hist
+  ),
+  median AS (
+    SELECT stage, percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM dwell)) AS median_seconds
+      FROM deltas WHERE dwell IS NOT NULL GROUP BY stage
+  ),
+  conversion AS (
+    SELECT etapa_de AS from_stage, etapa_para AS to_stage, COUNT(*) AS n
+      FROM scoped_hist WHERE etapa_de IS NOT NULL GROUP BY etapa_de, etapa_para
+  ),
+  -- Phase 48 / JORN-26 (D6): o volume de uma etapa de TRABALHO nao conta candidatura
+  -- encerrada (knockout em `inscricao`, `finalizado` legado parado em etapa de
+  -- trabalho). Os baldes terminais `aprovado`/`rejeitado` contam tudo o que esta
+  -- neles, como antes. O knockout segue medido em `knockout_rate`.
+  volume AS (
+    SELECT c.etapa_atual AS stage, COUNT(*) AS n
+      FROM public.candidaturas c JOIN public.vagas v ON v.id = c.vaga_id
+     WHERE v_ve_tudo
+       AND (p_vaga_id IS NULL OR v.id = p_vaga_id)
+       AND c.deleted_at IS NULL
+       AND (c.etapa_atual IN ('aprovado', 'rejeitado')
+            OR NOT public.candidatura_encerrada(c.etapa_atual, c.status))
+     GROUP BY c.etapa_atual
+  ),
+  tth AS (
+    SELECT EXTRACT(EPOCH FROM (sh.criado_em - COALESCE(c.data_candidatura, c.created_at))) AS secs
+      FROM scoped_hist sh
+      JOIN public.candidaturas c ON c.id = sh.candidatura_id
+     WHERE sh.etapa_para = 'aprovado'
+       AND COALESCE(c.data_candidatura, c.created_at) IS NOT NULL
+       AND sh.criado_em >= COALESCE(c.data_candidatura, c.created_at)
+  ),
+  ko AS (
+    SELECT count(*) FILTER (WHERE c.motivo_rejeicao = 'knockout_automatico' AND c.status = 'rejeitado') AS knockouts,
+           count(*)                                                          AS total
+      FROM public.candidaturas c
+      JOIN public.vagas v ON v.id = c.vaga_id
+     WHERE v_ve_tudo
+       AND (p_vaga_id IS NULL OR v.id = p_vaga_id)
+       AND c.deleted_at IS NULL
+  ),
+  drop_flow AS (
+    SELECT sh.etapa_de AS stage,
+           count(*) FILTER (WHERE sh.etapa_para = 'rejeitado') AS dropped,
+           count(*)                                            AS saidas
+      FROM scoped_hist sh
+     WHERE sh.etapa_de IS NOT NULL
+       AND sh.etapa_de <> sh.etapa_para
+       AND sh.etapa_de NOT IN ('aprovado', 'rejeitado')
+     GROUP BY sh.etapa_de
+  ),
+  ns AS (
+    SELECT count(*) FILTER (WHERE a.compareceu = false) AS no_shows,
+           count(*)                                     AS total
+      FROM public.agendamentos_entrevista a
+      JOIN public.candidaturas c ON c.id = a.candidatura_id
+      JOIN public.vagas        v ON v.id = c.vaga_id
+     WHERE v_ve_tudo
+       AND (p_vaga_id IS NULL OR v.id = p_vaga_id)
+       AND c.deleted_at IS NULL
+       AND a.deleted_at IS NULL
+       AND a.compareceu IS NOT NULL
+  )
+  SELECT jsonb_build_object(
+    'median_time_per_stage', COALESCE((SELECT jsonb_object_agg(stage, round(median_seconds)::bigint) FROM median), '{}'::jsonb),
+    'conversion_stage_to_stage', COALESCE((SELECT jsonb_agg(jsonb_build_object('de', from_stage, 'para', to_stage, 'n', n)) FROM conversion), '[]'::jsonb),
+    'volume_by_stage', COALESCE((SELECT jsonb_object_agg(stage, n) FROM volume), '{}'::jsonb),
+    'time_to_hire', (SELECT round(percentile_cont(0.5) WITHIN GROUP (ORDER BY secs))::bigint FROM tth WHERE secs IS NOT NULL),
+    'knockout_rate', (SELECT jsonb_build_object(
+        'knockouts', knockouts, 'total', total,
+        'taxa', CASE WHEN total > 0 THEN round(knockouts::numeric / total, 4) ELSE NULL END) FROM ko),
+    'drop_per_stage', COALESCE((SELECT jsonb_object_agg(stage, jsonb_build_object(
+        'dropped', dropped, 'saidas', saidas,
+        'taxa', CASE WHEN saidas > 0 THEN round(dropped::numeric / saidas, 4) ELSE NULL END)) FROM drop_flow), '{}'::jsonb),
+    'no_show_rate', (SELECT jsonb_build_object(
+        'no_shows', no_shows, 'total', total,
+        'taxa', CASE WHEN total > 0 THEN round(no_shows::numeric / total, 4) ELSE NULL END) FROM ns)
+  ) INTO r;
+  RETURN r;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.funil_kpis(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.funil_kpis(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.funil_kpis(uuid) TO authenticated, service_role;
+
+COMMENT ON FUNCTION public.funil_kpis(uuid) IS
+  'Phase 32 (3 keys) + Phase 34 KPI-04 (4 keys). SECURITY DEFINER, scoped by v_ve_tudo (P50 / D-02, D-04, 2026-10-05: administrador, or rh ATIVO by the live helper public.is_active_rh_user — every vaga; anyone else, including a deactivated recrutador with a still-valid token, gets empty KPIs; no unconditional predicate; anon has no EXECUTE), PII-free by construction (never ator/candidatos). Keys: median_time_per_stage, conversion_stage_to_stage, volume_by_stage (P32) + time_to_hire, knockout_rate, drop_per_stage, no_show_rate (0-agendamento -> taxa=null). Single-arg (uuid) all-time cohort. Proven by supabase/tests/funil34_kpis_smokes.sql. Phase 48 / JORN-26 (D6): volume_by_stage of a WORKING stage excludes candidaturas encerradas (public.candidatura_encerrada — knockout in inscricao, legacy finalizado); the terminal buckets aprovado/rejeitado count everything in them, as before. Proven by supabase/tests/p48_candidatura_encerrada_smoke.sql (g). '
+  'P51 / D-35 (2026-10-09, 20261008000003): knockout_rate.knockouts counts only knockouts STILL rejected '
+  '(motivo_rejeicao = knockout_automatico AND status = rejeitado); a knockout reopened by an Art. 20 review '
+  'keeps motivo_rejeicao as audit but is no longer a knockout in the funnel; total is unchanged. Proven by '
+  'supabase/tests/p51_revisao_rejeicao_smoke.sql (o).';
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 5 · varrer_prazos_reabertura — A3 (D-04): o alerta de prazo cobre as reaberturas novas
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Corpo VIVO; o laço de decisao_final fica BYTE-IGUAL (o POS o procura, inteiro, no corpo novo).
+-- Depois dele, o laço irmão sobre revisao_rejeicao (coluna alerta_prazo_enviado_em reservada pela
+-- 20261008000002). O job `prazo-reabertura-sweep` (0 11 * * *) não muda.
+CREATE OR REPLACE FUNCTION public.varrer_prazos_reabertura()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_project_url text;
+  v_invoke_key  text;
+  v_alertadas   integer := 0;
+  r             record;
+  q             record;
+BEGIN
+  SELECT decrypted_secret INTO v_project_url
+    FROM vault.decrypted_secrets WHERE name = 'project_url';
+  SELECT decrypted_secret INTO v_invoke_key
+    FROM vault.decrypted_secrets WHERE name = 'edge_invoke_key';
+  IF v_project_url IS NULL OR v_invoke_key IS NULL THEN
+    RETURN 0;  -- segredos ausentes: varredura adiada, nenhuma linha marcada (graceful-skip)
+  END IF;
+
+  FOR r IN
+    SELECT d.candidatura_id, d.prazo_nova_decisao_em
+      FROM public.decisao_final d
+      JOIN public.candidaturas c ON c.id = d.candidatura_id
+     WHERE d.reaberta_em IS NOT NULL
+       AND d.prazo_nova_decisao_em < pg_catalog.now()
+       AND d.alerta_prazo_enviado_em IS NULL
+       AND c.deleted_at IS NULL
+       AND NOT public.candidatura_encerrada(c.etapa_atual, c.status)
+     ORDER BY d.prazo_nova_decisao_em
+     LIMIT 50
+     FOR UPDATE OF d SKIP LOCKED
+  LOOP
+    BEGIN
+      PERFORM net.http_post(
+        url := v_project_url || '/functions/v1/notificar-rh',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || v_invoke_key
+        ),
+        body := jsonb_build_object(
+          'evento', 'prazo_reabertura_vencido',
+          'candidatura_id', r.candidatura_id,
+          'ciclo', extract(epoch from r.prazo_nova_decisao_em)::bigint::text
+        )
+      );
+    EXCEPTION WHEN OTHERS THEN
+      -- Sem id nem dado de pessoa no log. A linha fica sem marca e volta na proxima varredura.
+      RAISE WARNING 'varrer_prazos_reabertura: dispatch falhou (%: %) — linha nao marcada', SQLSTATE, SQLERRM;
+      CONTINUE;
+    END;
+
+    UPDATE public.decisao_final
+       SET alerta_prazo_enviado_em = pg_catalog.now()
+     WHERE candidatura_id = r.candidatura_id;
+
+    v_alertadas := v_alertadas + 1;
+  END LOOP;
+
+  -- P51 / A3 (D-04): as reaberturas do registro próprio do pedido (revisao_rejeicao — rejeição pelo RH
+  -- em qualquer etapa e knockout) têm o MESMO prazo e o MESMO alerta. Alerta só se o RH não mexeu na
+  -- candidatura desde a reabertura: ela continua na etapa da reabertura e não ganhou decisao_final
+  -- depois dela. Mesmo despacho (três chaves, ciclo = epoch do prazo), mesma marcação DEPOIS do
+  -- despacho, mesma trava de concorrência. NUNCA decide: não escreve em candidaturas.
+  FOR q IN
+    SELECT rr.id, rr.candidatura_id, rr.prazo_nova_decisao_em
+      FROM public.revisao_rejeicao rr
+      JOIN public.candidaturas c ON c.id = rr.candidatura_id
+     WHERE rr.reaberta_em IS NOT NULL
+       AND rr.prazo_nova_decisao_em < pg_catalog.now()
+       AND rr.alerta_prazo_enviado_em IS NULL
+       AND c.deleted_at IS NULL
+       AND NOT public.candidatura_encerrada(c.etapa_atual, c.status)
+       AND c.etapa_atual = rr.etapa_reabertura
+       AND NOT EXISTS (SELECT 1 FROM public.decisao_final d
+                        WHERE d.candidatura_id = c.id
+                          AND d.em > rr.reaberta_em)
+     ORDER BY rr.prazo_nova_decisao_em
+     LIMIT 50
+     FOR UPDATE OF rr SKIP LOCKED
+  LOOP
+    BEGIN
+      PERFORM net.http_post(
+        url := v_project_url || '/functions/v1/notificar-rh',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || v_invoke_key
+        ),
+        body := jsonb_build_object(
+          'evento', 'prazo_reabertura_vencido',
+          'candidatura_id', q.candidatura_id,
+          'ciclo', extract(epoch from q.prazo_nova_decisao_em)::bigint::text
+        )
+      );
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'varrer_prazos_reabertura: dispatch falhou (%: %) — pedido nao marcado', SQLSTATE, SQLERRM;
+      CONTINUE;
+    END;
+
+    UPDATE public.revisao_rejeicao
+       SET alerta_prazo_enviado_em = pg_catalog.now()
+     WHERE id = q.id;
+
+    v_alertadas := v_alertadas + 1;
+  END LOOP;
+
+  RETURN v_alertadas;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.varrer_prazos_reabertura() FROM PUBLIC, anon, authenticated;
+
+COMMENT ON FUNCTION public.varrer_prazos_reabertura() IS
+  'Phase 48 / 48-13 (JORN-19, D-10): varredura diaria (job pg_cron prazo-reabertura-sweep, 11:00 UTC) das candidaturas REABERTAS apos revisao (Art. 20) cujo prazo de 10 dias corridos venceu sem nova decisao. SO ALERTA o RH: posta ids-only (evento prazo_reabertura_vencido, candidatura_id, ciclo = epoch de prazo_nova_decisao_em) para a EF notificar-rh e grava decisao_final.alerta_prazo_enviado_em — um alerta por ciclo (a nova decisao zera o ciclo). NUNCA decide: nao escreve em candidaturas, nao aprova nem rejeita (D-10, D-01, RNF-07a). em_espera registrado na reabertura nao conta como nova decisao (A5) e nao impede o alerta. Candidatura excluida ou encerrada (candidatura_encerrada) nao gera alerta. Devolve quantas alertou. SECURITY DEFINER, search_path vazio, EXECUTE revogado de PUBLIC/anon/authenticated (chamada so pelo pg_cron, como o dono). '
+  'P51 / A3 (D-04, 20261008000003): a second loop, sibling of the decisao_final one, covers the reopenings '
+  'of revisao_rejeicao (rejeicao pelo RH em qualquer etapa e knockout): reaberta, prazo vencido, sem '
+  'alerta, candidatura nao excluida nem encerrada, AINDA na etapa_reabertura e sem decisao_final '
+  'registrada depois da reabertura; same dispatch (evento, candidatura_id, ciclo = epoch do prazo) and '
+  'revisao_rejeicao.alerta_prazo_enviado_em marked AFTER the dispatch. Proven by '
+  'supabase/tests/p51_revisao_rejeicao_smoke.sql (p).';
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- P51-03 POS-PORTAO (KPI e prazo) — fecha o pós-portão desta migration
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $pos_kpi_prazo$
+DECLARE
+  v_sig   text;
+  v_nome  text;
+  v_oid   oid;
+  v_src   text;
+  v_cod   text;
+  v_props text;
+  v_res   text;
+  v_acl   text;
+  v_com   text;
+  v_old   text;
+  v_seg   text;
+  v_ev    text[] := '{}';
+BEGIN
+  FOREACH v_sig IN ARRAY ARRAY['public.funil_kpis(uuid)', 'public.varrer_prazos_reabertura()'] LOOP
+    v_oid := pg_catalog.to_regprocedure(v_sig);
+    IF v_oid IS NULL THEN
+      RAISE EXCEPTION 'P51-03 POS-PORTAO: % sumiu', v_sig;
+    END IF;
+    SELECT p.proname, p.prosrc,
+           concat_ws(' | ',
+             'config=' || coalesce(p.proconfig::text, '<nulo>'),
+             'vol=' || p.provolatile::text,
+             'definer=' || p.prosecdef::text,
+             'lang=' || l.lanname,
+             'dono=' || pg_catalog.pg_get_userbyid(p.proowner),
+             'kind=' || p.prokind::text,
+             'strict=' || p.proisstrict::text,
+             'leakproof=' || p.proleakproof::text,
+             'parallel=' || p.proparallel::text,
+             'retset=' || p.proretset::text,
+             'args=' || pg_catalog.pg_get_function_arguments(p.oid),
+             'idargs=' || pg_catalog.pg_get_function_identity_arguments(p.oid)),
+           pg_catalog.pg_get_function_result(p.oid),
+           (SELECT coalesce(string_agg(x, ',' ORDER BY x), '')
+              FROM (SELECT coalesce(nullif(a.grantee, 0)::regrole::text, 'PUBLIC') || ':' || a.privilege_type || ':' || a.is_grantable::text AS x
+                      FROM pg_catalog.aclexplode(coalesce(p.proacl, pg_catalog.acldefault('f', p.proowner))) a) s),
+           coalesce(pg_catalog.obj_description(p.oid, 'pg_proc'), '')
+      INTO v_nome, v_src, v_props, v_res, v_acl, v_com
+      FROM pg_catalog.pg_proc p
+      JOIN pg_catalog.pg_language l ON l.oid = p.prolang
+     WHERE p.oid = v_oid;
+    v_cod := regexp_replace(v_src, '--[^\n]*', '', 'g');
+    v_old := current_setting('p51.p03.' || v_nome || '.src', true);
+    IF nullif(v_old, '') IS NULL THEN
+      RAISE EXCEPTION 'P51-03 POS-PORTAO: corpo capturado de % ausente — o PRE nao rodou nesta transacao', v_sig;
+    END IF;
+    IF v_props IS DISTINCT FROM current_setting('p51.p03.' || v_nome || '.props', true)
+       OR v_res IS DISTINCT FROM current_setting('p51.p03.' || v_nome || '.result', true) THEN
+      RAISE EXCEPTION 'P51-03 POS-PORTAO: propriedades/RETURNS de % mudaram — antes «% / %», depois «% / %»', v_sig,
+        current_setting('p51.p03.' || v_nome || '.props', true), current_setting('p51.p03.' || v_nome || '.result', true), v_props, v_res;
+    END IF;
+    IF v_acl IS DISTINCT FROM current_setting('p51.p03.' || v_nome || '.aclset', true) THEN
+      RAISE EXCEPTION 'P51-03 POS-PORTAO: ACL de % = «%» (capturado «%»)', v_sig, v_acl, current_setting('p51.p03.' || v_nome || '.aclset', true);
+    END IF;
+    IF has_function_privilege('anon', v_oid, 'EXECUTE') THEN
+      RAISE EXCEPTION 'P51-03 POS-PORTAO: anon tem EXECUTE em %', v_sig;
+    END IF;
+    -- o comentário de antes fica, inteiro, no começo do novo (acréscimo, nunca reescrita).
+    IF position(current_setting('p51.p03.' || v_nome || '.comment', true) IN v_com) <> 1 THEN
+      RAISE EXCEPTION 'P51-03 POS-PORTAO: o comentario de % nao comeca pelo comentario capturado', v_sig;
+    END IF;
+
+    IF v_nome = 'funil_kpis' THEN
+      -- D-35: o corpo novo é o vivo com EXATAMENTE a troca do filtro do ko.
+      IF md5(v_src) IS DISTINCT FROM md5(replace(v_old,
+            'FILTER (WHERE c.motivo_rejeicao = ''knockout_automatico'')',
+            'FILTER (WHERE c.motivo_rejeicao = ''knockout_automatico'' AND c.status = ''rejeitado'')')) THEN
+        RAISE EXCEPTION 'P51-03 POS-PORTAO: funil_kpis mudou ALEM da troca do D-35 no CTE ko';
+      END IF;
+      IF (SELECT count(*) FROM regexp_matches(v_cod, '\mWHERE\s+v_ve_tudo\M', 'g')) < 4
+         OR position('candidatura_encerrada(' IN v_cod) = 0
+         OR position('p_vaga_id IS NULL OR v.id = p_vaga_id' IN v_cod) = 0
+         OR position('FILTER (WHERE c.motivo_rejeicao = ''knockout_automatico'' AND c.status = ''rejeitado'')' IN v_cod) = 0 THEN
+        RAISE EXCEPTION 'P51-03 POS-PORTAO: funil_kpis sem v_ve_tudo nos 4 CTEs, sem candidatura_encerrada(, sem p_vaga_id ou sem o filtro do D-35';
+      END IF;
+    ELSE
+      -- A3: o laço de decisao_final BYTE-IGUAL (inteiro, do FOR ao primeiro END LOOP do corpo capturado).
+      v_seg := substr(v_old, position('  FOR r IN' IN v_old),
+                      position('END LOOP;' IN v_old) + length('END LOOP;') - position('  FOR r IN' IN v_old));
+      IF position('  FOR r IN' IN v_old) = 0 OR position(v_seg IN v_src) = 0 THEN
+        RAISE EXCEPTION 'P51-03 POS-PORTAO: o laco de decisao_final de varrer_prazos_reabertura nao esta byte-igual no corpo novo';
+      END IF;
+      IF (SELECT count(*) FROM regexp_matches(v_cod, 'alerta_prazo_enviado_em IS NULL', 'g')) < 2
+         OR position('FROM public.revisao_rejeicao rr' IN v_cod) = 0
+         OR position('UPDATE public.revisao_rejeicao' IN v_cod) = 0
+         OR position('c.etapa_atual = rr.etapa_reabertura' IN v_cod) = 0
+         OR position('public.candidatura_encerrada(' IN v_cod) = 0
+         OR position('FOR UPDATE OF rr SKIP LOCKED' IN v_cod) = 0 THEN
+        RAISE EXCEPTION 'P51-03 POS-PORTAO: varrer_prazos_reabertura sem o segundo laco completo (idempotencia nas duas fontes, etapa da reabertura, encerramento, trava)';
+      END IF;
+      IF v_cod ~* 'update\s+public\.candidaturas' OR v_cod ~* 'registrar_decisao'
+         OR v_cod ~* 'insert\s+into' OR v_cod ~* 'delete\s+from' THEN
+        RAISE EXCEPTION 'P51-03 POS-PORTAO: varrer_prazos_reabertura escreve alem de alerta_prazo_enviado_em — o vencimento NAO decide (D-10 da 48)';
+      END IF;
+      IF has_function_privilege('authenticated', v_oid, 'EXECUTE') THEN
+        RAISE EXCEPTION 'P51-03 POS-PORTAO: authenticated tem EXECUTE em varrer_prazos_reabertura';
+      END IF;
+    END IF;
+    v_ev := v_ev || (v_nome || '=' || left(md5(v_src), 12));
+  END LOOP;
+
+  -- D-08: o motor de exclusão sai desta transação como entrou.
+  IF (SELECT string_agg(p.oid::regprocedure::text || '=' || md5(to_jsonb(p)::text), ',' ORDER BY p.oid)
+        FROM pg_catalog.pg_proc p
+       WHERE p.pronamespace = 'public'::regnamespace
+         AND p.proname IN ('anonimizar_candidato', 'plano_exclusao_titular'))
+     IS DISTINCT FROM nullif(current_setting('p51.p03.d08', true), '') THEN
+    RAISE EXCEPTION 'P51-03 POS-PORTAO: D-08 — anonimizar_candidato/plano_exclusao_titular mudaram dentro desta migration';
+  END IF;
+
+  PERFORM set_config('p51.evidencia',
+    btrim(coalesce(current_setting('p51.evidencia', true), '') || ' 03b:' || array_to_string(v_ev, ',') || ',d08=igual:n=' || current_setting('p51.p03.d08n', true)), false);
+END
+$pos_kpi_prazo$;
