@@ -265,7 +265,7 @@ Nenhuma superfície nova fora do `<threat_model>`. T-51-18..T-51-23 mitigados co
 - O 51-07 pode consumir `get_avaliacao_status(...)->'raven'`. O `avaliacaoService` ainda não lê a chave. O card do painel é desse plano.
 - Os planos 51-08, 51-10 e 51-13 acrescentam entradas a `MUTACOES` com as linhas já fixadas em `SMOKES`. A versão é `20261008000002..4` em `MIGS`.
 - O 51-16 revisa este código retroativamente a partir de `refs/gsd/51-06/base`. Na pergunta (f), o operador confirma ou veta o aperto A4.
-- O JORN-43 segue aberto até o 51-07 (card do painel).
+- O JORN-43 segue aberto. Ele também é declarado pelo 51-07 (card do painel) e pelo 51-17, e o gate de ID compartilhado deu `requirements.ready-ids` 0/1.
 
 ## Self-Check: PASSED
 

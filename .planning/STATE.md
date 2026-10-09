@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-05-PLAN.md
-last_updated: "2026-10-09T04:05:06.392Z"
+stopped_at: Completed 51-06-PLAN.md
+last_updated: "2026-10-09T04:25:40.667Z"
 last_activity: 2026-10-09
-state_head: b694199c2fa90b2fb346e22cd092af6e96fed2bf
+state_head: bda4d25eba733f85389c4d7777e4eb6a8c08d6cc
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 152
+  completed_plans: 153
   percent: 93
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-05 concluido (JORN-49 segue aberto pelo gate de ID compartilhado ate o 51-17): recibo de exclusao troca «endereco» pela lista do motor e ganha a linha «mantem» estado_e_faixa_etaria (LGPD, Art. 16, IV); pii-inventory: estado e faixa_etaria_materializada como preservar_com_ressalva; allowlist sem bump (so proveniencia), VALUES intocados; prova no banco 4 flags true e 2=2=2=2; EFs executar-direito-titular v13 e exportar-meus-dados v7 ACTIVE; publicado da815714, marcador no chunk eager index-ChXz-NQd.js de PROD. ⚠ WINDOWS 89: o recibo promete apagar a disponibilidade e o motor nao apaga (pre-existente, decisao do operador). Proximo: 51-06 (Onda B)"
+last_activity_desc: "51-06 concluido (JORN-43 segue aberto ate o 51-07/51-17 pelo gate de ID compartilhado, ready-ids 0/1): get_avaliacao_status ganha a chave raven {liberado, registrado} so com booleanos (D-38, C-4), RLS do Raven intocada; aperto nomeado A4 — anon perde o EXECUTE (confirmacao do operador na pergunta (f) do 51-16); migration 20261008000001 aplicada por p46apply (ledger md5 bb008988 = arquivo, md5(prosrc) vivo 91109b66); smoke p51_raven_status 7/7 ao vivo pelo ensaio que aborta, FUNIL-12 verde; mutacoes MA1..MA6 6/6 antes e depois do apply, nada persistiu; ferramental da Onda B (p51_ensaio.cjs, p51_mutacoes.cjs); publicado 98bd0ba3 (sem mudanca de tela). Proximo: 51-07"
 ---
 
 # Project State
@@ -997,6 +997,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P03 | 12min | 3 tasks | 11 files |
 | Phase 51 P04 | 18 min | 2 tasks | 6 files |
 | Phase 51 P05 | 10 min | 3 tasks | 10 files |
+| Phase 51 P06 | 16 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -1413,6 +1414,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-04: guarda dos nomes do D-15 por conteudo inteiro; Cognitivo so capitalizado (a minuscula e chave tecnica, 31 literais em src/; com flag i reprovaria 17 linhas corretas)
 - [Phase 51]: 51-05: export allowlist sem bump — a reclassificacao de candidatos.estado so muda a proveniencia; conjunto exportado igual (395 colunas)
 - [Phase 51]: 51-05: achado da disponibilidade (recibo promete apagar, motor nao apaga) registrado como WINDOWS 89, nao consertado — decisao do operador (motor ou reclassificacao com base legal)
+- [Phase 51]: 51-06: aperto nomeado A4 aplicado — anon perde o EXECUTE de get_avaliacao_status (a guarda ja o recusava; unico chamador e RoleGuard candidato). Confirmacao/veto do operador na pergunta (f) do 51-16; desfazer = GRANT EXECUTE TO anon pela mesma via (51-06-CORPO-ANTES.sql)
 
 ### Roadmap Evolution
 
@@ -1747,8 +1749,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T04:05:06.127Z
-Stopped at: Completed 51-05-PLAN.md
+Last session: 2026-10-09T04:25:19.475Z
+Stopped at: Completed 51-06-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
