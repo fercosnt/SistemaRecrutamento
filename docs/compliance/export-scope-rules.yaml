@@ -32,7 +32,7 @@ meta:
   requirement: EXPORT-02
   fase: 44
   plano: 44-01
-  versao: "1.4.0"
+  versao: "1.5.0"
   # 1.1.0 → 1.2.0 (Phase 48 / 48-17, 2026-09-21): o CONJUNTO de colunas
   # exportadas mudou — entram as colunas criadas pela fase com veredito `true`
   # (marca do D-02 em `analise_candidato_vaga`; reabertura em `decisao_final`
@@ -59,6 +59,18 @@ meta:
   # `fora_do_escopo` e `decisoes_por_coluna`.
   # ⚠ O bump vive na MESMA entrega que muda o conjunto — a mesma regra das
   # entradas 1.2.0 e 1.3.0, pelo mesmo motivo.
+  #
+  # 1.4.0 → 1.5.0 (Phase 51 / 51-15, 2026-10-09, JORN-42): o CONJUNTO mudou,
+  # de TABELAS e de colunas. Entra `revisao_rejeicao` — o pedido de revisão do
+  # Art. 20 de uma rejeição FORA da decisão final (triagem pelo RH ou knockout
+  # automático), migration 20261008000002 —, com veredito escrito para as 16
+  # colunas por analogia explícita com `decisao_final`. Ver o bloco «PHASE 51»
+  # em `escopo_titular`, em `ponteiros.de_terceiro` e em `decisoes_por_coluna`.
+  # ⚠ A tabela só passa a existir em PROD no apply do portão 51-16: até lá o
+  # catálogo a conhece por um ACRÉSCIMO medido DENTRO de um ensaio que aborta
+  # (acréscimo «51-15» do `catalogo-vivo-44.json`), e o drift do export rodado
+  # contra o PROD vivo acusa a disposição como «sem tabela viva» — transitório
+  # esperado, que fecha no apply.
   fonte: |
     Decisão de escopo do titular, escrita à mão e revisável. NÃO é derivada de
     código nem inferida do schema: é o julgamento jurídico/de produto que o
@@ -86,13 +98,21 @@ meta:
        tabelas; exclui `ai_call_logs` e `logs_acesso`, 2 das 5 do ERASE-09). O
        insumo do motor destrutivo é `pii-inventory.yaml`, que cobre o catálogo
        inteiro. Ver `sql/gen-recibo-exclusao.cjs:12-25`"
-  cobertura_declarada_em: "2026-10-06"
+  cobertura_declarada_em: "2026-10-09"
   cobertura_declarada:
-    tabelas_vivas_no_momento_da_escrita: 75
-    em_escopo_titular: 32
+    tabelas_vivas_no_momento_da_escrita: 76
+    em_escopo_titular: 33
     fora_do_escopo_explicito: 23
     fora_do_escopo_por_regra: 20
     nota: |
+      ⚠ ATUALIZADO PELO PLANO 51-15 (2026-10-09, JORN-42): 33 + 23 + 20 = 76.
+      Entra em `escopo_titular` (32 → 33) a tabela `revisao_rejeicao`
+      (migration 20261008000002). «Viva» aqui é o universo do catálogo
+      versionado com os acréscimos: a tabela foi medida DENTRO de um ensaio
+      que aborta e só existe em PROD depois do apply do 51-16. As contagens
+      anteriores (32 + 23 + 20 = 75, escritas em 2026-10-06) ficam abaixo.
+
+
       ⚠ ATUALIZADO PELO PLANO 44-11 (2026-10-06, G5): 32 + 23 + 20 = 75. As
       seis tabelas que o G5 achou vivas em `public` e sem disposição (medidas
       em PROD em 2026-10-06T20:51:22Z, `catalogo-vivo-44.json`, acréscimo
@@ -170,6 +190,16 @@ meta:
       datada do banco; o segundo é o universo que o fecho de tabela usa hoje.
       Nenhum dos dois está errado, e nenhum dos dois deve ser "corrigido" para
       bater com o outro.
+    geracao_51_15: |
+      Geração da 1.5.0 (Phase 51 / 51-15, 2026-10-09, JORN-42). O catálogo
+      ganhou um ACRÉSCIMO medido DENTRO de um ensaio que aborta
+      (2026-10-09T07:03:10Z: 1 tabela em `tabelas`, 16 colunas em `colunas`),
+      porque `revisao_rejeicao` só existe em PROD depois do apply do 51-16.
+      Fecho de TABELA: 76 catalogadas = 33 em escopo + 43 excluídas. Fecho de
+      COLUNA: as 16 têm veredito ESCRITO no bloco «PHASE 51» de
+      `decisoes_por_coluna` — 12 entram, 4 saem com razão. Pares: 407
+      exportados + 60 excluídos = 467 (antes 395 + 56 = 451). O `--sql-values`
+      que gerou os três `VALUES` do drift saiu desta mesma fonte.
 
 # ---------------------------------------------------------------------------
 # 1 · ESCOPO DO TITULAR — tabela → como a linha se amarra à pessoa
@@ -337,6 +367,18 @@ escopo_titular:
     chave_titular: candidatura_id
     ligacao: via:candidaturas
     razao: "BD-10 (OPERADOR, 2026-10-06). O FATO e a BASE de os dados dela ficarem guardados além do prazo (o `motivo` do vocabulário fechado `ck_retencao_hold_motivo`, quando a retenção começou e quando terminou). O texto livre do RH (`detalhe`, que pode conter estratégia de litígio) e os ids de funcionário ficam fora, com razão nomeada."
+
+  # --- PHASE 51 (51-15, 2026-10-09, JORN-42) — o pedido de revisão fora da decisão final --
+  # A tabela nasce na migration 20261008000002 (opção (b) do JORN-42): um pedido
+  # por rejeição (`historico_rejeicao_id` UNIQUE), de origem `humana_triagem` ou
+  # `automatica` (knockout). Medida DENTRO de um ensaio que aborta (acréscimo
+  # «51-15» do `catalogo-vivo-44.json`) e reconfirmada ao vivo depois do apply do
+  # 51-16. Os vereditos por coluna estão no bloco «PHASE 51» de
+  # `decisoes_por_coluna`, cada um citando a coluna análoga de `decisao_final`.
+  revisao_rejeicao:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "JORN-42 (Phase 51). O registro do pedido de revisão do Art. 20 que a PESSOA fez sobre uma rejeição na triagem ou no knockout — quando pediu, de que etapa, a resposta de quem revisou e, se revertida, a reabertura e o prazo. É o análogo de `decisao_final` para a rejeição que não passou por decisão final, e a página de explicação já mostra ao titular origem, datas, veredito, resposta e prazo (`estado_revisao_rejeicao`). Os UUIDs de funcionário, a opção eliminatória e o carimbo de alerta ao RH ficam fora, com razão nomeada."
 
 # ---------------------------------------------------------------------------
 # 2 · FORA DO ESCOPO — tabela → razão NOMEADA (vocabulário fechado de 5 valores)
@@ -523,6 +565,16 @@ ponteiros:
     # existente se move. (`revogado_por` já estava na lista.)
     - criado_por
     - liberado_por
+    # PHASE 51 (51-15, 2026-10-09): UUIDs de usuário RH em `revisao_rejeicao` —
+    # quem rejeitou na triagem (`rejeitado_por`, nulo no knockout) e quem
+    # respondeu ao pedido (`respondida_por`). Veto ESTRUTURAL pelo mesmo motivo
+    # do G5: sobrevive à próxima tabela com o mesmo nome. Medido antes de
+    # acrescentar (catálogo versionado com o acréscimo 51-15): nenhuma outra
+    # tabela tem coluna com esses nomes — nenhum veredito existente se move. As
+    # duas também têm veredito escrito em `decisoes_por_coluna` (bloco «PHASE 51»),
+    # que vence esta regra e diz o mesmo.
+    - rejeitado_por
+    - respondida_por
 
 # ---------------------------------------------------------------------------
 # 6 · DECISÕES POR COLUNA — o que nem o inventário nem as regras resolvem
@@ -1129,6 +1181,94 @@ decisoes_por_coluna:
   cognitivo_liberacao.motivo:
     export: true
     razao: "BD-9 — autoria: OPERADOR (2026-10-06). POR QUE a liberação foi dada ou revogada — se o RH escreve sobre o acesso da pessoa a uma etapa do processo dela, entra (critério (iii)). `text` nulável; medido em 2026-10-06: 0 de 4 linhas preenchidas, então o veredito é de PRINCÍPIO, decidido antes de haver conteúdo."
+
+  # =========================================================================
+  # PHASE 51 (51-15, 2026-10-09, JORN-42) — `revisao_rejeicao`, as 16 colunas
+  # =========================================================================
+  # Autoria: PLANEJADOR do 51-15 (escolha 1 do plano) e executor, por ANALOGIA
+  # EXPLÍCITA com a coluna equivalente de `decisao_final` — cada razão cita a
+  # análoga. Todas as 16 têm veredito escrito, inclusive as que R1/R2/R3
+  # resolveriam sozinhas: a tabela inteira é nova e nada aqui entra por omissão.
+  # O critério é o do cabeçalho e o da página de explicação: o que
+  # `estado_revisao_rejeicao` já mostra ao titular (origem, solicitada_em,
+  # veredito, resultado, respondida_em, reaberta_em, prazo_nova_decisao_em)
+  # NÃO pode faltar na cópia.
+  #
+  # ⚠ DIVERGÊNCIA REGISTRADA (executor do 51-15): o plano listava `id`,
+  # `candidatura_id` e `historico_rejeicao_id` como FORA («chave técnica»), mas
+  # mandava no mesmo parágrafo «seguir o tratamento que as tabelas análogas dão a
+  # essas chaves» — e TODA tabela em escopo exporta `id` e `candidatura_id`
+  # (`decisao_final`: R1 / `inventario:preservar`; `cognitivo_liberacao` e
+  # `retencao_hold`: R1, «de propósito, como em toda tabela em escopo», 44-11).
+  # Sem `candidatura_id` o titular com duas candidaturas não saberia a qual delas o
+  # pedido pertence. A analogia venceu; a reversão é UMA palavra por linha.
+
+  # --- as chaves (como em `decisao_final` e em toda tabela em escopo) -------
+  revisao_rejeicao.id:
+    export: true
+    razao: "Análoga: `decisao_final.id` (exportada, R1). Identificador da linha do pedido; não identifica pessoa e é o que distingue dois pedidos da mesma candidatura (um por rejeição). Entraria por R1 — escrito para a tabela nova não ter coluna sem decisão."
+  revisao_rejeicao.candidatura_id:
+    export: true
+    razao: "Análoga: `decisao_final.candidatura_id` (exportada, `inventario:preservar`). Diz a QUAL candidatura do titular o pedido pertence — a cópia o rotula «Identificador da candidatura». Sem ele, um titular com duas candidaturas receberia pedidos soltos."
+  revisao_rejeicao.historico_rejeicao_id:
+    export: true
+    razao: "Sem análoga direta em `decisao_final`; tratamento das chaves estrangeiras para DENTRO da cópia (como `candidaturas.vaga_id`): aponta para a linha de `historico_candidatura` — tabela em escopo, com `id` exportado — que registra a rejeição pedida em revisão. Liga o pedido ao evento que o titular já recebe na própria cópia. Contrasta com `entrevista_analises.ai_call_log_id`, que aponta para FORA do escopo e por isso sai."
+
+  # --- o registro do pedido (exporta: a página de explicação já mostra) -----
+  revisao_rejeicao.origem:
+    export: true
+    razao: "Sem análoga em `decisao_final` (lá a origem é sempre a decisão final). 'humana_triagem' | 'automatica' — vocabulário FECHADO por `ck_revisao_rejeicao_origem`, sem texto livre nem terceiro. `estado_revisao_rejeicao` já a devolve ao titular (a página de explicação escolhe o texto por ela); omitir da cópia o que a tela já mostra seria incoerente com o produto (critério de `decisao_final.revisao_veredito`). É `text` e reprovaria o fecho sem veredito."
+  revisao_rejeicao.etapa_rejeitada:
+    export: true
+    razao: "Análoga: `historico_candidatura.etapa_de` (exportada, `inventario:preservar`; enum `etapa_processo`). Em que etapa do processo DELA a rejeição aconteceu — estado do próprio caso. Entraria sozinha pelo inventário (ou por R3, USER-DEFINED) — escrito para a tabela nova não ter coluna sem decisão."
+  revisao_rejeicao.etapa_reabertura:
+    export: true
+    razao: "Análoga: `historico_candidatura.etapa_para` (exportada). Para que etapa a candidatura volta se a revisão for procedente (D-02; `triagem` no knockout, D-30) — compromisso do processo perante a pessoa. Entraria sozinha pelo inventário (ou por R3)."
+  revisao_rejeicao.solicitada_em:
+    export: true
+    razao: "Análoga: `decisao_final.revisao_solicitada_em` (exportada, `inventario:preservar`). Prova de que o titular exerceu o direito do Art. 20, e quando. A página de explicação a mostra. Entraria por R1."
+  revisao_rejeicao.veredito:
+    export: true
+    razao: "Análoga: `decisao_final.revisao_veredito` (exportada por `decisoes_por_coluna`). 'mantida' | 'revertida' — o desfecho do pedido, vocabulário fechado por `ck_revisao_rejeicao_veredito`. A página de explicação o mostra; é `text` e reprovaria o fecho sem veredito."
+  revisao_rejeicao.resultado:
+    export: true
+    razao: "Análoga: `decisao_final.revisao_resultado` (exportada). A resposta que quem revisou escreveu AO TITULAR sobre o pedido dele — a página de explicação a mostra. ⚠ Na exclusão o motor a SUBSTITUI por valor fixo (passo `tombstone_decisao_final`, migration 20261008000004, plano 51-13), como a análoga; o acesso e a exclusão são eixos diferentes (cabeçalho deste arquivo)."
+  revisao_rejeicao.respondida_em:
+    export: true
+    razao: "Análoga: `decisao_final.revisao_respondida_em` (exportada, R1). Quando o pedido foi respondido. A página de explicação a mostra."
+  revisao_rejeicao.reaberta_em:
+    export: true
+    razao: "Análoga: `decisao_final.reaberta_em` (exportada, bloco «PHASE 48»). QUANDO a candidatura foi reaberta porque a revisão reverteu a rejeição — estado do PRÓPRIO caso, mostrado na página de explicação."
+  revisao_rejeicao.prazo_nova_decisao_em:
+    export: true
+    razao: "Análoga: `decisao_final.prazo_nova_decisao_em` (exportada, bloco «PHASE 48»). Até quando a nova decisão tem de sair depois da reabertura — compromisso da empresa PERANTE A PESSOA, mostrado na página de explicação."
+
+  # --- fora, com razão nomeada -----------------------------------------------
+  revisao_rejeicao.rejeitado_por:
+    export: false
+    razao: "Análoga: `decisao_final.por_usuario` (excluída como `pii_de_terceiro (R2)`). UUID do funcionário que rejeitou na triagem (nulo no knockout, `ck_revisao_rejeicao_autor`); a cópia do candidato não carrega ponteiro para funcionário. Também em `ponteiros.de_terceiro` (bloco «PHASE 51»)."
+  revisao_rejeicao.respondida_por:
+    export: false
+    razao: "Análoga: `decisao_final.revisao_por_usuario` (excluída como `pii_de_terceiro (R2)`). UUID do funcionário que respondeu ao pedido. Também em `ponteiros.de_terceiro` (bloco «PHASE 51»)."
+  revisao_rejeicao.opcao_knockout_id:
+    export: false
+    razao: |
+      Sem análoga em `decisao_final`. CÓPIA, gravada no pedido, do UUID da opção
+      eliminatória que derrubou a candidatura no knockout (D-11 da 51: é o que o RH
+      vê ao responder). Decisão do plano 51-15 (e do 51-RESEARCH §Segurança, V8:
+      «`opcao_knockout_id` nunca ao candidato»): fica FORA da cópia por esta tabela.
+      ⚠ DUAS RESSALVAS REGISTRADAS, para o operador, sem mudar o veredito: (1) o
+      plano e o RESEARCH citam a regra como «D-15 da 48», e a D-15 do 48-CONTEXT é
+      sobre o teto de erros do `tsc` — a fonte da regra não foi localizada; (2) o
+      MESMO UUID já chega ao titular por `candidaturas.opcao_knockout_id`
+      (`export: true` desde o M1 da Phase 44, «o motivo do desfecho é precisamente o
+      que o Art. 20 manda ser explicável»). Excluí-lo aqui não esconde nada que a
+      cópia não tenha por outra porta; incluí-lo duplicaria um ponteiro opaco. Se o
+      operador decidir que a opção nunca vai ao titular, o veredito a revisar é o de
+      `candidaturas.opcao_knockout_id`.
+  revisao_rejeicao.alerta_prazo_enviado_em:
+    export: false
+    razao: "Análoga: `decisao_final.alerta_prazo_enviado_em` (excluída, bloco «PHASE 48»). (i) telemetria_interna — carimbo de ENTREGA do alerta de prazo vencido AO FUNCIONÁRIO. O fato que importa ao titular (o prazo) sai por `prazo_nova_decisao_em`. Entraria calado por R1 sem este veredito."
 
 # ---------------------------------------------------------------------------
 # 6b · PONTEIROS DE INFRAESTRUTURA — o que sai do ARQUIVO LEGÍVEL

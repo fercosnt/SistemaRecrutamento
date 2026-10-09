@@ -474,6 +474,12 @@ const ITENS_SAI = [
     origens: flat(
       q('decisao_final', ['revisao_resultado']),
       q('decisao_final_historico', ['revisao_resultado']),
+      // Phase 51 (51-15, JORN-42): a resposta do revisor ao pedido de revisão de uma
+      // rejeição FORA da decisão final (triagem ou knockout). Está em «sai» porque o motor
+      // a raspa: o passo `tombstone_decisao_final` ganhou o UPDATE de
+      // `revisao_rejeicao.resultado` na migration 20261008000004 (plano 51-13, provado no
+      // contrato da 45 — (B25), MD1/MD2). Só as ORIGENS crescem; o texto ao titular não muda.
+      q('revisao_rejeicao', ['resultado']),
     ),
   },
   {
@@ -636,6 +642,22 @@ const ITENS_MANTEM = [
         'prazo_nova_decisao_em',
       ]),
       q('candidate_ai_decisions', ['human_decision', 'human_overrode_ai']),
+      // Phase 51 (51-15): só as ORIGENS crescem; o texto ao titular não muda. O registro do
+      // pedido de revisão de uma rejeição na triagem ou no knockout (migration
+      // 20261008000002) — quando foi pedido, de que etapa, o veredito de vocabulário fechado,
+      // a data da resposta e, se revertida, a reabertura e o prazo — sobrevive como o da
+      // decisão final: é a prova de que uma PESSOA revisou. A resposta escrita sai (linha
+      // `resposta_ao_seu_pedido_de_revisao`).
+      q('revisao_rejeicao', [
+        'origem',
+        'etapa_rejeitada',
+        'etapa_reabertura',
+        'solicitada_em',
+        'veredito',
+        'respondida_em',
+        'reaberta_em',
+        'prazo_nova_decisao_em',
+      ]),
     ),
   },
   {
@@ -742,6 +764,15 @@ const FORA_DO_RECIBO = Object.assign(
   mapa(q('decisao_final_historico', ['alerta_prazo_enviado_em']), 'estado_do_processo'),
   mapa(q('decisao_final_historico', ['revisao_por_usuario']), 'dado_de_funcionario'),
   mapa(q('solicitacoes_dados', ['aviso_pedido_enviado_em', 'aviso_cancelamento_enviado_em']), 'estado_do_processo'),
+  // Phase 51 (51-15, JORN-42) — as colunas de `revisao_rejeicao` que não são linha do
+  // recibo, pelo precedente de `decisao_final`: os UUIDs de funcionário (quem rejeitou na
+  // triagem e quem respondeu) seguem `por_usuario`/`revisao_por_usuario`; as chaves
+  // (`candidatura_id`, a linha da rejeição no histórico e a cópia da opção eliminatória)
+  // seguem `decisao_final.candidatura_id`; o carimbo de alerta ao RH segue
+  // `decisao_final.alerta_prazo_enviado_em`. Nenhuma é `apagar` no inventário.
+  mapa(q('revisao_rejeicao', ['rejeitado_por', 'respondida_por']), 'dado_de_funcionario'),
+  mapa(q('revisao_rejeicao', ['candidatura_id', 'historico_rejeicao_id', 'opcao_knockout_id']), 'chave_tecnica'),
+  mapa(q('revisao_rejeicao', ['alerta_prazo_enviado_em']), 'estado_do_processo'),
   // `ator` é quem MOVEU a etapa — o trigger `avancar_etapa()` só dispara em
   // UPDATE de `etapa_atual`, que é ação de RH (invariante do M2/Phase 6).
   mapa(q('historico_candidatura', ['ator']), 'dado_de_funcionario'),

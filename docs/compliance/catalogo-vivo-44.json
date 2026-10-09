@@ -187,6 +187,53 @@
           }
         },
         "nota": "ACRÉSCIMO, não re-medição — fecha o G5 da reverificação de 2026-10-06 (44-VERIFICATION.md) e, com ele, o drift de 9 colunas que as Phases 48 e 49 registraram e deixaram de fora de propósito. `medido_em` é o now() da própria consulta acima (devolvido como 2026-10-06 17:51:22.467542-03, campo `medido_em_bruto`; aqui em UTC, sem a fração). `medido_em` e `totais` do TOPO continuam sendo os da medição de 2026-08-04 e NÃO descrevem o schema de hoje. A consulta devolveu 57 linhas: 15 das 2 tabelas que entram no escopo (`cognitivo_liberacao` 7, `retencao_hold` 8), as 9 colunas novas de tabela já em escopo (`candidatos.faixa_etaria_materializada` ordem 33, `candidaturas.encerrada_a_pedido_em` 40, `solicitacoes_dados` 8..14) e 33 das 4 tabelas que ficam FORA. Só as 24 primeiras entram em `colunas`: o fecho de coluna do gerador só lê tabela em escopo; as 33 ficam registradas em `tabelas_fora_do_escopo_medidas`, com a checagem BD-12 (nenhuma coluna `candidato_id`/`candidatura_id`/`user_id` e nenhuma FK para `public.candidatos`/`public.candidaturas`/`auth.users` em `purga_execucoes`, `config_purga` e `config_janela_exclusao`). Igual, linha a linha, à medição do planejador de 2026-10-06; o `05-export-allowlist-drift.sql` rodado contra PROD na mesma execução devolveu as mesmas 15 linhas do G5 e nenhuma outra. ⚠ NOTA «69 × 75» (2026-10-06): o artefato carrega `meta.totais_medidos_em_public` COPIADO do topo deste catálogo (69 tabelas, medição de 2026-08-04, que não é reescrita) e `meta.totais.tabelas_catalogadas` CALCULADO de `tabelas` com os acréscimos (75 a partir deste). A divergência é por desenho: um é a fotografia datada do banco, o outro é o universo que o fecho de tabela usa hoje. Não é erro de contagem."
+      },
+      {
+        "medido_em": "2026-10-09T07:03:10Z",
+        "fase": 51,
+        "plano": "51-15",
+        "fonte": "information_schema.columns DENTRO de um ensaio que ABORTA (node scripts/p51_ensaio.cjs --migracoes=supabase/migrations/20261008000002_p51_revisao_rejeicao.sql supabase/tests/p51_catalogo_revisao_rejeicao.sql; prefixadas=[20261008000002]; capturar() antes x depois igual), projeto isljnozzlvckrgjjbjwp",
+        "query": "SELECT count(*), jsonb_agg(jsonb_build_object('c', c.column_name::text, 't', c.data_type::text, 'n', c.is_nullable::text, 'o', c.ordinal_position::int) ORDER BY c.ordinal_position)::text FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema=c.table_schema AND t.table_name=c.table_name AND t.table_type='BASE TABLE' WHERE c.table_schema='public' AND c.table_name='revisao_rejeicao'",
+        "tabelas": [
+          "revisao_rejeicao"
+        ],
+        "colunas": [
+          "revisao_rejeicao.id",
+          "revisao_rejeicao.candidatura_id",
+          "revisao_rejeicao.historico_rejeicao_id",
+          "revisao_rejeicao.origem",
+          "revisao_rejeicao.etapa_rejeitada",
+          "revisao_rejeicao.etapa_reabertura",
+          "revisao_rejeicao.rejeitado_por",
+          "revisao_rejeicao.opcao_knockout_id",
+          "revisao_rejeicao.solicitada_em",
+          "revisao_rejeicao.veredito",
+          "revisao_rejeicao.resultado",
+          "revisao_rejeicao.respondida_por",
+          "revisao_rejeicao.respondida_em",
+          "revisao_rejeicao.reaberta_em",
+          "revisao_rejeicao.prazo_nova_decisao_em",
+          "revisao_rejeicao.alerta_prazo_enviado_em"
+        ],
+        "medicao": [
+          "id uuid NOT NULL (1)",
+          "candidatura_id uuid NOT NULL (2)",
+          "historico_rejeicao_id uuid NOT NULL (3)",
+          "origem text NOT NULL (4)",
+          "etapa_rejeitada USER-DEFINED NOT NULL (5)",
+          "etapa_reabertura USER-DEFINED NOT NULL (6)",
+          "rejeitado_por uuid (7)",
+          "opcao_knockout_id uuid (8)",
+          "solicitada_em timestamp with time zone NOT NULL (9)",
+          "veredito text (10)",
+          "resultado text (11)",
+          "respondida_por uuid (12)",
+          "respondida_em timestamp with time zone (13)",
+          "reaberta_em timestamp with time zone (14)",
+          "prazo_nova_decisao_em timestamp with time zone (15)",
+          "alerta_prazo_enviado_em timestamp with time zone (16)"
+        ],
+        "nota": "ACRÉSCIMO, não re-medição — tabela da Phase 51 (migration 20261008000002), medida DENTRO de um ensaio que abortou, porque ela só passa a existir em PROD no apply do 51-16; reconfirmada ao vivo depois do apply. `medido_em` é o relógio do executor ao fim da requisição do ensaio (o banco não devolve now() pela evidência, que é a lista de colunas inteira). `medido_em` e `totais` do TOPO continuam sendo os da medição de 2026-08-04 e NÃO descrevem o schema de hoje. A sonda devolveu 16 colunas, todas em `colunas` (tabela EM ESCOPO do titular: `chave_titular: candidatura_id`), lidas do campo `evidencia=` do log por script, nunca digitadas. Os dois `USER-DEFINED` são `public.etapa_processo` (etapa_rejeitada, etapa_reabertura)."
       }
     ]
   },
@@ -254,6 +301,7 @@
     "respostas_formulario",
     "respostas_raven",
     "retencao_hold",
+    "revisao_rejeicao",
     "scores_bigfive",
     "scores_candidato",
     "scores_disc",
@@ -5776,6 +5824,118 @@
       "tipo": "timestamp with time zone",
       "nullable": true,
       "ordem": 14
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "historico_rejeicao_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "origem",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "etapa_rejeitada",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "etapa_reabertura",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "rejeitado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "opcao_knockout_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "solicitada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "veredito",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "resultado",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "respondida_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "respondida_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "reaberta_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "prazo_nova_decisao_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "revisao_rejeicao",
+      "coluna": "alerta_prazo_enviado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 16
     }
   ],
   "colunas_fora_do_escopo": {
