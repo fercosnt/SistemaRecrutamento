@@ -1,0 +1,450 @@
+#!/usr/bin/env node
+'use strict';
+/*
+ * p51_mutacoes.cjs — prova, por execução, que cada cláusula dos smokes da Onda B da Phase 51 MORDE.
+ *
+ * Cópia adaptada de `scripts/p50_mutacoes.cjs`, sobre a composição de `scripts/p51_ensaio.cjs`
+ * (mesmo prefixo, mesmo sentinela `ENSAIO_P51_TERMINOU`, mesma via `p46apply.cjs run`). TODA
+ * requisição termina no sentinela (ou numa reprovação antes dele): o endpoint executa o corpo
+ * inteiro numa transação, então nada persiste. O modo é o PADRÃO do ensaio — prefixa as migrations
+ * p51 que estão no disco e fora do ledger —, então o MESMO runner serve antes do apply (migration
+ * prefixada) e depois dele (contra os objetos vivos, sem prefixo).
+ *
+ * CONTRATO DA ONDA B (os planos 51-08, 51-10 e 51-13 acrescentam ENTRADAS e linhas já previstas
+ * em SMOKES; não acrescentam critérios):
+ *
+ * (1) ENTRADA `{ id, desc, smoke, letra, rotulos?, requer, sql }`.
+ *       smoke    caminho do smoke relativo à raiz, exatamente como na tabela SMOKES;
+ *       letra    o RÓTULO entre parênteses que a reprovação tem de trazer, por igualdade EXATA
+ *                (`b` no P51A; `k` no P50C; `B25/nao_respondido` no P45M);
+ *       rotulos  (opcional) lista que tem de aparecer INTEIRA em `<PREFIXO> FAIL (<letra>):
+ *                [<rótulos>]`; rótulo `c_*` na lista = controle vácuo, não é mordida — «morde»
+ *                quer dizer «morde PELA sonda que existe para ela», não por uma vizinha;
+ *       requer   versões p51 de que a mutação depende (nem aplicada nem prefixável → `PULADA
+ *                (migration ausente)`, não conta);
+ *       sql      texto (ou função que o devolve, avaliada só quando a mutação roda) extraído da
+ *                migration por âncora ÚNICA (`extrair`/`trocar`; âncora ausente/ambígua = sair com
+ *                erro). Vai DEPOIS do prefixo de migrations e ANTES do smoke.
+ *
+ * (2) TABELA `SMOKES`, uma linha por smoke que alguma entrada pode morder: `{ prefixo, controle }`.
+ *     Entrada cujo `smoke` não tem linha = erro do harness na CARGA, antes da baseline.
+ *       controle.par  = '<k>'  → o par `<k>=pass/esperado` que a sentinela do ensaio reporta;
+ *       controle.gate = { contador, chave, ancora, esperado } → para smoke cujo gate mora DENTRO do
+ *                       arquivo (o RESUMO compara o próprio contador com o próprio `v_esperado` e
+ *                       levanta se divergem, sem publicar par): o runner insere, entre o smoke e o
+ *                       `E.FIM`, uma instrução que anexa ` <chave>=<current_setting(contador)>` a
+ *                       `p51.evidencia`; verde exige `<chave>=<n>` com `n` LIDO DO PRÓPRIO SMOKE
+ *                       (primeira casa de `esperado` depois da linha que começa por `ancora`) —
+ *                       nunca uma constante aqui, nunca «chegou à sentinela» sozinho.
+ *
+ * (3) PARSER POR SMOKE, nunca um regex global de prefixo: a reprovação é a PRIMEIRA ocorrência de
+ *     `<X> FAIL (<rótulo>)[: [<rótulos>]]` na saída, com QUALQUER prefixo `X`. Se não houver
+ *     nenhuma, ou se o prefixo dela não for o da linha do smoke da entrada (p.ex. um `P51E FAIL
+ *     (transacao)` do ensaio), é `NAO MORDE` com a primeira falha impressa — o erro NÃO capturado
+ *     que atravessa o envelope do smoke (um 23514 dentro de um bloco cujo handler só captura o
+ *     SQLSTATE do próprio envelope sai sem rótulo nenhum) cai aqui e nunca conta como mordida.
+ *     Reprovação cujo texto traz `erro INESPERADO` (o idioma dos envelopes p49_44/p50/p51: «nada
+ *     foi julgado») é `NAO MORDE` (WR-01 do p50). `40001` repete a rodada UMA vez e, de novo, sai 3
+ *     INCONCLUSIVO; timeouts saem 3 sem concluir. `julgarMutacao` e `julgarControle` são PUROS (sem
+ *     rede; `julgarControle` só lê o arquivo do smoke para o esperado do gate) e exportados.
+ *
+ * (4) CONTROLE de cada smoke usado por entrada contada, antes da primeira mutação dele. Verde =
+ *     sentinela alcançada, nenhum `FAIL (` de NENHUM prefixo, e o par/gate da linha SMOKES. A
+ *     mesma composição (com a instrução do gate) serve ao CONTROLE e às mutações daquele smoke.
+ *     Vermelho = `CONTROLE VERMELHO (<smoke>): <motivo>` e parar.
+ *
+ * (5) SAÍDA: `CONTROLE verde (<smoke>): par <k>=<p>/<e> (<ms> ms)` ou `CONTROLE verde (<smoke>):
+ *     gate <chave>=<n> de <n> (<ms> ms)`; `<id> morde: <desc> -> <PREFIXO> FAIL (<letra>)[
+ *     [<rótulos>]] (<ms> ms)`; `NAO MORDE: <id> (<desc>) — <motivo>`; duas não-mordidas seguidas =
+ *     `SUSPEITA DE INSTRUMENTO`. Persistência por `E.capturar()` antes do primeiro CONTROLE e
+ *     depois do laço — e em TODA saída anormal depois da baseline —, diferença = `PERSISTIU`.
+ *     Linha final exata: `controle verde; <n>/<n> mutacoes mordem; nada persistiu`.
+ *
+ * LOCK: o do prefixo do ensaio (`lock_timeout 3s` / `statement_timeout 5s`); duração impressa.
+ *
+ * Uso: node scripts/p51_mutacoes.cjs        (sem dependências; `require` não roda nada)
+ */
+
+const fs = require('fs');
+const path = require('path');
+const E = require('./p51_ensaio.cjs');
+
+const SMOKES = {
+  'supabase/tests/p51_raven_status_smoke.sql': { prefixo: 'P51A', controle: { par: '51a' } },
+  'supabase/tests/p51_revisao_rejeicao_smoke.sql': { prefixo: 'P51B', controle: { par: '51b' } },
+  'supabase/tests/p50_acesso_recrutador_smoke.sql': { prefixo: 'P50C', controle: { par: '50' } },
+  'supabase/tests/p45_motor_exclusao_smoke.sql': {
+    prefixo: 'P45M',
+    controle: { gate: { contador: 'smoke45m.pass', chave: '45m', ancora: '-- (z) RESUMO', esperado: /\bv_esperado int := (\d+);/ } },
+  },
+};
+
+/* Baseline de persistência; null até ser lida. */
+let antes = null;
+
+/* Lê de novo e compara com a baseline. Devolve true sse nada persistiu. */
+function conferirPersistencia() {
+  const depois = E.capturar();
+  const dif = E.diferencas(antes, depois);
+  if (dif.length) {
+    console.error(`PERSISTIU: ${dif.join(' ; ')}`);
+    return false;
+  }
+  console.log(
+    `leitura so-leitura igual a baseline: ledger=${JSON.stringify(depois.ledger.map((x) => x.v))} funcoes=${Object.keys(depois.funcoes).length} revisao_rejeicao=${depois.revisao.existe || 'ausente'} mutacoes=${depois.mutacoes.length} fixtures=${JSON.stringify(depois.fixtures)}`
+  );
+  return true;
+}
+
+/* TODA saída passa por aqui. Depois da baseline, mede a persistência antes de sair. */
+function sair(msg, codigo = 1) {
+  let c = codigo;
+  if (antes) {
+    try {
+      if (!conferirPersistencia()) c = 1;
+    } catch (e) {
+      console.error(`PERSISTENCIA NAO MEDIDA: ${e.message}`);
+      c = 1;
+    }
+  }
+  console.error(msg);
+  process.exit(c);
+}
+
+/* Texto de uma migration p51 pela versão (lido do disco; ausente = erro do harness). */
+function mig(versao) {
+  const m = E.MIGS.find((x) => E.versao(x) === versao);
+  if (!m || !fs.existsSync(path.join(E.ROOT, m))) sair(`ANCORA AUSENTE/AMBIGUA: migration ${versao} nao existe no disco`);
+  return fs.readFileSync(path.join(E.ROOT, m), 'utf8');
+}
+
+/* Um trecho da migration, delimitado por um início LITERAL único e um fim literal. */
+function extrair(texto, inicio, fim, rotulo) {
+  const n = texto.split(inicio).length - 1;
+  if (n !== 1) sair(`ANCORA AUSENTE/AMBIGUA: ${rotulo} (inicio «${inicio}» ocorre ${n} vez(es))`);
+  const a = texto.indexOf(inicio);
+  const b = texto.indexOf(fim, a);
+  if (b < 0) sair(`ANCORA AUSENTE/AMBIGUA: ${rotulo} (fim «${fim}» nao encontrado)`);
+  return texto.slice(a, b + fim.length);
+}
+
+/* Troca textual sobre uma âncora LITERAL que tem de ocorrer exatamente uma vez no trecho. */
+function trocar(trecho, ancora, novo, rotulo) {
+  const n = trecho.split(ancora).length - 1;
+  if (n !== 1) sair(`ANCORA AUSENTE/AMBIGUA: ${rotulo} («${ancora}» ocorre ${n} vez(es) no trecho)`);
+  return trecho.replace(ancora, () => novo);
+}
+
+/* `CREATE OR REPLACE FUNCTION public.<nome>(` … `$function$;` de uma migration p51. */
+const fn = (versao, nome) => extrair(mig(versao), `CREATE OR REPLACE FUNCTION public.${nome}(`, '$function$;', nome);
+
+// ── 51-06: get_avaliacao_status (migration 20261008000001) ───────────────────
+const V01 = '20261008000001';
+const S51A = 'supabase/tests/p51_raven_status_smoke.sql';
+const fnStatus = () => fn(V01, 'get_avaliacao_status');
+
+const MUTACOES = [
+  {
+    // (b) RNF-07a: um número do Raven entra na chave. Com a fixture sem score a folha é null; com
+    // score, é número — nos dois casos uma folha NÃO booleana, e raven passa a ter 3 chaves.
+    id: 'MA1',
+    desc: 'raven ganha um terceiro campo numerico lido de scores_raven.percentil',
+    smoke: S51A,
+    letra: 'b',
+    requer: [V01],
+    sql: () =>
+      trocar(
+        fnStatus(),
+        "'registrado', EXISTS (SELECT 1 FROM public.scores_raven s",
+        "'percentil', (SELECT s.percentil FROM public.scores_raven s WHERE s.candidatura_id = p_candidatura_id),\n      'registrado', EXISTS (SELECT 1 FROM public.scores_raven s",
+        'MA1'
+      ),
+  },
+  {
+    // (d) IDOR: a guarda de titular desligada — o intruso, o rh e o sem-claims leem.
+    id: 'MA2',
+    desc: 'guarda de titular desligada (IF NOT v_owns vira IF false)',
+    smoke: S51A,
+    letra: 'd',
+    requer: [V01],
+    sql: () => trocar(fnStatus(), 'IF NOT v_owns THEN', 'IF false THEN', 'MA2'),
+  },
+  {
+    // (a) o aperto nomeado desfeito: EXECUTE de volta a anon depois da migration.
+    id: 'MA3',
+    desc: 'GRANT EXECUTE de get_avaliacao_status a anon depois da migration',
+    smoke: S51A,
+    letra: 'a',
+    requer: [V01],
+    sql: 'GRANT EXECUTE ON FUNCTION public.get_avaliacao_status(uuid) TO anon;',
+  },
+  {
+    // (c) registrado lido da tabela errada — com liberação e sem score, registrado vira true.
+    id: 'MA4',
+    desc: 'registrado passa a ler cognitivo_liberacao em vez de scores_raven',
+    smoke: S51A,
+    letra: 'c',
+    requer: [V01],
+    sql: () => trocar(fnStatus(), 'FROM public.scores_raven s', 'FROM public.cognitivo_liberacao s', 'MA4'),
+  },
+  {
+    // (c) liberado ignora a revogação — com revogado_em preenchido, liberado segue true.
+    id: 'MA5',
+    desc: 'liberado ignora revogado_em',
+    smoke: S51A,
+    letra: 'c',
+    requer: [V01],
+    sql: () => trocar(fnStatus(), '\n                               AND l.revogado_em IS NULL', '', 'MA5'),
+  },
+  {
+    // (e) RNF-07a por forma: o corpo passa a LER o número do Raven sem devolvê-lo — a saída segue
+    // só booleana ((b) passa), e só a cláusula de forma o vê. Acrescentada na execução do 51-06
+    // para que (e) tenha mutação própria (MA1 quebra (b) antes de chegar a ela).
+    id: 'MA6',
+    desc: 'corpo le scores_raven.percentil sem devolve-lo (saida segue booleana)',
+    smoke: S51A,
+    letra: 'e',
+    requer: [V01],
+    sql: () =>
+      trocar(
+        fnStatus(),
+        '\n  RETURN r;',
+        '\n  PERFORM (SELECT s.percentil FROM public.scores_raven s WHERE s.candidatura_id = p_candidatura_id);\n  RETURN r;',
+        'MA6'
+      ),
+  },
+];
+
+/* Primeira reprovação da saída, com QUALQUER prefixo. `inesperado` = o envelope abortou por erro
+ * que não é a sonda reprovando («nada foi julgado») — nunca é mordida. */
+const RE_FALHA = /([A-Z][A-Z0-9-]*) FAIL \(([^)]+)\)(?::\s*\[([^\]]*)\])?/;
+function falha(out) {
+  const m = RE_FALHA.exec(String(out || ''));
+  if (!m) return null;
+  const resto = String(out).slice(m.index);
+  const fimTexto = resto.search(/"|\\n|\n/);
+  const texto = fimTexto < 0 ? resto : resto.slice(0, fimTexto);
+  return {
+    prefixo: m[1],
+    letra: m[2],
+    rotulos: m[3] ? m[3].split(',').map((x) => x.trim()).filter(Boolean) : [],
+    inesperado: /erro INESPERADO/i.test(texto),
+    texto: texto.slice(0, 400),
+  };
+}
+
+function linhaSmoke(smoke) {
+  const s = SMOKES[smoke];
+  if (!s) throw new Error(`ERRO DO HARNESS: smoke sem linha em SMOKES: ${smoke}`);
+  return s;
+}
+
+/* O esperado do gate interno, LIDO do próprio smoke: primeira casa de `esperado` depois da linha
+ * (única) que começa por `ancora`. Âncora ausente/ambígua ou número ausente = erro do harness. */
+function esperadoGate(smoke, gate) {
+  const texto = fs.readFileSync(path.join(E.ROOT, smoke), 'utf8');
+  const linhas = texto.split('\n');
+  const idx = [];
+  linhas.forEach((l, i) => {
+    if (l.startsWith(gate.ancora)) idx.push(i);
+  });
+  if (idx.length !== 1) throw new Error(`ERRO DO HARNESS: ancora do gate «${gate.ancora}» ocorre ${idx.length} vez(es) no inicio de linha em ${smoke}`);
+  const m = linhas.slice(idx[0] + 1).join('\n').match(gate.esperado);
+  if (!m) throw new Error(`ERRO DO HARNESS: esperado do gate (${gate.esperado}) ausente depois de «${gate.ancora}» em ${smoke}`);
+  return Number(m[1]);
+}
+
+/*
+ * Veredito de UMA rodada de mutação, puro (sem rede).
+ * Devolve { tipo: 'morde' | 'nao_morde' | 'inconclusivo', motivo, f }.
+ */
+function julgarMutacao(m, r) {
+  if (r.timeout) return { tipo: 'inconclusivo', motivo: r.timeout, f: null };
+  if (r.serializacao) return { tipo: 'inconclusivo', motivo: 'SERIALIZACAO (40001)', f: null };
+  const S = linhaSmoke(m.smoke);
+  const f = falha(r.out);
+  const exigidos = m.rotulos || [];
+  let motivo = null;
+  if (r.sentinela) motivo = `chegou ao sentinela (smokes=[${r.smokes}])`;
+  else if (!f) motivo = `sem «<X> FAIL (…)» na saida — erro sem rotulo (${E.primeiraFalha(r.out).slice(0, 300)})`;
+  else if (f.prefixo !== S.prefixo) motivo = `a primeira reprovacao e de outro prefixo (${f.prefixo} FAIL (${f.letra}); esperado ${S.prefixo}) — ${f.texto.slice(0, 200)}`;
+  else if (f.inesperado) motivo = `reprovou em (${f.letra}) por erro INESPERADO do envelope — nada foi julgado, nao e mordida (${f.texto.slice(0, 200)})`;
+  else if (f.letra !== m.letra) motivo = `reprovou em (${f.letra}), esperado (${m.letra})`;
+  else if (f.rotulos.some((x) => x.startsWith('c_'))) motivo = `controle vacuo [${f.rotulos.join(',')}]`;
+  else if (exigidos.some((x) => !f.rotulos.includes(x))) motivo = `reprovou em (${f.letra}) [${f.rotulos.join(',')}] sem o(s) rotulo(s) exigido(s) [${exigidos.join(',')}]`;
+  return { tipo: motivo ? 'nao_morde' : 'morde', motivo, f };
+}
+
+/*
+ * Veredito do CONTROLE, puro: null = verde; senão { tipo: 'vermelho' | 'inconclusivo', motivo }.
+ * O par/gate é lido de `r.smokes`/`r.evidencia` (o que a sentinela carregou), nunca da posição em
+ * `r.out`.
+ */
+function julgarControle(smoke, r) {
+  const S = linhaSmoke(smoke);
+  if (r.timeout || r.serializacao) return { tipo: 'inconclusivo', motivo: r.timeout || 'SERIALIZACAO (40001)' };
+  if (!r.sentinela) return { tipo: 'vermelho', motivo: `sentinela ausente (${E.primeiraFalha(r.out).slice(0, 300)})` };
+  if (/FAIL \(/.test(r.out)) return { tipo: 'vermelho', motivo: `FAIL na saida (${E.primeiraFalha(r.out).slice(0, 300)})` };
+  if (S.controle.par) {
+    const par = E.lerPares(r.smokes).find((x) => x.k === S.controle.par);
+    if (!par) return { tipo: 'vermelho', motivo: `par ${S.controle.par} ausente da sentinela (smokes=[${r.smokes || ''}])` };
+    if (!/^[0-9]+$/.test(par.p || '') || par.p !== par.e) return { tipo: 'vermelho', motivo: `par ${par.k}=${par.p}/${par.e} (pass != esperado)` };
+    return null;
+  }
+  if (S.controle.gate) {
+    const g = S.controle.gate;
+    const n = esperadoGate(smoke, g);
+    const tok = String(r.evidencia || '')
+      .split(/\s+/)
+      .find((x) => x.startsWith(`${g.chave}=`));
+    if (!tok) return { tipo: 'vermelho', motivo: `gate ${g.chave} ausente da evidencia (evidencia=${r.evidencia || ''})` };
+    const v = tok.slice(g.chave.length + 1);
+    if (v !== String(n)) return { tipo: 'vermelho', motivo: `gate ${g.chave}=${v} de ${n} (o v_esperado do proprio smoke)` };
+    return null;
+  }
+  throw new Error(`ERRO DO HARNESS: linha SMOKES sem controle (${smoke})`);
+}
+
+/* Corpo do ensaio para um smoke (com a instrução do gate, quando a linha for de gate interno). */
+function comporPara(smoke, prefixadas, mutacao, rotuloMutacao) {
+  const corpo = E.compor({ prefixadas, arquivos: [smoke], mutacao, rotuloMutacao });
+  const g = linhaSmoke(smoke).controle.gate;
+  if (!g) return corpo;
+  if (!corpo.endsWith(E.FIM)) throw new Error('ERRO DO HARNESS: o corpo composto nao termina em E.FIM — nao ha onde inserir a instrucao do gate');
+  const lit = (s) => `'${String(s).replace(/'/g, "''")}'`;
+  const instr =
+    '\nRESET ROLE;\n' +
+    `SELECT set_config('p51.evidencia', btrim(coalesce(current_setting('p51.evidencia', true), '') || ${lit(` ${g.chave}=`)} || coalesce(current_setting(${lit(g.contador)}, true), '')), false);\n`;
+  return corpo.slice(0, corpo.length - E.FIM.length) + instr + E.FIM;
+}
+
+/* Roda; um 40001 é repetido UMA vez; timeout ou 40001 de novo saem 3 (com a leitura de persistência). */
+function rodarOuSair(corpo, rodada) {
+  let r = E.rodar(corpo, `mut_${rodada}`);
+  if (r.serializacao) {
+    console.log(`SERIALIZACAO (40001): ${rodada} (${r.ms} ms) — INCONCLUSIVO (nao e mordida nem controle vermelho); repetindo UMA vez`);
+    r = E.rodar(corpo, `mut_${rodada}_repeticao`);
+  }
+  if (r.timeout) sair(`${r.timeout}: ${rodada} (${r.ms} ms) — nada concluido sobre o portao; repetir mais tarde (subir o teto NAO e decisao do executor)`, 3);
+  if (r.serializacao) sair(`INCONCLUSIVO — SERIALIZACAO (40001) duas vezes seguidas: ${rodada} (${r.ms} ms) — nada concluido sobre o portao; repetir mais tarde, sem laco`, 3);
+  return r;
+}
+
+/* Conferência da CARGA (antes da baseline): ids únicos, smoke com linha, campos obrigatórios. */
+function validarCarga() {
+  const ids = new Set();
+  for (const m of MUTACOES) {
+    if (ids.has(m.id)) throw new Error(`ERRO DO HARNESS: id repetido ${m.id}`);
+    ids.add(m.id);
+    if (!SMOKES[m.smoke]) throw new Error(`ERRO DO HARNESS: ${m.id} aponta smoke sem linha em SMOKES: ${m.smoke}`);
+    if (!m.letra || !Array.isArray(m.requer) || !m.sql) throw new Error(`ERRO DO HARNESS: ${m.id} sem letra/requer/sql`);
+  }
+  for (const [k, s] of Object.entries(SMOKES)) {
+    if (!s.prefixo || !s.controle || (!s.controle.par && !s.controle.gate)) throw new Error(`ERRO DO HARNESS: linha SMOKES incompleta: ${k}`);
+  }
+}
+
+function principal() {
+  for (const a of process.argv.slice(2)) sair(`opcao desconhecida: ${a}`);
+  try {
+    validarCarga();
+  } catch (e) {
+    sair(e.message);
+  }
+
+  // ── baseline de persistência + plano ─────────────────────────────────────
+  antes = E.capturar();
+  const plano = E.planejar('padrao', [], E.lerEstado());
+  const disponiveis = new Set([...plano.aplicadas, ...plano.prefixadas.map(E.versao)]);
+  console.log(`modo: prefixadas=[${plano.prefixadas.map(E.versao).join(',')}] aplicadas=[${plano.aplicadas.join(',')}] ausentes=[${plano.ausentes.join(',')}]`);
+  console.log(
+    `baseline: ledger=${JSON.stringify(antes.ledger.map((x) => x.v))} funcoes=${Object.keys(antes.funcoes).length} revisao_rejeicao=${antes.revisao.existe || 'ausente'} mutacoes=${antes.mutacoes.length} fixtures=${JSON.stringify(antes.fixtures)}`
+  );
+
+  // smokes na ordem da primeira entrada que os usa
+  const ordem = [];
+  for (const m of MUTACOES) if (!ordem.includes(m.smoke)) ordem.push(m.smoke);
+
+  let mordem = 0;
+  let contadas = 0;
+  let seguidasSemMorder = 0;
+  const naoMordem = [];
+  for (const smoke of ordem) {
+    const S = SMOKES[smoke];
+    const entradas = MUTACOES.filter((m) => m.smoke === smoke);
+    const vivas = [];
+    for (const m of entradas) {
+      const falta = m.requer.filter((v) => !disponiveis.has(v));
+      if (falta.length) console.log(`PULADA (migration ausente): ${m.id} (${m.desc}) — requer ${falta.join(',')}`);
+      else vivas.push(m);
+    }
+    if (!vivas.length) continue;
+
+    // ── CONTROLE deste smoke ────────────────────────────────────────────────
+    let ctl;
+    try {
+      ctl = rodarOuSair(comporPara(smoke, plano.prefixadas, null), `CONTROLE_${path.basename(smoke, '.sql')}`);
+    } catch (e) {
+      sair(`ERRO DO HARNESS: ${e.message}`);
+    }
+    let vc;
+    try {
+      vc = julgarControle(smoke, ctl);
+    } catch (e) {
+      sair(e.message);
+    }
+    if (vc && vc.tipo === 'inconclusivo') sair(`INCONCLUSIVO: CONTROLE (${smoke}) (${ctl.ms} ms) — ${vc.motivo}; nada concluido sobre o portao`, 3);
+    if (vc) sair(`CONTROLE VERMELHO (${smoke}): ${vc.motivo} (${ctl.ms} ms)`);
+    if (S.controle.par) {
+      const par = E.lerPares(ctl.smokes).find((x) => x.k === S.controle.par);
+      console.log(`CONTROLE verde (${smoke}): par ${par.k}=${par.p}/${par.e} (${ctl.ms} ms)`);
+    } else {
+      const n = esperadoGate(smoke, S.controle.gate);
+      console.log(`CONTROLE verde (${smoke}): gate ${S.controle.gate.chave}=${n} de ${n} (${ctl.ms} ms)`);
+    }
+
+    // ── MUTAÇÕES deste smoke ────────────────────────────────────────────────
+    for (const m of vivas) {
+      contadas += 1;
+      const sql = typeof m.sql === 'function' ? m.sql() : m.sql;
+      let r;
+      try {
+        r = rodarOuSair(comporPara(smoke, plano.prefixadas, sql, `MUTACAO ${m.id}`), m.id);
+      } catch (e) {
+        sair(`ERRO DO HARNESS: ${m.id}: ${e.message}`);
+      }
+      const v = julgarMutacao(m, r);
+      if (v.tipo === 'inconclusivo') sair(`INCONCLUSIVO: ${m.id} (${r.ms} ms) — ${v.motivo}; nada concluido sobre o portao`, 3);
+      if (v.motivo) {
+        console.log(`NAO MORDE: ${m.id} (${m.desc}) — ${v.motivo} (${r.ms} ms)`);
+        naoMordem.push(m.id);
+        seguidasSemMorder += 1;
+        if (seguidasSemMorder >= 2) sair('SUSPEITA DE INSTRUMENTO: duas mutacoes seguidas nao mordem — medir o harness antes de concluir qualquer coisa sobre o portao');
+      } else {
+        mordem += 1;
+        seguidasSemMorder = 0;
+        const lst = v.f.rotulos.length ? ` [${v.f.rotulos.join(',')}]` : '';
+        console.log(`${m.id} morde: ${m.desc} -> ${S.prefixo} FAIL (${v.f.letra})${lst} (${r.ms} ms)`);
+      }
+    }
+  }
+
+  // ── NADA PERSISTIU ────────────────────────────────────────────────────────
+  if (naoMordem.length) sair(`NAO MORDE: ${naoMordem.join(', ')}`);
+  if (contadas === 0) sair('NENHUMA MUTACAO RODOU: todas puladas — nada provado');
+  if (!conferirPersistencia()) {
+    antes = null; // já medido e reportado
+    sair('PERSISTIU — ver a linha acima');
+  }
+  console.log(`controle verde; ${mordem}/${contadas} mutacoes mordem; nada persistiu`);
+}
+
+module.exports = { MUTACOES, SMOKES, julgarMutacao, julgarControle, falha, esperadoGate, comporPara, validarCarga };
+
+if (require.main === module) {
+  try {
+    principal();
+  } catch (e) {
+    sair(`ERRO DO HARNESS: ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`);
+  }
+}

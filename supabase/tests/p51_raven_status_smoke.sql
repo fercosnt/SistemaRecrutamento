@@ -70,8 +70,21 @@
 -- O PORTÃO MORDE — mutações MA1..MA5 por `scripts/p51_mutacoes.cjs` (Task 2 do 51-06), cada uma
 -- numa requisição que aborta: prefixo do ensaio + migration intacta + MUTAÇÃO + este smoke +
 -- sentinela. Cada uma tem de reprovar na letra abaixo e NÃO chegar ao sentinela. Uma cláusula nova
--- sem mutação que a reprove é cláusula não vigiada:
---   (tabela preenchida na Task 2 com a letra e a duração medidas)
+-- sem mutação que a reprove é cláusula não vigiada. Medido em 2026-10-09, ANTES do apply
+-- (20261008000001 prefixada; CONTROLE verde `51a=7/7` em 519 ms; `6/6 mutacoes mordem; nada
+-- persistiu`):
+--   | Mutação | Inversão                                                        | Reprova | Duração |
+--   |---------|-----------------------------------------------------------------|---------|---------|
+--   | MA1     | `raven` ganha `percentil` lido de `scores_raven`                 | (b)     | 506 ms  |
+--   | MA2     | guarda de titular desligada (`IF NOT v_owns` → `IF false`)       | (d)     | 517 ms  |
+--   | MA3     | `GRANT EXECUTE … TO anon` depois da migration                    | (a)     | 564 ms  |
+--   | MA4     | `registrado` lê `cognitivo_liberacao` em vez de `scores_raven`   | (c)     | 3823 ms |
+--   | MA5     | `liberado` ignora `revogado_em`                                  | (c)     | 513 ms  |
+--   | MA6     | corpo LÊ `scores_raven.percentil` sem devolvê-lo (saída booleana) | (e)     | 516 ms  |
+--   (f) não tem mutação própria: toda inversão da semântica que a quebra na população real também
+--   a quebra na fixture, e (c) reprova primeiro; (f) vigia o que a fixture não reproduz (titulares
+--   reais, linhas criadas por outros caminhos). (z) é a negativa de resíduo, vigiada também pelo
+--   `capturar()` do ensaio (`fixtures`). A próxima redefinição da função re-prova esta tabela.
 --
 -- Varredura D-56 (forma) — 2026-10-09, padrão LITERAL do CLAUDE.md §«Portões» sobre
 -- `supabase/tests/*.sql` (antes deste arquivo existir):
