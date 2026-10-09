@@ -382,7 +382,9 @@ function deriveCardState(
   cardId: string,
   status: AvaliacaoStatus | undefined,
 ): string {
-  const card = status?.[cardId as keyof AvaliacaoStatus]
+  // 51-07: `raven` não é card do container (o Raven não pertence a etapa nenhuma — D-13);
+  // o índice exclui a chave para que o tipo do card continue sendo `AvaliacaoStatusCard`.
+  const card = status?.[cardId as Exclude<keyof AvaliacaoStatus, 'raven'>]
   if (card?.registrado) return 'concluido'
   if (card?.iniciado) return 'em_andamento'
   return 'pendente'

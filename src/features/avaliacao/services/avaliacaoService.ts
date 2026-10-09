@@ -237,12 +237,26 @@ export interface AvaliacaoStatusCard {
   iniciado?: boolean
 }
 
+/**
+ * 51-07 (JORN-43 · D-13 · C-4) — o «Raciocínio lógico (Matrizes)» (Raven), lido da chave
+ * `raven` que o 51-06 pôs em `get_avaliacao_status`. Não é um card do container (o Raven não
+ * pertence a etapa nenhuma): `liberado` = liberação nominal vigente em `cognitivo_liberacao`
+ * (sem `revogado_em`); `registrado` = a prova foi concluída. Dois booleanos e nada mais — o
+ * candidato não lê o próprio `scores_raven` (a policy compara `candidato_id` com `auth.uid()`),
+ * e nenhum número do instrumento atravessa este fio (RNF-07a).
+ */
+export interface AvaliacaoStatusRaven {
+  liberado: boolean
+  registrado: boolean
+}
+
 export interface AvaliacaoStatus {
   sjt_mc: AvaliacaoStatusCard
   sjt_caso_aberto: AvaliacaoStatusCard
   big_five: AvaliacaoStatusCard
   redacao: AvaliacaoStatusCard
   cognitivo: AvaliacaoStatusCard
+  raven: AvaliacaoStatusRaven
 }
 
 /**
@@ -280,7 +294,10 @@ export async function getAvaliacaoStatus(
   // Coerce every leaf to a strict boolean (missing card → false); never trust the
   // payload to carry a numeric — the RPC returns booleans only.
   const raw =
-    (data as Record<string, { registrado?: unknown; iniciado?: unknown }> | null) ?? {}
+    (data as Record<
+      string,
+      { registrado?: unknown; iniciado?: unknown; liberado?: unknown }
+    > | null) ?? {}
   const card = (key: string): AvaliacaoStatusCard => ({
     registrado: raw[key]?.registrado === true,
     iniciado: raw[key]?.iniciado === true,
@@ -292,6 +309,11 @@ export async function getAvaliacaoStatus(
     big_five: card('big_five'),
     redacao: card('redacao'),
     cognitivo: card('cognitivo'),
+    // 51-07: a chave `raven` (51-06), sob a mesma regra estrita — só `=== true` vira true.
+    raven: {
+      liberado: raw.raven?.liberado === true,
+      registrado: raw.raven?.registrado === true,
+    },
   }
 }
 

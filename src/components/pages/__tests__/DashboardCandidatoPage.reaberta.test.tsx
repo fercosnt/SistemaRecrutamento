@@ -56,6 +56,14 @@ vi.mock('@/features/vagas/hooks/useRetirarCandidatura', () => ({
   useRetirarCandidatura: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }))
 
+// 51-07 (JORN-43 · D-13) — o card passou a montar `RavenCandidatoCard`, que possui
+// `useStatusRavenCandidato` (useQuery). Mockado pelo MESMO motivo e no MESMO idioma do
+// `useRetirarCandidatura` acima: o mock é do HOOK, nunca do componente — o card real continua
+// montando dentro do cartão, e é a montagem que estes testes vigiam.
+vi.mock('@/features/avaliacao-cognitiva/hooks/useStatusRavenCandidato', () => ({
+  useStatusRavenCandidato: () => ({ data: undefined, error: null }),
+}))
+
 // Só o bloco do select usa o cliente: captura a projeção sem ida à rede.
 vi.mock('@/lib/supabase/client', () => {
   const q: Record<string, unknown> = {}

@@ -10,6 +10,7 @@ import type { CandidaturasFilters, Candidatura } from '@/features/vagas/types/va
 import { funilNavMap } from '@/lib/navegacao/funilNavMap';
 import { ETAPA_M2_LABELS, type EtapaFunilM2 } from '@/features/triagem/services/triagemService';
 import { AgendamentoCandidatoCard } from '@/features/agendamento/components/AgendamentoCandidatoCard';
+import { RavenCandidatoCard } from '@/features/avaliacao-cognitiva/components/RavenCandidatoCard';
 import { useSlaEtapas, rotuloDeEspera } from '@/features/timeline/hooks';
 import { PrazoEstimadoLinha } from '@/features/timeline/components';
 import { RetirarCandidaturaAcao } from '@/features/vagas/components/RetirarCandidaturaAcao';
@@ -482,6 +483,21 @@ export function DashboardCandidatoPage() {
                           )}
                         </div>
                       )}
+
+                      {/* 51-07 (JORN-43 · D-13 · C-4) — o «Raciocínio lógico (Matrizes)»
+                          (Raven) tinha rota e nenhuma porta de entrada. O card vem DEPOIS do
+                          «Próximo passo» e FORA do ramo `ehEntrevista`: a liberação é
+                          nominal, por candidatura, e não pertence a etapa nenhuma (em
+                          entrevista ou em decisão final, o Raven pode estar liberado). O
+                          componente decide sozinho: encerrada ⇒ nada, sem consultar; liberado
+                          e não concluído (chave `raven` de `get_avaliacao_status`, porque o
+                          candidato não lê o próprio `scores_raven` — C-4) ⇒ o convite; resto
+                          ⇒ nada. Encapsula o `stopPropagation`, como o `RetirarCandidaturaAcao`. */}
+                      <RavenCandidatoCard
+                        candidaturaId={candidatura.id}
+                        etapaAtual={candidatura.etapa_atual}
+                        status={candidatura.status}
+                      />
 
                       {/* Phase 45 / ERASE-05 — "Retirar minha candidatura", SUBORDINADA
                           ao CTA de funil acima. O componente encapsula o

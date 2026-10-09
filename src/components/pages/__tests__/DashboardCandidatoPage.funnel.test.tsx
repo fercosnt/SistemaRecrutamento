@@ -27,6 +27,7 @@ import { MemoryRouter } from 'react-router-dom'
 const mocks = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   candidaturasData: { data: [] as unknown[] },
+  statusRaven: undefined as { liberado: boolean; registrado: boolean } | undefined,
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -74,6 +75,14 @@ vi.mock('@/features/vagas/hooks/useRetirarCandidatura', () => ({
   useRetirarCandidatura: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }))
 
+// 51-07 (JORN-43 · D-13) — o card passou a montar `RavenCandidatoCard`, que possui
+// `useStatusRavenCandidato` (useQuery). Mockado pelo MESMO motivo e no MESMO idioma do
+// `useRetirarCandidatura` acima: o mock é do HOOK, nunca do componente — o card real continua
+// montando dentro do cartão, e é a montagem que estes testes vigiam.
+vi.mock('@/features/avaliacao-cognitiva/hooks/useStatusRavenCandidato', () => ({
+  useStatusRavenCandidato: () => ({ data: mocks.statusRaven, error: null }),
+}))
+
 import { DashboardCandidatoPage } from '../DashboardCandidatoPage'
 
 function renderDashboard() {
@@ -87,6 +96,7 @@ function renderDashboard() {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.candidaturasData = { data: [] }
+  mocks.statusRaven = undefined
 })
 
 describe('DashboardCandidatoPage funnel step-CTA (D-09)', () => {
@@ -131,6 +141,41 @@ describe('DashboardCandidatoPage funnel step-CTA (D-09)', () => {
     }
     renderDashboard()
     expect(screen.getByText(/Acompanhar candidatura/i)).toBeInTheDocument()
+  })
+})
+
+describe('DashboardCandidatoPage — card do Raciocínio lógico (Matrizes) (51-07 / JORN-43 · D-13)', () => {
+  const emDecisao = {
+    id: 'cand-raven',
+    vaga_id: 'vaga-9',
+    vaga: { titulo: 'Gerente de Unidade' },
+    // o Raven não pertence a etapa nenhuma: aqui, decisão final em andamento
+    etapa_atual: 'decisao_final',
+    status: 'em_avaliacao',
+    created_at: '2026-06-01T00:00:00Z',
+    feedback_rejeicao: null,
+    data_decisao_final: null,
+  }
+
+  it('liberado e pendente: o card está no cartão e o botão abre a prova, não a vaga', () => {
+    mocks.statusRaven = { liberado: true, registrado: false }
+    mocks.candidaturasData = { data: [emDecisao] }
+    renderDashboard()
+
+    expect(screen.getByTestId('raven-candidato-card')).toHaveTextContent(
+      'Raciocínio lógico (Matrizes)',
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Fazer a avaliação/ }))
+    expect(mocks.navigateMock).toHaveBeenCalledWith('/candidato/avaliacao-raciocinio/cand-raven')
+    expect(mocks.navigateMock).not.toHaveBeenCalledWith('/vagas/vaga-9')
+  })
+
+  it('concluído: o painel não convida (o card some)', () => {
+    mocks.statusRaven = { liberado: true, registrado: true }
+    mocks.candidaturasData = { data: [emDecisao] }
+    renderDashboard()
+
+    expect(screen.queryByTestId('raven-candidato-card')).not.toBeInTheDocument()
   })
 })
 

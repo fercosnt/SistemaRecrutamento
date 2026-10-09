@@ -18,6 +18,7 @@ import { MemoryRouter } from 'react-router-dom'
 const mocks = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   candidaturasData: { data: [] as unknown[] },
+  statusRaven: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -53,6 +54,16 @@ vi.mock('@/features/vagas/hooks/useRetirarCandidatura', () => ({
   useRetirarCandidatura: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }))
 
+// 51-07 (JORN-43 · D-13) — o card passou a montar `RavenCandidatoCard`, que possui
+// `useStatusRavenCandidato` (useQuery). Mockado pelo MESMO motivo e no MESMO idioma do
+// `useRetirarCandidatura` acima: o mock é do HOOK, nunca do componente — o card real continua
+// montando dentro do cartão, e é a montagem que estes testes vigiam.
+// Aqui o hook diz SEMPRE «liberado e pendente»: quem suprime o card numa encerrada tem de ser o
+// portão de encerrada do próprio card (e sem nem consultar — o hook não pode ser chamado).
+vi.mock('@/features/avaliacao-cognitiva/hooks/useStatusRavenCandidato', () => ({
+  useStatusRavenCandidato: (id: string) => mocks.statusRaven(id),
+}))
+
 import { DashboardCandidatoPage } from '../DashboardCandidatoPage'
 
 const base = {
@@ -74,7 +85,10 @@ function renderCom(status: string, extra: Record<string, unknown> = {}) {
   )
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  mocks.statusRaven.mockReturnValue({ data: { liberado: true, registrado: false }, error: null })
+})
 
 describe('cartão de candidatura encerrada', () => {
   it('rejeitada no knockout: sem estimativa de prazo e sem «Próximo passo»', () => {
@@ -95,9 +109,23 @@ describe('cartão de candidatura encerrada', () => {
     expect(screen.queryByText(/Próximo passo/i)).not.toBeInTheDocument()
   })
 
+  // 51-07 (JORN-43 · D-13): a liberação do Raven pode continuar vigente depois que a candidatura
+  // acaba (medido: `2ce20fbf`, finalizada). O convite não pode aparecer, e nem se consulta.
+  it.each(['rejeitado', 'finalizado'])(
+    '%s com o Raven liberado e pendente: sem o card do Raciocínio lógico, e sem consultar',
+    (status) => {
+      renderCom(status)
+      expect(screen.queryByTestId('raven-candidato-card')).not.toBeInTheDocument()
+      expect(mocks.statusRaven).not.toHaveBeenCalled()
+    },
+  )
+
   it('em andamento (aguardando_resposta): a estimativa e o próximo passo CONTINUAM', () => {
     renderCom('aguardando_resposta')
     expect(screen.getByText(/retorno da triagem em até 48 horas/i)).toBeInTheDocument()
     expect(screen.getByText(/Próximo passo/i)).toBeInTheDocument()
+    // 51-07: em andamento, com o Raven liberado e pendente, o convite aparece no cartão.
+    expect(screen.getByTestId('raven-candidato-card')).toBeInTheDocument()
+    expect(mocks.statusRaven).toHaveBeenCalledWith('cand-ko')
   })
 })
