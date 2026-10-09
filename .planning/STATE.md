@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 51 planned: 17 plans / 13 waves (51-01..51-17), checker passed after 5 revision rounds (aa0748d8); CONTEXT D-30..D-38 = operator answers to research fact corrections. Proximo: /gsd-execute-phase 51"
-last_updated: "2026-10-08T23:44:22.984Z"
-last_activity: 2026-10-08
-state_head: 2ee5301f62c738b4d1d3b3696d27bd960a384381
+stopped_at: Completed 51-01-PLAN.md
+last_updated: "2026-10-09T00:08:30.190Z"
+last_activity: 2026-10-09
+state_head: e9ed52541c16e9073c76b1c2eb9afd83309d82e2
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 147
+  completed_plans: 148
   percent: 90
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "plan-phase 51 — 17 planos (Wave A cliente/texto 51-01..05; Wave B banco: 51-06 raven, 51-08..17 JORN-42 opcao (b)); research + 12 correcoes de fato respondidas (D-30..D-38); checker: 0 blocker / 0 warning"
+last_activity_desc: "51-01 concluido (JORN-44, JORN-46): Ir ao painel na lista, Voltar as avaliacoes nas provas, nomes D-15 em 3 telas, guarda por forma com mordida; publicado c84715ce, marcador no index-_4uQIozX.js de PROD. Proximo: 51-02"
 ---
 
 # Project State
@@ -992,6 +992,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P14 | ~6min | 3 tasks | 3 files |
 | Phase 44 P15 | ~9min | 3 tasks | 3 files |
 | Phase 44 P16 | ~80min (inclui duas esperas do operador) | 3 tasks | 13 files |
+| Phase 51 P01 | 20 min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -1395,6 +1396,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 44]: 44-21: o item do 44-20 em deferred-items (rodape «undefined» com versao_allowlist ausente) classificado WR-02 — viola a E4 da UI-SPEC (nunca null cru), inalcancavel com a EF de hoje; conserto sugerido sem copy nova: `invocarExportMeusDados` recusa resposta sem versao (SERVER_ERROR)
 - [Phase 44]: 44-22: CR-01-bis publicado com «publicar» do operador (sem disposicao de achado => os 10 da revisao do 44-21 ficam open em 44-REVIEW-DISPOSITION-pos-CR01bis.md) — push dddf7ac9 em 2026-10-07T20:51:34Z apos 5 recusas 500 do GitHub (15:09-15:12Z) e sonda de tag descartavel (20:47Z, aceita e apagada); conferido no publicado (index-7NrDustL.js, 49 JS), EF v6; a caixa do 44-22 e o 22/22 da Phase 44 so viram depois do U1
 - [Phase 44]: 44-22: U1 ok — o operador fez UM pedido acesso real com a conta de teste depois do push (gerado_em 2026-10-07T21:17:52.829Z > T0 20:51:34Z); o script U1 do plano comparou o .json e o .html baixados com a frase de HEAD (igualdade exata, versao 1.4.0, rodape 1.4.0, sem frase neutra, sem trecho antigo) imprimindo so booleanos; PROD so leitura: 1 pedido acesso desde T0, 1 atendido. A frase do CR-01-bis chegou ao arquivo de quem pede, nao so ao bundle
+- [Phase 51]: 51-01: o toast LOCKED do envio (redacao, SJT MC, caso pratico, Big Five) e o mesmo estado Sua etapa avancou do D-37 e vai direto a /candidato/dashboard; envio bem-sucedido continua voltando a lista
+- [Phase 51]: 51-01: ProvaCognitivaScreen — 42501 no envio vira estado proprio (Sua etapa avancou + Ir ao painel); antes caia em Prova registrada, que reconhecia envio recusado
+- [Phase 51]: 51-01: sem onBackToPanel o AvaliacaoShell nao renderiza Ir ao painel (nunca botao inerte); rotulos por tela em COPY_NAV local para evitar ciclo pelo barril components/
 
 ### Roadmap Evolution
 
@@ -1729,9 +1733,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-08T02:52:25.274Z
-Stopped at: Phase 51 context gathered
-Resume file: .planning/phases/51-consertos-da-jornada-bloco-3/51-CONTEXT.md
+Last session: 2026-10-09T00:08:07.399Z
+Stopped at: Completed 51-01-PLAN.md
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
