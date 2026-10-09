@@ -284,7 +284,7 @@ DECLARE
   v_user  uuid;  v_email text;
   v_tit   uuid;  v_int uuid;  v_ctit uuid;  v_cand uuid;
   ids     jsonb := '{}'::jsonb;
-  vagas   jsonb := '{}'::jsonb;
+  v_vgs   jsonb := '{}'::jsonb;
   fx      jsonb := '{}'::jsonb;
   c_tri uuid; c_df uuid; c_ko uuid; c_arq uuid; c_mant uuid; c_400 uuid; c_ema uuid; c_fin uuid;
   c_ret uuid; c_rd uuid; c_esp uuid; c_rev uuid; c_k uuid;
@@ -347,7 +347,7 @@ BEGIN
       RETURNING id INTO v_cid;
       UPDATE public.candidaturas SET status = parts[3]::public.status_candidatura WHERE id = v_cid;
       ids   := ids   || jsonb_build_object(parts[1], v_cid);
-      vagas := vagas || jsonb_build_object(parts[1], v_vaga);
+      v_vgs := v_vgs || jsonb_build_object(parts[1], v_vaga);
     END LOOP;
     c_tri := (ids ->> 'tri')::uuid;  c_df  := (ids ->> 'df')::uuid;   c_arq := (ids ->> 'arq')::uuid;
     c_mant := (ids ->> 'mant')::uuid; c_400 := (ids ->> 'c400')::uuid; c_ema := (ids ->> 'ema')::uuid;
@@ -364,8 +364,8 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', true);
 
     -- D-04: a vaga da candidatura `arq` é arquivada DEPOIS da rejeição.
-    UPDATE public.vagas SET status = 'arquivada' WHERE id = (vagas ->> 'arq')::uuid;
-    m := m || jsonb_build_object('arq_vaga', (SELECT v.status::text FROM public.vagas v WHERE v.id = (vagas ->> 'arq')::uuid));
+    UPDATE public.vagas SET status = 'arquivada' WHERE id = (v_vgs ->> 'arq')::uuid;
+    m := m || jsonb_build_object('arq_vaga', (SELECT v.status::text FROM public.vagas v WHERE v.id = (v_vgs ->> 'arq')::uuid));
 
     -- D-05: a rejeição de `c400` tem 400 dias (envelhece SÓ as linhas desta candidatura).
     UPDATE public.historico_candidatura SET criado_em = now() - interval '400 days' WHERE candidatura_id = c_400;
@@ -375,7 +375,7 @@ BEGIN
     v_vko := gen_random_uuid();  v_pko := gen_random_uuid();  v_opn := gen_random_uuid();
     INSERT INTO public.vagas (id, titulo, slug, status)
     VALUES (v_vko, '[SMOKE P51B] ko', 'p51b-smoke-' || replace(v_vko::text, '-', ''), 'ativa');
-    vagas := vagas || jsonb_build_object('ko', v_vko);
+    v_vgs := v_vgs || jsonb_build_object('ko', v_vko);
     INSERT INTO public.perguntas_formulario (id, vaga_id, bloco, ordem, texto_pergunta, tipo_resposta, opcoes_resposta)
     VALUES (v_pko, v_vko, 'valores', 1, '[SMOKE P51B] Pergunta eliminatoria', 'single_choice',
             jsonb_build_array(jsonb_build_object('id', v_opn, 'texto', 'Nao'),
@@ -686,7 +686,7 @@ BEGIN
   PERFORM set_config('request.jwt.claims', '', false);
   -- FORA da subtransação: um set_config dentro dela volta junto com o ROLLBACK (até o de sessão).
   fx := jsonb_build_object('candidaturas', coalesce((SELECT jsonb_agg(v) FROM jsonb_each_text(ids) e(k, v)), '[]'::jsonb),
-                           'vagas', coalesce((SELECT jsonb_agg(v) FROM jsonb_each_text(vagas) e(k, v)), '[]'::jsonb));
+                           'vagas', coalesce((SELECT jsonb_agg(v) FROM jsonb_each_text(v_vgs) e(k, v)), '[]'::jsonb));
   PERFORM set_config('smoke51b.fixtures', fx::text, false);
 
   IF v_err IS NOT NULL THEN
@@ -738,7 +738,7 @@ BEGIN
                      has_function_privilege('anon', p.oid, 'EXECUTE'), has_function_privilege('authenticated', p.oid, 'EXECUTE'))
       INTO v_def
       FROM pg_catalog.pg_proc p WHERE p.oid = pg_catalog.to_regprocedure(v_fn);
-    IF v_def IS DISTINCT FROM 'true|true|false|true' THEN
+    IF v_def IS DISTINCT FROM 't|t|f|t' THEN
       v_bad := v_bad || format('%s=%s; ', v_fn, coalesce(v_def, '<ausente>'));
     END IF;
   END LOOP;
@@ -746,7 +746,7 @@ BEGIN
     SELECT concat_ws('|', p.prosecdef, has_function_privilege('anon', p.oid, 'EXECUTE'), has_function_privilege('authenticated', p.oid, 'EXECUTE'))
       INTO v_def
       FROM pg_catalog.pg_proc p WHERE p.oid = pg_catalog.to_regprocedure(v_fn);
-    IF v_def IS DISTINCT FROM 'true|false|false' THEN
+    IF v_def IS DISTINCT FROM 't|f|f' THEN
       v_bad := v_bad || format('%s=%s; ', v_fn, coalesce(v_def, '<ausente>'));
     END IF;
   END LOOP;
@@ -1108,7 +1108,7 @@ BEGIN
      OR jf -> 'rev' ->> 'status' IS DISTINCT FROM 'rejeitado' OR jf -> 'rev' ->> 'veredito' IS DISTINCT FROM 'revertida' THEN
     RAISE EXCEPTION 'P51B FAIL (j): a fixture de decisao_final nao tem a forma pretendida (%) — a clausula seria vacua', jf;
   END IF;
-  IF coalesce(m -> 'j_rd_est' ->> 'st', '<nao rodou>') <> 'ACEITO' OR (m -> 'j_rd_est' -> 'ret') IS NOT NULL
+  IF coalesce(m -> 'j_rd_est' ->> 'st', '<nao rodou>') <> 'ACEITO' OR coalesce(jsonb_typeof(m -> 'j_rd_est' -> 'ret'), 'null') <> 'null'
      OR coalesce(m ->> 'j_rd_sol', '<nao rodou>') NOT LIKE 'P0002:%' THEN
     RAISE EXCEPTION 'P51B FAIL (j): rejeicao por registrar_decisao -> estado «%» %, pedido «%» (esperado NULL e P0002 — o dono e o ciclo de decisao_final; dois caminhos para a mesma rejeicao)',
       m -> 'j_rd_est' ->> 'st', coalesce((m -> 'j_rd_est' -> 'ret')::text, '<null>'), m ->> 'j_rd_sol';
