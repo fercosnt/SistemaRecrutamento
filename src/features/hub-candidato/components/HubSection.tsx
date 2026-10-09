@@ -10,7 +10,11 @@
  *   2. error        → "Não foi possível carregar esta seção." / "Tente recarregar a página."
  *   3. futuro       → "Etapa ainda não iniciada" / "Esta etapa será liberada quando o candidato avançar no funil."
  *   4. sem_dados    → "Sem dados nesta etapa" / "Nenhum registro foi gerado ainda para esta etapa."
- *   5. com_dados    → render the real `children` (service-backed content)
+ *   5. nao_se_aplica → "Não se aplica a esta vaga" / "Esta vaga não inclui este instrumento."
+ *                      (51-03 / D-16 — DESENHO da vaga, não falta de dado; marcador
+ *                      `hub-secao-nao-se-aplica`. Quem decide o estado é o chamador, e só com
+ *                      evidência positiva na configuração da vaga — ver `instrumentosDaVaga`.)
+ *   6. com_dados    → render the real `children` (service-backed content)
  *
  * It carries NO hardcoded numbers/percentages of its own — the verbatim empty-state copy
  * is the D-07 "never invent data" guarantee that the 17-01 hubEmptyState RED spec pins.
@@ -32,7 +36,7 @@ import { AsyncState } from '@/components/ui/AsyncState'
  * contract); `isLoading` / `isError` are convenience flags that take precedence when set
  * so a caller can map a TanStack-Query `{ isLoading, isError }` directly.
  */
-export type HubSectionEstado = 'futuro' | 'sem_dados' | 'com_dados'
+export type HubSectionEstado = 'futuro' | 'sem_dados' | 'nao_se_aplica' | 'com_dados'
 
 export interface HubSectionProps {
   /** Section heading (e.g. "Entrevista", "Avaliação Assíncrona"). */
@@ -43,7 +47,7 @@ export interface HubSectionProps {
   isLoading?: boolean
   /** When true, the section read failed → error copy (overrides `estado`). */
   isError?: boolean
-  /** Service-backed content, rendered only when `estado === 'com_dados'`. */
+  /** Service-backed content, rendered only when `estado === 'com_dados'` (never under `nao_se_aplica`). */
   children?: ReactNode
 }
 
@@ -62,6 +66,11 @@ const COPY = {
     heading: 'Sem dados nesta etapa',
     body: 'Nenhum registro foi gerado ainda para esta etapa.',
   },
+  // 51-03 / D-16: «sem dados» sugere FALTA; o que a vaga nunca aplicou é DESENHO.
+  nao_se_aplica: {
+    heading: 'Não se aplica a esta vaga',
+    body: 'Esta vaga não inclui este instrumento.',
+  },
   erro: {
     heading: 'Não foi possível carregar esta seção.',
     body: 'Tente recarregar a página.',
@@ -74,6 +83,10 @@ export function HubSection({ titulo, estado, isLoading, isError, children }: Hub
   // verbatim funnel copy stays HubSection-owned while the rendering mechanics are shared.
   const isEmpty = estado === 'futuro' || estado === 'sem_dados'
   const emptyCopy = estado === 'futuro' ? COPY.futuro : COPY.sem_dados
+  // 51-03 / D-16 — `nao_se_aplica` é o 3º estado vazio, com cópia própria. Vai pelo slot de
+  // conteúdo do <AsyncState> (e não pelo slot vazio, que não aceita marcador) para que
+  // carregando/erro continuem tendo precedência: uma falha de leitura nunca vira «não se aplica».
+  const naoSeAplica = estado === 'nao_se_aplica'
 
   return (
     <Glass variant="dark" blur="lg" className="rounded-xl p-6">
@@ -96,7 +109,19 @@ export function HubSection({ titulo, estado, isLoading, isError, children }: Hub
           empty: { heading: emptyCopy.heading, body: emptyCopy.body },
         }}
       >
-        {children}
+        {naoSeAplica ? (
+          <div
+            data-testid="hub-secao-nao-se-aplica"
+            className="flex flex-col items-center justify-center gap-2 py-12 text-center"
+          >
+            <p className="text-base font-semibold text-white md:text-lg">
+              {COPY.nao_se_aplica.heading}
+            </p>
+            <p className="max-w-md text-sm text-white/70">{COPY.nao_se_aplica.body}</p>
+          </div>
+        ) : (
+          children
+        )}
       </AsyncState>
     </Glass>
   )

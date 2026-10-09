@@ -412,15 +412,24 @@ export function HubCandidatoRH() {
             renderiza filhos em `com_dados`, e o caminho tem de existir em qualquer etapa. */}
         {candidaturaId ? <AvaliacoesRespondidasBloco candidaturaId={candidaturaId} /> : null}
 
-        {/* Avaliação Cognitiva — contextual cognitive band (tipo='cognitivo') */}
+        {/* Prova cognitiva — o instrumento TEXTUAL liberado pela vaga (`aplica_cognitivo`),
+            banda contextual `tipo='cognitivo'`. 51-03 / D-15: até aqui o título era «Avaliação
+            Cognitiva», o mesmo nome genérico que servia ao Raven logo abaixo — o RH não tinha
+            como distinguir os dois na mesma tela. Agora: «Prova cognitiva» aqui, «Raciocínio
+            lógico (Matrizes)» no bloco do Raven. D-16: se a vaga não aplica a prova, a seção
+            diz «Não se aplica a esta vaga» em vez de «Sem dados nesta etapa». */}
         <HubSection
-          titulo="Avaliação Cognitiva"
+          titulo="Prova cognitiva"
           isLoading={entrevistaQuery.isLoading}
           isError={entrevistaQuery.isError}
-          estado={estadoDaSecao('avaliacao_assincrona', etapaAtual, cognitivoScores.length > 0)}
+          estado={
+            contexto?.aplica_cognitivo === false
+              ? 'nao_se_aplica'
+              : estadoDaSecao('avaliacao_assincrona', etapaAtual, cognitivoScores.length > 0)
+          }
         >
           <p className="text-sm text-white/80">
-            Banda cognitiva contextual registrada — disponível no workspace de entrevista.
+            Banda da prova cognitiva registrada — disponível no workspace de entrevista.
           </p>
         </HubSection>
 
