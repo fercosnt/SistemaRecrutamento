@@ -41,7 +41,9 @@ export class TriagemServiceError extends Error {
       | 'DATABASE_ERROR'
       | 'MIXED_VAGA'
       | 'NOT_FOUND'
-      | 'UNAUTHORIZED',
+      | 'UNAUTHORIZED'
+      | 'FORBIDDEN'
+      | 'FORBIDDEN_DECISOR_REVERTIDO',
     public details?: unknown,
   ) {
     super(message)
@@ -614,10 +616,46 @@ export async function rejeitarCandidatura(
   })
 
   if (error) {
+    // 51-16 (WR-02 do 51-REVIEW-PORTAO-2) — o padrão do 48-15 em `registrar_decisao`: a DECISÃO de
+    // recusar é do servidor (a migration 20261008000005 faz `rejeitar_candidatura` levantar 42501 para
+    // o decisor revertido, venha a reversão do registro do pedido ou do ciclo da decisão final); aqui só
+    // se TRADUZ. O papel não autorizado recebe o MESMO SQLSTATE (`forbidden`), então é a marca `D-23` na
+    // mensagem que separa as duas recusas — nunca o código só. A recusa D-23 é permanente para esta
+    // pessoa: a cópia diz quem pode seguir, sem «Tente novamente».
+    const code = (error as { code?: string }).code ?? ''
+    if (code === '42501') {
+      const d23 = (error.message ?? '').includes('D-23')
+      throw new TriagemServiceError(
+        d23 ? REJEICAO_ERRO_COPY.FORBIDDEN_DECISOR_REVERTIDO : REJEICAO_ERRO_COPY.FORBIDDEN,
+        d23 ? 'FORBIDDEN_DECISOR_REVERTIDO' : 'FORBIDDEN',
+        error,
+      )
+    }
     throw new TriagemServiceError(
       `Não foi possível rejeitar o candidato: ${error.message}`,
       'DATABASE_ERROR',
       error,
     )
   }
+}
+
+/**
+ * Cópia pt-BR das recusas de `rejeitar_candidatura` (51-16, espelho do `DECISAO_ERRO_COPY` do 48-15) —
+ * a frase do toast. O sistema não decide nada aqui: só diz ao RH o que o servidor recusou e quem pode
+ * seguir. `GENERICO` é a cópia de antes, byte a byte.
+ */
+export const REJEICAO_ERRO_COPY = {
+  FORBIDDEN_DECISOR_REVERTIDO:
+    'Você registrou a rejeição que foi revertida na revisão. Uma nova rejeição deste caso precisa ser registrada por outra pessoa do RH.',
+  FORBIDDEN: 'Você não tem permissão para rejeitar esta candidatura.',
+  GENERICO: 'Não foi possível rejeitar o candidato. Tente novamente.',
+} as const
+
+/** Texto a mostrar ao RH para um erro de `rejeitarCandidatura` (toast). */
+export function mensagemErroRejeitarCandidatura(erro: unknown): string {
+  if (erro instanceof TriagemServiceError) {
+    if (erro.code === 'FORBIDDEN_DECISOR_REVERTIDO') return REJEICAO_ERRO_COPY.FORBIDDEN_DECISOR_REVERTIDO
+    if (erro.code === 'FORBIDDEN') return REJEICAO_ERRO_COPY.FORBIDDEN
+  }
+  return REJEICAO_ERRO_COPY.GENERICO
 }

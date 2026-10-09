@@ -7,7 +7,8 @@
  * toast de confirmação + invalidação das TRÊS árvores de query (`candidaturasKeys.all`,
  * `vagasKeys.all`, `triagemKeys.all`) para que a lista/painel RH reflita o novo status
  * (staleTime + sem refetchOnWindowFocus mostrariam o status antigo). Em erro: toast com
- * a cópia pt-BR do 31-UI-SPEC.
+ * a cópia pt-BR do 31-UI-SPEC — ou, na recusa D-23 do servidor (51-16), o motivo real
+ * (`mensagemErroRejeitarCandidatura`).
  *
  * Copiado verbatim de `useRegistrarDecisao` (mesma razão da invalidação — nota MED-02).
  *
@@ -19,6 +20,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
+  mensagemErroRejeitarCandidatura,
   rejeitarCandidatura,
   type MotivoRejeicaoRh,
 } from '../services/triagemService'
@@ -56,8 +58,10 @@ export function useRejeitarCandidatura() {
       // terminal. Invalidar a árvore da entrevista mantém o Hub coerente.
       queryClient.invalidateQueries({ queryKey: entrevistaKeys.all })
     },
-    onError: () => {
-      toast.error('Não foi possível rejeitar o candidato. Tente novamente.')
+    onError: (erro) => {
+      // 51-16 (padrão do 48-15): a recusa D-23 do servidor (decisor revertido) diz o motivo real e
+      // quem pode seguir — não «Tente novamente», que levaria o RH a repetir uma recusa permanente.
+      toast.error(mensagemErroRejeitarCandidatura(erro))
     },
   })
 }
