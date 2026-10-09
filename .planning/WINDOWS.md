@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 33
+open_count: 34
 waived_count: 10
 fixed_count: 45
-total_count: 88
-last_updated: 2026-10-09T00:05:57.950Z
+total_count: 89
+last_updated: 2026-10-09T04:02:33.586Z
 ---
 
 # Broken Windows Ledger
@@ -103,6 +103,7 @@ last_updated: 2026-10-09T00:05:57.950Z
 | 86 | 49 | deviation | docs/compliance/pii-inventory.yaml |  | analise_candidato_vaga continua em tabelas_sem_pii_titular (coberta em bloco pela R4) enquanto o motor passou a gastar um passo inteiro REMOVENDO texto livre do titular dela (49-29). O inventario afirma o contrario do que o motor faz. Nenhum dos quatro check:* reprova — medido. O movimento pendente e dar-lhe secao em tabelas:, que o 49-17 nomeou como do 49-29 mas que o files_modified do 49-29 nao inclui: ele muda tres artefatos gerados e obriga a redeploy das duas EFs. | open |  | 2026-09-25T04:45:57.165Z |  |
 | 87 | 50 | unmet-truth | supabase/tests/p50_acesso_recrutador_smoke.sql |  | 50-01 BORDA vacua: clausula (f) so julga mortas/rascunhos se n_borda > 0; PROD 2026-10-05 tem 0 candidaturas com deleted_at/is_rascunho, entao 'rh ativo nao ve morta/rascunho' nao foi provado por execucao | open |  | 2026-10-05T18:10:28.492Z |  |
 | 88 | 51 | unrun-verify | e2e/prova-cognitiva.spec.ts | 62 | 51-01: PC-01/PC-02 heading «Prova cognitiva» e botão «Voltar às avaliações» editados sem execução (spec gated em E2E_REAL_LOGIN + candidaturas semeadas) | open |  | 2026-10-09T00:05:57.950Z |  |
+| 89 | 51 | unmet-truth | docs/compliance/sql/gen-recibo-exclusao.cjs | 296 | 51-05 EDGE-PROBE JORN-49: o recibo (dados_de_cadastro, passo tombstone_candidato) promete apagar a disponibilidade, e o motor anonimizar_candidato (md5 46248544...) nao toca a tabela disponibilidade; em PROD 2026-10-09, 2 de 2 titulares anonimizados mantem a linha com valor. Pre-existente; conserto = decisao do operador (motor apaga, ou linha vai para «mantém» com base legal) | open |  | 2026-10-09T04:02:33.586Z |  |
 
 ````json
 [
@@ -1204,6 +1205,19 @@ last_updated: 2026-10-09T00:05:57.950Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-10-09T00:05:57.950Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 89,
+    "kind": "unmet-truth",
+    "phase": "51",
+    "file": "docs/compliance/sql/gen-recibo-exclusao.cjs",
+    "line": 296,
+    "description": "51-05 EDGE-PROBE JORN-49: o recibo (dados_de_cadastro, passo tombstone_candidato) promete apagar a disponibilidade, e o motor anonimizar_candidato (md5 46248544...) nao toca a tabela disponibilidade; em PROD 2026-10-09, 2 de 2 titulares anonimizados mantem a linha com valor. Pre-existente; conserto = decisao do operador (motor apaga, ou linha vai para «mantém» com base legal)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-09T04:02:33.586Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
