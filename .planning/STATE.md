@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: Completed 51-10-PLAN.md
-last_updated: "2026-10-09T06:03:45.387Z"
+stopped_at: Completed 51-11-PLAN.md
+last_updated: "2026-10-09T06:14:51.507Z"
 last_activity: 2026-10-09
-state_head: 4ab66ccaf2c7577ff9026b68f2228d691d4d6ef8
+state_head: c1a3b09b1b467e3a03daf4971de83c05134fa1bf
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 157
+  completed_plans: 158
   percent: 96
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-10 concluido (fila do RH com as tres origens, NADA aplicado/publicado/empurrado): migration 20261008000003 (listar_revisoes_decisao DROP+CREATE com origem/pedido_id, contar nas duas fontes, ler_contexto_knockout_revisao D-11, funil_kpis D-35, varrer_prazos_reabertura A3) so em ensaio; smoke51b 17/17 vistas=igual; p50 (k) com desempate e (i) com MAPA estendido 13/13; 29/29 mutacoes mordem; desfazer da P50 recusa OBSOLETO; ledger segue em 20261008000001. Proximo: 51-11"
+last_activity_desc: "51-11 concluido (notificar-candidato, NADA aplicado/publicado/empurrado): resposta de revisao le o veredito do proprio pedido (pedido_id -> ciclo por epoch ARREDONDADO, Math.round medido no PG 17.6 -> decisao_final); pedido nao achado ou erro = neutro; e-mail de rejeicao com COPY_DIREITO_REVISAO e link da explicacao via montarUrlLogin (D-09); deno 128/128, 15 casos mordem a base, mutacao floor morde; ledger segue em 20261008000001. Proximo: 51-12"
 ---
 
 # Project State
@@ -1002,6 +1002,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 51 P08 | 27min | 2 tasks | 3 files |
 | Phase 51 P09 | 16min | 2 tasks | 1 files |
 | Phase 51 P10 | 22min | 3 tasks | 5 files |
+| Phase 51 P11 | 15min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -1424,6 +1425,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 51]: 51-08: MB6 redeclarada (f)->(b) (etapa_reabertura gravada no pedido); MB13 (c) e MB14 (g) acrescentadas; portao 20/20; para o 51-16: ASSUMPTION rejeicao RH sem ator -> P0002 (populacao 0), 3 marcas descartada_* dos knockouts de teste, rejeitado_por/respondida_por sem FK para auth.users
 - [Phase 51]: 51-09: portao do JORN-42 e programa testado (scripts/p51_portao.cjs, auto-teste 58 casos, 22/22 mutacoes mordem); a revisao e conferida ANTES do pin; acrescimos fail-closed (plano ausente no reviewed_head, plano sujo, campos de frontmatter repetidos, revisoes anteriores reescritas, --pin no modo revisao)
 - [Phase 51]: 51-10: fila do RH = UNION ALL decisao_final + revisao_rejeicao com origem/pedido_id no fim (DROP+CREATE, ACL por diferenca); token inativo segue o contrato P50 (42501 ou vazio); A3 segue o predicado literal (em_espera depois da reabertura bloqueia o alerta — A5 assimetrico, levado ao 51-16)
+- [Phase 51]: 51-11: cicloDoInstante usa Math.round (extract(epoch)::bigint arredonda no PG 17.6, medido) — o Math.floor do plano perderia metade dos pedidos no retry
+- [Phase 51]: 51-11: pedido_id nao achado/de outra candidatura e erro de leitura de revisao_rejeicao = frase neutra, nunca plano B em decisao_final (veredito de outro ciclo)
+- [Phase 51]: 51-11: COPY_DIREITO_REVISAO = revisionIntro literal da pagina de explicacao; urlExplicacao so em evento decisao com desfecho rejeitado, via montarUrlLogin
 
 ### Roadmap Evolution
 
@@ -1758,8 +1762,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T06:03:45.113Z
-Stopped at: Completed 51-10-PLAN.md
+Last session: 2026-10-09T06:14:51.232Z
+Stopped at: Completed 51-11-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
