@@ -27,14 +27,25 @@
 --
 --     node p46apply.cjs run supabase/tests/p45_motor_exclusao_smoke.sql
 --
+-- ⚠⚠ 51-13: ATE O APPLY DO 51-16, ESTE ARQUIVO SO RODA PELO ENSAIO, com
+--    `0002`..`0004` prefixadas — os pins do (C3/i) sao os corpos da `20261008000004`
+--    e a fixture (B25) escreve em `revisao_rejeicao` (`20261008000002`):
+--
+--     node scripts/p51_ensaio.cjs --vistas --migracoes=supabase/migrations/20261008000002_p51_revisao_rejeicao.sql,supabase/migrations/20261008000003_p51_fila_tres_origens.sql,supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql supabase/tests/p45_motor_exclusao_smoke.sql
+--
+--    Rodado por `p46apply run` contra o vivo antes do apply, ele reprova em
+--    `P45M FAIL (baseline)` (sem a tabela) ou em `P45M FAIL (C3/i)` (vivo = 49-29).
+--
 -- O arquivo INTEIRO vai numa UNICA requisicao, e isso e obrigatorio por motivo
 -- MECANICO: `set_config(..., false)` e escopado a SESSAO, entao statements espalhados
 -- por chamadas separadas zerariam o contador `smoke45m.pass` e o RESUMO (z) reprovaria
 -- um run que na verdade passou (licao da P41-05, repetida na P43 e na P44). O
 -- `p46apply run` satisfaz isso por construcao — um arquivo, uma requisicao.
 --
--- GATE VERDE = o contador `smoke45m.pass` bate **38** no RESUMO (z). O gate NAO e
--- "nao levantou excecao": um run parcial acumula < 37 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke45m.pass` bate **39** no RESUMO (z). O gate NAO e
+-- "nao levantou excecao": um run parcial acumula < 39 e o RESUMO reprova ALTO.
+-- ⚠ 51-13: a linha de cima dizia «acumula < 37» com o gate ja em 38 — defasada desde
+--   o 49-29. Corrigida junto com o bump.
 -- Esperado FIXO — nao ha metade adaptativa, nao ha "pelo menos N".
 -- ⚠ O contador subiu de 21 para 23 no plano 45-13: (C7), o guard de INTENCAO (CR-01),
 -- e (B11), o ponteiro reverso de candidaturas (CR-04). Subiu de 23 para 24 no plano
@@ -62,7 +73,13 @@
 -- vaga — `resumo_cv` e `resumo_respostas` viram NULL, `pontos_fortes` e `gaps`
 -- recebem sentinela —, a LINHA e o `score_match` FICAM, a telemetria e o `flags` nao
 -- sao tocados, `entrevista_guias` continua INTACTA, e as analises de outras
--- candidaturas guardam o seu texto. Acrescentar
+-- candidaturas guardam o seu texto. Subiu de 38 para 39 no plano 51-13: (B25), a resposta do revisor no registro novo — o
+-- texto que o revisor ESCREVEU ao responder o pedido de revisao de uma rejeicao que nao e
+-- a decisao final (`revisao_rejeicao.resultado`, JORN-42) sai na exclusao com a MESMA
+-- sentinela de `decisao_final.revisao_resultado`, o pedido NAO respondido continua NULL
+-- (o motor nao inventa revisao), o resto das duas linhas fica, e o plano conta igual ao
+-- motor. A rede de FORMA (C3/ix) cresceu ANTES do re-pin e vive dentro do PASS unico do
+-- (C3); a linha nova do (z) nao incrementa o contador. Acrescentar
 -- bloco sem bumpar este numero transforma uma adicao legitima em reprovacao do RESUMO.
 --
 -- -----------------------------------------------------------------------------
@@ -264,7 +281,13 @@
 --        o seu texto — 23 das 25 linhas vivas de PROD estao fora do escopo, e foi
 --        exatamente um predicado largo demais que o plano 49-29 teve de recusar.
 --        O numero e conferido em TRES fontes (plano, expressao a mao, `'passos'`).
---   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 38.
+--   (B25) 51-13 / JORN-42 — A RESPOSTA DO REVISOR NO REGISTRO NOVO SAI, SEM INVENTAR
+--        REVISAO. `revisao_rejeicao.resultado` do pedido RESPONDIDO recebe a MESMA
+--        sentinela que o motor grava em `decisao_final.revisao_resultado` (comparada
+--        com ela, nunca com literal); o pedido NAO respondido continua NULL; origem,
+--        etapas, veredito, autor, datas e prazo ficam; e o plano conta igual ao motor.
+--        Cinco sub-rotulos: B25/fixture, /respondido, /nao_respondido, /intactas, /plano.
+--   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 39.
 --        ⚠ Esta linha dizia «FIXO em 25» ate 2026-09-23 e o gate ja era 30 desde o
 --        plano 49-14: o numero vivia em TRES lugares (aqui, o «GATE VERDE» do topo,
 --        e o `v_esperado` do bloco (z)) e so dois foram bumpados. Um registro
@@ -338,19 +361,54 @@
 --      que este gate existe para fechar: passaria a haver DUAS copias do predicado
 --      no repositorio, e a segunda envelheceria em silencio.
 --
---   valor  : 6f2ef83664944b9a39c7d495a49ab8f1   (plano_exclusao_titular — length: 33716)
---   valor  : 1d8f96c8f21a755ded0505a0b652113a   (anonimizar_candidato   — length: 78301)
+--   valor  : 0a4996feea738f7cfd25feda0ecd7904   (plano_exclusao_titular — 35 921 chars / 37 222 octetos)
+--   valor  : a68e4a6a47d9482f75d3326a8bf2b3e4   (anonimizar_candidato   — 89 610 chars / 91 972 octetos)
+--   ⚠⚠ TROCADOS no plano 51-13 (migration `20261008000004`, JORN-42), PINADOS DO
+--     ARQUIVO ANTES DO APPLY — nunca lidos do catalogo. Passam a vigorar em PROD no
+--     apply do 51-16, cuja corrida ao vivo deste arquivo e a conferencia cruzada
+--     vivo × arquivo; ate la, o (C3/i) os confere no ENSAIO com a `0004` prefixada.
+--     Os que estas duas linhas guardavam ate o 51-13 eram os do 49-21
+--     (`6f2ef836…` / `1d8f96c8…`) — o cabecalho ficou uma geracao atras durante o
+--     49-29, cujos pins (`35d45141…` / `46248544…`) o `DO $c3$` ja usava e esta
+--     PROVENIENCIA nunca registrou. Os tres estao no HISTORICO DOS PINS abaixo.
 --   ⚠ TROCADOS no plano 49-21 (migration `20260923000001`, D-69). Os anteriores eram
 --     `f86cb2b1…` / `0d16c0d8…` (49-20). A rede de FORMA cresceu ANTES da troca, no
 --     MESMO commit: (C3/vii), quatro clausulas. Re-pin sem rede e carimbar o que
 --     estiver la.
 --   origem : corpo entre os dois delimitadores NOMEADOS de cifrao
 --            (`$plano_exclusao_titular$` e `$anonimizar_candidato$`) em
+--            `supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql`
+--            — ⚠ OS DOIS MUDARAM DE ARQUIVO NO 51-13 (antes: 49-29, 49-21, 49-20,
+--            49-14, 46-04). Os corpos da `0004` foram EXTRAIDOS do
+--            `20260923000002_p49_motor_desidentifica_analises.sql` pelo PAR de
+--            `$function$` (1o = motor, 2o = plano), conferidos em TRES fontes (md5
+--            vivo = md5 do arquivo = pins do 49-29) e editados por ancora unica.
+--            ⚠ O 49-29 usava `$function$` nos dois corpos e por isso a origem dele
+--            se extraia por PAR, nao por nome; a `0004` volta aos nomeados.
+--            Ate o 49-29 a origem era:
 --            — ⚠ OS DOIS MUDARAM DE ARQUIVO NO 49-21 (antes: 49-20, 49-14, 46-04) —
 --            `supabase/migrations/20260923000001_p49_motor_respostas_sjt.sql`
 --            (cujos corpos foram EXTRAIDOS do arquivo anterior,
 --             `20260922000013_p49_motor_respostas_e_producoes.sql`, conferidos por
 --             md5 contra o vivo ANTES da edicao e editados por ancora unica)
+--
+-- ⚠⚠ O QUE MUDOU NO CORPO NO 51-13 (migration `20261008000004`, JORN-42):
+--    UM passo dentro de `tombstone_decisao_final`, DEPOIS do par decisao_final ->
+--    decisao_final_historico (cuja ordem e o mecanismo do snapshot e nao foi tocada):
+--    `SELECT count(*) INTO v_n_rr_res` dos pedidos do titular com `resultado IS NOT
+--    NULL` e um `UPDATE public.revisao_rejeicao` que raspa `resultado` com a MESMA
+--    sentinela de `decisao_final.revisao_resultado` (copiada do corpo por ancora na
+--    montagem), na forma `CASE WHEN ... IS NULL THEN NULL` — pedido sem resposta
+--    continua NULL —, escopado as candidaturas do titular. A contagem entra como
+--    `revisao_rejeicao_resultado` DENTRO de `tombstone_decisao_final` (retorno e
+--    plano; sem chave de topo nova) e na mensagem do terminador do dry-run; o plano
+--    conta pela MESMA expressao. Nenhum apagamento de linha.
+--    A rede de FORMA (C3/ix) cresceu ANTES do re-pin, no MESMO commit, e foi rodada
+--    VERMELHA contra o corpo vivo do 49-29 (sem o passo) com os pins ainda do 49-29:
+--    `ENSAIO VERMELHO: P45M FAIL (C3/ix): o passo tombstone_decisao_final nao tem
+--    exatamente UM UPDATE public.revisao_rejeicao (achados: 0)` — e nao `DEFEITO DA
+--    REDE`, o que prova que o controle da fronteira passou no corpo real. Vigiado por
+--    FORMA em (C3/ix) e por EXECUCAO em (B25).
 --
 -- ⚠⚠ O QUE MUDOU NO CORPO NO 49-21 (migration `20260923000001`, JORN-36 / D-69):
 --    UM statement (14/14) no MESMO passo `apagar_respostas_e_producoes`, que remove a
@@ -484,6 +542,22 @@
 --
 --   HISTORICO DOS PINS — nao apagar, porque e o que torna a sequencia auditavel:
 --   da para ver que cada pin mudou, quando, e por que, em vez de ter mudado sozinho.
+--   ⚠ 51-13 · AS TRES GERACOES MAIS RECENTES, acrescentadas aqui porque o historico
+--     abaixo parou no 46-04 e a PROVENIENCIA parou no 49-21:
+--     · 49-21 (`20260923000001`, delimitadores nomeados) — plano
+--       6f2ef83664944b9a39c7d495a49ab8f1 (length 33716), motor
+--       1d8f96c8f21a755ded0505a0b652113a (length 78301). VIGOROU EM PROD do apply do
+--       49-21 ate o apply do 49-29 (2026-09-23).
+--     · 49-29 (`20260923000002`, `$function$` nos dois corpos — extracao por PAR) —
+--       plano 35d451416c22e150e48a583d879fe48d (35 368 chars / 36 664 octetos), motor
+--       4624854408950110cbfebc971481145a (86 864 chars / 89 207 octetos). **VIGOROU EM
+--       PROD** desde o apply do 49-29 em 2026-09-23 ate o apply da `20261008000004`
+--       (medido vivo em 2026-10-09). O cabecalho NUNCA a registrou ate o 51-13.
+--     · 51-13 (`20261008000004`, delimitadores nomeados) — plano
+--       0a4996feea738f7cfd25feda0ecd7904 (35 921 chars / 37 222 octetos), motor
+--       a68e4a6a47d9482f75d3326a8bf2b3e4 (89 610 chars / 91 972 octetos). PINADA DO
+--       ARQUIVO ANTES DO APPLY; passa a vigorar no apply do 51-16, cuja corrida ao
+--       vivo do p45 e a conferencia cruzada vivo × arquivo.
 --   ⚠ A COLUNA "vigorou em PROD" E A QUE IMPORTA, e ela distingue duas coisas que
 --   um historico ingenuo confundiria: um pin que esteve APLICADO no banco, e um
 --   pin que existiu apenas no repositorio entre dois commits do mesmo dia.
@@ -526,11 +600,17 @@
 --       D="$"+process.argv[2]+"$", a=f.indexOf(D), b=f.indexOf(D,a+D.length);
 --       console.log(require("crypto").createHash("md5")
 --         .update(f.slice(a+D.length,b),"utf8").digest("hex"))' \
---       supabase/migrations/20260823000006_p46_guard_purga.sql \
+--       supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql \
 --       anonimizar_candidato
---     -- e, para a outra funcao:
---     --   … supabase/migrations/20260823000008_p46_guard_plano.sql \
+--     -- e, para a outra funcao (MESMO arquivo desde o 49-14):
+--     --   … supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql \
 --     --     plano_exclusao_titular
+--     ⚠ 51-13: o `CREATE OR REPLACE` mais recente das duas e o da `20261008000004`.
+--       Recomputar contra a `20260923000002` (49-29, que alem disso usa `$function$`
+--       e nao os nomeados — este comando acharia nada la) ou contra qualquer anterior
+--       devolveria corpos SEM o passo de `revisao_rejeicao` e reprovaria com
+--       diagnostico falso. Ate o 46-04 este comando apontava a `20260823000006` e a
+--       `20260823000008`.
 --     ⚠ OS DOIS ARQUIVOS MUDARAM NO 46-04. Recomputar contra a `20260805000006` ou
 --       a `20260805000005` devolveria os corpos ANTERIORES aos ramos novos e
 --       reprovaria com diagnostico falso — o `CREATE OR REPLACE` mais recente e o
@@ -893,6 +973,22 @@ BEGIN
   PERFORM set_config('smoke45m.acv',      (SELECT count(*) FROM public.analise_candidato_vaga)::text,          false);
   PERFORM set_config('smoke45m.egui',     (SELECT count(*) FROM public.entrevista_guias)::text,                false);
 
+  -- ⚠⚠ 51-13 · `revisao_rejeicao` ENTRA NA NEGATIVA DE RESIDUO: a fixture (B25) cria
+  --    duas linhas nela e o passo novo do motor ESCREVE nela. Desde este plano o arquivo
+  --    EXIGE a `20261008000002` (e a `20261008000004`, que os pins do (C3/i) nomeiam):
+  --    ate o apply do 51-16 ele so roda pelo ensaio com `0002`..`0004` prefixadas, e a
+  --    guarda abaixo diz isso com rotulo em vez de deixar um 42P01 sem rotulo.
+  -- ⚠ `net.http_request_queue` fica FORA, de proposito: o INSERT da fixture enfileira
+  --   pelo `trg_notif_revisao_rejeicao_solicitada`, mas o enqueue e transacional e o
+  --   P45B0 o descarta junto com as duas linhas (cuja ausencia a contagem de
+  --   `revisao_rejeicao` ja prova); e fora do ensaio (`p46apply run`, READ COMMITTED)
+  --   o worker do pg_net consome a fila EM PARALELO — conta-la reprovaria trabalho
+  --   correto (CLAUDE.md §Portoes: fotografia).
+  IF to_regclass('public.revisao_rejeicao') IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (baseline): public.revisao_rejeicao nao existe. Desde o plano 51-13 este arquivo exige a migration 20261008000002 (o registro do pedido de revisao, que a fixture B25 escreve) e a 20261008000004 (o motor que o raspa): antes do apply do 51-16, rodar SO pelo ensaio com 0002..0004 prefixadas — node scripts/p51_ensaio.cjs --migracoes=...0002...,...0003...,...0004... supabase/tests/p45_motor_exclusao_smoke.sql';
+  END IF;
+  PERFORM set_config('smoke45m.rrej',     (SELECT count(*) FROM public.revisao_rejeicao)::text,                false);
+
   RAISE NOTICE 'P45M BASELINE ok: admin e vaga resolvidos; % candidatos / % candidaturas / % auth.users / % historico / % decisao_final / % decisao_final_historico',
     current_setting('smoke45m.candos'), current_setting('smoke45m.cands'), current_setting('smoke45m.users'),
     current_setting('smoke45m.hist'), current_setting('smoke45m.df'), current_setting('smoke45m.dfh');
@@ -1128,6 +1224,23 @@ DECLARE
   --   «a analise foi destruida», e a linha e a prova de que houve avaliacao.
   v_acv_fl_d    text[];  v_acv_st_d    text;     v_acv_sm_d int;
   v_acv_pv_d    text;    v_acv_mo_d    text;     -- ⊕ telemetria (M5)
+  -- (B25) 51-13 / JORN-42 · a resposta do revisor no registro novo de pedido de revisao
+  v_n_hist_b25  int := 0;  -- linhas de historico que a fixture B25 acrescenta (o (B1) as conta)
+  v_b25_hist1   uuid;      -- a linha de historico que a fixture ja cria (reusada)
+  v_b25_hist2   uuid;      -- e a que a B25 acrescenta (historico_rejeicao_id e UNIQUE)
+  v_b25_resp    uuid;      -- o pedido RESPONDIDO
+  v_b25_nresp   uuid;      -- e o NAO respondido
+  v_b25_n_resp  int;       -- nao-vacuidade: pedidos do titular com resposta, ANTES do motor
+  v_b25_n_nresp int;       -- e sem resposta
+  v_b25_res_a1  text;      -- resultado do respondido ANTES
+  v_b25_res_d1  text;      -- e DEPOIS (tem de ser a sentinela do motor, = v_rev_d)
+  v_b25_res_d2  text;      -- resultado do nao respondido DEPOIS (tem de continuar NULL)
+  v_b25_resto_a1 jsonb;    -- a linha inteira menos `resultado`, ANTES e DEPOIS
+  v_b25_resto_d1 jsonb;
+  v_b25_resto_a2 jsonb;
+  v_b25_resto_d2 jsonb;
+  v_b25_pl      int;       -- o que o plano (PASSO 0 do motor) previu
+  v_b25_ps      int;       -- e o que o motor declarou em passos
   v_acv_viva_d  int;                             -- ⊕ a LINHA continua existindo
   -- ⊖ CONTROLE de escopo: analises de OUTRAS candidaturas com texto livre, e que NAO
   --   podem perde-lo. Nao usa fixture — conta as linhas vivas de PROD, como a (B23).
@@ -1648,6 +1761,64 @@ BEGIN
        acertos_por_serie, tempo_total_segundos)
     VALUES (v_candtr, 42, 70.0, 65, 'Médio', '{"A":10,"B":10}'::jsonb, 1800);
 
+    -- (fixture B25) 51-13 / JORN-42 · DOIS PEDIDOS DE REVISAO DE REJEICAO na
+    -- candidatura que a fixture ja cria (sem candidatura nova: outras assercoes contam
+    -- as candidaturas do titular). Um RESPONDIDO (o texto do revisor que o motor tem de
+    -- raspar) e um NAO respondido (o ⊖ que impede o motor de inventar revisao).
+    -- ⚠ Valores lidos dos CHECKs da `20261008000002`, nao supostos: veredito nulo <=>
+    --   resultado nulo <=> respondida_em nulo <=> respondida_por nulo; resultado com
+    --   >= 50 caracteres uteis; origem automatica <=> rejeitado_por nulo, e com
+    --   etapa_reabertura = triagem; sem reabertura (veredito mantida, prazo nulo).
+    -- ⚠ `historico_rejeicao_id` e UNIQUE, entao os dois apontam para duas linhas de
+    --   historico distintas: a que a fixture (4/13) ja cria e UMA nova, com
+    --   `etapa_para = 'triagem'` (o CASE de trg_notif_transicao a deixa passar sem
+    --   dispatch) e ator NULO. ⚠ O (B1) assere que a fixture moveu o historico em
+    --   EXATAMENTE `+ 1`: a linha nova entra na conta por `v_n_hist_b25`, MEDIDO por
+    --   GET DIAGNOSTICS — o (B1) mede a FIXTURE, e continua exato sem constante nova.
+    --   O (B7) nao muda: as duas linhas nascem ANTES de `v_hist_pre`.
+    -- ⚠ O INSERT dos pedidos dispara `trg_notif_revisao_rejeicao_solicitada` (fila do
+    --   pg_net, transacional): o RAISE P45B0 desta subtransacao a descarta junto com as
+    --   duas linhas — a postura do (b) do 51-08. O UPDATE do motor so toca `resultado`,
+    --   entao o trigger de resposta (AFTER UPDATE OF respondida_em) nao dispara.
+    SELECT h.id INTO v_b25_hist1
+      FROM public.historico_candidatura h WHERE h.candidatura_id = v_candtr
+     ORDER BY h.criado_em LIMIT 1;
+
+    INSERT INTO public.historico_candidatura
+      (candidatura_id, etapa_de, etapa_para, ator, criado_em)
+    VALUES
+      (v_candtr, 'inscricao', 'triagem', NULL, now() - interval '12 days')
+    RETURNING id INTO v_b25_hist2;
+    GET DIAGNOSTICS v_n_hist_b25 = ROW_COUNT;
+
+    INSERT INTO public.revisao_rejeicao
+      (candidatura_id, historico_rejeicao_id, origem, etapa_rejeitada, etapa_reabertura,
+       rejeitado_por, solicitada_em, veredito, resultado, respondida_por, respondida_em)
+    VALUES
+      (v_candtr, v_b25_hist1, 'humana_triagem', 'triagem', 'triagem',
+       v_admin_auth, now() - interval '8 days', 'mantida',
+       'SMOKE P45 fixture B25: resposta do revisor ao pedido de revisao da rejeicao, sintetica, com mais de cinquenta caracteres.',
+       v_admin_auth, now() - interval '7 days')
+    RETURNING id INTO v_b25_resp;
+
+    INSERT INTO public.revisao_rejeicao
+      (candidatura_id, historico_rejeicao_id, origem, etapa_rejeitada, etapa_reabertura,
+       rejeitado_por, solicitada_em)
+    VALUES
+      (v_candtr, v_b25_hist2, 'automatica', 'inscricao', 'triagem',
+       NULL, now() - interval '2 days')
+    RETURNING id INTO v_b25_nresp;
+
+    -- nao-vacuidade, MEDIDA aqui (depois do motor o titular ja nao resolve pelo escopo)
+    SELECT count(*) FILTER (WHERE r.resultado IS NOT NULL), count(*) FILTER (WHERE r.resultado IS NULL)
+      INTO v_b25_n_resp, v_b25_n_nresp
+      FROM public.revisao_rejeicao r
+     WHERE r.candidatura_id IN (SELECT c.id FROM public.candidaturas c WHERE c.candidato_id = v_cand);
+    SELECT r.resultado, to_jsonb(r) - 'resultado' INTO v_b25_res_a1, v_b25_resto_a1
+      FROM public.revisao_rejeicao r WHERE r.id = v_b25_resp;
+    SELECT to_jsonb(r) - 'resultado' INTO v_b25_resto_a2
+      FROM public.revisao_rejeicao r WHERE r.id = v_b25_nresp;
+
     -- ── B0: a fixture EXISTE, com enfase nas TRES tabelas em zero linhas ────────
     SELECT count(*) INTO v_n_aicall FROM public.ai_call_logs           WHERE candidato_id = v_cand;
     SELECT count(*) INTO v_n_aidec  FROM public.candidate_ai_decisions WHERE candidato_id = v_cand;
@@ -1946,6 +2117,15 @@ BEGIN
     SELECT d.revisao_resultado INTO v_rev_d
       FROM public.decisao_final d WHERE d.candidatura_id = v_candtr;
 
+    -- ── (B25) 51-13 · ESTADO DEPOIS dos dois pedidos, lidos POR ID ─────────────
+    SELECT r.resultado, to_jsonb(r) - 'resultado' INTO v_b25_res_d1, v_b25_resto_d1
+      FROM public.revisao_rejeicao r WHERE r.id = v_b25_resp;
+    SELECT r.resultado, to_jsonb(r) - 'resultado' INTO v_b25_res_d2, v_b25_resto_d2
+      FROM public.revisao_rejeicao r WHERE r.id = v_b25_nresp;
+    -- lido como o (B16) le: o plano que o MOTOR viu no PASSO 0, e o que ele declarou
+    v_b25_pl := (v_plano_j -> 'tombstone_decisao_final' ->> 'revisao_rejeicao_resultado')::int;
+    v_b25_ps := (v_passos  -> 'tombstone_decisao_final' ->> 'revisao_rejeicao_resultado')::int;
+
     -- ⚠ A METADE QUE IMPORTA: copias IDENTIFICAVEIS sobreviventes no arquivo —
     --   contra os DOIS valores de ANTES (o da linha corrente e o da versao arquivada),
     --   porque o snapshot disparado DURANTE o passo copia o da CORRENTE para uma versao
@@ -2145,7 +2325,10 @@ BEGIN
   RAISE NOTICE 'P45M PASS (B0): fixture completa nas 3 tabelas em zero + ledger + logs + autorizacoes';
 
   -- (B1) A FIXTURE MOVEU AS CONTAGENS — senao (B7) seria verde por vacuidade.
-  IF v_hist_pre <> current_setting('smoke45m.hist')::bigint + 1
+  -- ⚠ 51-13: `+ 1 + v_n_hist_b25` — a linha de historico que a fixture (B25) acrescenta,
+  --   MEDIDA por GET DIAGNOSTICS no INSERT dela. O (B1) mede a FIXTURE, nao o motor, e
+  --   continua exato: nenhuma constante nova, e uma linha a mais ou a menos reprova.
+  IF v_hist_pre <> current_setting('smoke45m.hist')::bigint + 1 + v_n_hist_b25
      OR v_df_pre <> current_setting('smoke45m.df')::bigint + 1
      OR v_dfh_pre <> current_setting('smoke45m.dfh')::bigint + 1 THEN
     RAISE EXCEPTION 'P45M FAIL (B1): a fixture nao moveu a trilha como esperado (historico %->%; decisao_final %->%; decisao_final_historico %->%). A SONDA 4e mediu decisao_final_historico em ZERO: sem linha sintetica ali, a assercao de contagem do ERASE-08 sobre ela e satisfeita TRIVIALMENTE e nao prova nada',
@@ -2707,6 +2890,36 @@ BEGIN
   END IF;
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P45M PASS (B11): curriculo_url e curriculo_nome_original severadas, re-identificacao por split_part devolvendo zero, e a LINHA de candidaturas de pe (% antes, % depois)', v_cands_a, v_cands_d;
+
+  -- (B25) 51-13 / JORN-42 · A RESPOSTA DO REVISOR NO REGISTRO NOVO SAI, SEM INVENTAR
+  --       REVISAO ONDE NAO HOUVE. CINCO metades, cada uma contra um conserto errado:
+  --   (fixture) 1 respondido e 1 nao respondido do titular — ausencia e FALHA, nunca
+  --     vacuidade;
+  --   (respondido) fica com a sentinela que o MOTOR gravou em decisao_final.revisao_resultado
+  --     da MESMA fixture (`v_rev_d`) — comparada com ela, nunca com um literal (§K);
+  --   (nao_respondido) continua NULL — carimbar sentinela ali inventaria uma revisao;
+  --   (intactas) origem, etapas, veredito, autor, datas e prazo — a linha inteira menos
+  --     `resultado` — nao mudaram: sao o registro de que uma pessoa revisou;
+  --   (plano) o dry-run (o plano que o motor viu no PASSO 0) e o que o motor declarou em
+  --     passos contam a MESMA 1 resposta.
+  IF v_b25_n_resp IS DISTINCT FROM 1 OR v_b25_n_nresp IS DISTINCT FROM 1
+     OR v_b25_res_a1 IS NULL OR v_b25_resto_a2 IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B25/fixture): a fixture nao tinha exatamente 1 pedido RESPONDIDO e 1 NAO respondido do titular em revisao_rejeicao antes do motor (respondidos=%, nao respondidos=%). Sem eles, «a resposta saiu» e «o nulo ficou nulo» seriam verdade por VACUIDADE. Ausencia de fixture e FALHA DE TESTE', coalesce(v_b25_n_resp::text, '<nulo>'), coalesce(v_b25_n_nresp::text, '<nulo>');
+  END IF;
+  IF v_rev_d IS NULL OR v_b25_res_d1 IS DISTINCT FROM v_rev_d OR v_b25_res_d1 = v_b25_res_a1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B25/respondido): a resposta que o revisor ESCREVEU ao pedido de revisao da rejeicao SOBREVIVEU a exclusao do titular (depois=[%]). Ela tem de sair com a MESMA sentinela que o motor grava em decisao_final.revisao_resultado (a mesma decisao, D-60 da 49) — e e texto sobre a pessoa, na fala de quem revisou. JORN-42', coalesce(left(v_b25_res_d1, 80), '<nulo>');
+  END IF;
+  IF v_b25_res_d2 IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B25/nao_respondido): o pedido SEM resposta ganhou texto no motor ([%]). O motor INVENTOU uma revisao que nao aconteceu: a forma tem de ser CASE WHEN resultado IS NULL THEN NULL, e o recibo passaria a prometer o apagamento de um texto que nunca existiu', left(v_b25_res_d2, 80);
+  END IF;
+  IF v_b25_resto_d1 IS DISTINCT FROM v_b25_resto_a1 OR v_b25_resto_d2 IS DISTINCT FROM v_b25_resto_a2 THEN
+    RAISE EXCEPTION 'P45M FAIL (B25/intactas): o motor mudou em revisao_rejeicao algo alem de resultado (respondido igual=%, nao respondido igual=%). Origem, etapas, veredito, autor, datas e prazo FICAM: sao o registro de que uma pessoa revisou a rejeicao', (v_b25_resto_d1 IS NOT DISTINCT FROM v_b25_resto_a1), (v_b25_resto_d2 IS NOT DISTINCT FROM v_b25_resto_a2);
+  END IF;
+  IF v_b25_pl IS DISTINCT FROM 1 OR v_b25_ps IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B25/plano): o dry-run e o motor nao contam a MESMA 1 resposta de revisor em revisao_rejeicao (plano=%, passos=%). O plano e o unico lugar onde esse numero pode ser lido ANTES da exclusao, e ele tem de sair da MESMA expressao do motor (P39/CR-02)', coalesce(v_b25_pl::text, '<ausente>'), coalesce(v_b25_ps::text, '<ausente>');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B25): a resposta do revisor saiu do pedido respondido (sentinela do motor), o nao respondido continua NULL, o resto das duas linhas ficou intacto, e plano = passos = 1';
 END
 $bloco_b$;
 
@@ -3052,12 +3265,40 @@ DECLARE
   --   `20260922000013`), que instala o passo `apagar_respostas_e_producoes` — o
   --   PRIMEIRO passo deste motor que APAGA LINHA (D-62). A rede (vi) cresceu ANTES
   --   da troca, no MESMO commit, e e ela que vigia o escopo do apagamento.
-  v_pin_plano text := '35d451416c22e150e48a583d879fe48d';
-  v_pin_anon  text := '4624854408950110cbfebc971481145a';
+  --   RE-PINADOS em 2026-09-23 pelo plano 49-29 (migration `20260923000002`,
+  --   passo `desidentificar_analises`), com a rede (viii) crescida ANTES:
+  --   plano 35d451416c22e150e48a583d879fe48d, motor 4624854408950110cbfebc971481145a
+  --   (vigoraram em PROD de 2026-09-23 ao apply da `0004`).
+  --   RE-PINADOS em 2026-10-09 pelo plano 51-13 (migration `20261008000004`, o passo
+  --   de `revisao_rejeicao.resultado`, JORN-42), com a rede (ix) crescida ANTES e
+  --   rodada VERMELHA contra o corpo do 49-29. Pinados do ARQUIVO (delimitadores
+  --   nomeados), nunca do catalogo; vigoram a partir do apply do 51-16.
+  v_pin_plano text := '0a4996feea738f7cfd25feda0ecd7904';
+  v_pin_anon  text := 'a68e4a6a47d9482f75d3326a8bf2b3e4';
   -- ⚠ 49-29 · declaracoes da rede (C3/viii), que cresceu ANTES desta troca de pins
   v_an_ini    int;
   v_an_fim    int;
   v_an_trecho text;
+  -- ⚠ 51-13 · declaracoes da rede (C3/ix), que cresceu ANTES desta troca de pins
+  v_ix_ini      int;       -- onde tombstone_decisao_final comeca no corpo vivo
+  v_ix_fim      int;       -- onde apagar_respostas_e_producoes comeca, procurado A PARTIR do inicio
+  v_ix_bruto    text;      -- o trecho do passo, cru
+  v_ix_cod      text;      -- sem comentarios (bloco /* */ primeiro, depois --)
+  v_ix_masc     text;      -- e com cada literal mascarado para ''
+  v_ix_pos      int;
+  v_ix_n        int;
+  v_ix_stmt     text;      -- o UPDATE public.revisao_rejeicao, cortado no 1o ; FORA de literal
+  v_ix_ctl      text;      -- o UPDATE public.decisao_final d real, cortado pela MESMA regra (controle)
+  v_ix_ctl_cnt  text;      -- a contagem FROM public.decisao_final d real, idem (controle do (6))
+  v_ix_anon_cod text;      -- o motor inteiro sem comentarios
+  v_ix_pl_cod   text;      -- o plano inteiro sem comentarios
+  v_ix_pl_masc  text;      -- e mascarado
+  v_ix_pl_tr    text;      -- o trecho da contagem nova no plano
+  -- ⚠ OS DOIS JUIZES, ancorados: `[^a-z_]` antes de `resultado` impede que
+  --   `revisao_resultado` (a coluna de decisao_final, que ja ocorre no trecho e no
+  --   plano) satisfaca a clausula — medido: sem a ancora, (2) e (6) seriam vacuas.
+  v_ix_re_guarda constant text := '(^|[^a-z_])resultado[[:space:]]*=[[:space:]]*CASE[[:space:]]+WHEN[[:space:]]+[a-z_]+[.]resultado[[:space:]]+IS[[:space:]]+NULL[[:space:]]+THEN[[:space:]]+NULL';
+  v_ix_re_conta  constant text := '(^|[^a-z_])resultado[[:space:]]+IS[[:space:]]+NOT[[:space:]]+NULL';
   v_src_plano text;
   v_src_anon  text;
   v_def_anon  text;
@@ -3166,12 +3407,12 @@ BEGIN
   END IF;
 
   IF v_md5_plano IS DISTINCT FROM v_pin_plano THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de plano_exclusao_titular NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente foi re-carimbado em 2026-08-23 pelo plano 46-04 (Blocker B-02 / Saida A, migration 20260823000008); o valor anterior APLICADO era 97634d07ef13447e06741a8c8372fca6 com 21 349 octetos. Se o md5 vivo for o ANTIGO, a migration 20260823000008 nao foi aplicada — e sem ela o 4o ramo da 20260823000006 nao produz efeito util, porque o cron e autorizado no motor e recusado tres linhas depois AQUI. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de plano_exclusao_titular NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente e o do plano 51-13 (migration 20261008000004, o passo de revisao_rejeicao.resultado — JORN-42), pinado do ARQUIVO antes do apply do 51-16. Se o md5 vivo for 35d451416c22e150e48a583d879fe48d (o do 49-29), a 20261008000004 nao foi aplicada nem prefixada no ensaio — rodar pelo ensaio com 0002..0004 prefixadas, ou aplicar no portao 51-16. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
       v_md5_plano, v_pin_plano, octet_length(v_src_plano);
   END IF;
 
   IF v_md5_anon IS DISTINCT FROM v_pin_anon THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de anonimizar_candidato NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente foi re-carimbado em 2026-08-23 pelo plano 46-04 (quarto ramo do guard, migration 20260823000006); o valor anterior APLICADO era 8c86e0f040219e7eade47eb587dbf5de com 34 488 octetos. Se o md5 vivo for o ANTIGO, a migration 20260823000006 nao foi aplicada. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de anonimizar_candidato NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente e o do plano 51-13 (migration 20261008000004, o passo de revisao_rejeicao.resultado — JORN-42), pinado do ARQUIVO antes do apply do 51-16. Se o md5 vivo for 4624854408950110cbfebc971481145a (o do 49-29), a 20261008000004 nao foi aplicada nem prefixada no ensaio — e o motor vivo NAO raspa a resposta do revisor no registro novo. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
       v_md5_anon, v_pin_anon, octet_length(v_src_anon);
   END IF;
 
@@ -3523,6 +3764,130 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (C3/viii): plano_exclusao_titular nao conta o passo novo pela MESMA expressao do motor (chave e/ou a comparacao com a sentinela). Um dry-run que conta VISITAS promete ao titular um tamanho que o passo nao entrega';
   END IF;
 
+  -- ── (C3/ix) 51-13 / JORN-42 · O PASSO NOVO DO TOMBSTONE, VIGIADO POR FORMA ──
+  -- ⚠⚠ ESTAS CLAUSULAS FORAM ACRESCENTADAS **ANTES** DA TROCA DOS PINS, e rodadas
+  --    VERMELHAS contra o corpo vivo do 49-29 (que nao tem o passo — exatamente o
+  --    corpo que um re-pin descuidado carimbaria) — a disciplina do 49-14, 49-20,
+  --    49-21 e 49-29. A (B25) prova por EXECUCAO; estas provam por FORMA.
+  --    O passo: `revisao_rejeicao.resultado` (o texto que o revisor ESCREVEU ao
+  --    responder o pedido de revisao de uma rejeicao que nao e a decisao final) sai
+  --    na exclusao, com a MESMA sentinela de `decisao_final.revisao_resultado` e na
+  --    forma `CASE WHEN ... IS NULL THEN NULL` — pedido nao respondido continua NULL.
+  -- ⚠⚠ A FRONTEIRA DE STATEMENT E O PRIMEIRO `;` FORA DE LITERAL, nunca «ate o `;`
+  --    seguinte» no texto cru: a sentinela que o passo copia contem `foi removido;`,
+  --    e o corte cru termina DENTRO do literal e perde o WHERE — a (3) reprovaria o
+  --    UPDATE correto com diagnostico falso. Regra: tirar os comentarios PRIMEIRO
+  --    (comentario pode ter aspa impar), MASCARAR cada literal para '' (o '' de
+  --    escape fica dentro do literal) e cortar no MASCARADO. (1)-(4) leem o
+  --    mascarado; nenhuma precisa do texto da sentinela (quem o prova e a B25).
+  -- ⚠ A REDE SE AUTO-CONFERE A CADA CORRIDA sobre o `UPDATE public.decisao_final d`
+  --   real, que vive no mesmo trecho e tem a sentinela de `;`. Falha da fronteira
+  --   sai `DEFEITO DA REDE` — consertar a REDE, nunca a migration, nunca afrouxar
+  --   (1)-(6) —, texto que nenhuma mensagem de propriedade usa.
+  v_ix_ini := position('passo_motor: tombstone_decisao_final' IN v_src_anon);
+  IF v_ix_ini = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): o passo tombstone_decisao_final sumiu do corpo vivo. Sem ele nem a justificativa da decisao final nem a resposta do revisor saem na exclusao';
+  END IF;
+  -- ⚠ O FIM e procurado A PARTIR do inicio (licao do 49-29: do octeto zero, um
+  --   literal que cita o nome do passo casaria antes do inicio).
+  v_ix_fim := position('passo_motor: apagar_respostas_e_producoes' IN substr(v_src_anon, v_ix_ini));
+  IF v_ix_fim = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — o fim do trecho (passo_motor: apagar_respostas_e_producoes) nao foi achado depois de tombstone_decisao_final; sem delimitacao a rede nao mede nada';
+  END IF;
+  v_ix_bruto := substr(v_src_anon, v_ix_ini, v_ix_fim - 1);
+  v_ix_cod   := regexp_replace(regexp_replace(v_ix_bruto, '/\*.*?\*/', '', 'g'),
+                               '--[^' || chr(10) || ']*', '', 'g');
+  IF length(v_ix_cod) >= length(v_ix_bruto) THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — a remocao de comentarios do trecho nao removeu nada (% -> %). Sem ela as clausulas leem prosa, e um portao que nao consegue medir nao pode responder ok', length(v_ix_bruto), length(v_ix_cod);
+  END IF;
+  v_ix_masc := regexp_replace(v_ix_cod, '''([^'']|'''')*''', '''''', 'g');
+
+  -- ── CONTROLE DA FRONTEIRA (antes da (1)) ─────────────────────────────────
+  -- (c1) nenhuma aspa solta no mascarado depois de tirar os ''
+  IF position('''' IN replace(v_ix_masc, '''''', '')) > 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — sobrou aspa solta no trecho mascarado (octeto %). A mascara de literais nao fechou um literal, e o corte no primeiro ; fora de literal deixou de ser confiavel', position('''' IN replace(v_ix_masc, '''''', ''));
+  END IF;
+  -- (c2) o statement real de decisao_final, cortado pela MESMA regra, sai inteiro
+  v_ix_pos := position('UPDATE public.decisao_final d' IN v_ix_masc);
+  IF v_ix_pos = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — o UPDATE public.decisao_final d (o controle da fronteira) nao foi achado no trecho mascarado; sem controle a rede nao prova que corta certo';
+  END IF;
+  v_ix_ctl := substr(v_ix_masc, v_ix_pos, position(';' IN substr(v_ix_masc, v_ix_pos)));
+  IF v_ix_ctl !~ 'WHERE[[:space:]]' OR v_ix_ctl !~ 'candidato_id[[:space:]]*=[[:space:]]*p_candidato_id' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — o UPDATE public.decisao_final d cortado pela regra da rede saiu SEM o WHERE escopado (%). A sentinela dele tem ; dentro do literal: se o corte terminou ali, a regra voltou a ser o corte cru', left(v_ix_ctl, 200);
+  END IF;
+  -- (c3) cada juiz NAO morde texto real: o de (2) e o de (4) reprovam o statement
+  --      de decisao_final (a guarda dele e de revisao_resultado e ele escreve duas
+  --      colunas), o de (3) o reprova sem WHERE, e o predicado de (6) reprova a
+  --      contagem de decisao_final cortada pela mesma regra.
+  IF v_ix_ctl ~ v_ix_re_guarda THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — o juiz da (2) aceitou o UPDATE de decisao_final, cuja guarda e de revisao_resultado. A ancora [^a-z_] nao esta funcionando e a (2) seria vacua';
+  END IF;
+  IF split_part(v_ix_ctl, 'WHERE', 1) ~ 'SET[[:space:]]+resultado[[:space:]]*='
+     AND split_part(v_ix_ctl, 'WHERE', 1) !~ ',[[:space:]]*[a-z_]+[[:space:]]*=' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — o juiz da (4) aceitou o UPDATE de decisao_final, que escreve DUAS colunas; a (4) seria vacua';
+  END IF;
+  IF regexp_replace(v_ix_ctl, 'WHERE.*$', ';') ~ 'WHERE[[:space:]]'
+     AND regexp_replace(v_ix_ctl, 'WHERE.*$', ';') ~ 'candidato_id[[:space:]]*=[[:space:]]*p_candidato_id' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — o juiz da (3) aceitou o UPDATE de decisao_final SEM o WHERE; a (3) seria vacua';
+  END IF;
+  v_ix_pos := position('FROM public.decisao_final d' IN v_ix_masc);
+  IF v_ix_pos = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — a contagem FROM public.decisao_final d (o controle do (6)) nao foi achada no trecho mascarado';
+  END IF;
+  v_ix_ctl_cnt := substr(v_ix_masc, v_ix_pos, position(';' IN substr(v_ix_masc, v_ix_pos)));
+  IF v_ix_ctl_cnt ~ v_ix_re_conta THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): DEFEITO DA REDE — o predicado da (6) aceitou a contagem de decisao_final (revisao_resultado IS NOT NULL); a (6) seria vacua';
+  END IF;
+
+  -- (1) exatamente UM UPDATE public.revisao_rejeicao no trecho
+  v_ix_n := (length(v_ix_masc) - length(replace(v_ix_masc, 'UPDATE public.revisao_rejeicao', '')))
+            / length('UPDATE public.revisao_rejeicao');
+  IF v_ix_n <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): o passo tombstone_decisao_final nao tem exatamente UM UPDATE public.revisao_rejeicao (achados: %). A resposta que o revisor escreveu sobre o titular ao revisar uma rejeicao sobreviveria a exclusao dele — o mesmo texto que o D-60 mandou raspar em decisao_final. JORN-42', v_ix_n;
+  END IF;
+  v_ix_pos  := position('UPDATE public.revisao_rejeicao' IN v_ix_masc);
+  v_ix_stmt := substr(v_ix_masc, v_ix_pos, position(';' IN substr(v_ix_masc, v_ix_pos)));
+  -- (2) a guarda que impede INVENTAR revisao
+  IF v_ix_stmt !~ v_ix_re_guarda THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): o UPDATE de revisao_rejeicao nao tem a forma resultado = CASE WHEN <alias>.resultado IS NULL THEN NULL. Sem ela o motor carimba a sentinela num pedido NAO respondido e INVENTA uma revisao que nao aconteceu — o recibo passaria a prometer o apagamento de um texto que nunca existiu';
+  END IF;
+  -- (3) escopado ao titular
+  IF v_ix_stmt !~ 'WHERE[[:space:]]' OR v_ix_stmt !~ 'candidato_id[[:space:]]*=[[:space:]]*p_candidato_id' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): o UPDATE de revisao_rejeicao NAO e escopado as candidaturas do titular (sem WHERE ou sem candidato_id = p_candidato_id). Ele rasgaria a resposta do revisor de pedidos de OUTRAS pessoas, que nao pediram exclusao — e a escrita nao tem volta';
+  END IF;
+  -- (4) so `resultado` e escrito
+  IF split_part(v_ix_stmt, 'WHERE', 1) !~ 'SET[[:space:]]+resultado[[:space:]]*='
+     OR split_part(v_ix_stmt, 'WHERE', 1) ~ ',[[:space:]]*[a-z_]+[[:space:]]*=' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): o UPDATE de revisao_rejeicao escreve mais do que resultado. origem, etapas, veredito, autor, datas e prazo FICAM: sao o registro de que uma pessoa revisou a rejeicao, a mesma prova que decisao_final preserva';
+  END IF;
+  -- (5) ⊖ a LINHA fica: o D-62 vale so nas quatro tabelas de multipla escolha
+  v_ix_anon_cod := regexp_replace(regexp_replace(v_src_anon, '/\*.*?\*/', '', 'g'),
+                                  '--[^' || chr(10) || ']*', '', 'g');
+  IF v_ix_anon_cod ~ 'DELETE[[:space:]]+FROM[[:space:]]+public[.]revisao_rejeicao' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): ⛔ o motor APAGA LINHA de revisao_rejeicao. A linha fica — e o registro de que o titular pediu revisao e de que uma pessoa respondeu; a excecao do D-62 vale SO nas quatro tabelas de multipla escolha';
+  END IF;
+  -- (6) o motor DECLARA a contagem, e o plano conta pela MESMA condicao
+  IF position('''revisao_rejeicao_resultado''' IN v_ix_anon_cod) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): o motor nao DECLARA em passos quantas respostas de revisor raspou em revisao_rejeicao. Um passo que escreve e nao diz quanto escreveu nao e auditavel';
+  END IF;
+  v_ix_pl_cod  := regexp_replace(regexp_replace(v_src_plano, '/\*.*?\*/', '', 'g'),
+                                 '--[^' || chr(10) || ']*', '', 'g');
+  IF position('''revisao_rejeicao_resultado''' IN v_ix_pl_cod) = 0
+     OR position('public.revisao_rejeicao' IN v_ix_pl_cod) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): plano_exclusao_titular nao conta as respostas de revisor em revisao_rejeicao (chave revisao_rejeicao_resultado e/ou a tabela ausentes). O dry-run e o unico lugar onde esse numero pode ser lido ANTES de a exclusao acontecer';
+  END IF;
+  v_ix_pl_masc := regexp_replace(v_ix_pl_cod, '''([^'']|'''')*''', '''''', 'g');
+  v_ix_pos     := position('public.revisao_rejeicao' IN v_ix_pl_masc);
+  v_ix_pl_tr   := substr(v_ix_pl_masc, v_ix_pos, position(';' IN substr(v_ix_pl_masc, v_ix_pos)));
+  -- ⚠ e, dentro do corte, so ate a PROXIMA chave (o proximo literal mascarado): o
+  --   plano e UM statement so, e sem este segundo corte uma condicao IS NOT NULL de
+  --   um bloco POSTERIOR poderia satisfazer a clausula por vizinhanca.
+  v_ix_pl_tr   := split_part(v_ix_pl_tr, '''''', 1);
+  IF v_ix_pl_tr !~ v_ix_re_conta THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ix): a contagem de revisao_rejeicao no plano nao exige resultado IS NOT NULL. Contar pedidos em vez de RESPOSTAS promete ao titular o apagamento de textos que nunca existiram (P39/CR-02: o dry-run tem de sair da MESMA expressao do motor)';
+  END IF;
+
   -- ── (C3/janela) RD2-06 + RD3-01 · AS TRES JANELAS, MEDIDAS NO CODIGO ─────
   -- ⚠⚠ A PRIMEIRA VERSAO DESTE PORTAO LIA COMENTARIO, NAO CODIGO — e essa e a
   --   SEXTA ocorrencia da familia "portao que parece medir e nao mede" nesta fase.
@@ -3613,7 +3978,7 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P45M PASS (C3): as QUATRO metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, a rede do 46-04 sobre o MOTOR (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto) e a rede sobre o PLANO (le o ledger, exige o ALVO, zero negacao por conjunto); e as TRES janelas de expiracao, medidas NO CODIGO (2+1+2 ocorrencias), batem em [%]', v_md5_plano, v_md5_anon, v_jans[1];
+  RAISE NOTICE 'P45M PASS (C3): as QUATRO metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, a rede do 46-04 sobre o MOTOR (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto) e a rede sobre o PLANO (le o ledger, exige o ALVO, zero negacao por conjunto); a rede (ix) sobre o passo de revisao_rejeicao (um UPDATE, guarda CASE WHEN ... IS NULL THEN NULL, escopado ao titular, so resultado, linha fica, plano conta pela mesma condicao — fronteira de statement auto-conferida); e as TRES janelas de expiracao, medidas NO CODIGO (2+1+2 ocorrencias), batem em [%]', v_md5_plano, v_md5_anon, v_jans[1];
 END
 $c3$;
 
@@ -4094,10 +4459,13 @@ $c456$;
 --
 --     A metade de CONTAGEM existe porque delegar a leitura dos NOTICEs a quem roda
 --     produz run parcial que termina em silencio (licao da 37-03, repetida na P41-05
---     e na P43). O esperado e FIXO: 38 (subiu de 25 para 30 no plano 49-14, de 30
---     para 36 no plano 49-20, de 36 para 37 no plano 49-21 e de 37 para 38 no plano
+--     e na P43). O esperado e FIXO: 39 (subiu de 25 para 30 no plano 49-14, de 30
+--     para 36 no plano 49-20, de 36 para 37 no plano 49-21, de 37 para 38 no plano
 --     49-29 — seis propriedades independentes do passo que apaga
---     linha, mais o passo que DESIDENTIFICA; ver o bump registrado no cabecalho).
+--     linha, mais o passo que DESIDENTIFICA — e de 38 para 39 no plano 51-13, a (B25):
+--     a resposta do revisor no registro novo de pedido de revisao; a rede (C3/ix)
+--     vive dentro do PASS unico do (C3) e a linha nova do (z) nao incrementa; ver o
+--     bump registrado no cabecalho).
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
@@ -4106,12 +4474,16 @@ DECLARE
   v_divergs  text := '';
   v_agora    bigint;
   v_asserts  int;
-  -- ⚠ 38 desde o plano 49-29 (37 no 49-21, 36 no 49-20, 30 no 49-14, 25 antes). Escopo DELIBERADO, nao fotografia: e o numero
+  -- ⚠ 39 desde o plano 51-13 (38 no 49-29, 37 no 49-21, 36 no 49-20, 30 no 49-14, 25 antes). Escopo DELIBERADO, nao fotografia: e o numero
   --   exato de assercoes que este arquivo contem, e o RESUMO existe para reprovar o run
   --   PARCIAL que termina em silencio (licao da 37-03, repetida na P41-05 e na P43).
-  v_esperado int := 38;
+  v_esperado int := 39;
   v_solic_b  bigint := current_setting('smoke45m.solic')::bigint;
   v_solic_a  bigint;
+  -- ⚠ 51-13: o numero de tabelas do RESUMO e CONTADO no proprio laco. A mensagem citava
+  --   um literal («30 tabelas») que ja envelheceu uma vez neste arquivo e envelheceria
+  --   de novo agora.
+  v_ntab     int := 0;
 BEGIN
   FOR r IN
     SELECT * FROM (VALUES
@@ -4149,10 +4521,16 @@ BEGIN
       -- ⚠ 49-29: a tabela que o passo novo escreve e a que ele deliberadamente NAO
       --   escreve. As duas na negativa, porque «intocada» sem medicao e so uma frase.
       ('public.analise_candidato_vaga',           'acv'),
-      ('public.entrevista_guias',                 'egui')
+      ('public.entrevista_guias',                 'egui'),
+      -- ⚠ 51-13: a fixture (B25) cria duas linhas aqui e o passo novo do motor escreve
+      --   aqui. `net.http_request_queue` fica FORA (ver o $baseline$): o enqueue do
+      --   trigger de pedido e transacional e o P45B0 o descarta, e fora do ensaio o
+      --   worker do pg_net consome a fila em paralelo — conta-la seria fotografia.
+      ('public.revisao_rejeicao',                 'rrej')
     ) AS t(tabela, chave)
   LOOP
     EXECUTE format('SELECT count(*) FROM %s', r.tabela) INTO v_agora;
+    v_ntab := v_ntab + 1;
     IF v_agora <> current_setting('smoke45m.' || r.chave)::bigint THEN
       v_divergs := v_divergs || format('%s: %s -> %s; ', r.tabela, current_setting('smoke45m.' || r.chave), v_agora);
     END IF;
@@ -4160,6 +4538,7 @@ BEGIN
 
   IF v_solic_b >= 0 THEN
     EXECUTE 'SELECT count(*) FROM public.solicitacoes_dados' INTO v_solic_a;
+    v_ntab := v_ntab + 1;
     IF v_solic_a <> v_solic_b THEN
       v_divergs := v_divergs || format('public.solicitacoes_dados: %s -> %s; ', v_solic_b, v_solic_a);
     END IF;
@@ -4174,7 +4553,7 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (z): RESUMO % PASS de % esperadas — run parcial, NAO tratar como verde. Confira que o arquivo rodou numa UNICA chamada de execute_sql: set_config(..., false) e escopado a SESSAO, e statements espalhados por chamadas separadas zeram o contador e reprovam um run que na verdade passou', v_asserts, v_esperado;
   END IF;
 
-  RAISE NOTICE 'P45M RESUMO: % assercoes PASS de % esperadas; zero residuo em 30 tabelas — gate VERDE. Este arquivo e a ESPECIFICACAO do motor, nao um relatorio dele: se a implementacao divergir, corrige-se a implementacao', v_asserts, v_esperado;
+  RAISE NOTICE 'P45M RESUMO: % assercoes PASS de % esperadas; zero residuo em % tabelas — gate VERDE. Este arquivo e a ESPECIFICACAO do motor, nao um relatorio dele: se a implementacao divergir, corrige-se a implementacao', v_asserts, v_esperado, v_ntab;
 END
 $z$;
 
