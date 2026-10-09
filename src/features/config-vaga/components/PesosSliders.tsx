@@ -39,7 +39,9 @@ const PESO_KEYS: { key: keyof PesosAvaliacao; label: string }[] = [
 ]
 
 /** Read-only context tests (no peso, excluded from the sum — D-07). */
-const CONTEXT_CHIPS = ['Big Five', 'Cognitivo']
+// 51-03 / D-15: o chip é da configuração da vaga (`aplica_cognitivo`) — o instrumento textual,
+// «Prova cognitiva». O Raven («Raciocínio lógico (Matrizes)») não é configurado por vaga.
+const CONTEXT_CHIPS = ['Big Five', 'Prova cognitiva']
 
 /**
  * Distribute the remainder to reach exactly 100 while keeping integers

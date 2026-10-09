@@ -103,7 +103,7 @@ export function CognitivoBandCard({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-white">Raciocínio lógico</CardTitle>
+            <CardTitle className="text-white">Prova cognitiva</CardTitle>
             <SugestaoIABadge variant="compact" />
           </div>
           <TooltipProvider>
@@ -121,7 +121,7 @@ export function CognitivoBandCard({
           </TooltipProvider>
         </div>
         <CardDescription className="text-white/70">
-          Sinaliza raciocínio lógico — não decide a etapa. Decisão sempre humana.
+          Sinaliza a prova cognitiva — não decide a etapa. Decisão sempre humana.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -150,7 +150,7 @@ export function CognitivoBandCard({
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Registrar ressalva sobre o raciocínio lógico?</AlertDialogTitle>
+            <AlertDialogTitle>Registrar ressalva sobre a prova cognitiva?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta ação NÃO rejeita o candidato — ela registra uma ressalva, com
               justificativa expandida, no log de auditoria de viés (bias_audit_log). A
@@ -163,14 +163,14 @@ export function CognitivoBandCard({
               htmlFor="rejeicao-justificativa"
               className="text-sm font-semibold text-white/90"
             >
-              Justificativa expandida (obrigatória ao registrar uma ressalva sobre o
-              raciocínio lógico)
+              Justificativa expandida (obrigatória ao registrar uma ressalva sobre a
+              prova cognitiva)
             </Label>
             <Textarea
               id="rejeicao-justificativa"
               value={justificativa}
               onChange={(e) => setJustificativa(e.target.value)}
-              placeholder="Explique a ressalva sobre o raciocínio lógico. Esta justificativa entra no registro de auditoria de viés."
+              placeholder="Explique a ressalva sobre a prova cognitiva. Esta justificativa entra no registro de auditoria de viés."
               className="min-h-24 bg-white/5 text-base text-white placeholder:text-white/40"
             />
           </div>

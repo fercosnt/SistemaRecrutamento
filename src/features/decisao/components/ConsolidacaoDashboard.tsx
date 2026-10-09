@@ -66,7 +66,9 @@ const ETAPA_LABEL: Record<string, string> = {
   redacao_cultural: 'Redação cultural',
   entrevista: 'Entrevista',
   big_five: 'Perfil comportamental',
-  cognitivo: 'Cognitivo',
+  // 51-03 / D-15: o componente `cognitivo` é o instrumento TEXTUAL (banda `tipo='cognitivo'`) —
+  // «Prova cognitiva». O Raven é «Raciocínio lógico (Matrizes)» e não tem chave neste mapa.
+  cognitivo: 'Prova cognitiva',
 }
 
 /**

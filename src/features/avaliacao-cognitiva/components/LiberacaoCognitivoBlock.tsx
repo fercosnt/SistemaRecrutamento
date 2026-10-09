@@ -68,8 +68,10 @@ export function LiberacaoCognitivoBlock({ candidaturaId }: LiberacaoCognitivoBlo
         <div className="flex items-start gap-3">
           <Brain className="mt-0.5 h-5 w-5 text-[#35BFAD]" aria-hidden="true" />
           <div>
+            {/* 51-03 / D-15: o Raven é «Raciocínio lógico (Matrizes)»; o instrumento textual
+                da vaga, na seção logo acima do hub, é «Prova cognitiva». */}
             <p className="text-sm font-semibold uppercase tracking-wide text-[#35BFAD]">
-              Avaliação de raciocínio
+              Raciocínio lógico (Matrizes)
             </p>
             <p className="mt-1 max-w-[62ch] text-sm text-white/70">
               Aplicação presencial, liberada candidato a candidato. Não entra no score

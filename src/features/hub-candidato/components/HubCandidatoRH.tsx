@@ -477,7 +477,7 @@ export function HubCandidatoRH() {
           </p>
         </HubSection>
 
-        {/* Avaliação de raciocínio (Raven) — FORA do HubSection de propósito.
+        {/* Raciocínio lógico (Matrizes) — o Raven — FORA do HubSection de propósito.
             As seções acima seguem a linha do funil (`estadoDaSecao`), e esta não
             pertence a etapa nenhuma: é liberada nominalmente, quando o operador
             decide, e a aplicação é presencial. Amarrá-la a uma etapa daria a

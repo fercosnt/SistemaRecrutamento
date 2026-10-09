@@ -136,11 +136,14 @@ export function ScoreCard({
           </div>
         </div>
 
-        {/* Intelligence (Raven) — faixa, nunca percentil */}
+        {/* Raven — faixa, nunca percentil. 51-03 / D-15: «Intel» virou «Matrizes» (forma curta
+            que cabe na célula); o nome completo «Raciocínio lógico (Matrizes)» vai no `title`. */}
         <div className="flex items-start gap-2 p-2 bg-white/5 rounded-lg">
           <TrendingUp className="w-4 h-4 text-purple-300 mt-0.5 flex-shrink-0" />
           <div className="min-w-0 flex-1">
-            <div className="text-xs opacity-70 mb-0.5">Intel</div>
+            <div className="text-xs opacity-70 mb-0.5" title="Raciocínio lógico (Matrizes)">
+              Matrizes
+            </div>
             <div
               data-testid="scorecard-inteligencia-estado"
               className={cn('font-semibold truncate', COR_NEUTRA)}
