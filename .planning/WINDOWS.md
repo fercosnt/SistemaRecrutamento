@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 32
+open_count: 33
 waived_count: 10
 fixed_count: 45
-total_count: 87
-last_updated: 2026-10-05T18:10:28.492Z
+total_count: 88
+last_updated: 2026-10-09T00:05:57.950Z
 ---
 
 # Broken Windows Ledger
@@ -102,6 +102,7 @@ last_updated: 2026-10-05T18:10:28.492Z
 | 85 | 49 | unmet-truth | supabase/migrations |  | 49-17 Task 3 (2026-09-24), ACHADO PRE-EXISTENTE registrado e NAO consertado: a view public.v_analises_presas e a forma perigosa que a memoria do projeto nomeia — security_invoker NAO setado (semantica de DEFINIDOR) e dono postgres, logo ela IGNORA RLS — e tem SELECT concedido a authenticated. Lida a definicao: expoe candidatura_id, vaga_id, vaga_slug, data_candidatura, situacao, a mensagem de erro da analise e o tempo parada. NENHUMA coluna da Phase 49, nenhum nome, nenhum CPF, e anon nao a alcanca (medido com SET LOCAL ROLE anon no 49-17 Task 1). O que ela permite: qualquer candidato AUTENTICADO listar as candidaturas travadas do sistema inteiro, inclusive de outras pessoas. Fora do escopo do 49-17 (o plano decide vereditos de export, nao conserta views), e registrado aqui porque vivia so no SUMMARY de um plano — o mesmo defeito de escrituracao que o 49-PATTERNS §K documenta num nivel acima. Conserto: ALTER VIEW public.v_analises_presas SET (security_invoker = true), com re-medicao de quem a le antes e depois. | open |  | 2026-09-24T05:22:22.779Z |  |
 | 86 | 49 | deviation | docs/compliance/pii-inventory.yaml |  | analise_candidato_vaga continua em tabelas_sem_pii_titular (coberta em bloco pela R4) enquanto o motor passou a gastar um passo inteiro REMOVENDO texto livre do titular dela (49-29). O inventario afirma o contrario do que o motor faz. Nenhum dos quatro check:* reprova — medido. O movimento pendente e dar-lhe secao em tabelas:, que o 49-17 nomeou como do 49-29 mas que o files_modified do 49-29 nao inclui: ele muda tres artefatos gerados e obriga a redeploy das duas EFs. | open |  | 2026-09-25T04:45:57.165Z |  |
 | 87 | 50 | unmet-truth | supabase/tests/p50_acesso_recrutador_smoke.sql |  | 50-01 BORDA vacua: clausula (f) so julga mortas/rascunhos se n_borda > 0; PROD 2026-10-05 tem 0 candidaturas com deleted_at/is_rascunho, entao 'rh ativo nao ve morta/rascunho' nao foi provado por execucao | open |  | 2026-10-05T18:10:28.492Z |  |
+| 88 | 51 | unrun-verify | e2e/prova-cognitiva.spec.ts | 62 | 51-01: PC-01/PC-02 heading «Prova cognitiva» e botão «Voltar às avaliações» editados sem execução (spec gated em E2E_REAL_LOGIN + candidaturas semeadas) | open |  | 2026-10-09T00:05:57.950Z |  |
 
 ````json
 [
@@ -1190,6 +1191,19 @@ last_updated: 2026-10-05T18:10:28.492Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-10-05T18:10:28.492Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 88,
+    "kind": "unrun-verify",
+    "phase": "51",
+    "file": "e2e/prova-cognitiva.spec.ts",
+    "line": 62,
+    "description": "51-01: PC-01/PC-02 heading «Prova cognitiva» e botão «Voltar às avaliações» editados sem execução (spec gated em E2E_REAL_LOGIN + candidaturas semeadas)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-09T00:05:57.950Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
