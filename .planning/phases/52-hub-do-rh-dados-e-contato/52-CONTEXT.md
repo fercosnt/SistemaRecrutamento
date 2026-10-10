@@ -283,6 +283,27 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
       **`dentista`**) **não tocam o banco de marketing**. Elas estavam fora da D-30 como escrita, mas
       **entraram pela emenda da D-30** (população por conta, operador, 2026-10-10), com a conta dona `896c6a43`.
 
+### Respostas do operador às perguntas da pesquisa (2026-10-10, no plan-phase, `52-RESEARCH.md` §Open Questions)
+- **D-36 (O1, corrige a lista da D-24):** a **prova cognitiva não tem rascunho** (`ProvaCognitivaScreen.tsx:75-79`,
+  achado F1). Ela entra no grupo da **confirmação de perda**, com o SJT MC e o Raven (mesmo `AlertDialog`,
+  rótulo «Voltar às avaliações»). A regra da D-24 continua («rascunho → sai direto; memória → confirma»);
+  só a lista estava errada. Só Big Five, Redação e Caso aberto saem direto.
+- **D-37 (O2, emenda a UI-SPEC):** no hub, as alternativas do SJT MC aparecem em **ordem neutra estável,
+  calculada no servidor** (a `ordem` do banco é o gabarito: `ordem 1 = fortemente_pontua` nos 21 itens `mc`
+  de PROD, achado F2). A legenda da UI-SPEC «Alternativas na ordem do banco…» passa a ser **«Alternativas em
+  ordem neutra — o candidato as viu embaralhadas.»** O gerador do banco v2 (bloco C) também embaralha a `ordem`
+  de forma determinística. A tabela das alternativas é `perguntas_opcao_sjt`.
+- **D-38 (O3, substitui a decisão de backlog do 51-17):** motivo/justificativa no diálogo de revisão
+  `humana_triagem` **entra na 52**, na **migration do bloco B**, como RPC de leitura
+  (`ler_contexto_rejeicao_triagem_revisao`, molde `ler_contexto_knockout_revisao`; justificativa vinda de
+  `historico_candidatura.criterio_texto` via `revisao_rejeicao.historico_rejeicao_id`). Mesma review
+  bloqueante antes do apply e mesma prova por papel das outras RPCs do bloco B (achado F3).
+- **D-39 (O6):** direção da troca dos nomes: recrutador **`af4ebf97` → «RH2»**, admin **`66412f96` → «RH3»**.
+  É escrita de dado, controlada, com leitura antes e depois.
+- **O5 (sem decisão do operador; segue a recomendação da pesquisa):** `metadata.dimensoes[].percentil` continua
+  no payload de `getScores` nesta fase. A Invariante 1 (nunca percentil na tela) vale no tipo do componente.
+  O residual é declarado no SECURITY/SUMMARY. **O4 e O7** ficam para os portões do bloco D, como manda a D-30/D-32.
+
 ### Divisão (proposta e aceita pelo operador — D-33)
 O escopo tem quatro naturezas com riscos diferentes. Recomendação ao planejador: **uma fase, quatro
 blocos em ondas, com portões próprios**, em vez de fases separadas — tudo precisa estar no ar antes de
