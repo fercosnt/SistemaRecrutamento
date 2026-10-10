@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 37
+open_count: 36
 waived_count: 10
-fixed_count: 46
+fixed_count: 47
 total_count: 93
-last_updated: 2026-10-09T19:40:00.000Z
+last_updated: 2026-10-10T06:25:53.000Z
 ---
 
 # Broken Windows Ledger
@@ -103,7 +103,7 @@ last_updated: 2026-10-09T19:40:00.000Z
 | 86 | 49 | deviation | docs/compliance/pii-inventory.yaml |  | analise_candidato_vaga continua em tabelas_sem_pii_titular (coberta em bloco pela R4) enquanto o motor passou a gastar um passo inteiro REMOVENDO texto livre do titular dela (49-29). O inventario afirma o contrario do que o motor faz. Nenhum dos quatro check:* reprova — medido. O movimento pendente e dar-lhe secao em tabelas:, que o 49-17 nomeou como do 49-29 mas que o files_modified do 49-29 nao inclui: ele muda tres artefatos gerados e obriga a redeploy das duas EFs. | open |  | 2026-09-25T04:45:57.165Z |  |
 | 87 | 50 | unmet-truth | supabase/tests/p50_acesso_recrutador_smoke.sql |  | 50-01 BORDA vacua: clausula (f) so julga mortas/rascunhos se n_borda > 0; PROD 2026-10-05 tem 0 candidaturas com deleted_at/is_rascunho, entao 'rh ativo nao ve morta/rascunho' nao foi provado por execucao | open |  | 2026-10-05T18:10:28.492Z |  |
 | 88 | 51 | unrun-verify | e2e/prova-cognitiva.spec.ts | 62 | 51-01: PC-01/PC-02 heading «Prova cognitiva» e botão «Voltar às avaliações» editados sem execução (spec gated em E2E_REAL_LOGIN + candidaturas semeadas) | open |  | 2026-10-09T00:05:57.950Z |  |
-| 89 | 51 | unmet-truth | docs/compliance/sql/gen-recibo-exclusao.cjs | 296 | 51-05 EDGE-PROBE JORN-49: o recibo (dados_de_cadastro, passo tombstone_candidato) promete apagar a disponibilidade, e o motor anonimizar_candidato (md5 46248544...) nao toca a tabela disponibilidade; em PROD 2026-10-09, 2 de 2 titulares anonimizados mantem a linha com valor. Pre-existente; conserto = decisao do operador (motor apaga, ou linha vai para «mantém» com base legal) | open |  | 2026-10-09T04:02:33.586Z |  |
+| 89 | 51 | unmet-truth | docs/compliance/sql/gen-recibo-exclusao.cjs | 296 | 51-05 EDGE-PROBE JORN-49: o recibo (dados_de_cadastro, passo tombstone_candidato) promete apagar a disponibilidade, e o motor anonimizar_candidato (md5 46248544...) nao toca a tabela disponibilidade; em PROD 2026-10-09, 2 de 2 titulares anonimizados mantem a linha com valor. Pre-existente; conserto = decisao do operador (motor apaga, ou linha vai para «mantém» com base legal) | fixed | 51-22 + 51-23: o motor anonimizar_candidato vivo (md5 9b87e5ee..., migration 20261010000001) apaga public.disponibilidade no passo tombstone_candidato; a limpeza 20261010000002 apagou as 2 linhas dos 2 titulares ja anonimizados (OK do operador, alvo 6819cb8d...). Prova pos-apply: 2 titulares anonimizados examinados, 0 com linha; ledger = arquivo; 26 linhas fora do alvo identicas (POS outros). | 2026-10-09T04:02:33.586Z | 2026-10-10T06:25:53.000Z |
 | 90 | 51 | deviation | supabase/tests/p48_prazo_reabertura_smoke.sql | 77 | 51-10: premissa v_real so conta decisao_final; depois do apply da 20261008000003 uma reabertura viva de revisao_rejeicao vencida sem alerta faria a_q_total=2 (:306) reprovar com diagnostico de fixture — decidir no portao 51-16 | fixed | 51-16 (WR-07 do 51-REVIEW-PORTAO-1): a pre-condicao virou baseline POR EXECUCAO — a propria varrer_prazos_reabertura() roda numa subtransacao que reverte (P48P0) e devolve quantos alertaria, todas as fontes. Provado no ensaio que aborta: cenario com reabertura vencida de revisao_rejeicao -> o smoke ANTIGO reprova (a) «devolveu 2 com UMA» (diagnostico falso), o NOVO reprova (baseline) com a causa certa; sem o cenario, verde (com 0002..0004 e sem migracoes); mutacao (laco 1 sem marcacao) -> (a) ainda morde. | 2026-10-09T06:01:54.666Z | 2026-10-09T19:40:00.000Z |
 | 91 | 51 | deviation | docs/compliance/export-scope-rules.yaml |  | 51-15: revisao_rejeicao.id/candidatura_id/historico_rejeicao_id ENTRAM na copia (export true) por analogia com decisao_final e toda tabela em escopo, contra a lista literal do plano que as punha FORA como chave tecnica (o mesmo paragrafo mandava seguir as analogas). Reversao = uma palavra por linha; decidir no portao 51-16 | open |  | 2026-10-09T07:13:58.555Z |  |
 | 92 | 51 | deviation | docs/compliance/export-scope-rules.yaml |  | 51-15: revisao_rejeicao.opcao_knockout_id fica FORA (plano/RESEARCH V8 «nunca ao candidato», citado como D-15 da 48 — a D-15 do 48-CONTEXT e sobre tsc, fonte nao localizada), mas o MESMO UUID ja sai em candidaturas.opcao_knockout_id (export true desde 44). Operador decide se a opcao vai ou nao ao titular; o veredito a revisar e o de candidaturas | open |  | 2026-10-09T07:13:58.624Z |  |
@@ -1219,10 +1219,10 @@ last_updated: 2026-10-09T19:40:00.000Z
     "file": "docs/compliance/sql/gen-recibo-exclusao.cjs",
     "line": 296,
     "description": "51-05 EDGE-PROBE JORN-49: o recibo (dados_de_cadastro, passo tombstone_candidato) promete apagar a disponibilidade, e o motor anonimizar_candidato (md5 46248544...) nao toca a tabela disponibilidade; em PROD 2026-10-09, 2 de 2 titulares anonimizados mantem a linha com valor. Pre-existente; conserto = decisao do operador (motor apaga, ou linha vai para «mantém» com base legal)",
-    "status": "open",
-    "reason": "",
+    "status": "fixed",
+    "reason": "51-22 + 51-23: o motor anonimizar_candidato vivo (md5 9b87e5ee..., migration 20261010000001) apaga public.disponibilidade no passo tombstone_candidato; a limpeza 20261010000002 apagou as 2 linhas dos 2 titulares ja anonimizados (OK do operador, alvo 6819cb8d...). Prova pos-apply: 2 titulares anonimizados examinados, 0 com linha; ledger = arquivo; 26 linhas fora do alvo identicas (POS outros).",
     "recorded_at": "2026-10-09T04:02:33.586Z",
-    "resolved_at": null,
+    "resolved_at": "2026-10-10T06:25:53.000Z",
     "milestone": "v8.0"
   },
   {
