@@ -103,3 +103,38 @@ describe('LiberacaoCognitivoBlock — faixa, nunca percentil nem acertos (49-04 
     expect(container.textContent ?? '').not.toMatch(/Abaixo do esperado/)
   })
 })
+
+/**
+ * Validação Nyquist da 51 (JORN-48 / D-15) — o bloco do Raven no hub DIZ, na tela renderizada,
+ * «Raciocínio lógico (Matrizes)», e nunca o nome do instrumento textual nem o nome aposentado.
+ *
+ * Por que um teste de render, se o guarda `nomes-instrumentos.grep.test.ts` (ii) já lista este
+ * arquivo: o (ii) é estático e o seu filtro de comentário (`^\s*(//|\*|/\*)`) não reconhece a
+ * linha de comentário JSX (a que abre com chave e barra-asterisco). A linha 71 do componente é
+ * um comentário JSX que contém o nome novo: com o `<p>` do título trocado por um nome que não é
+ * aposentado (medido: «Avaliação do Raven»), o (i) e o (ii) continuam verdes. E o teste do hub
+ * (`hubEmptyState.test.tsx`) mocka este bloco como `null` — nenhum teste via o título.
+ * O defeito do JORN-48 era exatamente o que o RH LÊ: «Avaliação Cognitiva» logo acima de
+ * «Avaliação de raciocínio». Mordida provada contra `refs/gsd/51-03/base` (cca99243).
+ */
+describe('LiberacaoCognitivoBlock — o Raven se chama «Raciocínio lógico (Matrizes)» na tela (JORN-48 / D-15)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const ESTADOS: [string, unknown][] = [
+    ['não liberado', { liberado: false, liberado_em: null, revogado_em: null, concluido: false, resultado: null }],
+    ['liberado, aguardando', { liberado: true, liberado_em: '2026-09-01T12:00:00Z', revogado_em: null, concluido: false, resultado: null }],
+    ['concluído', { liberado: true, liberado_em: '2026-09-01T12:00:00Z', revogado_em: null, concluido: true, resultado: RESULTADO_INFERIOR }],
+  ]
+
+  it.each(ESTADOS)('%s → o título visível é «Raciocínio lógico (Matrizes)», distinto de «Prova cognitiva»', (_rotulo, data) => {
+    const { container } = montar(data)
+
+    expect(screen.getByText('Raciocínio lógico (Matrizes)')).toBeInTheDocument()
+
+    const texto = container.textContent ?? ''
+    // Nada que confunda com o instrumento textual, que no hub se chama «Prova cognitiva».
+    expect(texto).not.toMatch(/Prova cognitiva/i)
+    // Nem os nomes aposentados (o de antes da 51-03 era «Avaliação de raciocínio»).
+    expect(texto).not.toMatch(/Avaliação (de raciocínio|cognitiva)/i)
+  })
+})
