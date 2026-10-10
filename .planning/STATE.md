@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: "51-16 concluido (JORN-42 no ar: 0002..0005 aplicadas, EFs v19/v8/v14, push ad2790a3..87be2703). Proximo: 51-17 (db:types, sonda de aceite, sessoes reais do operador)"
-last_updated: "2026-10-09T22:10:00.000Z"
-last_activity: 2026-10-09
-state_head: dd437198
+status: verifying
+stopped_at: "51-17 concluido; 17/17 planos com SUMMARY; verificacao da fase 51 pendente"
+last_updated: "2026-10-10T03:30:00.000Z"
+last_activity: 2026-10-10
+state_head: 53cb73ff
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 163
+  completed_plans: 164
   percent: 99
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-16 concluido: tres reviews adversariais do portao (-1 9W, -2 3W, -3 2W; 0 critical em todos); operador decidiu aplicar, estender o D-23 as 4 combinacoes (0005 reescrita: rejeitar_candidatura + registrar_decisao) e a mensagem propria da recusa no cliente; 0002..0005 aplicadas com portao no mesmo comando e md5 do ledger batendo; provas pos-apply pelo ensaio (51b 18/18, mutacoes 44/44, drift pass); EFs notificar-candidato v19, exportar-meus-dados v8, executar-direito-titular v14; push por sha ad2790a3..87be2703 (64 commits, 0 ALHEIO); marcadores servidos conferidos pelo orquestrador. Pendentes registrados: WR-01 do -3 (PATCH direto em candidaturas contorna o D-23), WR-02 do -3 (filtro sem mutacao). Proximo: 51-17"
+last_activity_desc: "51-17 concluido: db:types (tsc 89), sonda p51_aceite.cjs; sessao real do operador com seis fases N/N na 8e4bb7a0 (knockout 13, reaberta 20, reaberta-10min 21, rejeitada-rh 23, reaberta-2 23, raven 4), D-23 recusado em PROD com a mensagem propria, Raven liberado (prova nao feita, opcional); 3a9254c3/af02c120 respondidas pelo admin por nomes trocados no cadastro (suplementares); push 87be2703..53cb73ff, origin/main = HEAD. Proximo: verificacao da fase 51"
 ---
 
 # Project State
