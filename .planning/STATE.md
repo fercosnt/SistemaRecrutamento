@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: ready_to_execute
-stopped_at: "Fase 51: planos de fechamento dos gaps 51-18..51-24 prontos (plan-checker 0B/0W apos 1 revisao; decisoes do operador G1a motor apaga disponibilidade, G1b UF com razao propria no recibo, G2 so cliente em 51-GAPS-DECISAO.md). Proximo: /gsd-execute-phase 51 --gaps-only"
-last_updated: "2026-10-10T05:09:10.934Z"
+status: executing
+stopped_at: "Fase 51 gaps: wave 1 concluida (51-18 G2 cache, 51-19 G1b texto aprovado pelo operador, 51-20 G1a motor em ensaio, NAO aplicado; PROD ledger em 20261008000005). Proximo: 51-21 (migration destrutiva, nao aplicada)"
+last_updated: "2026-10-10T06:30:00.000Z"
 last_activity: 2026-10-10
 state_head: 43d6d06c
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 171
-  completed_plans: 164
-  percent: 96
+  completed_plans: 167
+  percent: 98
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "/gsd-plan-phase 51 --gaps: 7 planos gap_closure (51-18 G2 cache; 51-19 G1b texto do recibo com checkpoint; 51-20/21 G1a migrations aditiva e destrutiva; 51-22 review+apply do motor; 51-23 limpeza destrutiva com checkpoint; 51-24 redeploy, push, marcador). Checker: iteracao 1 0B/4W, iteracao 2 0B/0W/3I."
+last_activity_desc: "/gsd-execute-phase 51 --gaps-only: wave 1 — 51-18 (4014c299,4003bfb1), 51-19 (359fd59a,4d58129e,405e19bd; operador aprovou o texto em 2026-10-10), 51-20 (68a670d3,1c0a89b6; ensaio verde, nada aplicado). Suite 2723/2725 (2 vermelhos pre-existentes de promessasComExecutor)."
 ---
 
 # Project State
