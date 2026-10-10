@@ -4280,6 +4280,99 @@ export type Database = {
           },
         ]
       }
+      revisao_rejeicao: {
+        Row: {
+          alerta_prazo_enviado_em: string | null
+          candidatura_id: string
+          etapa_reabertura: Database["public"]["Enums"]["etapa_processo"]
+          etapa_rejeitada: Database["public"]["Enums"]["etapa_processo"]
+          historico_rejeicao_id: string
+          id: string
+          opcao_knockout_id: string | null
+          origem: string
+          prazo_nova_decisao_em: string | null
+          reaberta_em: string | null
+          rejeitado_por: string | null
+          respondida_em: string | null
+          respondida_por: string | null
+          resultado: string | null
+          solicitada_em: string
+          veredito: string | null
+        }
+        Insert: {
+          alerta_prazo_enviado_em?: string | null
+          candidatura_id: string
+          etapa_reabertura: Database["public"]["Enums"]["etapa_processo"]
+          etapa_rejeitada: Database["public"]["Enums"]["etapa_processo"]
+          historico_rejeicao_id: string
+          id?: string
+          opcao_knockout_id?: string | null
+          origem: string
+          prazo_nova_decisao_em?: string | null
+          reaberta_em?: string | null
+          rejeitado_por?: string | null
+          respondida_em?: string | null
+          respondida_por?: string | null
+          resultado?: string | null
+          solicitada_em?: string
+          veredito?: string | null
+        }
+        Update: {
+          alerta_prazo_enviado_em?: string | null
+          candidatura_id?: string
+          etapa_reabertura?: Database["public"]["Enums"]["etapa_processo"]
+          etapa_rejeitada?: Database["public"]["Enums"]["etapa_processo"]
+          historico_rejeicao_id?: string
+          id?: string
+          opcao_knockout_id?: string | null
+          origem?: string
+          prazo_nova_decisao_em?: string | null
+          reaberta_em?: string | null
+          rejeitado_por?: string | null
+          respondida_em?: string | null
+          respondida_por?: string | null
+          resultado?: string | null
+          solicitada_em?: string
+          veredito?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_revisao_rejeicao_candidatura"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_revisao_rejeicao_candidatura"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_analises_presas"
+            referencedColumns: ["candidatura_id"]
+          },
+          {
+            foreignKeyName: "fk_revisao_rejeicao_candidatura"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_fila_trabalho"
+            referencedColumns: ["candidatura_id"]
+          },
+          {
+            foreignKeyName: "fk_revisao_rejeicao_candidatura"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_revisao_rejeicao_historico"
+            columns: ["historico_rejeicao_id"]
+            isOneToOne: true
+            referencedRelation: "historico_candidatura"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scores_bigfive: {
         Row: {
           analise_ia: Json | null
@@ -5654,6 +5747,10 @@ export type Database = {
           janela_meses_aplicada: number
         }[]
       }
+      caso_aberto_sjt_enviado: {
+        Args: { p_candidatura_id: string }
+        Returns: boolean
+      }
       check_candidato_duplicate: {
         Args: { p_cpf: string; p_email: string }
         Returns: Json
@@ -5691,6 +5788,10 @@ export type Database = {
           p_superada_em: string
         }
         Returns: boolean
+      }
+      estado_revisao_rejeicao: {
+        Args: { p_candidatura_id: string }
+        Returns: Json
       }
       explicacao_rejeicao_automatica: {
         Args: { p_candidatura_id: string }
@@ -5846,8 +5947,17 @@ export type Database = {
         }[]
       }
       is_active_rh_admin: { Args: never; Returns: boolean }
+      is_active_rh_user: { Args: never; Returns: boolean }
+      ler_contexto_knockout_revisao: {
+        Args: { p_pedido_id: string }
+        Returns: Json
+      }
       ler_resend_api_key: { Args: never; Returns: string }
       ler_resend_webhook_secret: { Args: never; Returns: string }
+      ler_resposta_caso_aberto_sjt: {
+        Args: { p_candidatura_id: string }
+        Returns: Json
+      }
       liberar_cognitivo: {
         Args: { p_candidatura_id: string; p_motivo?: string }
         Returns: Json
@@ -5893,6 +6003,8 @@ export type Database = {
           candidatura_id: string
           decidido_por_nome: string
           decisao: string
+          origem: string
+          pedido_id: string
           pode_responder: boolean
           respondida_por_nome: string
           revisao_respondida_em: string
@@ -6101,6 +6213,37 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      responder_revisao_rejeicao: {
+        Args: {
+          p_justificativa: string
+          p_pedido_id: string
+          p_veredito: string
+        }
+        Returns: {
+          alerta_prazo_enviado_em: string | null
+          candidatura_id: string
+          etapa_reabertura: Database["public"]["Enums"]["etapa_processo"]
+          etapa_rejeitada: Database["public"]["Enums"]["etapa_processo"]
+          historico_rejeicao_id: string
+          id: string
+          opcao_knockout_id: string | null
+          origem: string
+          prazo_nova_decisao_em: string | null
+          reaberta_em: string | null
+          rejeitado_por: string | null
+          respondida_em: string | null
+          respondida_por: string | null
+          resultado: string | null
+          solicitada_em: string
+          veredito: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "revisao_rejeicao"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       retirar_candidatura: {
         Args: { p_candidatura_id: string }
         Returns: string
@@ -6193,6 +6336,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      solicitar_revisao_rejeicao: {
+        Args: { p_candidatura_id: string }
+        Returns: Json
       }
       stamp_explicacao_acessada: {
         Args: { p_candidatura_id: string }
