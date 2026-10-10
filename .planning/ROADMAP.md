@@ -10,7 +10,7 @@
 - ✅ **v5.0 — M5 Gestão de Usuários & Perfil RH** — Phases 28–30 (shipped 2026-07-14) — `milestones/v5.0-ROADMAP.md`
 - ✅ **v6.0 — M6 Operação do Funil RH** — Phases 31–35 (shipped 2026-07-17) — `milestones/v6.0-ROADMAP.md`
 - ✅ **v7.0 — M7 Comunicação com o Candidato (COMM)** — Phases 36–41 (shipped 2026-07-28) — `milestones/v7.0-ROADMAP.md`
-- 🚧 **v8.0 — M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)** — Phases 42–47 (aberto 2026-07-29) — 52 requirements
+- 🚧 **v8.0 — M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)** — Phases 42–52 (aberto 2026-07-29) — 52 requirements
 
 ## Phases
 

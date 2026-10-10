@@ -4,7 +4,7 @@
 
 ATS (Applicant Tracking System) para a Beauty Smile. React 18 + Vite + TypeScript strict + Supabase (Auth, DB, Storage, Edge Functions). Duas personas: Candidato (publico, mobile-first) e RH/Admin (interno, desktop-first).
 
-**Milestone atual:** M8 — Dados do Candidato & Direitos do Titular (LGPD-OPS) · **Phase 48 concluída em 2026-09-22** (Bloco 1 da `JORNADA-GUIADA.md`, verificação `passed`). Próximo: Blocos 2–4 da fila de consertos e o fecho do M8
+**Milestone atual:** M8 — Dados do Candidato & Direitos do Titular (LGPD-OPS) · **Phase 51 concluída em 2026-10-10** (Consertos da Jornada — Bloco 3, UAT complete, verificação `passed`). Próxima: **Phase 52 — Hub do RH** (dados, contato e avaliações do candidato), a partir da decisão do operador G-51-OP1 (`51-UAT.md`, `.planning/DECISAO-2026-10-10-hub-rh-dados-e-contato.md`); depois, o fecho do M8
 **M1–M7:** SHIPPED, 201 requirements validados. Não há M9 planejado — fechar o M8 fecha o
 projeto como está escopado hoje.
 **Branch base:** `main`
