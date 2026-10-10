@@ -147,7 +147,7 @@ A candidatura segue `triagem`/`em_analise`, e o knockout não voltou (D-03). Lib
 ## 3ª candidatura — passo 4, momento 1 (D-28, rejeição pelo admin e novo pedido) — 2026-10-09
 
 **Relato do operador** (verbatim; o nome da conta de teste no título do diálogo foi trocado por `<conta de teste>`):
-> Admin +rh2 (66412f96) rejeitou pelo diálogo do hub. Texto do diálogo: «Rejeitar <conta de teste>? Informe o motivo e uma
+> Admin <alias> (66412f96) rejeitou pelo diálogo do hub. Texto do diálogo: «Rejeitar <conta de teste>? Informe o motivo e uma
 > justificativa (mínimo 50 caracteres). Esta ação move o candidato para "Rejeitado" e fica registrada na trilha de
 > auditoria. Você pode reverter manualmente depois.» Com o aviso «O candidato pode baixar este texto: a justificativa entra
 > na cópia de dados que ele pede pela LGPD (Art. 18, II). Escreva com fatos, do jeito que você assinaria.» Motivo: «Perfil
@@ -176,10 +176,10 @@ Ela confirma:
 ## 3ª candidatura — passo 4, momento 2 (D-28, resposta pelo RH2) — 2026-10-10
 
 **Relato do operador** (verbatim):
-> RH2 (af4ebf97, +rh6) respondeu «revertida» ao pedido humana_triagem às 00:00:21, com a justificativa «Vamos reverter para
+> RH2 (af4ebf97, <alias>) respondeu «revertida» ao pedido humana_triagem às 00:00:21, com a justificativa «Vamos reverter para
 > dar mais uma chance a este candidato». Diálogo: Decisão original «Rejeitado / Rejeição pelo RH», Quem decidiu «RH2».
 >
-> 1. Nomes no cadastro: o admin 66412f96 (+rh2) se chama «RH2» no sistema; o recrutador af4ebf97 (+rh6), que o plano chama
+> 1. Nomes no cadastro: o admin 66412f96 (<alias>) se chama «RH2» no sistema; o recrutador af4ebf97 (<alias>), que o plano chama
 >    de RH2, se chama «RH3». «Quem decidiu: RH2» está correto (o admin). Foi a causa das duas respostas pelo admin errado.
 > 2. Pendência de produto, decidida pelo operador: NÃO consertar agora. No pedido humana_triagem, o diálogo «Responder
 >    revisão» não mostra o motivo nem a justificativa da rejeição. É deliberado: a fila não projeta justificativa (p42 (d),
@@ -197,7 +197,7 @@ conferencias OK`**. Ela confirma:
 ## 3ª candidatura — passo 6 (D-23 em sessão real, extra ao roteiro) — 2026-10-10
 
 **Relato do operador** (verbatim):
-> o admin 66412f96 (+rh2) tentou rejeitar de novo pelo diálogo do hub e foi RECUSADO com, verbatim: «Você registrou a
+> o admin 66412f96 (<alias>) tentou rejeitar de novo pelo diálogo do hub e foi RECUSADO com, verbatim: «Você registrou a
 > rejeição que foi revertida na revisão. Uma nova rejeição deste caso precisa ser registrada por outra pessoa do RH.»
 > Conferido no banco: nenhuma linha de histórico depois de 00:00:21; candidatura em triagem/em_analise.
 
