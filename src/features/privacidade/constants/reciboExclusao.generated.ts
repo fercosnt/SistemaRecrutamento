@@ -116,8 +116,8 @@ export const RECIBO_EXCLUSAO = {
       "item_id": "estado_e_faixa_etaria",
       "obrigatorio": false,
       "rotulo": "Estado e faixa etária",
-      "texto_futuro": "Ficam guardados o seu estado (UF) e a sua faixa etária, sem vínculo com o seu nome, para relatório agregado.",
-      "texto_passado": "Ficaram guardados o seu estado (UF) e a sua faixa etária, sem vínculo com o seu nome, para relatório agregado."
+      "texto_futuro": "Fica guardada a sua faixa etária, sem vínculo com o seu nome, para relatório agregado. Fica guardada também a sigla do seu estado (UF), sem vínculo com o seu nome, porque o cadastro exige uma UF válida.",
+      "texto_passado": "Ficou guardada a sua faixa etária, sem vínculo com o seu nome, para relatório agregado. Ficou guardada também a sigla do seu estado (UF), sem vínculo com o seu nome, porque o cadastro exige uma UF válida."
     },
     {
       "aplicavel_quando": "sempre",
@@ -351,6 +351,7 @@ export const RECIBO_EXCLUSAO = {
         "candidatos.numero",
         "candidatos.updated_by",
         "candidaturas.curriculo_nome_original",
+        "disponibilidade.candidato_id",
         "disponibilidade.data_disponibilidade",
         "disponibilidade.disponibilidade_imediata",
         "disponibilidade.periodo_disponivel",
@@ -487,7 +488,6 @@ export const RECIBO_EXCLUSAO = {
         "autorizacoes.user_id",
         "candidate_ai_decisions.candidato_id",
         "devolutivas_candidato.candidato_id",
-        "disponibilidade.candidato_id",
         "historico_acoes.usuario_id",
         "logs_acesso.user_id",
         "logs_auditoria.usuario_id",
@@ -669,7 +669,7 @@ export const RECIBO_EXCLUSAO = {
       "arquivo": "supabase/functions/_shared/exportAllowlist.ts",
       "razao": "Cobre 30 de 69 tabelas (45-RESEARCH §C2) e exclui, como telemetria_interna, oito tabelas com PII do titular — inclusive ai_call_logs e logs_acesso, duas das cinco do ERASE-09. Um recibo derivado dele seria omisso sobre o que não diz (§Pitfall 5)."
     },
-    "gerado_em": "2026-10-09T07:08:50.457Z",
+    "gerado_em": "2026-10-10T05:12:31.587Z",
     "gerador": "docs/compliance/sql/gen-recibo-exclusao.cjs",
     "inventario_coletado_em": "2026-07-29T14:08:18Z",
     "plano": "45-02",

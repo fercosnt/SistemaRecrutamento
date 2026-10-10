@@ -293,7 +293,12 @@ const ITENS_SAI = [
         'data_ultimo_acesso',
       ]),
       q('candidaturas', ['curriculo_nome_original']),
+      // Phase 51 (51-19, G1a do 51-GAPS-DECISAO): o motor novo (20261010000001,
+      // planos 51-20/51-22) APAGA a linha de `disponibilidade` no passo do
+      // tombstone — então `candidato_id` mora aqui, e não mais no passo de
+      // severar vínculos dos «registros que a Beauty Smile é obrigada a manter».
       q('disponibilidade', [
+        'candidato_id',
         'periodo_disponivel',
         'regime_trabalho',
         'disponibilidade_imediata',
@@ -426,7 +431,8 @@ const ITENS_SAI = [
       q('candidate_ai_decisions', ['candidato_id']),
       q('recruiter_alerts', ['candidato_id']),
       q('devolutivas_candidato', ['candidato_id']),
-      q('disponibilidade', ['candidato_id']),
+      // `disponibilidade.candidato_id` saiu daqui (51-19, G1a): a linha é apagada
+      // no passo `tombstone_candidato` — ver a origem em `dados_de_cadastro`.
     ),
   },
   {
@@ -584,10 +590,14 @@ const ITENS_MANTEM = [
     // data de nascimento (ERASE-01). O recibo tem de dizer que os dois ficam.
     item_id: 'estado_e_faixa_etaria',
     rotulo: 'Estado e faixa etária',
+    // Phase 51 (51-19, G1b do 51-GAPS-DECISAO · WR-02 do 51-REVIEW): cada dado
+    // com a sua razão verdadeira. A faixa etária é lida pelo relatório agregado
+    // (`gerar_bias_snapshot` lê `faixa_etaria_materializada`); a UF NÃO é — ela
+    // fica pela restrição do cadastro (`check_estado`, NOT NULL), sem vínculo.
     texto_futuro:
-      'Ficam guardados o seu estado (UF) e a sua faixa etária, sem vínculo com o seu nome, para relatório agregado.',
+      'Fica guardada a sua faixa etária, sem vínculo com o seu nome, para relatório agregado. Fica guardada também a sigla do seu estado (UF), sem vínculo com o seu nome, porque o cadastro exige uma UF válida.',
     texto_passado:
-      'Ficaram guardados o seu estado (UF) e a sua faixa etária, sem vínculo com o seu nome, para relatório agregado.',
+      'Ficou guardada a sua faixa etária, sem vínculo com o seu nome, para relatório agregado. Ficou guardada também a sigla do seu estado (UF), sem vínculo com o seu nome, porque o cadastro exige uma UF válida.',
     aplicavel_quando: 'sempre',
     base_legal: 'LGPD, Art. 16, IV',
     origens: q('candidatos', ['estado', 'faixa_etaria_materializada']),

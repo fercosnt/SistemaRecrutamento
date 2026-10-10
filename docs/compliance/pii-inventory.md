@@ -56,7 +56,7 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `complemento` | 🗑️ apagar | varchar |  |
 | `bairro` | 🗑️ apagar | varchar |  |
 | `cidade` | 🎭 anonimizar | varchar | NOT NULL — não pode ser apagada, só generalizada |
-| `estado` | ⚠️ preservar c/ ressalva | char | NOT NULL. Preservado pelo motor de exclusão desde a P45 (item 5); alimenta o relatório agregado (bias snapshot) por UF, sem vínculo com o titular. Base legal no recibo: LGPD, Art. 16, IV. |
+| `estado` | ⚠️ preservar c/ ressalva | char | NOT NULL com `check_estado` nas 27 UFs: não há valor «removido» válido, e o motor preserva a sigla (P45, item 5), sem vínculo com o titular. A UF fica por essa restrição do cadastro, e não por uma finalidade de relatório (WR-02 do 51-REVIEW, 2026-10-10). Base legal no recibo: LGPD, Art. 16, IV. |
 | `faixa_etaria_materializada` | ⚠️ preservar c/ ressalva | text | Materializada pelo motor ANTES de anonimizar data_nascimento (ERASE-01); fica para o relatório agregado, sem vínculo com o titular |
 | `instagram` | 🗑️ apagar | varchar |  |
 | `instagram_url` | 🗑️ apagar | varchar |  |
