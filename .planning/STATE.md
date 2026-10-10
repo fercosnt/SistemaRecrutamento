@@ -3,7 +3,7 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: "gaps 1 e 2 consertados e publicados (51-18..51-24); proximo: /gsd-secure-phase 51 para o T-51-14, re-verificacao da fase e /gsd-validate-phase 51"
+stopped_at: "Fase 51: gaps 51-18..51-24 executados e publicados (motor G1a + limpeza em PROD; EF executar-direito-titular v15; cliente em origin/main). Re-verificacao 9/9 human_needed: 6 conferencias de tela em 51-UAT.md. Proximo: /gsd-secure-phase 51 (T-51-14) e /gsd-verify-work 51."
 last_updated: "2026-10-10T06:40:00.000Z"
 last_activity: 2026-10-10
 state_head: 43d6d06c
