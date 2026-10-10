@@ -35,6 +35,13 @@
 --
 --    Rodado por `p46apply run` contra o vivo antes do apply, ele reprova em
 --    `P45M FAIL (baseline)` (sem a tabela) ou em `P45M FAIL (C3/i)` (vivo = 49-29).
+-- ⚠⚠ 51-20: ATE O APPLY DO 51-22, ESTE ARQUIVO SO RODA PELO ENSAIO com a `20261010000001`
+--    prefixada — o pin do MOTOR no (C3/i) e o corpo dela (G1a, o apagamento da
+--    disponibilidade), e a (B26) exige o passo; as `0002`..`0005` ja estao no ar:
+--
+--     node scripts/p51_ensaio.cjs --vistas --migracoes=supabase/migrations/20261010000001_p51_motor_apaga_disponibilidade.sql supabase/tests/p45_motor_exclusao_smoke.sql
+--
+--    Contra o vivo do 51-13 ele reprova em `P45M FAIL (B26/apagou)` (o motor vivo nao apaga).
 --
 -- O arquivo INTEIRO vai numa UNICA requisicao, e isso e obrigatorio por motivo
 -- MECANICO: `set_config(..., false)` e escopado a SESSAO, entao statements espalhados
@@ -42,8 +49,8 @@
 -- um run que na verdade passou (licao da P41-05, repetida na P43 e na P44). O
 -- `p46apply run` satisfaz isso por construcao — um arquivo, uma requisicao.
 --
--- GATE VERDE = o contador `smoke45m.pass` bate **39** no RESUMO (z). O gate NAO e
--- "nao levantou excecao": um run parcial acumula < 39 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke45m.pass` bate **40** no RESUMO (z). O gate NAO e
+-- "nao levantou excecao": um run parcial acumula < 40 e o RESUMO reprova ALTO.
 -- ⚠ 51-13: a linha de cima dizia «acumula < 37» com o gate ja em 38 — defasada desde
 --   o 49-29. Corrigida junto com o bump.
 -- Esperado FIXO — nao ha metade adaptativa, nao ha "pelo menos N".
@@ -79,7 +86,13 @@
 -- sentinela de `decisao_final.revisao_resultado`, o pedido NAO respondido continua NULL
 -- (o motor nao inventa revisao), o resto das duas linhas fica, e o plano conta igual ao
 -- motor. A rede de FORMA (C3/ix) cresceu ANTES do re-pin e vive dentro do PASS unico do
--- (C3); a linha nova do (z) nao incrementa o contador. Acrescentar
+-- (C3); a linha nova do (z) nao incrementa o contador. Subiu de 39 para 40 no plano 51-20: (B26), a
+-- disponibilidade do titular — as linhas de `public.disponibilidade` dele SAEM no passo
+-- tombstone_candidato (G1a, decisao do operador de 2026-10-10: o motor apaga, e a frase do
+-- recibo passa a ser verdade), a linha de um candidato de controle fica identica, e o plano
+-- conta igual ao motor. A rede de FORMA (C3/x) cresceu ANTES do re-pin, foi rodada VERMELHA
+-- contra o corpo vivo do 51-13, e vive dentro do PASS unico do (C3); o (C3/vi) ganhou o
+-- segundo escopo nomeado (G1a, ao lado do D-62); a linha nova do (z) nao incrementa. Acrescentar
 -- bloco sem bumpar este numero transforma uma adicao legitima em reprovacao do RESUMO.
 --
 -- -----------------------------------------------------------------------------
@@ -287,7 +300,14 @@
 --        com ela, nunca com literal); o pedido NAO respondido continua NULL; origem,
 --        etapas, veredito, autor, datas e prazo ficam; e o plano conta igual ao motor.
 --        Cinco sub-rotulos: B25/fixture, /respondido, /nao_respondido, /intactas, /plano.
---   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 39.
+--   (B26) 51-20 / G1a — A DISPONIBILIDADE DO TITULAR SAI NO TOMBSTONE, E SO A DELE. As
+--        linhas de `public.disponibilidade` do titular (DUAS na fixture: a tabela nao tem
+--        UNIQUE em `candidato_id`) deixam de existir; a linha de um candidato de CONTROLE
+--        fica byte a byte igual (impressao digital `to_jsonb`); e o plano conta igual ao
+--        motor. Segunda excecao explicita do operador ao «a linha fica» (G1a, 2026-10-10),
+--        SO esta tabela e SO o passo tombstone_candidato — a (C3/x) amarra o lugar por FORMA.
+--        Quatro sub-rotulos: B26/fixture, /apagou, /outros, /plano.
+--   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 40.
 --        ⚠ Esta linha dizia «FIXO em 25» ate 2026-09-23 e o gate ja era 30 desde o
 --        plano 49-14: o numero vivia em TRES lugares (aqui, o «GATE VERDE» do topo,
 --        e o `v_esperado` do bloco (z)) e so dois foram bumpados. Um registro
@@ -362,7 +382,15 @@
 --      no repositorio, e a segunda envelheceria em silencio.
 --
 --   valor  : 0a4996feea738f7cfd25feda0ecd7904   (plano_exclusao_titular — 35 921 chars / 37 222 octetos)
---   valor  : a68e4a6a47d9482f75d3326a8bf2b3e4   (anonimizar_candidato   — 89 610 chars / 91 972 octetos)
+--   valor  : 9b87e5ee3d072df5f9bf6e99ee1ae7c1   (anonimizar_candidato   — 90 934 chars / 93 307 octetos)
+--   ⚠⚠ 51-20: SO O DO MOTOR FOI TROCADO (migration `20261010000001`, G1a — o motor apaga a
+--     disponibilidade do titular), PINADO DO ARQUIVO ANTES DO APPLY — nunca lido do
+--     catalogo. Passa a vigorar em PROD no apply do 51-22, cuja corrida ao vivo deste
+--     arquivo e a conferencia cruzada vivo × arquivo; ate la, o (C3/i) o confere no ENSAIO
+--     com a `20261010000001` prefixada. O do PLANO NAO MUDOU: `plano_exclusao_titular` nao e
+--     reescrita no 51-20 (ela ja contava `disponibilidade` pela mesma expressao), e o plano
+--     vivo continua sendo o da `0004`. O valor que a linha do motor guardava ate o 51-20 era
+--     o do 51-13 (`a68e4a6a…`), que esta no HISTORICO DOS PINS abaixo.
 --   ⚠⚠ TROCADOS no plano 51-13 (migration `20261008000004`, JORN-42), PINADOS DO
 --     ARQUIVO ANTES DO APPLY — nunca lidos do catalogo. Passam a vigorar em PROD no
 --     apply do 51-16, cuja corrida ao vivo deste arquivo e a conferencia cruzada
@@ -375,8 +403,15 @@
 --     `f86cb2b1…` / `0d16c0d8…` (49-20). A rede de FORMA cresceu ANTES da troca, no
 --     MESMO commit: (C3/vii), quatro clausulas. Re-pin sem rede e carimbar o que
 --     estiver la.
---   origem : corpo entre os dois delimitadores NOMEADOS de cifrao
---            (`$plano_exclusao_titular$` e `$anonimizar_candidato$`) em
+--   origem : corpo entre os dois delimitadores NOMEADOS de cifrao, POR FUNCAO desde o 51-20:
+--            · motor (`$anonimizar_candidato$`) →
+--              `supabase/migrations/20261010000001_p51_motor_apaga_disponibilidade.sql`
+--              (51-20, G1a; corpo EXTRAIDO da `0004` pelo delimitador nomeado, conferido em
+--              TRES fontes — md5 vivo = md5 do arquivo = pin do 51-13 — e editado por
+--              ancora unica);
+--            · plano (`$plano_exclusao_titular$`) →
+--              `supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql` (51-13).
+--            Ate o 51-20 as duas vinham do MESMO arquivo, a `0004`:
 --            `supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql`
 --            — ⚠ OS DOIS MUDARAM DE ARQUIVO NO 51-13 (antes: 49-29, 49-21, 49-20,
 --            49-14, 46-04). Os corpos da `0004` foram EXTRAIDOS do
@@ -391,6 +426,22 @@
 --            (cujos corpos foram EXTRAIDOS do arquivo anterior,
 --             `20260922000013_p49_motor_respostas_e_producoes.sql`, conferidos por
 --             md5 contra o vivo ANTES da edicao e editados por ancora unica)
+--
+-- ⚠⚠ O QUE MUDOU NO CORPO NO 51-20 (migration `20261010000001`, G1a — so o MOTOR):
+--    UM statement no FIM do passo `tombstone_candidato`, depois do UPDATE de `candidaturas`:
+--    as linhas de `public.disponibilidade` do titular deixam de existir, escopadas por
+--    `candidato_id = p_candidato_id` sem OR, contadas em `v_n_disp`. A contagem entra como
+--    `disponibilidade` DENTRO de `tombstone_candidato` no retorno (a MESMA chave que o
+--    plano ja usava, pela MESMA expressao — por isso o plano nao muda) e como
+--    `disponibilidade=%` na mensagem do terminador do dry-run. E a SEGUNDA excecao
+--    explicita do operador ao «a linha fica» (G1a, 2026-10-10), ao lado do D-62: SO esta
+--    tabela, SO este passo. A forma do apagamento NAO e escrita aqui (§K).
+--    A rede de FORMA (C3/x) cresceu ANTES do re-pin, no MESMO commit, e foi rodada
+--    VERMELHA contra o corpo vivo do 51-13 (sem o passo) com os pins ainda do 51-13:
+--    `ENSAIO VERMELHO: P45M FAIL (C3/x): o passo tombstone_candidato nao tem exatamente UM
+--    DELETE public.disponibilidade (achados: 0)` (1061 ms) — e nao `DEFEITO DA REDE`, o que
+--    prova que o controle da fronteira passou no corpo real. O (C3/vi) ganhou o segundo
+--    escopo nomeado (`v_g1a_permit`). Vigiado por FORMA em (C3/x) e por EXECUCAO em (B26).
 --
 -- ⚠⚠ O QUE MUDOU NO CORPO NO 51-13 (migration `20261008000004`, JORN-42):
 --    UM passo dentro de `tombstone_decisao_final`, DEPOIS do par decisao_final ->
@@ -557,7 +608,15 @@
 --       0a4996feea738f7cfd25feda0ecd7904 (35 921 chars / 37 222 octetos), motor
 --       a68e4a6a47d9482f75d3326a8bf2b3e4 (89 610 chars / 91 972 octetos). PINADA DO
 --       ARQUIVO ANTES DO APPLY; passa a vigorar no apply do 51-16, cuja corrida ao
---       vivo do p45 e a conferencia cruzada vivo × arquivo.
+--       vivo do p45 e a conferencia cruzada vivo × arquivo. **VIGOROU EM PROD** desde o
+--       apply do 51-16 (motor medido vivo = a68e4a6a… em 2026-10-10) ate o apply da
+--       `20261010000001`. O plano desta geracao CONTINUA vigente depois do 51-20.
+--   ⚠ 51-20 · A GERACAO SEGUINTE, so do MOTOR:
+--     · 51-20 (`20261010000001`, delimitador nomeado) — motor
+--       9b87e5ee3d072df5f9bf6e99ee1ae7c1 (90 934 chars / 93 307 octetos); plano INALTERADO
+--       (0a4996feea738f7cfd25feda0ecd7904, o da `0004`). PINADA DO ARQUIVO ANTES DO APPLY;
+--       passa a vigorar no apply do 51-22, cuja corrida ao vivo do p45 e a conferencia
+--       cruzada vivo × arquivo.
 --   ⚠ A COLUNA "vigorou em PROD" E A QUE IMPORTA, e ela distingue duas coisas que
 --   um historico ingenuo confundiria: um pin que esteve APLICADO no banco, e um
 --   pin que existiu apenas no repositorio entre dois commits do mesmo dia.
@@ -600,11 +659,15 @@
 --       D="$"+process.argv[2]+"$", a=f.indexOf(D), b=f.indexOf(D,a+D.length);
 --       console.log(require("crypto").createHash("md5")
 --         .update(f.slice(a+D.length,b),"utf8").digest("hex"))' \
---       supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql \
+--       supabase/migrations/20261010000001_p51_motor_apaga_disponibilidade.sql \
 --       anonimizar_candidato
---     -- e, para a outra funcao (MESMO arquivo desde o 49-14):
+--     -- e, para a outra funcao (desde o 51-20 em OUTRO arquivo — a `0004`):
 --     --   … supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql \
 --     --     plano_exclusao_titular
+--     ⚠ 51-20: o `CREATE OR REPLACE` mais recente do MOTOR e o da `20261010000001`; o do
+--       PLANO continua sendo o da `20261008000004`. Recomputar o motor contra a `0004`
+--       devolveria o corpo SEM o apagamento da disponibilidade (`a68e4a6a…`) e reprovaria
+--       com diagnostico falso.
 --     ⚠ 51-13: o `CREATE OR REPLACE` mais recente das duas e o da `20261008000004`.
 --       Recomputar contra a `20260923000002` (49-29, que alem disso usa `$function$`
 --       e nao os nomeados — este comando acharia nada la) ou contra qualquer anterior
@@ -988,6 +1051,11 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (baseline): public.revisao_rejeicao nao existe. Desde o plano 51-13 este arquivo exige a migration 20261008000002 (o registro do pedido de revisao, que a fixture B25 escreve) e a 20261008000004 (o motor que o raspa): antes do apply do 51-16, rodar SO pelo ensaio com 0002..0004 prefixadas — node scripts/p51_ensaio.cjs --migracoes=...0002...,...0003...,...0004... supabase/tests/p45_motor_exclusao_smoke.sql';
   END IF;
   PERFORM set_config('smoke45m.rrej',     (SELECT count(*) FROM public.revisao_rejeicao)::text,                false);
+  -- ⚠⚠ 51-20 · `disponibilidade` ENTRA NA NEGATIVA DE RESIDUO, nos DOIS sentidos: a fixture
+  --    (B26) ESCREVE nela (tres linhas, mais um candidato de controle) e o passo novo do motor
+  --    APAGA nela. Se a subtransacao do Bloco B nao revertesse, ou o apagamento perdesse o
+  --    escopo, a contagem global diria — sem ponto cego para a tabela que o motor passou a tocar.
+  PERFORM set_config('smoke45m.disp',     (SELECT count(*) FROM public.disponibilidade)::text,                 false);
 
   RAISE NOTICE 'P45M BASELINE ok: admin e vaga resolvidos; % candidatos / % candidaturas / % auth.users / % historico / % decisao_final / % decisao_final_historico',
     current_setting('smoke45m.candos'), current_setting('smoke45m.cands'), current_setting('smoke45m.users'),
@@ -1241,6 +1309,17 @@ DECLARE
   v_b25_resto_d2 jsonb;
   v_b25_pl      int;       -- o que o plano (PASSO 0 do motor) previu
   v_b25_ps      int;       -- e o que o motor declarou em passos
+  -- (B26) 51-20 / G1a · a disponibilidade do titular, e a de um candidato de CONTROLE
+  v_b26_ins      int := 0; -- linhas inseridas para o titular (GET DIAGNOSTICS, nunca constante)
+  v_b26_ctl_cand uuid;     -- o candidato de CONTROLE (sintetico, sem auth.users e sem candidatura)
+  v_b26_ctl_disp uuid;     -- a linha de disponibilidade dele
+  v_b26_tit_a    int;      -- linhas do titular ANTES do motor
+  v_b26_ctl_a    int;      -- linhas do controle ANTES
+  v_b26_fp_a     text;     -- impressao digital md5(to_jsonb(linha)) do controle ANTES
+  v_b26_tit_d    int;      -- linhas do titular DEPOIS do motor real
+  v_b26_fp_d     text;     -- e a impressao digital do controle DEPOIS (lida POR ID)
+  v_b26_pl       int;      -- o que o plano (PASSO 0 do motor) previu
+  v_b26_ps       int;      -- e o que o motor declarou em passos
   v_acv_viva_d  int;                             -- ⊕ a LINHA continua existindo
   -- ⊖ CONTROLE de escopo: analises de OUTRAS candidaturas com texto livre, e que NAO
   --   podem perde-lo. Nao usa fixture — conta as linhas vivas de PROD, como a (B23).
@@ -1819,6 +1898,52 @@ BEGIN
     SELECT to_jsonb(r) - 'resultado' INTO v_b25_resto_a2
       FROM public.revisao_rejeicao r WHERE r.id = v_b25_nresp;
 
+    -- (fixture B26) 51-20 / G1a · A DISPONIBILIDADE DO TITULAR, E A DE UM CONTROLE.
+    -- ⚠ DUAS linhas para o titular: `public.disponibilidade` NAO tem UNIQUE em
+    --   `candidato_id` (medido no catalogo em 2026-10-10: PK em `id`, FK ON DELETE CASCADE,
+    --   indice nao unico), e a borda «varias linhas -> todas saem» so e exercitada com mais
+    --   de uma. O numero e MEDIDO por GET DIAGNOSTICS, nunca uma constante do julgamento.
+    -- ⚠ O CONTROLE e um candidato sintetico NOVO, sem `auth.users` (user_id e nulavel desde
+    --   a D-45-11) e sem candidatura — ele nao entra em nenhuma outra assercao (a (B9) busca
+    --   por candidatura, a (B8) e escopada ao titular). Sem ele, «a linha do titular saiu»
+    --   seria indistinguivel de «o passo apagou a tabela inteira», e a fixture nunca toca a
+    --   linha de uma pessoa real. CPF nulo (a coluna e UNIQUE e nulavel), e-mail aleatorio.
+    -- ⚠ Valores contra o catalogo medido: periodo_disponivel/regime_trabalho varchar(50) NOT
+    --   NULL sem CHECK; o trigger da tabela e so BEFORE UPDATE (updated_at), nenhum dispatch.
+    INSERT INTO public.disponibilidade
+      (candidato_id, periodo_disponivel, regime_trabalho, disponibilidade_imediata)
+    VALUES
+      (v_cand, 'manha', 'clt', true),
+      (v_cand, 'tarde', 'pj',  false);
+    GET DIAGNOSTICS v_b26_ins = ROW_COUNT;
+
+    INSERT INTO public.candidatos
+      (user_id, nome_completo, email, cpf, celular, data_nascimento, genero,
+       cidade, estado, como_conheceu)
+    VALUES
+      (NULL,
+       'SMOKE P45 Controle B26',
+       'p45smoke-ctl-' || replace(gen_random_uuid()::text, '-', '') || '@invalido.local',
+       NULL,
+       '(11) 97777-6666',
+       DATE '1988-07-21',
+       'prefiro_nao_informar',
+       'Campinas',
+       'SP',
+       'site')
+    RETURNING id INTO v_b26_ctl_cand;
+
+    INSERT INTO public.disponibilidade
+      (candidato_id, periodo_disponivel, regime_trabalho, disponibilidade_imediata)
+    VALUES
+      (v_b26_ctl_cand, 'noite', 'clt', false)
+    RETURNING id INTO v_b26_ctl_disp;
+
+    -- nao-vacuidade e a impressao digital do controle, MEDIDAS aqui (antes do motor)
+    SELECT count(*) INTO v_b26_tit_a FROM public.disponibilidade d WHERE d.candidato_id = v_cand;
+    SELECT count(*) INTO v_b26_ctl_a FROM public.disponibilidade d WHERE d.candidato_id = v_b26_ctl_cand;
+    SELECT md5(to_jsonb(d)::text) INTO v_b26_fp_a FROM public.disponibilidade d WHERE d.id = v_b26_ctl_disp;
+
     -- ── B0: a fixture EXISTE, com enfase nas TRES tabelas em zero linhas ────────
     SELECT count(*) INTO v_n_aicall FROM public.ai_call_logs           WHERE candidato_id = v_cand;
     SELECT count(*) INTO v_n_aidec  FROM public.candidate_ai_decisions WHERE candidato_id = v_cand;
@@ -2125,6 +2250,15 @@ BEGIN
     -- lido como o (B16) le: o plano que o MOTOR viu no PASSO 0, e o que ele declarou
     v_b25_pl := (v_plano_j -> 'tombstone_decisao_final' ->> 'revisao_rejeicao_resultado')::int;
     v_b25_ps := (v_passos  -> 'tombstone_decisao_final' ->> 'revisao_rejeicao_resultado')::int;
+
+    -- ── (B26) 51-20 / G1a · ESTADO DEPOIS: o titular pelo escopo, o controle POR ID ───
+    -- (a linha de candidatos do titular continua existindo como tombstone, entao o escopo
+    -- `candidato_id = v_cand` ainda resolve; o controle e lido pelo id da linha dele)
+    SELECT count(*) INTO v_b26_tit_d FROM public.disponibilidade d WHERE d.candidato_id = v_cand;
+    SELECT md5(to_jsonb(d)::text) INTO v_b26_fp_d FROM public.disponibilidade d WHERE d.id = v_b26_ctl_disp;
+    -- lido como o (B25) le: o plano que o MOTOR viu no PASSO 0, e o que ele declarou
+    v_b26_pl := (v_plano_j -> 'tombstone_candidato' ->> 'disponibilidade')::int;
+    v_b26_ps := (v_passos  -> 'tombstone_candidato' ->> 'disponibilidade')::int;
 
     -- ⚠ A METADE QUE IMPORTA: copias IDENTIFICAVEIS sobreviventes no arquivo —
     --   contra os DOIS valores de ANTES (o da linha corrente e o da versao arquivada),
@@ -2920,6 +3054,33 @@ BEGIN
   END IF;
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P45M PASS (B25): a resposta do revisor saiu do pedido respondido (sentinela do motor), o nao respondido continua NULL, o resto das duas linhas ficou intacto, e plano = passos = 1';
+
+  -- (B26) 51-20 / G1a · A DISPONIBILIDADE DO TITULAR SAI, E SO A DELE. QUATRO metades:
+  --   (fixture) o titular tinha MAIS DE UMA linha (a borda «varias linhas») e o controle a
+  --     dele, antes do motor — ausencia e FALHA, nunca vacuidade;
+  --   (apagou) depois do motor real o titular tem ZERO linhas — o recibo diz que a
+  --     disponibilidade foi apagada, e esta e a metade que torna a frase verdadeira;
+  --   (outros) a linha do CONTROLE e byte a byte a mesma (impressao digital da linha inteira
+  --     por `to_jsonb`, que nao envelhece quando nasce coluna nova) — um apagamento sem escopo
+  --     levaria a disponibilidade de quem nao pediu exclusao;
+  --   (plano) o dry-run (o plano que o motor viu no PASSO 0) e o que o motor declarou em
+  --     passos contam as MESMAS linhas que a fixture inseriu (P39/CR-02).
+  -- ⚠ Um UNICO incremento do contador, como cada assercao deste bloco.
+  IF coalesce(v_b26_ins, 0) < 2 OR v_b26_tit_a IS DISTINCT FROM v_b26_ins
+     OR v_b26_ctl_a IS DISTINCT FROM 1 OR v_b26_fp_a IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B26/fixture): a fixture nao tinha, antes do motor, as linhas de disponibilidade do titular (inseridas=%, medidas=%) e a do controle (medidas=%). Sem elas, «a disponibilidade saiu» e «a do outro ficou» seriam verdade por VACUIDADE. Ausencia de fixture e FALHA DE TESTE', coalesce(v_b26_ins::text, '<nulo>'), coalesce(v_b26_tit_a::text, '<nulo>'), coalesce(v_b26_ctl_a::text, '<nulo>');
+  END IF;
+  IF v_b26_tit_d IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B26/apagou): depois da exclusao o titular ainda tem % linha(s) de disponibilidade (antes: %). A declaracao de quando e como ele pode trabalhar sobreviveu, enquanto o recibo diz que ela foi apagada (WINDOWS 89 / T-51-14). G1a: o motor apaga, no passo tombstone_candidato', coalesce(v_b26_tit_d::text, '<nulo>'), v_b26_tit_a;
+  END IF;
+  IF v_b26_fp_d IS DISTINCT FROM v_b26_fp_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B26/outros): a linha de disponibilidade de OUTRO candidato mudou ou sumiu durante a exclusao do titular (impressao digital antes=%, depois=%). O apagamento perdeu o escopo candidato_id = p_candidato_id: na execucao real ele levaria a disponibilidade de quem nao pediu exclusao — e sem PITR, sem volta', v_b26_fp_a, coalesce(v_b26_fp_d, '<linha ausente>');
+  END IF;
+  IF v_b26_pl IS DISTINCT FROM v_b26_ins OR v_b26_ps IS DISTINCT FROM v_b26_ins THEN
+    RAISE EXCEPTION 'P45M FAIL (B26/plano): o dry-run e o motor nao contam as MESMAS % linhas de disponibilidade do titular (plano=%, passos=%). O plano e o unico lugar onde esse numero pode ser lido ANTES da exclusao, e ele tem de sair da MESMA expressao do motor (P39/CR-02)', v_b26_ins, coalesce(v_b26_pl::text, '<ausente>'), coalesce(v_b26_ps::text, '<ausente>');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B26): as % linhas de disponibilidade do titular sairam no tombstone, a do controle ficou identica (impressao digital %), e plano = passos = %', v_b26_ins, left(v_b26_fp_a, 8), v_b26_ins;
 END
 $bloco_b$;
 
@@ -3273,8 +3434,12 @@ DECLARE
   --   de `revisao_rejeicao.resultado`, JORN-42), com a rede (ix) crescida ANTES e
   --   rodada VERMELHA contra o corpo do 49-29. Pinados do ARQUIVO (delimitadores
   --   nomeados), nunca do catalogo; vigoram a partir do apply do 51-16.
+  --   SO O MOTOR RE-PINADO em 2026-10-10 pelo plano 51-20 (migration `20261010000001`, G1a:
+  --   o passo tombstone_candidato apaga a disponibilidade do titular), com a rede (x) crescida
+  --   ANTES e rodada VERMELHA contra o corpo do 51-13 (a68e4a6a…). Pinado do ARQUIVO, nunca do
+  --   catalogo; vigora a partir do apply do 51-22. O do plano NAO muda (o plano vivo e o da 0004).
   v_pin_plano text := '0a4996feea738f7cfd25feda0ecd7904';
-  v_pin_anon  text := 'a68e4a6a47d9482f75d3326a8bf2b3e4';
+  v_pin_anon  text := '9b87e5ee3d072df5f9bf6e99ee1ae7c1';
   -- ⚠ 49-29 · declaracoes da rede (C3/viii), que cresceu ANTES desta troca de pins
   v_an_ini    int;
   v_an_fim    int;
@@ -3299,6 +3464,22 @@ DECLARE
   --   plano) satisfaca a clausula — medido: sem a ancora, (2) e (6) seriam vacuas.
   v_ix_re_guarda constant text := '(^|[^a-z_])resultado[[:space:]]*=[[:space:]]*CASE[[:space:]]+WHEN[[:space:]]+[a-z_]+[.]resultado[[:space:]]+IS[[:space:]]+NULL[[:space:]]+THEN[[:space:]]+NULL';
   v_ix_re_conta  constant text := '(^|[^a-z_])resultado[[:space:]]+IS[[:space:]]+NOT[[:space:]]+NULL';
+  -- ⚠ 51-20 · declaracoes da rede (C3/x), que cresceu ANTES desta troca de pins
+  v_x_ini       int;       -- onde `══ passo_motor: tombstone_candidato` comeca no corpo vivo
+  v_x_fim       int;       -- onde `══ passo_motor: tombstone_decisao_final` comeca, procurado A PARTIR do inicio
+  v_x_n_ini     int;       -- ocorrencias do marcador de inicio (tem de ser 1)
+  v_x_n_fim     int;       -- ocorrencias do marcador de fim (tem de ser 1)
+  v_x_bruto     text;      -- o trecho do passo, cru
+  v_x_cod       text;      -- sem comentarios (bloco /* */ primeiro, depois --)
+  v_x_masc      text;      -- e com cada literal mascarado para ''
+  v_x_pos       int;
+  v_x_n         int;       -- apagamentos de disponibilidade no TRECHO mascarado
+  v_x_n_corpo   int;       -- e no motor INTEIRO sem comentarios
+  v_x_stmt      text;      -- o apagamento, cortado no 1o ; FORA de literal
+  v_x_ctl       text;      -- o UPDATE public.candidaturas real do trecho, cortado pela MESMA regra (controle)
+  -- a forma do apagamento, so como padrao POSIX — nunca a forma literal (§K)
+  v_x_re_apaga  constant text := 'DELETE[[:space:]]+FROM[[:space:]]+public[.]disponibilidade';
+  v_x_re_escopo constant text := 'candidato_id[[:space:]]*=[[:space:]]*p_candidato_id';
   v_src_plano text;
   v_src_anon  text;
   v_def_anon  text;
@@ -3364,6 +3545,12 @@ DECLARE
   v_rp_ausentes text := '';
   v_rp_permit   constant text[] := ARRAY['respostas_raven','respostas_bigfive',
                                          'respostas_disc','respostas_formulario'];
+  -- ⚠ 51-20 · O SEGUNDO ESCOPO NOMEADO do (C3/vi). Escopo DELIBERADO, nao fotografia: G1a,
+  --   decisao do operador de 2026-10-10 (51-GAPS-DECISAO) — a declaracao de disponibilidade e
+  --   dado da propria pessoa, sem valor de prova; a linha morre no passo tombstone_candidato, e a
+  --   (C3/x) amarra o lugar. Uma tabela nova apagada pelo motor continua REPROVANDO: ela teria de
+  --   ganhar um terceiro escopo nomeado aqui, com a decisao que o autoriza escrita ao lado.
+  v_g1a_permit  constant text[] := ARRAY['disponibilidade'];
   -- ⚠ CLASSIFICACAO DA FORMA (CLAUDE.md §"Portoes"): lista LITERAL, e ela e ESCOPO
   --   DELIBERADO e nao fotografia. As treze sao exatamente as origens que o item
   --   `respostas_e_producoes` do recibo enumera, menos `devolutivas_candidato` (que
@@ -3407,12 +3594,12 @@ BEGIN
   END IF;
 
   IF v_md5_plano IS DISTINCT FROM v_pin_plano THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de plano_exclusao_titular NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente e o do plano 51-13 (migration 20261008000004, o passo de revisao_rejeicao.resultado — JORN-42), pinado do ARQUIVO antes do apply do 51-16. Se o md5 vivo for 35d451416c22e150e48a583d879fe48d (o do 49-29), a 20261008000004 nao foi aplicada nem prefixada no ensaio — rodar pelo ensaio com 0002..0004 prefixadas, ou aplicar no portao 51-16. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de plano_exclusao_titular NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente do PLANO continua o do plano 51-13 (migration 20261008000004, o passo de revisao_rejeicao.resultado — JORN-42): o 51-20 so re-pinou o MOTOR, e nao reescreve o plano. Se o md5 vivo for 35d451416c22e150e48a583d879fe48d (o do 49-29), a 20261008000004 nao foi aplicada nem prefixada no ensaio — rodar pelo ensaio com 0002..0004 prefixadas, ou aplicar no portao 51-16. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
       v_md5_plano, v_pin_plano, octet_length(v_src_plano);
   END IF;
 
   IF v_md5_anon IS DISTINCT FROM v_pin_anon THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de anonimizar_candidato NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente e o do plano 51-13 (migration 20261008000004, o passo de revisao_rejeicao.resultado — JORN-42), pinado do ARQUIVO antes do apply do 51-16. Se o md5 vivo for 4624854408950110cbfebc971481145a (o do 49-29), a 20261008000004 nao foi aplicada nem prefixada no ensaio — e o motor vivo NAO raspa a resposta do revisor no registro novo. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de anonimizar_candidato NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente do MOTOR e o do plano 51-20 (migration 20261010000001, o apagamento da disponibilidade do titular no tombstone — G1a), pinado do ARQUIVO antes do apply do 51-22. Se o md5 vivo for a68e4a6a47d9482f75d3326a8bf2b3e4 (o do 51-13), a 20261010000001 nao foi aplicada nem prefixada no ensaio — e o motor vivo NAO apaga a disponibilidade que o recibo promete apagar: rodar pelo ensaio com a 20261010000001 prefixada, ou aplicar no 51-22. Se for 4624854408950110cbfebc971481145a (o do 49-29), nem a 20261008000004 esta no ar. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
       v_md5_anon, v_pin_anon, octet_length(v_src_anon);
   END IF;
 
@@ -3601,11 +3788,15 @@ BEGIN
   SELECT array_agg(m[1]) INTO v_rp_alvos
     FROM regexp_matches(v_src_anon, 'DELETE[[:space:]]+FROM[[:space:]]+public\.([a-z_]+)', 'g') AS m;
 
+  -- ⚠ 51-20: o «fora» passa a ser alvos − (D-62 ∪ G1a), os DOIS escopos nomeados no DECLARE.
+  --   O «falta» (abaixo) continua so para o D-62: a presenca e o LUGAR do apagamento do G1a sao
+  --   da (C3/x), e a lista da tabela fora dos escopos vem logo depois do rotulo na mensagem (o
+  --   veredito do ensaio corta a primeira falha em 600 caracteres).
   SELECT array_agg(t) INTO v_rp_fora
     FROM unnest(coalesce(v_rp_alvos, ARRAY[]::text[])) AS t
-   WHERE NOT (t = ANY (v_rp_permit));
+   WHERE NOT (t = ANY (v_rp_permit || v_g1a_permit));
   IF v_rp_fora IS NOT NULL THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/vi): ⛔ O MOTOR APAGA LINHA EM TABELA FORA DO D-62: %. A excecao do operador e valida SO no passo apagar_respostas_e_producoes e SO em respostas_raven, respostas_bigfive, respostas_disc e respostas_formulario. Em toda outra origem a linha FICA (sentinela onde a coluna e NOT NULL, NULL onde ela aceita): apagar linha de score, de decisao, de candidatura ou de historico destroi a prova de nao-discriminacao que o ERASE-08 e a RNF-07a preservam — e destroi sem volta, porque PITR esta desligado e o backup de 7 dias exclui Storage', array_to_string(v_rp_fora, ', ');
+    RAISE EXCEPTION 'P45M FAIL (C3/vi): ⛔ O MOTOR APAGA LINHA EM TABELA FORA DOS DOIS ESCOPOS (D-62 e G1a): %. A excecao do D-62 e valida SO no passo apagar_respostas_e_producoes e SO em respostas_raven, respostas_bigfive, respostas_disc e respostas_formulario; a do G1a (decisao do operador de 2026-10-10) SO no passo tombstone_candidato e SO em disponibilidade. Em toda outra origem a linha FICA (sentinela onde a coluna e NOT NULL, NULL onde ela aceita): apagar linha de score, de decisao, de candidatura ou de historico destroi a prova de nao-discriminacao que o ERASE-08 e a RNF-07a preservam — e destroi sem volta, porque PITR esta desligado e o backup de 7 dias exclui Storage', array_to_string(v_rp_fora, ', ');
   END IF;
 
   SELECT array_agg(p) INTO v_rp_falta
@@ -3888,6 +4079,91 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (C3/ix): a contagem de revisao_rejeicao no plano nao exige resultado IS NOT NULL. Contar pedidos em vez de RESPOSTAS promete ao titular o apagamento de textos que nunca existiram (P39/CR-02: o dry-run tem de sair da MESMA expressao do motor)';
   END IF;
 
+  -- ── (C3/x) 51-20 / G1a · O APAGAMENTO DA DISPONIBILIDADE NO TOMBSTONE, VIGIADO POR FORMA ──
+  -- ⚠⚠ ESTAS CLAUSULAS FORAM ACRESCENTADAS **ANTES** DA TROCA DOS PINS, e rodadas VERMELHAS
+  --    contra o corpo vivo do 51-13 (que nao toca a tabela — exatamente o corpo que um re-pin
+  --    descuidado carimbaria) — a disciplina do 49-14, 49-20, 49-21, 49-29 e 51-13. A (B26)
+  --    prova por EXECUCAO; estas provam por FORMA. Vivem dentro do PASS unico do (C3).
+  --    O passo: as linhas de `disponibilidade` do titular (a declaracao dele de quando e como
+  --    pode trabalhar) MORREM no passo tombstone_candidato. E a segunda excecao EXPLICITA do
+  --    operador ao «a linha fica» (G1a, 2026-10-10), ao lado do D-62 — SO esta tabela e SO este
+  --    passo. O recibo ja prometia que a disponibilidade sai; o motor nao tocava a tabela
+  --    (WINDOWS 89 / T-51-14), e a FK ON DELETE CASCADE nunca disparava porque o motor faz
+  --    UPDATE em candidatos, nao apaga a linha.
+  -- ⚠ O TRECHO vai de `══ passo_motor: tombstone_candidato` ate `══ passo_motor:
+  --   tombstone_decisao_final` — e NAO «ate o proximo passo_motor:»: dentro do UPDATE de
+  --   candidatos ha o comentario `passo_motor: severar_user_id`, que cortaria o passo ao meio.
+  --   Cada marcador ocorre UMA vez; o fim e procurado A PARTIR do inicio (licao do 49-29).
+  -- ⚠ A FRONTEIRA DE STATEMENT e a regra da (C3/ix): comentarios fora PRIMEIRO, cada literal
+  --   mascarado para '', e o corte no primeiro ; do MASCARADO. O CONTROLE da fronteira e o
+  --   UPDATE de public.candidaturas do mesmo trecho; falha dele sai `DEFEITO DA REDE` —
+  --   consertar a REDE, nunca a migration, nunca afrouxar (1)-(5) —, texto que nenhuma
+  --   mensagem de propriedade usa.
+  v_x_ini   := position('══ passo_motor: tombstone_candidato' IN v_src_anon);
+  v_x_n_ini := (length(v_src_anon) - length(replace(v_src_anon, '══ passo_motor: tombstone_candidato', '')))
+               / length('══ passo_motor: tombstone_candidato');
+  IF v_x_ini = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): o passo tombstone_candidato sumiu do corpo vivo. Sem ele o titular nao vira tombstone, e o apagamento da disponibilidade nao tem lugar onde acontecer';
+  END IF;
+  IF v_x_n_ini <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): DEFEITO DA REDE — o marcador de inicio (passo_motor: tombstone_candidato) ocorre % vezes no corpo vivo; sem um inicio unico a rede nao sabe qual trecho medir', v_x_n_ini;
+  END IF;
+  v_x_fim   := position('══ passo_motor: tombstone_decisao_final' IN substr(v_src_anon, v_x_ini));
+  v_x_n_fim := (length(v_src_anon) - length(replace(v_src_anon, '══ passo_motor: tombstone_decisao_final', '')))
+               / length('══ passo_motor: tombstone_decisao_final');
+  IF v_x_fim = 0 OR v_x_n_fim <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): DEFEITO DA REDE — o fim do trecho (passo_motor: tombstone_decisao_final) nao foi achado UMA vez depois de tombstone_candidato (posicao relativa %, ocorrencias %); sem delimitacao a rede nao mede nada', v_x_fim, v_x_n_fim;
+  END IF;
+  v_x_bruto := substr(v_src_anon, v_x_ini, v_x_fim - 1);
+  v_x_cod   := regexp_replace(regexp_replace(v_x_bruto, '/\*.*?\*/', '', 'g'),
+                              '--[^' || chr(10) || ']*', '', 'g');
+  IF length(v_x_cod) >= length(v_x_bruto) THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): DEFEITO DA REDE — a remocao de comentarios do trecho nao removeu nada (% -> %). Sem ela as clausulas leem prosa, e um portao que nao consegue medir nao pode responder ok', length(v_x_bruto), length(v_x_cod);
+  END IF;
+  v_x_masc := regexp_replace(v_x_cod, '''([^'']|'''')*''', '''''', 'g');
+
+  -- ── CONTROLE DA FRONTEIRA (antes da (1)) ─────────────────────────────────
+  -- (c1) nenhuma aspa solta no mascarado depois de tirar os ''
+  IF position('''' IN replace(v_x_masc, '''''', '')) > 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): DEFEITO DA REDE — sobrou aspa solta no trecho mascarado (octeto %). A mascara de literais nao fechou um literal, e o corte no primeiro ; fora de literal deixou de ser confiavel', position('''' IN replace(v_x_masc, '''''', ''));
+  END IF;
+  -- (c2) o statement real de candidaturas do MESMO trecho, cortado pela MESMA regra, sai inteiro
+  v_x_pos := position('UPDATE public.candidaturas' IN v_x_masc);
+  IF v_x_pos = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): DEFEITO DA REDE — o UPDATE public.candidaturas (o controle da fronteira) nao foi achado no trecho mascarado; sem controle a rede nao prova que corta certo';
+  END IF;
+  v_x_ctl := substr(v_x_masc, v_x_pos, position(';' IN substr(v_x_masc, v_x_pos)));
+  IF v_x_ctl !~ 'WHERE[[:space:]]' OR v_x_ctl !~ v_x_re_escopo THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): DEFEITO DA REDE — o UPDATE public.candidaturas cortado pela regra da rede saiu SEM o WHERE escopado (%). Se o corte terminou antes do WHERE, a regra de fronteira deixou de ser confiavel e a (2) julgaria um pedaco de statement', left(v_x_ctl, 200);
+  END IF;
+
+  -- (1) exatamente UM apagamento de public.disponibilidade no trecho
+  SELECT count(*) INTO v_x_n FROM regexp_matches(v_x_masc, v_x_re_apaga, 'g') AS m;
+  IF v_x_n <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): o passo tombstone_candidato nao tem exatamente UM DELETE public.disponibilidade (achados: %). A declaracao de disponibilidade do titular — quando e como ele pode trabalhar — sobreviveria a exclusao dele, enquanto o recibo diz que ela foi apagada (WINDOWS 89 / T-51-14). G1a', v_x_n;
+  END IF;
+  -- (2) escopado ao titular, sem OR no predicado
+  v_x_pos  := position(substring(v_x_masc FROM v_x_re_apaga) IN v_x_masc);
+  v_x_stmt := substr(v_x_masc, v_x_pos, position(';' IN substr(v_x_masc, v_x_pos)));
+  IF v_x_stmt !~ 'WHERE[[:space:]]' OR v_x_stmt !~ v_x_re_escopo
+     OR v_x_stmt ~* '[[:space:]]OR[[:space:]]' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): o apagamento de disponibilidade NAO e escopado ao titular (sem WHERE, sem candidato_id = p_candidato_id, ou com OR no predicado): [%]. Ele levaria a disponibilidade de OUTRAS pessoas, que nao pediram exclusao — e a execucao real nao tem volta (sem PITR)', left(v_x_stmt, 200);
+  END IF;
+  -- (3) ⊖ e e o UNICO do motor: nenhum outro apagamento da tabela fora do passo
+  SELECT count(*) INTO v_x_n_corpo FROM regexp_matches(v_ix_anon_cod, v_x_re_apaga, 'g') AS m;
+  IF v_x_n_corpo <> v_x_n THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): o motor apaga disponibilidade FORA do passo tombstone_candidato (% apagamento(s) no corpo sem comentarios, % no passo). A excecao do G1a vale SO neste passo: um segundo apagamento em outro lugar escapa da (2) e da (B26)', v_x_n_corpo, v_x_n;
+  END IF;
+  -- (4) o motor DECLARA a contagem
+  IF position('''disponibilidade''' IN v_ix_anon_cod) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): o motor nao DECLARA em passos quantas linhas de disponibilidade apagou (chave disponibilidade ausente do codigo). Um passo que apaga e nao diz quanto apagou nao e auditavel — e o recibo e a prova da exclusao leem esse numero';
+  END IF;
+  -- (5) o plano conta pela MESMA expressao (P39/CR-02) — e por isso ele nao e reescrito no 51-20
+  IF v_ix_pl_cod !~ ('FROM[[:space:]]+public[.]disponibilidade[[:space:]]+([a-z_]+[[:space:]]+)?WHERE[[:space:]]+([a-z_]+[.])?' || v_x_re_escopo)
+     OR position('''disponibilidade''' IN v_ix_pl_cod) = 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/x): plano_exclusao_titular deixou de contar public.disponibilidade por candidato_id = p_candidato_id sob a chave disponibilidade. O dry-run e o unico lugar onde o numero de linhas que VAO deixar de existir pode ser lido antes de deixarem, e ele tem de sair da MESMA expressao do motor (P39/CR-02)';
+  END IF;
+
   -- ── (C3/janela) RD2-06 + RD3-01 · AS TRES JANELAS, MEDIDAS NO CODIGO ─────
   -- ⚠⚠ A PRIMEIRA VERSAO DESTE PORTAO LIA COMENTARIO, NAO CODIGO — e essa e a
   --   SEXTA ocorrencia da familia "portao que parece medir e nao mede" nesta fase.
@@ -3978,7 +4254,7 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P45M PASS (C3): as QUATRO metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, a rede do 46-04 sobre o MOTOR (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto) e a rede sobre o PLANO (le o ledger, exige o ALVO, zero negacao por conjunto); a rede (ix) sobre o passo de revisao_rejeicao (um UPDATE, guarda CASE WHEN ... IS NULL THEN NULL, escopado ao titular, so resultado, linha fica, plano conta pela mesma condicao — fronteira de statement auto-conferida); e as TRES janelas de expiracao, medidas NO CODIGO (2+1+2 ocorrencias), batem em [%]', v_md5_plano, v_md5_anon, v_jans[1];
+  RAISE NOTICE 'P45M PASS (C3): as QUATRO metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, a rede do 46-04 sobre o MOTOR (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto) e a rede sobre o PLANO (le o ledger, exige o ALVO, zero negacao por conjunto); a rede (ix) sobre o passo de revisao_rejeicao (um UPDATE, guarda CASE WHEN ... IS NULL THEN NULL, escopado ao titular, so resultado, linha fica, plano conta pela mesma condicao — fronteira de statement auto-conferida); a rede (x) sobre o apagamento da disponibilidade no tombstone (um apagamento, escopado ao titular sem OR, unico no motor, contagem declarada, plano conta pela mesma expressao — fronteira auto-conferida); e as TRES janelas de expiracao, medidas NO CODIGO (2+1+2 ocorrencias), batem em [%]', v_md5_plano, v_md5_anon, v_jans[1];
 END
 $c3$;
 
@@ -4459,13 +4735,15 @@ $c456$;
 --
 --     A metade de CONTAGEM existe porque delegar a leitura dos NOTICEs a quem roda
 --     produz run parcial que termina em silencio (licao da 37-03, repetida na P41-05
---     e na P43). O esperado e FIXO: 39 (subiu de 25 para 30 no plano 49-14, de 30
+--     e na P43). O esperado e FIXO: 40 (subiu de 25 para 30 no plano 49-14, de 30
 --     para 36 no plano 49-20, de 36 para 37 no plano 49-21, de 37 para 38 no plano
 --     49-29 — seis propriedades independentes do passo que apaga
---     linha, mais o passo que DESIDENTIFICA — e de 38 para 39 no plano 51-13, a (B25):
+--     linha, mais o passo que DESIDENTIFICA —, de 38 para 39 no plano 51-13, a (B25):
 --     a resposta do revisor no registro novo de pedido de revisao; a rede (C3/ix)
---     vive dentro do PASS unico do (C3) e a linha nova do (z) nao incrementa; ver o
---     bump registrado no cabecalho).
+--     vive dentro do PASS unico do (C3) e a linha nova do (z) nao incrementa — e de 39
+--     para 40 no plano 51-20, a (B26): a disponibilidade do titular sai no tombstone
+--     (G1a); a rede (C3/x) vive dentro do PASS unico do (C3) e a linha nova do (z),
+--     `public.disponibilidade`, nao incrementa; ver o bump registrado no cabecalho).
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
@@ -4474,10 +4752,10 @@ DECLARE
   v_divergs  text := '';
   v_agora    bigint;
   v_asserts  int;
-  -- ⚠ 39 desde o plano 51-13 (38 no 49-29, 37 no 49-21, 36 no 49-20, 30 no 49-14, 25 antes). Escopo DELIBERADO, nao fotografia: e o numero
+  -- ⚠ 40 desde o plano 51-20 (39 no 51-13, 38 no 49-29, 37 no 49-21, 36 no 49-20, 30 no 49-14, 25 antes). Escopo DELIBERADO, nao fotografia: e o numero
   --   exato de assercoes que este arquivo contem, e o RESUMO existe para reprovar o run
   --   PARCIAL que termina em silencio (licao da 37-03, repetida na P41-05 e na P43).
-  v_esperado int := 39;
+  v_esperado int := 40;
   v_solic_b  bigint := current_setting('smoke45m.solic')::bigint;
   v_solic_a  bigint;
   -- ⚠ 51-13: o numero de tabelas do RESUMO e CONTADO no proprio laco. A mensagem citava
@@ -4526,7 +4804,10 @@ BEGIN
       --   aqui. `net.http_request_queue` fica FORA (ver o $baseline$): o enqueue do
       --   trigger de pedido e transacional e o P45B0 o descarta, e fora do ensaio o
       --   worker do pg_net consome a fila em paralelo — conta-la seria fotografia.
-      ('public.revisao_rejeicao',                 'rrej')
+      ('public.revisao_rejeicao',                 'rrej'),
+      -- ⚠ 51-20: a fixture (B26) escreve aqui e o passo novo do motor (G1a) APAGA aqui —
+      --   «nao poluiu» e «nao apagou» medidos pela mesma contagem global.
+      ('public.disponibilidade',                  'disp')
     ) AS t(tabela, chave)
   LOOP
     EXECUTE format('SELECT count(*) FROM %s', r.tabela) INTO v_agora;
