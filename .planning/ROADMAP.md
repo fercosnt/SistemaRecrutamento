@@ -32,7 +32,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
 - [x] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma (completed 2026-10-03)
 - [x] **Phase 50: Acesso do Recrutador** - O recrutador cadastrado vê todas as vagas e as filas que dependem delas, em vez da tela vazia do predicado `created_by` (completed 2026-10-06)
-- [ ] **Phase 51: Consertos da Jornada — Bloco 3** - Defeitos da UAT de 27–29/09 (JORN-42..49): direito de revisão que depende do caminho da rejeição, prova cognitiva sem porta de entrada, navegação sem volta, notas de entrevista com 400 mudo, recibo de exclusão que promete demais
+- [x] **Phase 51: Consertos da Jornada — Bloco 3** - Defeitos da UAT de 27–29/09 (JORN-42..49): direito de revisão que depende do caminho da rejeição, prova cognitiva sem porta de entrada, navegação sem volta, notas de entrevista com 400 mudo, recibo de exclusão que promete demais (completed 2026-10-10)
 
 ### Ordem de execução, dependências e paralelização
 
@@ -666,6 +666,7 @@ Plans:
 **Guardrails**: os do Bloco 1/2 e da Phase 50 — migrations pelo `p46apply.cjs` (md5 do ledger conferido), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado. Mudança de controle de acesso (JORN-42): review bloqueante antes do apply e prova de que nada abriu (views incluídas). Ordem D-27: telas e textos primeiro, banco depois (migration → motor/LGPD → EF → cliente)
 **Fora de escopo**: JORN-50..52 (seguem sem fase); Bloco 4 da fila; portfólio visível ao RH e a Parte B do todo `49-producoes-do-candidato-sem-leitor-de-rh`
 **Plans**: 24/24 plans executed — 51-18..51-24 fecham os gaps da verificação de 2026-10-10 (`51-VERIFICATION.md` gaps_found 7/9; decisões do operador G1a/G1b/G2 em `51-GAPS-DECISAO.md`)
+**Fechamento (2026-10-10)**: UAT `51-UAT.md` 5 pass + 1 adiado (teste 2 → Phase 52); `51-VERIFICATION.md` `human_needed` → `passed` (9/9); `51-SECURITY.md` SECURED (threats_open 0). Decisão do operador G-51-OP1 (hub do RH) → Phase 52
 
 Plans:
 **Wave 1**
@@ -751,7 +752,7 @@ Plans:
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
-| 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | In Progress | - |
+| 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | Complete | 2026-10-10 |
 
 ---
 

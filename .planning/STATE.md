@@ -2,23 +2,48 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: verifying
-stopped_at: "Fase 51: gaps 51-18..51-24 executados e publicados; re-verificacao 9/9 human_needed (6 conferencias de tela em 51-UAT.md); re-auditoria de seguranca SECURED (threats_open 0, T-51-14 CLOSED). Proximo: /gsd-verify-work 51 (UAT) e ratificar o comando destrutivo do 51-23."
-last_updated: "2026-10-10T06:40:00.000Z"
+status: completed
+stopped_at: "Fase 51 CONCLUIDA (2026-10-10): UAT 5 pass + 1 adiado (teste 2 -> fase nova); VERIFICATION passed 9/9; SECURITY secured. Decisao do operador G-51-OP1 (hub do RH: contato, cadastro completo, inscricao, Big Five, SJT) vira fase nova. Abertos: ratificar o comando destrutivo do 51-23; T-51-47 (medium, nao bloqueante)."
+last_updated: "2026-10-10T18:32:26.000Z"
 last_activity: 2026-10-10
-state_head: 43d6d06c
+state_head: d7d2bf99
 progress:
   total_phases: 10
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 171
   completed_plans: 171
-  percent: 98
+  percent: 100
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "/gsd-execute-phase 51 --gaps-only: 51-24 — executar-direito-titular v14 -> v15 ACTIVE (03:31:35, texto aprovado no 51-19 conferido byte a byte); exportar-meus-dados v8 mantida; push enumerado 53cb73ff..3bb9653d (42 commits, 0 ALHEIO); marcador do recibo em index--Yy-gC6F.js (AUSENTE antes); DISPOSITION WR-01/WR-02 fixed, evidencia do T-51-14 anexada ao SECURITY sem mudar veredito, mapa Nyquist 51-18..51-24."
+last_activity_desc: "/gsd-verify-work 51: UAT 6 testes (1,3,4,5,6 pass; 2 adiado para a fase nova, G-51-OP1); VERIFICATION human_needed -> passed; transicao escrita a mao (sem gsd-tools no STATE/ROADMAP)."
 ---
 
 # Project State
+
+## ▶ ESTADO EM 2026-10-10 — Phase 51 CONCLUÍDA
+
+UAT `51-UAT.md` **complete**: testes 1, 3, 4, 5 e 6 **pass**; teste 2 **adiado** para a fase nova
+(saída durante as provas, «Tempo sugerido», devolutiva sem caminho de volta). Ressalvas gravadas
+no próprio UAT: card «Prova cognitiva» não observável em PROD (15 vagas com `aplica_cognitivo=false`);
+habilitação total do «Salvar avaliação» mascarada pela trava da análise vigente; e-mail do recibo
+(EF v15) não observado (exigiria exclusão real). `51-VERIFICATION.md` `human_needed` → **`passed`**
+(9/9); `51-SECURITY.md` SECURED (threats_open 0). ROADMAP `[x]` com data.
+
+**Transição escrita à mão**, por decisão do operador: nenhum `gsd-tools` tocou STATE/ROADMAP
+(ver o ⚠ do bloco de 2026-10-03 sobre o `phase.complete`). Contadores remedidos por casamento:
+171 planos = 171 SUMMARYs nas 10 pastas do M8 (42–51); 10 de 10 fases `[x]`.
+
+**Decisão do operador G-51-OP1 (2026-10-10)** — hub do RH com contato (e-mail/WhatsApp), cadastro
+completo, respostas da inscrição, Big Five com resultado e devolutiva (**revoga D-31/49 e D-32/51**;
+RNF-07a continua), SJT MC com pergunta e escolha, caso aberto — mais os defeitos e pendências
+adiadas do UAT e os achados do 51-17. Registro: `51-UAT.md` (G-51-OP1 + «Deferred Follow-Ups») e
+`.planning/DECISAO-2026-10-10-hub-rh-dados-e-contato.md`. Vira fase nova.
+
+**Abertos que a 51 deixa (não bloqueiam o fecho):**
+- Ratificar o comando destrutivo do 51-23 (rodou com autorização condicional por números, sem o
+  operador ver o comando antes — `51-SECURITY.md`, observação 1 da re-auditoria).
+- T-51-47 (medium, `open`): `executar-direito-titular/index.ts:1369` soma só `tombstone_decisao_final`.
+- `anon` com EXECUTE em `pontuar_cognitivo` — entra no `REVOKE` futuro do UF-2.
 
 ## ▶ ESTADO EM 2026-10-05 — Phases 43 e 46 concluídas; resta a 44 (e a escrituração da 45)
 
@@ -1779,8 +1804,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-09T07:16:07.629Z
-Stopped at: Completed 51-15-PLAN.md
+Last session: 2026-10-10T18:32:26.000Z
+Stopped at: Phase 51 concluída (UAT complete, VERIFICATION passed); transição escrita à mão
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

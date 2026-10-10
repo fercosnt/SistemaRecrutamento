@@ -79,6 +79,7 @@ blocked: 0
   status: deferred_to_new_phase
   decided_at: 2026-10-10
   severity: major
+  detail: ".planning/DECISAO-2026-10-10-hub-rh-dados-e-contato.md — decisão verbatim, alertas considerados pelo operador, fonte de cada dado (tabelas/colunas), pontos de desenho e os defeitos a–f com linha de código; achados do 51-17 referenciados ao 51-17-SUMMARY.md"
   reason: "DECISÃO DO OPERADOR (2026-10-10): «Eu quero o resultado do Big Five e quero ver todos os dados preenchidos no cadastro e inscrição da vaga. Preciso também ter o e-mail e telefone para entrar em contato fácil, com um botão de enviar e-mail e, no telefone, um botão do lado de chamar no WhatsApp.»"
   scope: |
     Escopo da fase nova (hub do RH):
