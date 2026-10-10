@@ -191,6 +191,20 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   ordem entre limpar a candidatura e tratar a vaga entra na proposta.
 - **D-33 (operador, 2026-10-10):** **aceita a divisão** — uma fase só, quatro blocos (A telas sem banco,
   B hub do RH, C banco SJT de pré-vendas, D limpeza), cada um com portão próprio.
+- **D-34 (operador, 2026-10-10) — regra de redação do banco SJT de pré-vendas (bloco C):** em cada item
+  `mc`, as **4 alternativas têm comprimento parecido** — a `fortemente_pontua` **não pode ser
+  visivelmente a mais longa**. A tela do candidato já embaralha a ordem (`SjtMultiplaEscolhaScreen.tsx:51-84`),
+  então o comprimento é a pista que sobra: a alternativa certa denunciada pelo tamanho vira gabarito e
+  achata a faixa. O operador **aprova o texto no portão do bloco C já com esta regra aplicada**. Para o
+  portão, o texto vai acompanhado da **contagem de caracteres de cada alternativa por item**, com a razão
+  `fortemente_pontua` ÷ média das outras três. Isso deixa a regra conferível, não só afirmada. O
+  critério numérico de "parecido" não foi fixado pelo operador: o planejador propõe, e o operador decide no
+  portão.
+  - **O vício que a regra evita, medido no banco de marketing no ar** (`20260929000001`, 2026-10-10, leitura do
+    arquivo da migration): em **16 dos 18** itens `mc` a `fortemente_pontua` é a alternativa mais
+    longa. A razão sobre a média das outras vai de 0,96× a **2,85×** (situação 1 da Social Media: 227
+    caracteres contra 79/65/95). O conserto daquele banco **não é escopo da 52**. Ver a pendência
+    em §Deferred.
 
 ### Divisão (proposta e aceita pelo operador — D-33)
 O escopo tem quatro naturezas com riscos diferentes. Recomendação ao planejador: **uma fase, quatro
@@ -204,8 +218,8 @@ abrir, e só os blocos C e D tocam o banco de forma sensível:
   contato, cadastro, inscrição, Big Five, SJT MC, caso aberto. **Review bloqueante antes do apply** e
   prova por papel.
 - **C — Banco SJT de pré-vendas** (JORN-52): texto dos itens **aprovado pelo operador antes** da
-  migration (precedente do `51-19-TEXTO-APROVADO.md`), migration pelo `p46apply.cjs`, destino da mina
-  inerte.
+  migration (precedente do `51-19-TEXTO-APROVADO.md`), **já escrito com a regra de comprimento da D-34**
+  e com a tabela de caracteres por alternativa, migration pelo `p46apply.cjs`, destino da mina inerte.
 - **D — Limpeza** (destrutiva, a última): depois do UAT da 52; população medida, aprovada e
   re-medida no mesmo comando; portão destrutivo do M8.
 
@@ -323,6 +337,12 @@ abrir, e só os blocos C e D tocam o banco de forma sensível:
   necessidade de trilha, é fase própria (registro manual de contato).
 - **Tabela de auditoria de acesso a dados pessoais** — preterida em favor da linha de log (D-11).
 - **Reanalisar as 22 análises sem modelo** — preterido (D-23): custo de IA e substitui a análise antiga.
+- **Pendência separada: equalizar o comprimento das alternativas do banco de marketing em PROD**
+  (operador, 2026-10-10). **A decisão é do operador**, e **não é escopo da 52** nem do bloco C. O vício está medido na
+  D-34. Existe uma reescrita local **nunca commitada** em `docs/specs/DRAFT-banco-sjt-marketing.md`
+  (modificada em 30/09, 45 linhas trocadas sobre o `7be693c1`) que equaliza os tamanhos. **Não commitar
+  nem descartar esse arquivo** até o operador decidir: ele é a única cópia dessa reescrita. Rastreada em
+  `.planning/todos/pending/52-banco-sjt-marketing-comprimento-das-alternativas.md`.
 
 ### Reviewed Todos (not folded)
 - `49-banco-sjt-aplicado-e-nao-conectado` — vagas apontando para o banco SJT errado; é configuração de
