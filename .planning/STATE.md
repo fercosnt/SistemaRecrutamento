@@ -3,7 +3,7 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Fase 51 gaps: wave 1 concluida (51-18 G2 cache, 51-19 G1b texto aprovado pelo operador, 51-20 G1a motor em ensaio, NAO aplicado; PROD ledger em 20261008000005). Proximo: 51-21 (migration destrutiva, nao aplicada)"
+stopped_at: "Fase 51 gaps: waves 1-2 concluidas (51-18..51-21; migrations 20261010000001/2 escritas e provadas em ensaio, NAO aplicadas; PROD ledger em 20261008000005). Proximo: 51-22 (review + checkpoint do operador + apply do motor)"
 last_updated: "2026-10-10T06:30:00.000Z"
 last_activity: 2026-10-10
 state_head: 43d6d06c
