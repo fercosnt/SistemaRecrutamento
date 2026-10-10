@@ -180,6 +180,30 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
      (ou o UAT usa contas novas que entram na mesma limpeza) — não antes.
   5. Relacionado, **fora** da D-30: as 8 fixtures da purga (`fixture-p46-*`, vagas arquivadas) têm
      teardown próprio no checklist de fecho do M8 (`STATE.md`, `p46_teardown_fixture.sql`).
+  - **Emenda (operador, 2026-10-10, antes do plan): a população passa a ser POR CONTA, não por status de
+    vaga. Substitui o recorte «vagas ativas» do título e da tabela acima.** A limpeza cobre **todos os
+    dados de contas de teste em vagas de qualquer status** (ativa, inativa, arquivada). Inclui as **2
+    respostas SJT da `teste-dentista-funil-e2e`** (`a32fe930`, arquivada, candidatura `a1dd4c42`) e a
+    **conta dona delas**, o candidato `896c6a43`. Essa conta (medida em 2026-10-10, só leitura) tem e-mail
+    `@teste.com` **sem «+»**, por isso **não casa** com nenhum padrão listado acima (+claudeN, +cand1,
+    `@invalido.local`). Ela tem **2 candidaturas**, as duas em vagas arquivadas: `a32fe930`
+    (teste-dentista-funil-e2e) e `53f75c81` (teste-asb-shopping-riomar). A tabela acima e a conta da
+    `a32fe930` são **fotografia**. O **escopo** é «todo dado de conta de teste».
+    - **Como o planejador monta a lista:** por **varredura status-agnóstica**, seguindo a regra «fotografia ×
+      escopo» do `CLAUDE.md`. A lista de padrões de e-mail também é fotografia: a `896c6a43` mostrou que
+      ela envelhece. A varredura cruza **duas entradas**: (i) contas que casam com os padrões de teste
+      medidos, em qualquer vaga; (ii) **toda** candidatura em vaga de teste (`[TESTE]` no título ou
+      `teste-*` no slug), em qualquer status, **seja qual for a conta**. O que aparece numa entrada e não na
+      outra é mostrado à parte, porque é ali que mora a conta que nenhum padrão previu.
+    - **O que vai ao portão do bloco D:** **as contas, as candidaturas e as vagas de teste**
+      (`[TESTE]`/`teste-*`), com a **proposta de arquivar ou remover cada vaga**. A D-32 (`629a5f31`) entra
+      nessa mesma lista. **Nada é removido sem a lista no portão.** O portão destrutivo do M8 continua
+      valendo inteiro: dry-run pela mesma query, população aprovada e re-medida no mesmo comando, review
+      bloqueante, prova pós.
+    - **Fronteira a mostrar, não a decidir aqui:** a varredura vai encontrar as 8 fixtures `fixture-p46-*`
+      (item 5, vagas arquivadas, teardown próprio no fecho do M8). O planejador mostra no portão se elas saem
+      pelo teardown delas ou pela limpeza do bloco D, para nenhuma ficar sem dono e nenhuma ser apagada
+      duas vezes.
 - **Nota de escrituração (feita junto deste acréscimo, não é decisão de implementação):** **JORN-50 Complete** no `REQUIREMENTS.md` — a
   `20260929000002_jorn50_reaponta_sjt_social_media` está no ledger de PROD e a `e897f709` aponta
   `work_sample_sjt` para `social-media` (medido 2026-10-10). **JORN-52 → Phase 52** na rastreabilidade.
@@ -232,10 +256,8 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
       `sdr-social-seller`**, o banco raso de pré-vendas do bloco C, e estão na D-30.
     - `dae837f4` é resto de anonimização, sem `respostas` (D-30, achado 3).
     - As **2 da `a32fe930`** (`a1dd4c42`, `teste-dentista-funil-e2e`, vaga **arquivada**, itens do banco
-      **`dentista`**) **não tocam o banco de marketing**. ⚠ Elas também **não estão na população da D-30
-      como escrita** (vagas ativas + cand1, e a conta não casa com +claudeN/+cand1/`@invalido.local`).
-      «Saem na limpeza do bloco D» só vale para elas se o operador as incluir no portão do bloco D.
-      Isso não afeta a D-35, porque elas não apontam para marketing.
+      **`dentista`**) **não tocam o banco de marketing**. Elas estavam fora da D-30 como escrita, mas
+      **entraram pela emenda da D-30** (população por conta, operador, 2026-10-10), com a conta dona `896c6a43`.
 
 ### Divisão (proposta e aceita pelo operador — D-33)
 O escopo tem quatro naturezas com riscos diferentes. Recomendação ao planejador: **uma fase, quatro
@@ -253,8 +275,10 @@ abrir, e só os blocos C e D tocam o banco de forma sensível:
   de texto único** para os dois bancos, **já escrito com a regra de comprimento da D-34** e acompanhado da
   tabela de caracteres por alternativa. Migration pelo `p46apply.cjs`. Ficam para o planejador o destino da
   mina inerte, a retirada dos itens antigos de marketing e a ordem em relação ao bloco D.
-- **D — Limpeza** (destrutiva, a última): depois do UAT da 52; população medida, aprovada e
-  re-medida no mesmo comando; portão destrutivo do M8.
+- **D — Limpeza** (destrutiva, a última): depois do UAT da 52. A população é **por conta, em vagas de
+  qualquer status** (emenda da D-30), montada por varredura status-agnóstica e mostrada no portão (contas,
+  candidaturas, vagas de teste, com a proposta de arquivar ou remover cada vaga). É medida, aprovada e
+  re-medida no mesmo comando, no portão destrutivo do M8.
 
 ### Claude's Discretion
 - Texto final do aviso do Big Five (D-07), respeitando o sentido e a regra de linguagem.
