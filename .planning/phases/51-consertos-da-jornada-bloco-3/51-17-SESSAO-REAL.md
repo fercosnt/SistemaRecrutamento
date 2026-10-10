@@ -232,3 +232,9 @@ FASE reaberta-2: aceite: 23/23 conferencias OK
 FASE raven: aceite: 4/4 conferencias OK
 ```
 O `<verify>` da Task 2 respondeu `aceite real completo: 6 fases N/N`, sem nenhuma string com forma de e-mail.
+
+## Respostas do operador para a Task 3 — 2026-10-10 (AskUserQuestion)
+
+- **Publicar `database.types.ts` e `scripts/p51_aceite.cjs` sem review adversarial** (precedente do 50-11): «**Publicar**».
+- **Raven:** o operador encerra como está, sem fazer a prova. Ele confirmou o assunto do e-mail de liberação, verbatim: «O
+  Raciocínio lógico (Matrizes) foi liberado para você». O D-31 bate com o assunto que o plano previa.
