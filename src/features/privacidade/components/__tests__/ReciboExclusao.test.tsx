@@ -265,6 +265,36 @@ describe('ReciboExclusao — JORN-49: estado e faixa etária ficam, o endereço 
       }
     }
   })
+
+  /**
+   * Phase 51 (51-19) · G1b · WR-02 — a UF não alimenta o relatório agregado; ela fica
+   * porque o cadastro exige uma UF válida. O literal abaixo é o texto que o operador
+   * APROVOU em 2026-10-10 (`51-19-TEXTO-APROVADO.md`): asserido por igualdade de
+   * propósito, porque a tela tem de mostrar exatamente a redação aprovada — e uma
+   * mudança de copy precisa de nova aprovação, não de um teste afrouxado.
+   */
+  it('(r13) a linha «Estado e faixa etária» mostra o texto aprovado nos dois tempos, e a frase da UF não diz «relatório agregado»', () => {
+    const APROVADO = {
+      futuro:
+        'Fica guardada a sua faixa etária, sem vínculo com o seu nome, para relatório agregado. Fica guardada também a sigla do seu estado (UF), sem vínculo com o seu nome, porque o cadastro exige uma UF válida.',
+      passado:
+        'Ficou guardada a sua faixa etária, sem vínculo com o seu nome, para relatório agregado. Ficou guardada também a sigla do seu estado (UF), sem vínculo com o seu nome, porque o cadastro exige uma UF válida.',
+    } as const
+    for (const tempo of ['futuro', 'passado'] as const) {
+      const { unmount } = renderizar({ tempo })
+      const no = linhaDe('mantem', 'estado_e_faixa_etaria')
+      expect(no, `linha «Estado e faixa etária» ausente da coluna «mantém» (${tempo})`).toBeTruthy()
+      const texto = within(no!).getByText(APROVADO[tempo])
+      expect(texto).toBeInTheDocument()
+      // E por forma, no que a tela mostra: a frase que cita a UF não reivindica o relatório.
+      const frasesDaUf = (texto.textContent ?? '')
+        .split(/(?<=[.])\s+/)
+        .filter((f) => /\bUF\b/.test(f))
+      expect(frasesDaUf.length).toBeGreaterThan(0)
+      for (const f of frasesDaUf) expect(f).not.toMatch(/relatório agregado/i)
+      unmount()
+    }
+  })
 })
 
 describe('ReciboExclusao — derivação vazia é FALHA, nunca estado vazio', () => {

@@ -337,6 +337,82 @@ describe('JORN-49 — «sai» sem endereço genérico, «mantém» com estado e 
   });
 });
 
+/**
+ * Phase 51 (51-19) · JORN-49 · G1b/G1a do 51-GAPS-DECISAO · WR-02 do 51-REVIEW.
+ *
+ * O texto de 51-05 juntava a UF e a faixa etária numa frase só, «para relatório
+ * agregado» — e o relatório agregado (`gerar_bias_snapshot`) lê a faixa etária e
+ * NÃO lê `estado`. A UF fica porque o cadastro exige uma UF válida (`check_estado`,
+ * NOT NULL). A redação foi aprovada pelo operador em 2026-10-10
+ * (`.planning/phases/51-consertos-da-jornada-bloco-3/51-19-TEXTO-APROVADO.md`).
+ *
+ * (17) é por FORMA, frase a frase, e não pelo literal: uma revisão de copy aprovada
+ * não reprova o caso, mas devolver à UF uma finalidade que ela não tem reprova.
+ */
+describe('JORN-49 / G1b — cada dado que fica com a sua razão verdadeira', () => {
+  /** Frases do texto ao titular — corta depois de ponto final seguido de espaço. */
+  const frases = (texto: string) => texto.split(/(?<=[.])\s+/).filter((f) => f.trim().length > 0);
+
+  it('(17) nos dois tempos, a frase da UF não diz «relatório agregado» e dá a razão do cadastro; a da faixa diz', () => {
+    const fica = recibo.colunas_mantem.find((i) => i.item_id === 'estado_e_faixa_etaria');
+    expect(fica, 'linha «mantém» estado_e_faixa_etaria ausente').toBeDefined();
+    for (const tempo of ['texto_futuro', 'texto_passado'] as const) {
+      const texto = fica![tempo];
+      const todas = frases(texto);
+      const daUf = todas.filter((f) => /\bUF\b|\bestado\b/i.test(f));
+      const daFaixa = todas.filter((f) => /faixa etária/i.test(f));
+      expect(daUf.length, `${tempo}: nenhuma frase cita a UF`).toBeGreaterThan(0);
+      expect(daFaixa.length, `${tempo}: nenhuma frase cita a faixa etária`).toBeGreaterThan(0);
+      for (const f of daUf) {
+        expect(f, `${tempo}: a frase da UF atribui a ela o relatório agregado`).not.toMatch(/relatório agregado/i);
+      }
+      expect(
+        daUf.some((f) => f.includes('cadastro exige uma UF válida')),
+        `${tempo}: a frase da UF não dá a razão do cadastro`,
+      ).toBe(true);
+      expect(
+        daFaixa.some((f) => f.includes('relatório agregado')),
+        `${tempo}: a frase da faixa etária perdeu «relatório agregado»`,
+      ).toBe(true);
+      expect(texto).toContain('sem vínculo com o seu nome');
+    }
+  });
+
+  it('(18) `disponibilidade.candidato_id` mora no passo do tombstone (dados_de_cadastro), e devolvê-la ao de severar REPROVA', () => {
+    // Decisão do operador no checkpoint do 51-19 (`mover_origem_disponibilidade: sim`):
+    // o motor novo (20261010000001, planos 51-20/51-22) APAGA a linha de
+    // `disponibilidade` no passo `tombstone_candidato`; o recibo não pode continuar
+    // dizendo que ela é um registro mantido cujo vínculo é cortado.
+    const C = 'disponibilidade.candidato_id';
+    const sai = recibo.colunas_sai.find((i) => i.item_id === 'dados_de_cadastro');
+    const vin = recibo.colunas_sai.find((i) => i.item_id === 'vinculos_nos_registros_que_ficam');
+    expect(sai, 'linha «sai» dados_de_cadastro ausente').toBeDefined();
+    expect(vin, 'linha «sai» vinculos_nos_registros_que_ficam ausente').toBeDefined();
+    expect(sai!.passo_motor).toBe('tombstone_candidato');
+    expect(vin!.passo_motor).toBe('severar_fks_set_null');
+    expect(sai!.colunas_origem, `${C} fora do passo do tombstone`).toContain(C);
+    expect(vin!.colunas_origem, `${C} ainda no passo de severar`).not.toContain(C);
+    // Só uma linha «sai» reivindica a coluna.
+    expect(recibo.colunas_sai.filter((i) => i.colunas_origem.includes(C)).map((i) => i.item_id)).toEqual([
+      'dados_de_cadastro',
+    ]);
+
+    // A mutação: devolver a coluna ao passo de severar SEM tirá-la do tombstone
+    // não pode passar silenciosa — o gerador para nomeando a coluna.
+    montar((s) =>
+      patch(
+        s,
+        "q('devolutivas_candidato', ['candidato_id']),",
+        "q('devolutivas_candidato', ['candidato_id']),\n      q('disponibilidade', ['candidato_id']),",
+      ),
+    );
+    const r = rodar();
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('ORIGEM DUPLICADA');
+    expect(r.stderr).toContain(C);
+  });
+});
+
 describe('gen-recibo-exclusao.cjs — os gates, provados mordendo', () => {
   it('(7) caminho feliz: o inventário real gera os três artefatos e sai 0', () => {
     montar();

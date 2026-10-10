@@ -1,0 +1,30 @@
+{
+  "plan": "51-19",
+  "task": 3,
+  "base_ref": "refs/gsd/51-19/base",
+  "base_sha": "03ceab59ad126e4a91a3b01ed8c34e28433e66df",
+  "run_at": "2026-10-10T05:26:17Z",
+  "how": "git worktree add --detach <scratchpad>/p51_19_base refs/gsd/51-19/base; node_modules por symlink; copiados os dois arquivos de teste (genReciboExclusao.test.ts e ReciboExclusao.test.tsx) com os casos novos; npx vitest run --reporter=junit; worktree removido",
+  "vitest_exit": 1,
+  "junit": "task3-junit.xml",
+  "total_cases": 31,
+  "failed": [
+    {
+      "file": "docs/compliance/__tests__/genReciboExclusao.test.ts",
+      "case": "(17)",
+      "reason": "comportamento: texto_futuro: a frase da UF atribui a ela o relatório agregado — expected 'Ficam guardados o seu estado (UF) e a…' not to match /relatório agregado/i (o texto da base junta UF e relatório agregado numa frase)"
+    },
+    {
+      "file": "docs/compliance/__tests__/genReciboExclusao.test.ts",
+      "case": "(18)",
+      "reason": "comportamento: disponibilidade.candidato_id fora do passo do tombstone — expected [ 'candidatos.bairro', …(24) ] to include 'disponibilidade.candidato_id' (na base a origem esta em vinculos_nos_registros_que_ficam, passo severar_fks_set_null)"
+    },
+    {
+      "file": "src/features/privacidade/components/__tests__/ReciboExclusao.test.tsx",
+      "case": "(r13)",
+      "reason": "comportamento: Unable to find an element with the text: «Fica guardada a sua faixa etária, … porque o cadastro exige uma UF válida.» — a tela da base mostra o texto antigo"
+    }
+  ],
+  "passed_on_base": "os outros 28 casos dos dois arquivos (1..16 e r1..r12, r9) — inclusive (15) e (r10), que continuam verdes com o texto aprovado",
+  "note": "os tres vermelhos sao pelo comportamento ausente, nenhum por import/ausencia de arquivo; a parte de mutacao do (18) nao chega a rodar na base porque a asercao de artefato falha antes"
+}
