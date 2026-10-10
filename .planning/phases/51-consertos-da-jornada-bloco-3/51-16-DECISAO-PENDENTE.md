@@ -110,3 +110,34 @@ no recibo), 51-03 (`aplica_cognitivo=false`), 51-14 (texto neutro), WINDOWS 91-9
   rodada de conserto e depois o `51-REVIEW-PORTAO-3`, antes do apply.
 - **Mensagem no cliente**: «**Incluir**». A recusa do D-23 na rejeição direta mostra o motivo real, como a 48-15 já faz
   em `registrar_decisao`.
+
+## ✅ Resposta do operador ao review -3 — 2026-10-09 (via `/gsd-execute-phase 51`, AskUserQuestion)
+
+`51-REVIEW-PORTAO-3.md` (commit `f37d3038`, `reviewed_head` `371c6f75`): 0 critical, 2 warning, 7 info. `--modo revisao`
+deu `PORTAO OK`, e a enumeração do push em seco não marcou nenhum commit como ALHEIO. Em PROD, 1 par ficaria travado pelo
+ramo `decisao_final`, o esperado: candidatura já encerrada e já travada pela P48.
+
+Resposta: «**Aplicar agora**». O apply e o push seguem sem nova rodada de código.
+
+### Adendo obrigatório ao «Desfazer» e ao Passo 2 do `51-16-PLAN.md`
+
+Vale como parte do plano. Ficou fora do arquivo do plano para não invalidar o pin revisado; o portão aceita mudança em
+`.planning/` que não seja o plano.
+
+1. **IN-05, ordem dentro do banco.** Ao desfazer, TODA função reescrita por 0002..0005 volta ao corpo de
+   `51-16-CORPOS-ANTES.sql` ANTES de qualquer `DROP` de `revisao_rejeicao` ou dos objetos novos. Isso inclui
+   `rejeitar_candidatura` e `registrar_decisao`. Na ordem inversa, as duas RPCs falham com 42P01 para todo RH.
+2. **IN-04, desfazer do cliente.** Reverta só os commits de código do 51, e um por um. A lista sai do enumerador, não de um
+   revert de `src/` inteiro. Remova também os arquivos que o push acrescentou. Rode `npm run lint` (teto 89) e
+   `npm run build` na árvore desfeita ANTES de empurrar. Commits de outras sessões ficam intocados.
+3. **IN-07.** Onde o Passo 2 diz «três prefixadas», leia «quatro»: 0002, 0003, 0004, 0005, nessa ordem e um comando de
+   portão por arquivo.
+
+### Registrado como pendente, sem conserto no 51-16
+
+- **WR-01 do -3:** o decisor revertido re-rejeita por PATCH direto em `candidaturas` (policy `rh_avanca_etapa`). Isso é
+  anterior à P51 e vale também para o D-23 da 48. A interface não oferece esse caminho.
+- **WR-02 do -3:** o filtro `h.decisao = 'rejeitado'` do ramo arquivo de `rejeitar_candidatura` não tem mutação.
+- **IN-01..IN-03 e IN-06 do -3:** toast numa candidatura encerrada, cópia «a nova decisão», diagnóstico falso da (q) e
+  `RE_CITA_P51` sensível a caixa.
+- **IN-01 e IN-04 do -2:** aceitos como o executor propôs e o revisor concordou.
