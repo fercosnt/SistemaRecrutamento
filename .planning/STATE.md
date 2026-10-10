@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: "Fase 51 gaps: 51-18..51-23 concluidos. Motor G1a (20261010000001) aplicado 03:17; limpeza destrutiva (20261010000002) aplicada 03:25 sob autorizacao condicional do operador (2/2/2, alvo 6819cb8d), T-51-14 provado (0 anonimizados com disponibilidade), WINDOWS 89 fixed. Proximo: 51-24 (redeploy EF, push enumerado, marcadores, fecho)."
-last_updated: "2026-10-10T06:30:00.000Z"
+status: verifying
+stopped_at: "gaps 1 e 2 consertados e publicados (51-18..51-24); proximo: /gsd-secure-phase 51 para o T-51-14, re-verificacao da fase e /gsd-validate-phase 51"
+last_updated: "2026-10-10T06:40:00.000Z"
 last_activity: 2026-10-10
 state_head: 43d6d06c
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 171
-  completed_plans: 170
+  completed_plans: 171
   percent: 98
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "/gsd-execute-phase 51 --gaps-only: wave 1 — 51-18 (4014c299,4003bfb1), 51-19 (359fd59a,4d58129e,405e19bd; operador aprovou o texto em 2026-10-10), 51-20 (68a670d3,1c0a89b6; ensaio verde, nada aplicado). Suite 2723/2725 (2 vermelhos pre-existentes de promessasComExecutor)."
+last_activity_desc: "/gsd-execute-phase 51 --gaps-only: 51-24 — executar-direito-titular v14 -> v15 ACTIVE (03:31:35, texto aprovado no 51-19 conferido byte a byte); exportar-meus-dados v8 mantida; push enumerado 53cb73ff..3bb9653d (42 commits, 0 ALHEIO); marcador do recibo em index--Yy-gC6F.js (AUSENTE antes); DISPOSITION WR-01/WR-02 fixed, evidencia do T-51-14 anexada ao SECURITY sem mudar veredito, mapa Nyquist 51-18..51-24."
 ---
 
 # Project State

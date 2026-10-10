@@ -661,11 +661,11 @@ Plans:
   3. O candidato com o Raven liberado vê o card «Raciocínio lógico (Matrizes)» no painel enquanto não concluiu, e só então; o servidor devolve só booleanos (RNF-07a)
   4. Dentro de uma prova, «Voltar às avaliações» leva à lista e «Ir ao painel» leva ao painel; a lista de avaliações tem «Ir ao painel» no cabeçalho e no tudo-concluído
   5. No hub do RH, «Ver respostas» abre o detalhe (SJT; Big Five «Concluído/Não fez»; texto integral do caso prático ao lado das citações) e o instrumento que a vaga não aplica diz «Não se aplica a esta vaga»; nenhuma superfície confunde os dois instrumentos cognitivos
-  6. Salvar a avaliação de entrevista sem notas fica bloqueado com mensagem na tela; o recibo de exclusão não promete apagar «endereço» inteiro e diz que estado e faixa etária ficam, sem vínculo, para relatório agregado (LGPD, Art. 16, IV) — inventário = motor
+  6. Salvar a avaliação de entrevista sem notas fica bloqueado com mensagem na tela; o recibo de exclusão não promete apagar «endereço» inteiro e diz que estado e faixa etária ficam, sem vínculo, para relatório agregado (LGPD, Art. 16, IV) — inventário = motor ⚠ **Prevalece o `51-GAPS-DECISAO.md` (operador, 2026-10-10):** a faixa etária fica para relatório agregado; a UF fica porque o cadastro exige uma UF válida (G1b — nenhum relatório agrega por UF); e a disponibilidade sai pelo motor (G1a — `anonimizar_candidato` passou a apagá-la, e a que sobrou dos já anonimizados foi limpa no 51-23).
   7. Todo apply e deploy pela via do projeto (`p46apply.cjs`/`efdeploy.cjs`), o JORN-42 só depois de review bloqueante e decisão escrita do operador, e `git log origin/main..HEAD` vazio com os marcadores servidos no chunk certo
 **Guardrails**: os do Bloco 1/2 e da Phase 50 — migrations pelo `p46apply.cjs` (md5 do ledger conferido), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado. Mudança de controle de acesso (JORN-42): review bloqueante antes do apply e prova de que nada abriu (views incluídas). Ordem D-27: telas e textos primeiro, banco depois (migration → motor/LGPD → EF → cliente)
 **Fora de escopo**: JORN-50..52 (seguem sem fase); Bloco 4 da fila; portfólio visível ao RH e a Parte B do todo `49-producoes-do-candidato-sem-leitor-de-rh`
-**Plans**: 23/24 plans executed — 51-18..51-24 fecham os gaps da verificação de 2026-10-10 (`51-VERIFICATION.md` gaps_found 7/9; decisões do operador G1a/G1b/G2 em `51-GAPS-DECISAO.md`)
+**Plans**: 24/24 plans executed — 51-18..51-24 fecham os gaps da verificação de 2026-10-10 (`51-VERIFICATION.md` gaps_found 7/9; decisões do operador G1a/G1b/G2 em `51-GAPS-DECISAO.md`)
 
 Plans:
 **Wave 1**
@@ -714,21 +714,21 @@ Plans:
 **Fechamento dos gaps (2026-10-10 — gap 1: recibo × motor, JORN-49/T-51-14; gap 2: cache da lista, JORN-46/WR-01)** — ondas próprias do `--gaps`
 
 **Gap wave 1**
-- [x] 51-18-PLAN.md — G2: prova cognitiva, caso aberto, Big Five e último envio da Redação escrevem a conclusão no cache da lista (WR-01); defesa do servidor ao backlog
-- [x] 51-19-PLAN.md — G1b: recibo separa as razões da faixa etária (relatório agregado) e da UF (o cadastro exige UF válida); frase aprovada pelo operador antes de qualquer deploy
-- [x] 51-20-PLAN.md — G1a aditiva: o motor apaga a disponibilidade no tombstone (migration `20261010000001`, ensaio, (B26)/(C3/x), MF1/MF2)
+- [x] 51-18-PLAN.md — G2: prova cognitiva, caso aberto, Big Five e último envio da Redação escrevem a conclusão no cache da lista (WR-01); defesa do servidor ao backlog — ✓ 2026-10-10
+- [x] 51-19-PLAN.md — G1b: recibo separa as razões da faixa etária (relatório agregado) e da UF (o cadastro exige UF válida); frase aprovada pelo operador antes de qualquer deploy — ✓ 2026-10-10
+- [x] 51-20-PLAN.md — G1a aditiva: o motor apaga a disponibilidade no tombstone (migration `20261010000001`, ensaio, (B26)/(C3/x), MF1/MF2) — ✓ 2026-10-10
 
 **Gap wave 2** *(blocked on 51-20)*
-- [x] 51-21-PLAN.md — G1a destrutiva: limpeza da disponibilidade que sobrou dos já anonimizados (migration `20261010000002`, ensaio, mordidas L1/L2)
+- [x] 51-21-PLAN.md — G1a destrutiva: limpeza da disponibilidade que sobrou dos já anonimizados (migration `20261010000002`, ensaio, mordidas L1/L2) — ✓ 2026-10-10
 
 **Gap wave 3** *(blocked on 51-18..51-21)*
-- [x] 51-22-PLAN.md — Portão: review adversarial dos gaps + decisão do operador; apply do motor; prova viva
+- [x] 51-22-PLAN.md — Portão: review adversarial dos gaps + decisão do operador; apply do motor; prova viva — ✓ 2026-10-10
 
 **Gap wave 4** *(blocked on 51-22)*
-- [x] 51-23-PLAN.md — Checkpoint destrutivo sobre a população medida; apply da limpeza; prova do T-51-14; WINDOWS 89
+- [x] 51-23-PLAN.md — Checkpoint destrutivo sobre a população medida; apply da limpeza; prova do T-51-14; WINDOWS 89 — ✓ 2026-10-10
 
 **Gap wave 5** *(blocked on 51-23)*
-- [ ] 51-24-PLAN.md — Redeploy de `executar-direito-titular` com o texto aprovado; push enumerado; marcador no chunk certo; DISPOSITION/SECURITY/VALIDATION; próximo: `/gsd-secure-phase 51` e re-verificação
+- [x] 51-24-PLAN.md — Redeploy de `executar-direito-titular` com o texto aprovado; push enumerado; marcador no chunk certo; DISPOSITION/SECURITY/VALIDATION; próximo: `/gsd-secure-phase 51` e re-verificação — ✓ 2026-10-10
 
 ## Progress
 
@@ -751,7 +751,7 @@ Plans:
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
-| 51. Consertos da Jornada — Bloco 3 | v8.0 | 17/24 | In Progress | - |
+| 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | In Progress | - |
 
 ---
 

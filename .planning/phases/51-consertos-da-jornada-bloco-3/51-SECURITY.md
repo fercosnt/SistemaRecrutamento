@@ -105,6 +105,41 @@ individualmente.
 Em todos os casos, corrigir também a finalidade da UF (WR-02), regenerar os artefatos (`check:recibo-exclusao`) e
 redeployar `executar-direito-titular`. Depois, rodar de novo `/gsd-secure-phase 51`.
 
+#### Evidência do conserto (51-18..51-24) — aguardando a re-auditoria
+
+> Anexada pelo 51-24 em 2026-10-10. **Não muda veredito, `status`, `threats_open` nem a linha «OPEN — BLOQUEANTE»
+> do T-51-14 acima:** quem fecha é o `/gsd-secure-phase 51`. O operador escolheu a saída (a) + o conserto da UF
+> (`51-GAPS-DECISAO.md`: G1a motor + limpeza, G1b razões separadas, G2 só cliente).
+
+**Metade da `disponibilidade` (G1a).**
+- 51-22: `20261010000001` aplicada por `p46apply.cjs migrate` com `p51_portao --modo apply` no mesmo comando
+  (2026-10-10 03:17:00–03:17:02 -0300, OK do operador `51-22-DECISAO.md`). Lido de volta: `md5(statements[1])` do
+  ledger = md5 do arquivo (`7e88599631e1d22666615935ef19477c`); `md5(prosrc)` vivo de `anonimizar_candidato` =
+  `9b87e5ee3d072df5f9bf6e99ee1ae7c1` = pin do p45; o corpo vivo sem comentários casa
+  `DELETE[[:space:]]+FROM[[:space:]]+public[.]disponibilidade`; ACL e COMMENT iguais aos de antes; `anon` sem EXECUTE.
+  p45 e p46 verdes contra o vivo; MD1/MF1/MF2 mordem.
+- 51-23: `20261010000002` aplicada (03:25:02–03:25:04 -0300) com a população conferida contra a aprovada no mesmo
+  comando (2 titulares / 2 linhas / alvo `6819cb8d…`). Prova (03:25:09): «motor vivo apaga a disponibilidade;
+  **2 titular(es) anonimizado(s) examinado(s), 0 com linha**; ledger = arquivo» — população examinada (2) ≥ medida
+  (2), o zero não vem de população vazia. As 26 linhas fora do alvo ficaram idênticas. Ledger `20261010000001`
+  (`7e885996…`) e `20261010000002` (`6b4a9d59d7da5e4a98cf66f4302dc175`) = arquivos — conferido de novo pela regra (8)
+  do portão nos `PORTAO OK` de deploy e push do 51-24. WINDOWS 89 → `fixed` (`db65ccf4`).
+
+**Metade da UF (G1b, = WR-02 do `51-REVIEW.md`).**
+- 51-19: o item `estado_e_faixa_etaria` separa as razões — faixa etária «para relatório agregado»; UF «porque o
+  cadastro exige uma UF válida». Texto aprovado pelo operador em 2026-10-10 (`51-19-TEXTO-APROVADO.md`) e
+  publicação confirmada em 03:15 (`51-22-DECISAO.md`, (d)).
+- 51-24: antes do deploy, por máquina, `texto_futuro`/`texto_passado` do aprovado = os do `recibo-exclusao.json` e
+  ambos presentes em `supabase/functions/_shared/reciboExclusao.ts`; `check:recibo-exclusao` OK. Deploy pelo portão:
+  `efdeploy: OK · version=15 · status=ACTIVE · verify_jwt=true` (2026-10-10 03:31:35 -0300; antes v14 de `87be2703`,
+  base de desfazer em `51-24-EF-ANTES.md`). Cliente publicado por sha enumerado (`53cb73ff..3bb9653d`, sem ALHEIO);
+  marcador «porque o cadastro exige uma UF» AUSENTE do PROD antes e PRESENTE depois em `/assets/index--Yy-gC6F.js`.
+
+**UF-3 (reenvio da prova cognitiva, = WR-01 do `51-REVIEW.md`).** Cliente consertado no 51-18 (a lista mostra a
+prova concluída depois de «Prova registrada»; `4014c299`, `4003bfb1`; publicado no push do 51-24). O servidor
+(`pontuar_cognitivo` ainda faz upsert e aceita reenvio por fora do cliente) segue em backlog — entrada `(51-18)` de
+`deferred-items.md`. A disposição do UF-3 continua `open` até a re-auditoria decidir.
+
 ### Controle de acesso novo da fase (CLOSED, conferido ao vivo)
 
 | Threat ID | Categoria | Sev. | Evidência |
