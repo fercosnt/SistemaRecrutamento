@@ -5,7 +5,8 @@
  *
  * Cópia adaptada de `scripts/p50_ensaio.cjs` (mesmo contrato de CLI, mesmas garantias, mesmos
  * códigos de saída 0/1/3). Serve a TODA a Onda B: 51-06 (chave `raven`), 51-08 (registro do
- * pedido de revisão), 51-10 (fila/KPI/prazo), 51-13 (motor), e ao portão do 51-16.
+ * pedido de revisão), 51-10 (fila/KPI/prazo), 51-13 (motor), e ao portão do 51-16 — e aos planos do
+ * gap G1a (51-20 o motor apaga a disponibilidade, 51-21 a limpeza do que sobrou, 51-22/23 os applies).
  *
  * O QUE GARANTE QUE NADA PERSISTE. O endpoint da Management API roda o corpo INTEIRO da
  * requisição numa única transação (CLAUDE.md §«Via de apply ATUAL», propriedade 1 — medido em
@@ -96,13 +97,20 @@ const SENTINELA = 'ENSAIO_P51_TERMINOU';
  * ciclo `decisao_final`) nasceu na rodada de conserto do 51-REVIEW-PORTAO-1 (WR-09) e foi reescrita, ainda
  * fora do ledger, na do 51-REVIEW-PORTAO-2 (WR-01/WR-03; o nome antigo era `…_p51_d23_rejeitar_candidatura`):
  * ela lê `revisao_rejeicao` e vem depois da 0004. O `p51_portao.cjs --modo deploy|push` NÃO lê esta lista:
- * ele confere o ledger por FORMA (toda `supabase/migrations/<versão>_p51_*.sql` do pin). */
+ * ele confere o ledger por FORMA (toda `supabase/migrations/<versão>_p51_*.sql` do pin).
+ * G1a (gap 1 do 51-VERIFICATION, decisão do operador de 2026-10-10) acrescenta DUAS versões, nesta ordem e
+ * como passos SEPARADOS, cada um com a sua prova: a `20261010000001` (51-20) é a ADITIVA — o motor passa a
+ * apagar a disponibilidade do titular daqui para frente —, e a `20261010000002` (51-21) é a DESTRUTIVA — a
+ * limpeza das linhas que já sobraram dos titulares anonimizados, com portão próprio. Até o 51-21 a segunda
+ * não existe no disco e sai em `ausentes=`. */
 const MIGS = [
   'supabase/migrations/20261008000001_p51_raven_em_avaliacao_status.sql',
   'supabase/migrations/20261008000002_p51_revisao_rejeicao.sql',
   'supabase/migrations/20261008000003_p51_fila_tres_origens.sql',
   'supabase/migrations/20261008000004_p51_motor_revisao_rejeicao.sql',
   'supabase/migrations/20261008000005_p51_d23_decisor_revertido.sql',
+  'supabase/migrations/20261010000001_p51_motor_apaga_disponibilidade.sql',
+  'supabase/migrations/20261010000002_p51_limpa_disponibilidade_anonimizados.sql',
 ];
 
 /* Pares de smoke que o sentinela conhece: <chave no relatório> -> prefixo das GUCs. */
@@ -272,7 +280,14 @@ const MD5_SET = (expr, from) => `(SELECT md5(coalesce(string_agg(x, E'\\n' ORDER
  *                  nomeadas por forma nas migrations p51 do disco;
  *   mutacoes       as funções `public.p51_mutacao_%` (tem de ser vazia);
  *   fixtures       titulares sintéticos dos smokes p51 (`p51%smoke-%@invalido.local`) em
- *                  auth.users e candidatos — o que um envelope de smoke que não revertesse deixaria.
+ *                  auth.users e candidatos — o que um envelope de smoke que não revertesse deixaria;
+ *   disp_anonimizados  (G1a, 51-20) os titulares que o reconhecedor do PRÓPRIO motor dá por
+ *                  anonimizados — IGUALDADE com a sentinela derivada do id (`anonimizado+<id>@
+ *                  invalido.local`), `user_id` nulo e nascimento na sentinela de 1900 (CR-06; o
+ *                  mesmo predicado do `p46_purga_smoke.sql`), nunca um padrão sobre o nome — e as
+ *                  linhas de `public.disponibilidade` deles. O passo novo do motor (51-20) e a
+ *                  limpeza (51-21) apagam exatamente essas linhas: um apagamento que escapasse do
+ *                  aborto sai `PERSISTIU: disp_anonimizados…`.
  */
 function capturar() {
   const vs = MIGS.map(versao).map(lit).join(',');
@@ -291,7 +306,10 @@ function capturar() {
     ') as revisao, ' +
     `(select coalesce(json_object_agg(p.oid::pg_catalog.regprocedure::text, ${FP_FN('p')} order by p.oid::pg_catalog.regprocedure::text), '{}'::json) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = any (${arr(funcoesP51())})) as funcoes, ` +
     "(select coalesce(json_agg(p.oid::pg_catalog.regprocedure::text order by p.oid::pg_catalog.regprocedure::text), '[]'::json) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname like 'p51\\_mutacao\\_%') as mutacoes, " +
-    "json_build_object('users', (select count(*) from auth.users u where u.email like 'p51%smoke-%@invalido.local'), 'candidatos', (select count(*) from public.candidatos c where c.email like 'p51%smoke-%@invalido.local')) as fixtures";
+    "json_build_object('users', (select count(*) from auth.users u where u.email like 'p51%smoke-%@invalido.local'), 'candidatos', (select count(*) from public.candidatos c where c.email like 'p51%smoke-%@invalido.local')) as fixtures, " +
+    // G1a: o reconhecedor do motor, por IGUALDADE (0004 / p46_purga_smoke), e as linhas de disponibilidade deles
+    "(with anon as (select c.id from public.candidatos c where c.email = 'anonimizado+' || c.id::text || '@invalido.local' and c.user_id is null and c.data_nascimento = date '1900-01-01') " +
+    "select json_build_object('titulares', (select count(*) from anon), 'linhas', (select count(*) from public.disponibilidade d where d.candidato_id in (select a.id from anon a)))) as disp_anonimizados";
   return sqlLeitura(q)[0];
 }
 

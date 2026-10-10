@@ -62,7 +62,20 @@
  *
  * LOCK: o do prefixo do ensaio (`lock_timeout 3s` / `statement_timeout 5s`); duração impressa.
  *
- * Uso: node scripts/p51_mutacoes.cjs        (sem dependências; `require` não roda nada)
+ * (6) SELEÇÃO `--so=<id>[,<id>…]` (51-20): roda SÓ as entradas pedidas, na ordem DECLARADA, com o
+ *     CONTROLE só dos smokes que elas usam; id desconhecido ou lista vazia = erro do harness antes da
+ *     baseline (`selecionar`, pura e exportada). Linha final com seleção: `controle verde; <k>/<k>
+ *     mutacoes mordem; nada persistiu (so=<ids>)`; sem seleção, byte a byte a de antes.
+ *     ⚠ DEPOIS DA PUBLICAÇÃO DO 51-16 O RUNNER CONTRA PROD RODA COM `--so` (IN-04 do 51-16): a
+ *     `revisao_rejeicao` é VIVA, e as mutações que fazem ALTER/GRANT nela (MB4, MB6, MB7 do 51-08 e
+ *     MD2 do 51-13) segurariam AccessExclusiveLock na tabela de produção durante a requisição. Elas
+ *     NÃO rodam de novo contra PROD; a montagem delas é conferida OFFLINE (`require` + `m.sql()`).
+ *
+ * (7) MUTAÇÕES DO MOTOR (51-20): montadas sobre o corpo VIGENTE — a migration mais nova de MIGS que
+ *     cria `anonimizar_candidato`, achada por forma (`fnMotor`). MF1/MF2 mordem o passo do G1a em
+ *     (B26/apagou) e (B26/outros); MD1/MD2 continuam mordendo o passo do 51-13 sobre esse corpo.
+ *
+ * Uso: node scripts/p51_mutacoes.cjs [--so=MD1,MF1,MF2]   (sem dependências; `require` não roda nada)
  */
 
 const fs = require('fs');
@@ -188,7 +201,25 @@ const fnNomeada = (versao, nome) => {
   if (d1 < a) sair(`ANCORA AUSENTE/AMBIGUA: ${nome} — o delimitador ${D} aparece antes do CREATE`);
   return t.slice(a, d2 + D.length) + ';';
 };
-const fnMotor = () => fnNomeada(V04, 'anonimizar_candidato');
+/* ⚠ 51-20 (G1a): cada mutação do motor é UMA mudança sobre o corpo VIGENTE — o da migration MAIS NOVA
+ * de MIGS que existe no disco e cria `anonimizar_candidato`, achada por FORMA (o `CREATE OR REPLACE
+ * FUNCTION public.anonimizar_candidato(` no texto), nunca por lista literal de versões. Montar sobre a
+ * 0004 faria toda mutação do motor apagar TAMBÉM o passo do G1a, e o que mordesse seria essa segunda
+ * diferença, não a mutação declarada. O delimitador nomeado continua exigido exatamente duas vezes
+ * (`fnNomeada`). Sem nenhuma migration no disco que crie o motor = erro do harness. */
+const INI_MOTOR = 'CREATE OR REPLACE FUNCTION public.anonimizar_candidato(';
+function versaoMotorVigente() {
+  const comMotor = E.MIGS.filter((m) => {
+    const p = path.join(E.ROOT, m);
+    return fs.existsSync(p) && fs.readFileSync(p, 'utf8').includes(INI_MOTOR);
+  });
+  if (!comMotor.length) sair('ANCORA AUSENTE/AMBIGUA: nenhuma migration de MIGS no disco cria anonimizar_candidato');
+  return E.versao(comMotor[comMotor.length - 1]);
+}
+const fnMotor = () => fnNomeada(versaoMotorVigente(), 'anonimizar_candidato');
+
+// ── 51-20: G1a — o motor apaga a disponibilidade do titular (migration 20261010000001) ──
+const VG1A = '20261010000001';
 
 // ── 51-16 (WR-09 do review -1; WR-01/WR-03/IN-06 do review -2): o D-23 fechado nas 4 combinações
 //    (migration 20261008000005 — `rejeitar_candidatura` E `registrar_decisao`) ──
@@ -570,7 +601,8 @@ const MUTACOES = [
     desc: 'passo novo removido — o UPDATE de revisao_rejeicao vira NULL; (a contagem fica)',
     smoke: S45M,
     letra: 'B25/respondido',
-    requer: [V02, V04],
+    // 51-20: montada sobre o corpo VIGENTE (fnMotor), que desde o G1a e o da 20261010000001
+    requer: [V02, V04, VG1A],
     sql: () => {
       const motor = fnMotor();
       return trocar(motor, statementForaDeLiteral(motor, 'UPDATE public.revisao_rejeicao', 'MD1'), 'NULL;', 'MD1');
@@ -592,11 +624,14 @@ const MUTACOES = [
     //   MUTACAO MD2 INVALIDA (o runner a mostra como NAO MORDE, nunca como mordida). Como o MB6.
     //   No modo pos-apply (51-16) o ALTER segura AccessExclusiveLock na revisao_rejeicao viva so
     //   durante a requisicao que aborta (lock_timeout 3s).
+    // ⚠ 51-20 / IN-04 do 51-16: depois da publicacao a `revisao_rejeicao` e VIVA, e este ALTER seguraria
+    //   AccessExclusiveLock nela — MD2 nao roda mais contra PROD (o runner roda com `--so`); a montagem
+    //   dela e conferida OFFLINE.
     id: 'MD2',
     desc: 'sentinela seca (CASE WHEN false) com o CHECK de coerencia veredito/resultado derrubado por forma',
     smoke: S45M,
     letra: 'B25/nao_respondido',
-    requer: [V02, V04],
+    requer: [V02, V04, VG1A],
     sql: () =>
       'DO $md2$\n' +
       'DECLARE v_nomes text[];\n' +
@@ -613,6 +648,37 @@ const MUTACOES = [
       'END\n' +
       '$md2$;\n' +
       trocar(fnMotor(), 'CASE WHEN r.resultado IS NULL THEN NULL', 'CASE WHEN false THEN NULL', 'MD2'),
+  },
+  {
+    // (B26/apagou) do p45 — o passo do G1a removido: o apagamento da disponibilidade (do inicio dele ao
+    // primeiro `;` FORA de literal) vira `NULL;`. A contagem (`GET DIAGNOSTICS v_n_disp`) FICA, para a
+    // mordida ser da EXECUCAO e nao da forma do retorno: o titular conserva as linhas da fixture.
+    id: 'MF1',
+    desc: 'passo G1a removido — o apagamento da disponibilidade vira NULL; (a contagem fica)',
+    smoke: S45M,
+    letra: 'B26/apagou',
+    requer: [VG1A],
+    sql: () => {
+      const motor = fnMotor();
+      return trocar(motor, statementForaDeLiteral(motor, 'DELETE FROM public.disponibilidade', 'MF1'), 'NULL;', 'MF1');
+    },
+  },
+  {
+    // (B26/outros) do p45 — o escopo do apagamento perdido: `d.candidato_id = p_candidato_id` vira `true`
+    // DENTRO do statement (achado pela mesma fronteira). Apaga a tabela INTEIRA dentro da requisicao que
+    // aborta — locks de linha em `disponibilidade` so pela duracao dela (lock_timeout 3s). O titular fica
+    // sem linha (a (B26/apagou) passa), e a linha do CONTROLE some: e a (B26/outros) que tem de morder.
+    // Um `B26/apagou` aqui significaria que a troca do WHERE nao pegou.
+    id: 'MF2',
+    desc: 'apagamento da disponibilidade sem escopo (WHERE d.candidato_id = p_candidato_id vira WHERE true)',
+    smoke: S45M,
+    letra: 'B26/outros',
+    requer: [VG1A],
+    sql: () => {
+      const motor = fnMotor();
+      const st = statementForaDeLiteral(motor, 'DELETE FROM public.disponibilidade', 'MF2');
+      return trocar(motor, st, trocar(st, 'd.candidato_id = p_candidato_id', 'true', 'MF2 (escopo)'), 'MF2');
+    },
   },
 
   // ── 51-16: o D-23 fechado nas 4 combinações (migration 20261008000005) ──
@@ -855,12 +921,39 @@ function validarCarga() {
   }
 }
 
+/*
+ * `--so=<id>[,<id>…]` — as entradas pedidas, na ORDEM DECLARADA em MUTACOES (nunca na ordem pedida).
+ * PURA (sem rede, sem sair): id desconhecido ou lista vazia LANÇA, e o CLI transforma isso em erro do
+ * harness ANTES da baseline. Exportada para a prova offline.
+ */
+function selecionar(mutacoes, ids) {
+  if (!Array.isArray(ids) || ids.length === 0) throw new Error('ERRO DO HARNESS: --so sem ids (lista vazia)');
+  const conhecidos = new Set(mutacoes.map((m) => m.id));
+  const desconhecidos = ids.filter((x) => !conhecidos.has(x));
+  if (desconhecidos.length) throw new Error(`ERRO DO HARNESS: --so com id(s) desconhecido(s): ${desconhecidos.join(',')}`);
+  const pedidos = new Set(ids);
+  return mutacoes.filter((m) => pedidos.has(m.id));
+}
+
 function principal() {
-  for (const a of process.argv.slice(2)) sair(`opcao desconhecida: ${a}`);
+  let so = null;
+  for (const a of process.argv.slice(2)) {
+    if (a.startsWith('--so=')) so = a.slice('--so='.length).split(',').map((x) => x.trim()).filter(Boolean);
+    else sair(`opcao desconhecida: ${a}`);
+  }
   try {
     validarCarga();
   } catch (e) {
     sair(e.message);
+  }
+  let alvo = MUTACOES;
+  if (so) {
+    try {
+      alvo = selecionar(MUTACOES, so);
+    } catch (e) {
+      sair(e.message);
+    }
+    console.log(`selecao (--so): ${alvo.map((m) => m.id).join(',')} — CONTROLE so dos smokes que elas usam`);
   }
 
   // ── baseline de persistência + plano ─────────────────────────────────────
@@ -872,9 +965,9 @@ function principal() {
     `baseline: ledger=${JSON.stringify(antes.ledger.map((x) => x.v))} funcoes=${Object.keys(antes.funcoes).length} revisao_rejeicao=${antes.revisao.existe || 'ausente'} mutacoes=${antes.mutacoes.length} fixtures=${JSON.stringify(antes.fixtures)}`
   );
 
-  // smokes na ordem da primeira entrada que os usa
+  // smokes na ordem da primeira entrada (selecionada) que os usa
   const ordem = [];
-  for (const m of MUTACOES) if (!ordem.includes(m.smoke)) ordem.push(m.smoke);
+  for (const m of alvo) if (!ordem.includes(m.smoke)) ordem.push(m.smoke);
 
   let mordem = 0;
   let contadas = 0;
@@ -882,7 +975,7 @@ function principal() {
   const naoMordem = [];
   for (const smoke of ordem) {
     const S = SMOKES[smoke];
-    const entradas = MUTACOES.filter((m) => m.smoke === smoke);
+    const entradas = alvo.filter((m) => m.smoke === smoke);
     const vivas = [];
     for (const m of entradas) {
       const falta = m.requer.filter((v) => !disponiveis.has(v));
@@ -947,10 +1040,11 @@ function principal() {
     antes = null; // já medido e reportado
     sair('PERSISTIU — ver a linha acima');
   }
-  console.log(`controle verde; ${mordem}/${contadas} mutacoes mordem; nada persistiu`);
+  // sem selecao, a linha final e byte a byte a de antes do 51-20
+  console.log(`controle verde; ${mordem}/${contadas} mutacoes mordem; nada persistiu${so ? ` (so=${alvo.map((m) => m.id).join(',')})` : ''}`);
 }
 
-module.exports = { MUTACOES, SMOKES, julgarMutacao, julgarControle, falha, esperadoGate, comporPara, validarCarga };
+module.exports = { MUTACOES, SMOKES, julgarMutacao, julgarControle, falha, esperadoGate, comporPara, validarCarga, selecionar };
 
 if (require.main === module) {
   try {
