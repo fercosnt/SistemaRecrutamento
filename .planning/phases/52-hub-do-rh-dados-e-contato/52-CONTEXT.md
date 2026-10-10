@@ -204,6 +204,30 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
       (item 5, vagas arquivadas, teardown próprio no fecho do M8). O planejador mostra no portão se elas saem
       pelo teardown delas ou pela limpeza do bloco D, para nenhuma ficar sem dono e nenhuma ser apagada
       duas vezes.
+  - **Trava (operador, 2026-10-10, antes do plan): a população é só de CANDIDATOS.** Entram linhas de
+    `candidatos`/`candidaturas` com papel candidato. **Nenhuma conta de RH ou admin (`usuarios_rh`)
+    entra**, mesmo que o e-mail case com um padrão de teste (ex.: `recrutador.rh@teste.com`, `+rh2`,
+    `+rh6`). A varredura **exclui explicitamente todo `user_id` presente em `usuarios_rh`**, e a exclusão
+    **vale sobre as duas entradas da varredura**, inclusive a entrada «candidatura em vaga de teste». O portão
+    mostra a **contagem dos excluídos por esse motivo**. Contas de teste do RH, se for o caso, são
+    **decisão separada, fora do bloco D**.
+    - **Medido (PROD, 2026-10-10, só leitura; é fotografia, o planejador re-mede):** `usuarios_rh` tem 9
+      linhas, nenhuma com `user_id` nulo. **1** linha de `candidatos` tem `user_id` de RH: `d8ef9db1`,
+      papel **`administrador` ativo**, domínio `beautysmile.com.br`, com **3 candidaturas**, todas em vagas
+      **arquivadas**: `387e91c0` em `9f6ccf1a` (`dev-backend`), `0f09fed1` em `53f75c81`
+      (`teste-asb-shopping-riomar`) e `04864650` em `53b73af6` (`teste-coordenador-rh-sede`). Pela trava,
+      essas 3 **ficam fora** da limpeza. Nenhum candidato tem e-mail de RH com `user_id` diferente. 8 linhas de
+      `candidatos` têm `user_id` nulo (os fictícios e restos de anonimização). A exclusão por `user_id` não
+      as alcança, e elas seguem as regras acima.
+    - **Para o planejador:** a exclusão se escreve como **anti-join (`NOT EXISTS`)**, não `NOT IN`. Hoje não há
+      `user_id` nulo em `usuarios_rh`, mas basta um nulo para `NOT IN` devolver vazio e o portão ver
+      «0 candidatos», o mesmo vício da população vazia que mente.
+    - ⚠ **Colisão a mostrar no portão, sem decidir aqui:** as vagas `53f75c81` e `53b73af6` são de teste e
+      vão aparecer na lista com proposta de arquivar ou remover, **mas carregam candidaturas da conta excluída**.
+      **Remover** uma vaga dessas apaga ou bloqueia (por FK/cascata) dado que a trava deixou fora. Para cada
+      vaga de teste com candidatura de conta excluída, o planejador mostra a colisão no portão e **não
+      propõe remoção que atravesse a trava**. O operador decide, junto com a decisão separada das contas
+      de RH.
 - **Nota de escrituração (feita junto deste acréscimo, não é decisão de implementação):** **JORN-50 Complete** no `REQUIREMENTS.md` — a
   `20260929000002_jorn50_reaponta_sjt_social_media` está no ledger de PROD e a `e897f709` aponta
   `work_sample_sjt` para `social-media` (medido 2026-10-10). **JORN-52 → Phase 52** na rastreabilidade.
