@@ -203,8 +203,39 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   - **O vício que a regra evita, medido no banco de marketing no ar** (`20260929000001`, 2026-10-10, leitura do
     arquivo da migration): em **16 dos 18** itens `mc` a `fortemente_pontua` é a alternativa mais
     longa. A razão sobre a média das outras vai de 0,96× a **2,85×** (situação 1 da Social Media: 227
-    caracteres contra 79/65/95). O conserto daquele banco **não é escopo da 52**. Ver a pendência
-    em §Deferred.
+    caracteres contra 79/65/95). O conserto daquele banco **entrou na 52 pela D-35**, como extensão do bloco C.
+- **D-35 (operador, 2026-10-10): decisão da pendência
+  `52-banco-sjt-marketing-comprimento-das-alternativas`, que sai de §Deferred e entra no escopo.**
+  1. **Quando:** o banco de marketing é corrigido **antes de abrir para candidatos reais**.
+  2. **Como:** com uma **versão nova do banco por migration** (D-28: ledger + md5, `p46apply.cjs`). Nenhum
+     item é editado no lugar. Pelo próprio cabeçalho da `20260929000001`, «um item cujo texto mudar entra
+     como item novo, de propósito».
+  3. **Texto:** o rascunho de 30/09 (`docs/specs/DRAFT-banco-sjt-marketing.md`) entra **revisto**. Ele passa
+     pela mesma tabela de caracteres da D-34 (contagem por alternativa e razão `fortemente_pontua` ÷ média
+     das outras), e o **operador aprova o texto no portão**.
+  - **Escopo:** é uma **extensão do bloco C**, com o banco de pré-vendas e a versão nova dos **3 cargos de
+    marketing** no **mesmo portão de texto**. A regra de comprimento vale para os itens `mc`. Se os itens
+    `caso_aberto` de marketing também ganham versão nova, o planejador decide e mostra no portão.
+  - **Para o planejador propor:**
+    (a) A **ordem** entre a versão nova e a limpeza do bloco D, porque as respostas de teste apontam
+    para os itens antigos.
+    (b) O que acontece com os **itens antigos**. Item antigo e item novo do mesmo cargo **não podem ficar
+    ativos juntos**: a vaga sorteia do cargo, e o banco ficaria com o dobro de itens.
+    (c) O que fazer com o rascunho local depois que o texto revisto for aprovado. Até lá, ele **não é commitado nem
+    descartado**.
+  - **Conferência da medição do operador** (PROD, 2026-10-10, só leitura, pelo `pergunta_id` das respostas):
+    as 8 linhas `scores_candidato` `tipo='sjt'` (5 `e897f709` · 1 `fdbe1a4a` · 2 `a32fe930`) **batem**.
+    São **6 de múltipla escolha + 2 de caso aberto**, e só **uma** candidatura respondeu itens do banco de
+    marketing: **`8101c56f` (+claude6, `e897f709`)**, 6 respostas `mc` de `social-media` mais o caso aberto
+    dela. Essa candidatura está na população da D-30. As outras:
+    - `0b1c887b` (+claude1), `f59e7281` (+cand1) e `bf26ee3c` (+claude4) apontam para o item **antigo de
+      `sdr-social-seller`**, o banco raso de pré-vendas do bloco C, e estão na D-30.
+    - `dae837f4` é resto de anonimização, sem `respostas` (D-30, achado 3).
+    - As **2 da `a32fe930`** (`a1dd4c42`, `teste-dentista-funil-e2e`, vaga **arquivada**, itens do banco
+      **`dentista`**) **não tocam o banco de marketing**. ⚠ Elas também **não estão na população da D-30
+      como escrita** (vagas ativas + cand1, e a conta não casa com +claudeN/+cand1/`@invalido.local`).
+      «Saem na limpeza do bloco D» só vale para elas se o operador as incluir no portão do bloco D.
+      Isso não afeta a D-35, porque elas não apontam para marketing.
 
 ### Divisão (proposta e aceita pelo operador — D-33)
 O escopo tem quatro naturezas com riscos diferentes. Recomendação ao planejador: **uma fase, quatro
@@ -217,9 +248,11 @@ abrir, e só os blocos C e D tocam o banco de forma sensível:
 - **B — Hub do RH** (alarga leitura de dado pessoal): leitura de servidor com log (D-11), abas,
   contato, cadastro, inscrição, Big Five, SJT MC, caso aberto. **Review bloqueante antes do apply** e
   prova por papel.
-- **C — Banco SJT de pré-vendas** (JORN-52): texto dos itens **aprovado pelo operador antes** da
-  migration (precedente do `51-19-TEXTO-APROVADO.md`), **já escrito com a regra de comprimento da D-34**
-  e com a tabela de caracteres por alternativa, migration pelo `p46apply.cjs`, destino da mina inerte.
+- **C — Banco SJT de pré-vendas + versão nova dos 3 cargos de marketing** (JORN-52, D-35): o texto dos
+  itens é **aprovado pelo operador antes** da migration (precedente do `51-19-TEXTO-APROVADO.md`), num **portão
+  de texto único** para os dois bancos, **já escrito com a regra de comprimento da D-34** e acompanhado da
+  tabela de caracteres por alternativa. Migration pelo `p46apply.cjs`. Ficam para o planejador o destino da
+  mina inerte, a retirada dos itens antigos de marketing e a ordem em relação ao bloco D.
 - **D — Limpeza** (destrutiva, a última): depois do UAT da 52; população medida, aprovada e
   re-medida no mesmo comando; portão destrutivo do M8.
 
@@ -240,6 +273,9 @@ abrir, e só os blocos C e D tocam o banco de forma sensível:
   portfólio mora em `respostas_formulario` e entra pelo item «respostas da inscrição» (D-19/D-20); o
   texto do caso aberto já chegou ao RH na 51 e é melhorado aqui (D-22). A **Parte B** (nota do RH,
   entregável externo — tabela nova e §4 do M8) **não** entra.
+- **`52-banco-sjt-marketing-comprimento-das-alternativas`** (`.planning/todos/pending/`): **inteira**,
+  pela D-35. É uma versão nova dos 3 cargos de marketing, com o texto do rascunho de 30/09 revisto pela
+  regra da D-34, no portão de texto do bloco C.
 
 </decisions>
 
@@ -337,12 +373,8 @@ abrir, e só os blocos C e D tocam o banco de forma sensível:
   necessidade de trilha, é fase própria (registro manual de contato).
 - **Tabela de auditoria de acesso a dados pessoais** — preterida em favor da linha de log (D-11).
 - **Reanalisar as 22 análises sem modelo** — preterido (D-23): custo de IA e substitui a análise antiga.
-- **Pendência separada: equalizar o comprimento das alternativas do banco de marketing em PROD**
-  (operador, 2026-10-10). **A decisão é do operador**, e **não é escopo da 52** nem do bloco C. O vício está medido na
-  D-34. Existe uma reescrita local **nunca commitada** em `docs/specs/DRAFT-banco-sjt-marketing.md`
-  (modificada em 30/09, 45 linhas trocadas sobre o `7be693c1`) que equaliza os tamanhos. **Não commitar
-  nem descartar esse arquivo** até o operador decidir: ele é a única cópia dessa reescrita. Rastreada em
-  `.planning/todos/pending/52-banco-sjt-marketing-comprimento-das-alternativas.md`.
+- ~~Pendência separada: equalizar o comprimento das alternativas do banco de marketing em PROD~~:
+  **decidida pelo operador em 2026-10-10 e movida para o escopo da 52 (D-35, bloco C)**. Ver §Folded Todos.
 
 ### Reviewed Todos (not folded)
 - `49-banco-sjt-aplicado-e-nao-conectado` — vagas apontando para o banco SJT errado; é configuração de

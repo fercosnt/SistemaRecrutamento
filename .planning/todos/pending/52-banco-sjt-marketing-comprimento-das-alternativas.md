@@ -3,15 +3,15 @@ id: 52-banco-sjt-marketing-comprimento-das-alternativas
 created: 2026-10-10
 source: Phase 52, D-34 (operador, 2026-10-10). Medição pela leitura do arquivo da migration `20260929000001_banco_sjt_marketing.sql`
 priority: medium
-resolves_phase: null
+resolves_phase: 52
 decision_owner: operador
 tags: [sjt, banco-de-itens, marketing, gabarito, prod, m8-52]
 ---
 
 # Equalizar o comprimento das alternativas do banco SJT de marketing em PROD
 
-**A decisão é do operador.** Fica separada da Phase 52: a D-34 aplica a regra só ao banco **novo** de
-pré-vendas, no bloco C.
+**A decisão é do operador e foi tomada em 2026-10-10. Veja a seção §Decisão, no fim.** Esta pendência nasceu separada da
+Phase 52, porque a D-34 aplicava a regra só ao banco novo de pré-vendas. A D-35 a trouxe para dentro do bloco C.
 
 ## O vício
 
@@ -45,3 +45,14 @@ reescrita.
    respostas já apontam para esses itens em PROD (só leitura).
 3. **Qual texto** entra: o rascunho de 30/09 como está, ou revisto. Ele tem de passar pela mesma
    tabela de caracteres por alternativa que a D-34 exige para pré-vendas.
+
+## Decisão (operador, 2026-10-10): D-35 da Phase 52
+
+1. Corrigir **antes** de abrir para candidatos reais.
+2. **Versão nova** do banco por migration (D-28). Nenhum item é editado no lugar.
+3. O rascunho de 30/09 entra **revisto**, pela tabela de caracteres da D-34. O operador aprova o texto no portão.
+
+Entra na Phase 52 como **extensão do bloco C** (pré-vendas + versão nova dos 3 cargos de marketing, mesmo
+portão de texto). O planejador propõe a ordem em relação à limpeza do bloco D e a retirada dos itens antigos.
+Em PROD, só a candidatura `8101c56f` (+claude6) respondeu itens deste banco (6 `mc` de `social-media`,
+medido em 2026-10-10). Ela está na população da D-30.
