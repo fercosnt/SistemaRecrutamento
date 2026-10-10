@@ -706,7 +706,7 @@ Plans:
 - [x] 51-15-PLAN.md — D-57 completo da tabela nova: catálogo medido no ensaio, export (1.5.0), inventário, recibo, drift, snapshots; mordida dos portões editados
 
 **Wave 12** *(blocked on Wave 11 completion)*
-- [ ] 51-16-PLAN.md — Portão: review bloqueante + decisão escrita (porta de mão única, A4), apply `20261008000002..4`, EFs, push do cliente
+- [x] 51-16-PLAN.md — Portão: review bloqueante + decisão escrita (porta de mão única, A4), apply `20261008000002..4`, EFs, push do cliente *(2026-10-09: 3 reviews, 0002..0005 aplicadas — a 0005 é o D-23 nas 4 combinações —, EFs v19/v8/v14, push ad2790a3..87be2703)*
 
 **Wave 13** *(blocked on Wave 12 completion)*
 - [ ] 51-17-PLAN.md — `db:types`, sonda de aceite, sessões reais D-29/D-28 e do Raven, conferência das telas, publicação final
@@ -732,7 +732,7 @@ Plans:
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
-| 51. Consertos da Jornada — Bloco 3 | v8.0 | 15/17 | In Progress | - |
+| 51. Consertos da Jornada — Bloco 3 | v8.0 | 16/17 | In Progress | - |
 
 ---
 

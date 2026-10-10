@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "51-16 Task 1 checkpoint:decision (blocking-human) — review 51-REVIEW-PORTAO-1 commitado (0 critical, 9 warning, 16 info, PORTAO OK modo revisao); decisao do operador pendente em 51-16-DECISAO-PENDENTE.md"
-last_updated: "2026-10-09T07:45:00.000Z"
+stopped_at: "51-16 concluido (JORN-42 no ar: 0002..0005 aplicadas, EFs v19/v8/v14, push ad2790a3..87be2703). Proximo: 51-17 (db:types, sonda de aceite, sessoes reais do operador)"
+last_updated: "2026-10-09T22:10:00.000Z"
 last_activity: 2026-10-09
-state_head: f7f144aed7b77d84daf1854e0c3ef9bd61d61d49
+state_head: dd437198
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 164
-  completed_plans: 162
+  completed_plans: 163
   percent: 99
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-15 concluido (D-57 da tabela nova, NADA aplicado/publicado/empurrado): revisao_rejeicao medida DENTRO de ensaio que aborta (16 colunas, acrescimo 51-15 do catalogo); export-scope-rules 1.5.0 com 16 vereditos por analogia com decisao_final (12 entram, 4 fora); inventario, recibo (251/251), allowlist 1.5.0 (407+60, 76 disposicoes) e os tres VALUES do drift regenerados; quatro check: verdes; drift verde no ensaio com 0002..0004; mordidas (i) drift n_drift=1 e (ii) snapshots (a)/(b) com controle verde; (m) nova; p51_ensaio carrega evidencia JSON; WINDOWS 91-93 para o operador; tsc 89; ledger segue em 20261008000001. TRANSITORIO: drift contra PROD vivo acusa revisao_rejeicao ate o apply do 51-16. Proximo: 51-16"
+last_activity_desc: "51-16 concluido: tres reviews adversariais do portao (-1 9W, -2 3W, -3 2W; 0 critical em todos); operador decidiu aplicar, estender o D-23 as 4 combinacoes (0005 reescrita: rejeitar_candidatura + registrar_decisao) e a mensagem propria da recusa no cliente; 0002..0005 aplicadas com portao no mesmo comando e md5 do ledger batendo; provas pos-apply pelo ensaio (51b 18/18, mutacoes 44/44, drift pass); EFs notificar-candidato v19, exportar-meus-dados v8, executar-direito-titular v14; push por sha ad2790a3..87be2703 (64 commits, 0 ALHEIO); marcadores servidos conferidos pelo orquestrador. Pendentes registrados: WR-01 do -3 (PATCH direto em candidaturas contorna o D-23), WR-02 do -3 (filtro sem mutacao). Proximo: 51-17"
 ---
 
 # Project State
