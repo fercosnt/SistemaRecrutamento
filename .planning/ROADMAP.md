@@ -665,7 +665,7 @@ Plans:
   7. Todo apply e deploy pela via do projeto (`p46apply.cjs`/`efdeploy.cjs`), o JORN-42 só depois de review bloqueante e decisão escrita do operador, e `git log origin/main..HEAD` vazio com os marcadores servidos no chunk certo
 **Guardrails**: os do Bloco 1/2 e da Phase 50 — migrations pelo `p46apply.cjs` (md5 do ledger conferido), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado. Mudança de controle de acesso (JORN-42): review bloqueante antes do apply e prova de que nada abriu (views incluídas). Ordem D-27: telas e textos primeiro, banco depois (migration → motor/LGPD → EF → cliente)
 **Fora de escopo**: JORN-50..52 (seguem sem fase); Bloco 4 da fila; portfólio visível ao RH e a Parte B do todo `49-producoes-do-candidato-sem-leitor-de-rh`
-**Plans**: 22/24 plans executed — 51-18..51-24 fecham os gaps da verificação de 2026-10-10 (`51-VERIFICATION.md` gaps_found 7/9; decisões do operador G1a/G1b/G2 em `51-GAPS-DECISAO.md`)
+**Plans**: 23/24 plans executed — 51-18..51-24 fecham os gaps da verificação de 2026-10-10 (`51-VERIFICATION.md` gaps_found 7/9; decisões do operador G1a/G1b/G2 em `51-GAPS-DECISAO.md`)
 
 Plans:
 **Wave 1**
@@ -725,7 +725,7 @@ Plans:
 - [x] 51-22-PLAN.md — Portão: review adversarial dos gaps + decisão do operador; apply do motor; prova viva
 
 **Gap wave 4** *(blocked on 51-22)*
-- [ ] 51-23-PLAN.md — Checkpoint destrutivo sobre a população medida; apply da limpeza; prova do T-51-14; WINDOWS 89
+- [x] 51-23-PLAN.md — Checkpoint destrutivo sobre a população medida; apply da limpeza; prova do T-51-14; WINDOWS 89
 
 **Gap wave 5** *(blocked on 51-23)*
 - [ ] 51-24-PLAN.md — Redeploy de `executar-direito-titular` com o texto aprovado; push enumerado; marcador no chunk certo; DISPOSITION/SECURITY/VALIDATION; próximo: `/gsd-secure-phase 51` e re-verificação
