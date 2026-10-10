@@ -138,11 +138,11 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
 - **D-29:** A lista de vagas atingidas pelo JORN-52 é **`status`-agnóstica**. Medido (2026-10-10):
   `sdr-social-seller` tem duas vagas — a ativa `fdbe1a4a` (peso 15) e a **mina inerte** `629a5f31`
   (`teste-e2e-social-media-junior-1-…`, `inativa`, peso **35**, ponteiro errado *e* banco raso). O
-  planejador decide o destino da mina inerte (reapontar, arquivar ou entrar na limpeza da D-30) — não
-  pode ficar como está se a vaga puder ser republicada.
+  destino da mina inerte vai ao **portão do bloco D** (D-32) — não pode ficar como está se a vaga
+  puder ser republicada.
 - **D-30 (limpeza dos dados de teste das vagas ativas, antes de abrir para candidatos reais):** hoje
   não há candidatura real nos últimos 30 dias (a última real é de 26/04, segundo o operador). Entram:
-  contas **+claude1..+claude7**, **cand1** e a vaga **«Teste Vaga Nova»**. O **método** (exclusão
+  contas **+claude1..+claude7** e a conta **+cand1** (as duas candidaturas dela — ver achado 1). O **método** (exclusão
   Art. 18 pelo próprio motor, ou teardown) é **decisão do planejamento**, **sempre com portão
   destrutivo** (dry-run pela mesma query, população medida e aprovada, review bloqueante, prova pós).
   — **Reversibility:** one-way — apagar dado em PROD; PITR desligado e Storage sem backup.
@@ -152,9 +152,11 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   | `fdbe1a4a` Consultor | 7 | 0 | 3 fictícios `c0000001..3` |
   | `e897f709` Social Media | 7 | 1 | 3 fictícios `c0000004..6` + 1 já anonimizada (`dae837f4`, rejeitada) |
   ⚠ **Achados da medição que o planejador tem de resolver:**
-  1. **«Teste Vaga Nova» não existe em PROD** — nenhuma das 15 vagas tem esse título ou slug
-     parecido. **Pergunta aberta ao operador** (qual vaga é, ou se já saiu); não planejar a remoção
-     dela sem a resposta.
+  1. ~~«Teste Vaga Nova» não existe em PROD~~ — **RESOLVIDO pelo operador (2026-10-10):** não é vaga;
+     é o `nome_completo` do candidato da conta **+cand1** (leitura errada do print do hub). A população
+     é a **conta +cand1**, com **duas** candidaturas: `f59e7281` na Social Media ativa (`e897f709`,
+     `aguardando_resposta`) e `d31c78bb` na vaga inativa `629a5f31` (`em_analise`) — conferido em PROD
+     (só leitura). A tabela acima conta só vagas ativas, por isso mostra 1 para cand1.
   2. Os **6 fictícios** (`candidatos f0000001..6`, `candidaturas c0000001..6`, e-mail `@invalido.local`)
      vêm das migrations `20260830000005_fakes_teste_comparacao_consultor.sql` e
      `20260905000002_fakes_teste_comparacao_social_media.sql`, cujo cabeçalho diz «devem ser removidos
@@ -172,7 +174,15 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   `20260929000002_jorn50_reaponta_sjt_social_media` está no ledger de PROD e a `e897f709` aponta
   `work_sample_sjt` para `social-media` (medido 2026-10-10). **JORN-52 → Phase 52** na rastreabilidade.
 
-### Divisão proposta (o operador pediu proposta se o escopo ficar grande)
+- **D-32 (operador, 2026-10-10):** o portão do **bloco D** decide também a **própria vaga `629a5f31`**
+  («[TESTE E2E] Social Media junior 1…», `inativa`, `sdr-social-seller`, peso 35 — a mina inerte do
+  JORN-52). Arquivá-la ou removê-la elimina o risco de republicação. **O planejamento propõe o método;
+  o operador decide no portão.** Ela já carrega a candidatura `d31c78bb` da +cand1 (D-30), então a
+  ordem entre limpar a candidatura e tratar a vaga entra na proposta.
+- **D-33 (operador, 2026-10-10):** **aceita a divisão** — uma fase só, quatro blocos (A telas sem banco,
+  B hub do RH, C banco SJT de pré-vendas, D limpeza), cada um com portão próprio.
+
+### Divisão (proposta e aceita pelo operador — D-33)
 O escopo tem quatro naturezas com riscos diferentes. Recomendação ao planejador: **uma fase, quatro
 blocos em ondas, com portões próprios**, em vez de fases separadas — tudo precisa estar no ar antes de
 abrir, e só os blocos C e D tocam o banco de forma sensível:
