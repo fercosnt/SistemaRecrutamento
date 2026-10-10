@@ -3,7 +3,7 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Fase 51 gaps: waves 1-2 concluidas (51-18..51-21; migrations 20261010000001/2 escritas e provadas em ensaio, NAO aplicadas; PROD ledger em 20261008000005). Proximo: 51-22 (review + checkpoint do operador + apply do motor)"
+stopped_at: "Fase 51 gaps: 51-18..51-22 concluidos. Motor G1a (20261010000001) APLICADO em PROD 2026-10-10 03:17 (ledger md5 = arquivo; corpo 9b87e5ee; OK do operador em 51-22-DECISAO.md). Limpeza destrutiva 20261010000002 NAO aplicada: aguarda checkpoint do operador no 51-23. Nada empurrado (origin/main 53cb73ff)."
 last_updated: "2026-10-10T06:30:00.000Z"
 last_activity: 2026-10-10
 state_head: 43d6d06c
@@ -11,7 +11,7 @@ progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 171
-  completed_plans: 167
+  completed_plans: 169
   percent: 98
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
