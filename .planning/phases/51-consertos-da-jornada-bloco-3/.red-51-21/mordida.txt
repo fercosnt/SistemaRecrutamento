@@ -1,0 +1,3 @@
+L0 ENSAIO VERDE: - · prefixadas=[20261010000001,20261010000002] · evidencia=g1a:anon=9b87e5ee3d072df5f9bf6e99ee1ae7c1 g1l:titulares=2,com_disp=2,linhas=2,apagadas=2,restantes=0,outros=igual,alvo=6819cb8d99bbaaae5de23cefae2c88bd · 644 ms
+L1 ENSAIO VERMELHO: P0001: P51-G1L POS-PORTAO (restantes) · 612 ms
+L2 ENSAIO VERMELHO: P0001: P51-G1L POS-PORTAO (outros) · 631 ms
