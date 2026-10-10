@@ -3,8 +3,8 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: ready_to_plan
-stopped_at: "Fase 51 CONCLUIDA (2026-10-10). Phase 52 criada a partir da G-51-OP1 (hub do RH: contato, cadastro completo, inscricao, Big Five com devolutiva, SJT; + defeitos e pendencias adiadas do UAT da 51 + achados do 51-17). Proximo: /gsd-discuss-phase 52. Abertos: ratificar o comando destrutivo do 51-23; T-51-47 (medium)."
-last_updated: "2026-10-10T18:33:43.000Z"
+stopped_at: "Phase 52 context gathered (2026-10-10): 27 decisoes em 52-CONTEXT.md (Big Five em 5 faixas sem percentil, D-32 revogada e D-31 so no hub; dados pessoais visiveis com log de servidor; contato no cabecalho; hub em abas; pendencias do UAT da 51 decididas). Proximo: /gsd-plan-phase 52. Abertos: ratificar o comando destrutivo do 51-23; T-51-47 (medium)."
+last_updated: "2026-10-10T19:41:40.000Z"
 last_activity: 2026-10-10
 state_head: b6223730
 progress:
@@ -15,7 +15,7 @@ progress:
   percent: 91
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
-last_activity_desc: "Phase 51 concluida (UAT complete, VERIFICATION passed, transicao a mao, push 0faa7791..b6223730); Phase 52 criada a partir da G-51-OP1."
+last_activity_desc: "/gsd-discuss-phase 52: 8 areas discutidas, 52-CONTEXT.md e 52-DISCUSSION-LOG.md escritos; todo 49-producoes-do-candidato-sem-leitor-de-rh (Parte A) incorporado."
 ---
 
 # Project State
@@ -1806,9 +1806,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-10T18:32:26.000Z
-Stopped at: Phase 51 concluída (UAT complete, VERIFICATION passed); transição escrita à mão; Phase 52 criada (próximo: /gsd-discuss-phase 52)
-Resume file: None
+Last session: 2026-10-10T19:41:40.000Z
+Stopped at: Phase 52 context gathered (próximo: /gsd-plan-phase 52)
+Resume file: .planning/phases/52-hub-do-rh-dados-e-contato/52-CONTEXT.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
