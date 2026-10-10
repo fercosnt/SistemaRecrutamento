@@ -29,8 +29,8 @@ Escopo fixo (ROADMAP, Phase 52):
   candidato; cor do «Agradecemos seu interesse»; `SelectItem` branco sobre branco; nomes RH2/RH3
   trocados no cadastro; motivo/justificativa no diálogo de revisão humana (`humana_triagem`).
 
-Requirements: **sem ID ainda** — o planejador cria os da fase (JORN-50..52 existem, sem fase, e **não**
-são estes).
+Requirements: **JORN-52** (recorte mínimo — D-28) e os que o planejador criar para o resto do escopo.
+JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete.
 
 </domain>
 
@@ -124,6 +124,71 @@ são estes).
 - **D-27:** Painel do candidato com todas as avaliações concluídas: **«Avaliações concluídas —
   aguardando a equipe»**, sem botão de continuar. **Não muda status no banco** — só o que a tela lê.
 
+### Acréscimos do operador (2026-10-10, depois da discussão) — a 52 é a última fase antes de abrir para candidatos reais
+- **D-28 (JORN-52, recorte mínimo):** a 52 inclui escrever o **banco SJT do cargo de pré-vendas**
+  (`sdr-social-seller`), no padrão dos 3 cargos de marketing da `20260929000001` (6 itens `mc` + 1
+  `caso_aberto`, com a razão do tamanho escrita no cabeçalho). Motivo medido em PROD (2026-10-10, só
+  leitura): a vaga **ATIVA** Consultor(a) de Relacionamento e Pré-vendas (`fdbe1a4a`,
+  `consultor-relacionamento-pre-vendas`) aponta `work_sample_sjt` para `sdr-social-seller` com **1 item**,
+  `obrigatorio: true`, **peso 15** — uma escolha muda a faixa. Os **5 cargos latentes** de 1 item
+  (`asb-tsb`, `assistente-financeiro`, `consultor-vendas`, `recepcionista`, `vaga-generica`; zero vagas
+  em qualquer status) **ficam fora**. — **Reversibility:** costly — itens de banco entram por
+  migration (ledger + md5) e passam a ser respondidos por candidato; trocar depois exige versão nova
+  do banco, não edição.
+- **D-29:** A lista de vagas atingidas pelo JORN-52 é **`status`-agnóstica**. Medido (2026-10-10):
+  `sdr-social-seller` tem duas vagas — a ativa `fdbe1a4a` (peso 15) e a **mina inerte** `629a5f31`
+  (`teste-e2e-social-media-junior-1-…`, `inativa`, peso **35**, ponteiro errado *e* banco raso). O
+  planejador decide o destino da mina inerte (reapontar, arquivar ou entrar na limpeza da D-30) — não
+  pode ficar como está se a vaga puder ser republicada.
+- **D-30 (limpeza dos dados de teste das vagas ativas, antes de abrir para candidatos reais):** hoje
+  não há candidatura real nos últimos 30 dias (a última real é de 26/04, segundo o operador). Entram:
+  contas **+claude1..+claude7**, **cand1** e a vaga **«Teste Vaga Nova»**. O **método** (exclusão
+  Art. 18 pelo próprio motor, ou teardown) é **decisão do planejamento**, **sempre com portão
+  destrutivo** (dry-run pela mesma query, população medida e aprovada, review bloqueante, prova pós).
+  — **Reversibility:** one-way — apagar dado em PROD; PITR desligado e Storage sem backup.
+  Medido em PROD (2026-10-10, só leitura), por vaga ativa:
+  | Vaga ativa | +claudeN | cand1 | outras |
+  |---|---|---|---|
+  | `fdbe1a4a` Consultor | 7 | 0 | 3 fictícios `c0000001..3` |
+  | `e897f709` Social Media | 7 | 1 | 3 fictícios `c0000004..6` + 1 já anonimizada (`dae837f4`, rejeitada) |
+  ⚠ **Achados da medição que o planejador tem de resolver:**
+  1. **«Teste Vaga Nova» não existe em PROD** — nenhuma das 15 vagas tem esse título ou slug
+     parecido. **Pergunta aberta ao operador** (qual vaga é, ou se já saiu); não planejar a remoção
+     dela sem a resposta.
+  2. Os **6 fictícios** (`candidatos f0000001..6`, `candidaturas c0000001..6`, e-mail `@invalido.local`)
+     vêm das migrations `20260830000005_fakes_teste_comparacao_consultor.sql` e
+     `20260905000002_fakes_teste_comparacao_social_media.sql`, cujo cabeçalho diz «devem ser removidos
+     antes da divulgação das vagas — o operador aprovou a criação e a remoção em 2026-08-30». Não
+     estavam na lista da D-30, mas estão nas vagas ativas e já têm remoção aprovada — **incluir** na
+     população medida e mostrar ao operador no portão.
+  3. `dae837f4` é **resto de anonimização** (o motor troca o e-mail por `anonimizado+<id>@invalido.local`
+     e guarda a trilha da decisão — BD-9). Não é dado pessoal; o planejador decide se ele conta como
+     «dado de teste» (a trilha é guardada por desenho) e mostra a decisão no portão.
+  4. **Ordem:** o UAT da própria 52 precisa de contas de teste. A limpeza vem **depois** do UAT da 52
+     (ou o UAT usa contas novas que entram na mesma limpeza) — não antes.
+  5. Relacionado, **fora** da D-30: as 8 fixtures da purga (`fixture-p46-*`, vagas arquivadas) têm
+     teardown próprio no checklist de fecho do M8 (`STATE.md`, `p46_teardown_fixture.sql`).
+- **Nota de escrituração (feita junto deste acréscimo, não é decisão de implementação):** **JORN-50 Complete** no `REQUIREMENTS.md` — a
+  `20260929000002_jorn50_reaponta_sjt_social_media` está no ledger de PROD e a `e897f709` aponta
+  `work_sample_sjt` para `social-media` (medido 2026-10-10). **JORN-52 → Phase 52** na rastreabilidade.
+
+### Divisão proposta (o operador pediu proposta se o escopo ficar grande)
+O escopo tem quatro naturezas com riscos diferentes. Recomendação ao planejador: **uma fase, quatro
+blocos em ondas, com portões próprios**, em vez de fases separadas — tudo precisa estar no ar antes de
+abrir, e só os blocos C e D tocam o banco de forma sensível:
+- **A — Telas sem banco** (sem migration): pendências do candidato (saída das provas, «Tempo decorrido»,
+  devolutiva reabrível, Raven no shell, painel «avaliações concluídas»), entrevista (sliders vazios,
+  jargão, menu ativo), achados do 51-17 (login, volta ao dashboard, «Agradecemos», `SelectItem`),
+  defeitos (b) e (c).
+- **B — Hub do RH** (alarga leitura de dado pessoal): leitura de servidor com log (D-11), abas,
+  contato, cadastro, inscrição, Big Five, SJT MC, caso aberto. **Review bloqueante antes do apply** e
+  prova por papel.
+- **C — Banco SJT de pré-vendas** (JORN-52): texto dos itens **aprovado pelo operador antes** da
+  migration (precedente do `51-19-TEXTO-APROVADO.md`), migration pelo `p46apply.cjs`, destino da mina
+  inerte.
+- **D — Limpeza** (destrutiva, a última): depois do UAT da 52; população medida, aprovada e
+  re-medida no mesmo comando; portão destrutivo do M8.
+
 ### Claude's Discretion
 - Texto final do aviso do Big Five (D-07), respeitando o sentido e a regra de linguagem.
 - Forma do caminho de servidor que escreve o log (D-11): EF ou RPC, desde que a linha exista e não
@@ -158,6 +223,12 @@ são estes).
 - `.planning/phases/51-consertos-da-jornada-bloco-3/51-UI-REVIEW.md` — Raven fora do shell (linha 72),
   instruções nunca renderizadas (linha 62), `SelectItem` (R1, linha 44).
 - `.planning/ROADMAP.md` §Phase 52 — escopo e guardrails.
+- `.planning/REQUIREMENTS.md` — JORN-52 (texto integral, inclusive a «MINA INERTE») e JORN-50.
+- `supabase/migrations/20260929000001_banco_sjt_marketing.sql` — o padrão do banco SJT (D-28).
+- `supabase/migrations/20260830000005_fakes_teste_comparacao_consultor.sql` e
+  `supabase/migrations/20260905000002_fakes_teste_comparacao_social_media.sql` — fictícios a remover (D-30).
+- `.planning/phases/51-consertos-da-jornada-bloco-3/51-23-PLAN.md` e `51-23-COMANDO-APPLY.sh` — o
+  portão destrutivo mais recente (população medida, comando encadeado, prova pós).
 - `.planning/todos/pending/49-producoes-do-candidato-sem-leitor-de-rh.md` — Parte A folded.
 
 ### Decisões anteriores que esta fase toca
