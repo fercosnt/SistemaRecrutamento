@@ -790,10 +790,9 @@ uma com a alternativa recusada, para que o operador possa reverter uma sem reabr
 | **D-52-U23** | **Os `text-xs` dos cards da avaliação assíncrona sobem a 14px** (inclusive as duas chamadas de `SugestaoIABadge` dentro do card, por `className`); o que a fase só muda de aba fica como herança medida, listada com arquivo:linha | Deixar os badges de `ScorecardAvaliacao` em 12px; ou subir também `SugestaoIABadge`/`AsyncState` no componente | A fase reestrutura esses cards e é o único lugar onde eles renderizam (`AvaliacoesRespondidasBloco.tsx:74` sai do hub) — 12px ali seria tamanho autorado. Mudar o primitivo compartilhado mudaria 11–16 arquivos de tela fora da fase |
 | **D-52-U24** | Botões de recarregar nomeiam o objeto: «Recarregar contato» / «Recarregar devolutiva» / «Recarregar situações» | «Tentar de novo» genérico | Três erros independentes podem aparecer na mesma tela; o rótulo diz qual leitura refaz. A constante existente do caso aberto (`COPY_RESPOSTA_CASO_ABERTO.tentarDeNovo`) fica — é compartilhada com a Decisão Final |
 
-**Ponto de atenção para o operador, em uma frase:** se só uma decisão merecer revisão humana antes do plano, é a
-**D-52-U12** (botões no lugar do slider), que muda o controle que o RH usa na entrevista; a segunda é a **D-52-U14**
-(«Ir ao painel» no Raven em vez do «Voltar às avaliações» da D-24). A **D-52-U18** (Disponibilidade) já foi decidida
-pelo operador em 2026-10-10 — entra.
+**Decisões revistas pelo operador (2026-10-10):** **D-52-U12** (botões 1–5 começando vazios no lugar do slider) e
+**D-52-U14** («Ir ao painel» no Raven) **aceitas** — registradas no `52-CONTEXT.md` como emendas que substituem a
+D-25 e a D-24 nesses dois pontos; **D-52-U18** (Disponibilidade) decidida — entra.
 
 ---
 

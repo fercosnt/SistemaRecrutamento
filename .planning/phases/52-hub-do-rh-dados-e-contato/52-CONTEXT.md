@@ -117,9 +117,19 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   e no Raven** (respostas só na memória da tela), o botão abre **confirmação de perda** — «Se sair
   agora, as respostas desta prova não serão salvas», com **Sair** e **Continuar**. Não se cria
   rascunho para esses dois nesta fase.
+  - **Emenda (operador, 2026-10-10, aceita da UI-SPEC D-52-U14) — substitui a D-24 neste ponto:** no
+    **Raven** o botão diz **«Ir ao painel»** (destino `/candidato/dashboard`), não «Voltar às
+    avaliações» — o caminho de volta do Raven é o painel, e o guard `rotulos-navegacao-candidato`
+    exige que o rótulo nomeie o destino. A confirmação de perda (Sair/Continuar) continua igual. Nas
+    demais telas de prova, a D-24 vale como escrita.
 - **D-25:** Sliders BARS da entrevista começam **vazios e obrigatórios**: «Salvar avaliação» só libera
   com todas as dimensões escolhidas (mesma lógica do JORN-47 para as notas escritas). Some também o
   subtítulo com jargão («BARS sliders 1–5 — notas_humanas…»).
+  - **Emenda (operador, 2026-10-10, aceita da UI-SPEC D-52-U12) — substitui a D-25 neste ponto:** o
+    controle deixa de ser **slider** e vira uma **fileira de 5 botões (1–5)** por competência
+    (`role="radiogroup"`), **começando sem nenhum marcado** — o Slider do Radix não tem estado vazio.
+    O resto da D-25 vale como escrito: obrigatórios, «Salvar avaliação» só libera com todas as
+    competências notadas, nenhum valor inicial vindo da IA, e some o subtítulo com jargão.
 - **D-26:** SJT MC: «Tempo sugerido: mm:ss» vira **«Tempo decorrido: mm:ss»** (sem limite rígido).
 - **D-27:** Painel do candidato com todas as avaliações concluídas: **«Avaliações concluídas —
   aguardando a equipe»**, sem botão de continuar. **Não muda status no banco** — só o que a tela lê.
