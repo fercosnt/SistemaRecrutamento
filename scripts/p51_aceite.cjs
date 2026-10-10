@@ -84,16 +84,539 @@ class ErroUso extends Error {}
 // IMPLEMENTAÇÃO
 // ═════════════════════════════════════════════════════════════════════════════
 
-function naoImplementado() {
-  throw new Error('NAO IMPLEMENTADO');
+// ── Saída blindada ───────────────────────────────────────────────────────────
+
+/* Marca, sobre o texto original, todo trecho com forma de e-mail, JWT, URL ou corrida opaca longa e
+ * troca cada corrida marcada por UM `<redigido>` (marcar antes de trocar não deixa sobra). */
+function blindar(texto) {
+  const t = String(texto);
+  const marca = new Uint8Array(t.length);
+  const padroes = [
+    /[^\s@<>()"'=]+@[^\s@<>()"']+\.[^\s@<>()"']+/g, // e-mail
+    /eyJ[\w-]{6,}\.[\w-]{6,}(\.[\w-]*)?/g, // JWT
+    /https?:\/\/\S+/g, // URL
+    /[A-Za-z0-9_-]{40,}/g, // corrida opaca longa (pedaço de token); um uuid tem 36
+  ];
+  for (const re of padroes) for (const m of t.matchAll(re)) for (let k = m.index; k < m.index + m[0].length; k += 1) marca[k] = 1;
+  let r = '';
+  for (let k = 0; k < t.length; ) {
+    if (marca[k]) {
+      while (k < t.length && marca[k]) k += 1;
+      r += '<redigido>';
+    } else {
+      r += t[k];
+      k += 1;
+    }
+  }
+  return r;
 }
-const criarSaida = (escrever) => ({ linha: (s) => escrever('out', s), erro: (s) => escrever('err', s) });
-const valorSeguro = naoImplementado;
-const linhaCheck = naoImplementado;
-const blindar = naoImplementado;
-const lerPostgresReal = naoImplementado;
-function principal() {
-  return 0;
+
+function criarSaida(escrever) {
+  return {
+    linha: (s) => escrever('out', blindar(s)),
+    erro: (s) => escrever('err', blindar(s)),
+  };
+}
+
+/* Só números, booleanos, uuids e fichas curtas em minúsculas passam; o resto vira <redigido>. */
+function valorSeguro(v) {
+  if (v === null || v === undefined || v === '-') return '-';
+  if (typeof v === 'boolean') return String(v);
+  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '-';
+  if (typeof v === 'string' && (UUID_RE.test(v) || /^[a-z][a-z0-9_:>.-]{0,47}$/.test(v))) return v;
+  return '<redigido>';
+}
+
+const nomeSeguro = (n) => (typeof n === 'string' && /^[a-z0-9][a-z0-9_:.-]{0,63}$/.test(n) ? n : 'conferencia');
+const notaSegura = (s) => (typeof s === 'string' && /^[A-Za-z0-9 _:.,=()/-]{1,80}$/.test(s) ? ` (${s})` : '');
+
+function linhaCheck(c) {
+  return blindar(
+    `${c.ok ? 'OK' : 'FALHA'} ${nomeSeguro(c.nome)} esperado=${valorSeguro(c.esperado)} obtido=${valorSeguro(c.obtido)}${notaSegura(c.nota)}`
+  );
+}
+
+function linhaInfo(chave, pares) {
+  const corpo = Object.entries(pares)
+    .map(([k, v]) => `${nomeSeguro(k)}=${valorSeguro(v)}`)
+    .join(' ');
+  return blindar(`info ${nomeSeguro(chave)} ${corpo}`);
+}
+
+// ── Argumentos ───────────────────────────────────────────────────────────────
+
+/* As mensagens de recusa NUNCA ecoam o que foi digitado (poderia ser um e-mail). */
+function lerArgs(argv) {
+  const pos = [];
+  const op = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === '--fase' || a === '--rh2' || a === '--admin') {
+      op[a.slice(2)] = argv[i + 1];
+      i += 1;
+    } else if (typeof a === 'string' && a.startsWith('--')) {
+      throw new ErroUso(`OPCAO DESCONHECIDA. ${USO}`);
+    } else {
+      pos.push(a);
+    }
+  }
+  const cand = pos[0];
+  if (pos.length !== 1 || typeof cand !== 'string' || !UUID_RE.test(cand)) {
+    throw new ErroUso(`SEM CANDIDATURA: informe o id (uuid) de UMA candidatura da conta de teste. ${USO}`);
+  }
+  if (op.fase === undefined) throw new ErroUso(`FASE AUSENTE. ${USO}`);
+  if (!FASES.includes(op.fase)) throw new ErroUso(`FASE DESCONHECIDA: use ${FASES.join('|')}`);
+  for (const k of ['rh2', 'admin']) {
+    if (op[k] !== undefined && (typeof op[k] !== 'string' || !UUID_RE.test(op[k]))) throw new ErroUso(`--${k} NAO E UUID`);
+  }
+  for (const k of PRECISA[op.fase]) if (!op[k]) throw new ErroUso(`FALTA --${k} para a fase ${op.fase}. ${USO}`);
+  const rh2 = op.rh2 ? op.rh2.toLowerCase() : null;
+  const admin = op.admin ? op.admin.toLowerCase() : null;
+  if (rh2 && admin && rh2 === admin) throw new ErroUso('RH2 E ADMIN SAO A MESMA PESSOA: a fase confere dois atores distintos');
+  return { cand: cand.toLowerCase(), fase: op.fase, rh2, admin };
+}
+
+// ── Consultas (todas começam por SO_LEITURA; ids interpolados só depois de validados como uuid) ──
+
+function uuid(x) {
+  if (!UUID_RE.test(String(x))) throw new ErroSeguro('ID INVALIDO: recuso montar a consulta');
+  return String(x).toLowerCase();
+}
+
+const claims = (sub, papel) => JSON.stringify({ sub: uuid(sub), role: 'authenticated', app_metadata: { role: papel } });
+
+function perfilSql(user) {
+  if (!user) return 'null::json';
+  return (
+    "(select json_build_object('role', u.role::text, 'ativo', u.ativo, 'excluido', u.deleted_at is not null)" +
+    `   from public.usuarios_rh u where u.user_id = '${uuid(user)}' order by u.deleted_at nulls first limit 1)`
+  );
+}
+
+function sqlBase(a) {
+  const c = uuid(a.cand);
+  return [
+    SO_LEITURA,
+    '/* p51:base */',
+    'with c as (',
+    '  select c.id, c.vaga_id, c.etapa_atual::text as etapa, c.status::text as status,',
+    "         coalesce(c.motivo_rejeicao = 'knockout_automatico', false) as motivo_ko,",
+    '         (c.opcao_knockout_id is not null) as opcao_ko, ca.user_id as titular',
+    '    from public.candidaturas c left join public.candidatos ca on ca.id = c.candidato_id',
+    `   where c.id = '${c}' and c.deleted_at is null)`,
+    'select',
+    ' (select row_to_json(c) from c) as cand,',
+    " (select json_agg(json_build_object('id', h.id, 'de', h.etapa_de::text, 'para', h.etapa_para::text,",
+    "         'auto', h.auto_rejeitado, 'ator', h.ator, 't', extract(epoch from h.criado_em)) order by h.criado_em, h.id)",
+    `    from public.historico_candidatura h where h.candidatura_id = '${c}') as hist,`,
+    " (select json_agg(json_build_object('id', r.id, 'origem', r.origem, 'etapa_rejeitada', r.etapa_rejeitada::text,",
+    "         'etapa_reabertura', r.etapa_reabertura::text, 'veredito', r.veredito, 'respondida_por', r.respondida_por,",
+    "         'rejeitado_por', r.rejeitado_por, 'reaberta_t', extract(epoch from r.reaberta_em),",
+    "         'prazo', r.prazo_nova_decisao_em is not null, 'hid', r.historico_rejeicao_id,",
+    "         'opcao_ko', r.opcao_knockout_id is not null, 'solicitada_t', extract(epoch from r.solicitada_em))",
+    '         order by r.solicitada_em, r.id)',
+    `    from public.revisao_rejeicao r where r.candidatura_id = '${c}') as pedidos,`,
+    " (select json_agg(json_build_object('t_criada', extract(epoch from x.created_at), 't_atual', extract(epoch from x.updated_at),",
+    "         'status', x.status::text))",
+    `    from public.analise_candidato_vaga x where x.candidatura_id = '${c}') as analises,`,
+    " (select json_agg(json_build_object('evento', n.evento::text, 'status', n.status::text, 'template', n.template::text,",
+    "         't', extract(epoch from n.criado_em)) order by n.criado_em, n.id)",
+    `    from public.notificacoes_enviadas n where n.candidatura_id = '${c}') as notif,`,
+    ` (select count(*) from public.cognitivo_liberacao l where l.candidatura_id = '${c}' and l.revogado_em is null)::int as raven_lib,`,
+    ` (select count(*) from public.scores_raven s where s.candidatura_id = '${c}')::int as raven_scores,`,
+    ` ${perfilSql(a.rh2)} as perfil_rh2,`,
+    ` ${perfilSql(a.admin)} as perfil_admin,`,
+    ' extract(epoch from pg_catalog.now()) as agora,',
+    " current_setting('transaction_read_only') as ro;",
+  ].join('\n');
+}
+
+/* Fila e funil sob as claims do ator (RPCs SECURITY DEFINER: dependem só das claims). `ko_outras` é a
+ * contagem independente, na MESMA transação, dos OUTROS knockouts vigentes da vaga: `kpi - ko_outras`
+ * diz se o funil conta ESTA candidatura (1) ou não (0). */
+function sqlAtor(a, vaga, sub, papel) {
+  const c = uuid(a.cand);
+  const v = uuid(vaga);
+  return [
+    SO_LEITURA,
+    '/* p51:ator */',
+    `select set_config('request.jwt.claims', '${claims(sub, papel)}', true) is not null as claims;`,
+    'select',
+    " (select json_agg(json_build_object('pedido_id', f.pedido_id, 'origem', f.origem, 'pode_responder', f.pode_responder,",
+    "         'veredito', f.revisao_veredito))",
+    `    from public.listar_revisoes_decisao(true) f where f.candidatura_id = '${c}') as fila,`,
+    ` ((public.funil_kpis('${v}'::uuid) -> 'knockout_rate' ->> 'knockouts'))::int as kpi_knockouts,`,
+    ` (select count(*) from public.candidaturas o where o.vaga_id = '${v}' and o.deleted_at is null`,
+    `     and o.motivo_rejeicao = 'knockout_automatico' and o.status = 'rejeitado' and o.id <> '${c}')::int as ko_outras,`,
+    " current_setting('transaction_read_only') as ro;",
+  ].join('\n');
+}
+
+/* O que o RH2 vê pela RLS (D-07 da 50: dado de teste não fica escondido do RH). */
+function sqlVisivel(a) {
+  const c = uuid(a.cand);
+  return [
+    SO_LEITURA,
+    '/* p51:visivel */',
+    `select set_config('request.jwt.claims', '${claims(a.rh2, 'rh')}', true) is not null as claims;`,
+    'set local role authenticated;',
+    'select',
+    ` (select count(*) from public.candidaturas x where x.id = '${c}')::int as candidaturas,`,
+    ' (select count(*) from public.candidatos ca where exists (select 1 from public.candidaturas x',
+    `     where x.id = '${c}' and x.candidato_id = ca.id))::int as candidatos,`,
+    " current_setting('transaction_read_only') as ro;",
+  ].join('\n');
+}
+
+/* O que o TITULAR lê: a chave raven de get_avaliacao_status e o estado do pedido (só origem, elegível,
+ * veredito — nunca a resposta). O user_id do titular só entra nas claims; nunca é impresso. */
+function sqlTitular(a, titular) {
+  const c = uuid(a.cand);
+  return [
+    SO_LEITURA,
+    '/* p51:titular */',
+    `select set_config('request.jwt.claims', '${claims(titular, 'candidato')}', true) is not null as claims;`,
+    'set local role authenticated;',
+    'select',
+    ` (public.get_avaliacao_status('${c}'::uuid) -> 'raven') as raven,`,
+    " (select json_build_object('origem', e ->> 'origem', 'elegivel', (e ->> 'elegivel')::boolean,",
+    "         'veredito', e #>> '{pedido,veredito}')",
+    `    from (select public.estado_revisao_rejeicao('${c}'::uuid) as e) z) as estado,`,
+    " current_setting('transaction_read_only') as ro;",
+  ].join('\n');
+}
+
+const DML_GUARDA = /\b(insert|update|delete|truncate|alter|drop|create|grant|revoke|merge|call|copy|vacuum|refresh|lock|notify)\b/i;
+
+function lerSoLeitura(lerPg, sql) {
+  if (!sql.startsWith(SO_LEITURA) || DML_GUARDA.test(sql)) throw new ErroSeguro('CONSULTA FORA DO SO-LEITURA: recuso enviar');
+  const row = lerPg(sql);
+  if (!row || row.ro !== 'on') throw new ErroSeguro('LEITURA POSTGRES NAO FOI SO-LEITURA: recuso seguir');
+  return row;
+}
+
+function lerPostgresReal(sql) {
+  let out;
+  try {
+    out = execFileSync(process.execPath, [APPLY, 'sql', sql], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) {
+    const msg = String((e && (e.stderr || e.message)) || '').split('\n').find((l) => l.trim()) || 'sem mensagem';
+    throw new ErroSeguro(`LEITURA POSTGRES FALHOU (p46apply): ${msg.slice(0, 200)}`);
+  }
+  let linhas;
+  try {
+    linhas = JSON.parse(out);
+  } catch {
+    throw new ErroSeguro('LEITURA POSTGRES SEM RESULTADO JSON');
+  }
+  if (!Array.isArray(linhas) || linhas.length !== 1) throw new ErroSeguro('LEITURA POSTGRES: esperava 1 linha');
+  return linhas[0];
+}
+
+// ── Normalização ─────────────────────────────────────────────────────────────
+
+const lista = (x) => (Array.isArray(x) ? x : []);
+const num = (x) => (x === null || x === undefined || x === '' ? null : Number(x));
+const idOuNulo = (x) => (UUID_RE.test(String(x)) ? String(x).toLowerCase() : null);
+
+function normalizarBase(row) {
+  const c = row.cand;
+  if (!c || !UUID_RE.test(String(c.id))) throw new ErroSeguro('CANDIDATURA NAO ENCONTRADA (inexistente ou excluida)');
+  return {
+    cand: {
+      id: idOuNulo(c.id),
+      vaga: idOuNulo(c.vaga_id),
+      etapa: c.etapa,
+      status: c.status,
+      motivo_ko: c.motivo_ko === true,
+      opcao_ko: c.opcao_ko === true,
+      titular: idOuNulo(c.titular),
+    },
+    hist: lista(row.hist).map((h) => ({ id: idOuNulo(h.id), de: h.de, para: h.para, auto: h.auto === true, ator: idOuNulo(h.ator), t: num(h.t) })),
+    pedidos: lista(row.pedidos).map((p) => ({
+      id: idOuNulo(p.id),
+      origem: p.origem,
+      etapa_rejeitada: p.etapa_rejeitada,
+      etapa_reabertura: p.etapa_reabertura,
+      veredito: p.veredito,
+      respondida_por: idOuNulo(p.respondida_por),
+      rejeitado_por: idOuNulo(p.rejeitado_por),
+      reaberta_t: num(p.reaberta_t),
+      prazo: p.prazo === true,
+      hid: idOuNulo(p.hid),
+      opcao_ko: p.opcao_ko === true,
+    })),
+    analises: lista(row.analises).map((x) => ({ t_criada: num(x.t_criada), t_atual: num(x.t_atual), status: x.status })),
+    notif: lista(row.notif).map((x) => ({ evento: x.evento, status: x.status, template: x.template, t: num(x.t) })),
+    raven: { lib: Number(row.raven_lib) || 0, scores: Number(row.raven_scores) || 0 },
+    perfis: { rh2: row.perfil_rh2 || null, admin: row.perfil_admin || null },
+    agora: num(row.agora),
+  };
+}
+
+const normalizarAtor = (row) => ({
+  fila: lista(row.fila).map((f) => ({ pedido_id: idOuNulo(f.pedido_id), origem: f.origem, pode_responder: f.pode_responder, veredito: f.veredito })),
+  kpi: num(row.kpi_knockouts),
+  outras: num(row.ko_outras),
+});
+
+function coletar(a, lerPg) {
+  const d = normalizarBase(lerSoLeitura(lerPg, sqlBase(a)));
+  d.atores = {};
+  if (a.rh2) {
+    d.atores.rh2 = normalizarAtor(lerSoLeitura(lerPg, sqlAtor(a, d.cand.vaga, a.rh2, 'rh')));
+    const v = lerSoLeitura(lerPg, sqlVisivel(a));
+    d.vis = { candidaturas: num(v.candidaturas), candidatos: num(v.candidatos) };
+  }
+  if (a.admin) d.atores.admin = normalizarAtor(lerSoLeitura(lerPg, sqlAtor(a, d.cand.vaga, a.admin, 'administrador')));
+  d.titular = null;
+  if (d.cand.titular) {
+    const t = lerSoLeitura(lerPg, sqlTitular(a, d.cand.titular));
+    d.titular = {
+      raven: t.raven && typeof t.raven === 'object' ? { liberado: t.raven.liberado, registrado: t.raven.registrado } : null,
+      estado: t.estado && typeof t.estado === 'object' ? t.estado : null,
+    };
+  }
+  return d;
+}
+
+// ── Conferências por fase ────────────────────────────────────────────────────
+
+function quem(u, a) {
+  if (u === null || u === undefined) return 'nulo';
+  if (a.rh2 && u === a.rh2) return 'rh2';
+  if (a.admin && u === a.admin) return 'admin';
+  return 'outro';
+}
+
+const ultimaRejeicao = (hist) => [...hist].reverse().find((h) => h.para === 'rejeitado' || h.auto) || null;
+const rejeicoesDesde = (hist, t) => hist.filter((h) => h.t !== null && h.t >= t && (h.auto || h.para === 'rejeitado')).length;
+const contaNotif = (d, evento, desde = null) => d.notif.filter((x) => x.evento === evento && (desde === null || (x.t !== null && x.t >= desde))).length;
+const perfilFicha = (p) => (!p ? 'ausente' : p.excluido ? 'excluido' : `${p.role}_${p.ativo ? 'ativo' : 'inativo'}`);
+
+function avaliar(fase, d, a) {
+  const cs = [];
+  const add = (nome, esperado, obtido, ok, nota) => cs.push({ nome, esperado, obtido, ok: ok === undefined ? obtido === esperado : !!ok, nota });
+  const c = d.cand;
+  const q = (u) => quem(u, a);
+  const est = d.titular && d.titular.estado;
+  const ultRej = ultimaRejeicao(d.hist);
+  const pAuto = d.pedidos.find((p) => p.origem === 'automatica') || null;
+  const pUlt = d.pedidos.length ? d.pedidos[d.pedidos.length - 1] : null;
+  const p2 = pUlt && pUlt !== pAuto ? pUlt : null;
+  const funil = () => {
+    const r = d.atores.rh2;
+    if (!r || r.kpi === null || r.outras === null) return '-';
+    const dif = r.kpi - r.outras;
+    return dif === 1 ? true : dif === 0 ? false : 'incoerente';
+  };
+  const linhaFila = (ator, p) => (d.atores[ator] && p ? d.atores[ator].fila.find((f) => f.pedido_id === p.id) || null : null);
+  const visivel = () => {
+    add('rh2:ve_candidatura', 1, d.vis ? d.vis.candidaturas : '-', undefined, 'D-07 da 50');
+    add('rh2:ve_candidato', 1, d.vis ? d.vis.candidatos : '-');
+  };
+  const perfilRh2 = () => add('perfil:rh2', 'recrutador_ativo', perfilFicha(d.perfis.rh2));
+  const perfilAdmin = () => add('perfil:admin', 'administrador_ativo', perfilFicha(d.perfis.admin));
+
+  const reabertura1 = () => {
+    const t = pAuto ? pAuto.reaberta_t : null;
+    add('revisao:pedidos_automaticos', 1, d.pedidos.filter((p) => p.origem === 'automatica').length);
+    add('revisao:etapa_reabertura', 'triagem', pAuto ? pAuto.etapa_reabertura : '-', undefined, 'D-30');
+    add('revisao:veredito', 'revertida', pAuto ? pAuto.veredito : '-');
+    add('revisao:respondida_por_rh2', true, !!pAuto && q(pAuto.respondida_por) === 'rh2');
+    add('revisao:reaberta_em_presente', true, t !== null);
+    add('revisao:prazo_presente', true, !!pAuto && pAuto.prazo, undefined, 'D-04');
+    add('candidatura:etapa_atual', 'triagem', c.etapa);
+    add('candidatura:status', 'em_analise', c.status);
+    add('candidatura:motivo_knockout_mantido', true, c.motivo_ko, undefined, 'D-35');
+    const linhas = t === null ? [] : d.hist.filter((h) => h.t !== null && h.t >= t && h.de === 'inscricao' && h.para === 'triagem');
+    add('historico:linhas_de_reabertura', 1, linhas.length);
+    add('historico:reabertura_ator_rh2', true, linhas.length === 1 && q(linhas[0].ator) === 'rh2');
+    add(
+      'analise:despachada_apos_reabertura',
+      true,
+      t !== null && d.analises.some((x) => Math.max(x.t_criada ?? -Infinity, x.t_atual ?? -Infinity) >= t),
+      undefined,
+      'D-36'
+    );
+    add('knockout:nao_voltou', 0, t === null ? '-' : rejeicoesDesde(d.hist, t), undefined, 'D-03');
+    add('funil:conta_como_knockout', false, funil());
+    add('notificacao:revisao_solicitada', true, contaNotif(d, 'revisao_solicitada') >= 1);
+    add('notificacao:revisao_respondida', true, t !== null && contaNotif(d, 'revisao_respondida', t) >= 1);
+    add('titular:estado_veredito', 'revertida', est ? est.veredito : '-');
+    visivel();
+    perfilRh2();
+    return t;
+  };
+
+  switch (fase) {
+    case 'knockout':
+      add('candidatura:status', 'rejeitado', c.status);
+      add('candidatura:etapa_atual', 'inscricao', c.etapa);
+      add('candidatura:motivo_knockout', true, c.motivo_ko);
+      add('candidatura:opcao_knockout_presente', true, c.opcao_ko);
+      add('historico:ultima_rejeicao_automatica', true, !!ultRej && ultRej.auto);
+      add('historico:ultima_rejeicao_sem_ator', true, !!ultRej && ultRej.ator === null);
+      add('notificacao:decisao', true, !!ultRej && contaNotif(d, 'decisao', ultRej.t) >= 1, undefined, 'e-mail de rejeicao, D-09');
+      add('revisao:pedidos_respondidos', 0, d.pedidos.filter((p) => p.veredito !== null && p.veredito !== undefined).length);
+      add('funil:conta_como_knockout', true, funil());
+      add('titular:estado_origem', 'automatica', est ? est.origem : '-');
+      visivel();
+      perfilRh2();
+      break;
+    case 'reaberta':
+      reabertura1();
+      break;
+    case 'reaberta-10min': {
+      const t = reabertura1();
+      const seg = t === null || d.agora === null ? '-' : Math.floor(d.agora - t);
+      const ok = typeof seg === 'number' && seg >= DEZ_MINUTOS;
+      add(ok ? 'dez-minutos' : 'cedo-demais', DEZ_MINUTOS, seg, ok, 'segundos desde reaberta_em, D-03');
+      break;
+    }
+    case 'rejeitada-rh': {
+      add('candidatura:status', 'rejeitado', c.status);
+      add('candidatura:etapa_atual', 'rejeitado', c.etapa);
+      add('candidatura:motivo_knockout', false, c.motivo_ko);
+      add('historico:ultima_rejeicao_humana', true, !!ultRej && !ultRej.auto && ultRej.para === 'rejeitado');
+      add('historico:ultima_rejeicao_ator_admin', true, !!ultRej && q(ultRej.ator) === 'admin');
+      add('historico:ultima_rejeicao_de', 'triagem', ultRej ? ultRej.de : '-');
+      add('revisao:pedidos', 2, d.pedidos.length);
+      add('revisao:pedido_1_revertido', true, !!pAuto && pAuto.veredito === 'revertida');
+      add('revisao:pedido_2_origem', 'humana_triagem', p2 ? p2.origem : '-');
+      add('revisao:pedido_2_rejeitado_por_admin', true, !!p2 && q(p2.rejeitado_por) === 'admin');
+      add('revisao:pedido_2_pendente', true, !!p2 && (p2.veredito === null || p2.veredito === undefined));
+      add('revisao:pedido_2_da_rejeicao_corrente', true, !!p2 && !!ultRej && p2.hid === ultRej.id);
+      add('revisao:pedido_2_etapa_reabertura', 'triagem', p2 ? p2.etapa_reabertura : '-');
+      add('revisao:rejeicoes_distintas', 2, new Set(d.pedidos.map((p) => p.hid)).size, undefined, 'D-06');
+      const fa = linhaFila('admin', p2);
+      const fr = linhaFila('rh2', p2);
+      add('fila:admin_pode_responder', false, fa ? fa.pode_responder : '-', undefined, 'REVISAO-05');
+      add('fila:rh2_pode_responder', true, fr ? fr.pode_responder : '-');
+      add('notificacao:decisao_da_rejeicao_rh', true, !!ultRej && contaNotif(d, 'decisao', ultRej.t) >= 1);
+      add('funil:conta_como_knockout', false, funil());
+      add('titular:estado_origem', 'humana_triagem', est ? est.origem : '-');
+      visivel();
+      perfilRh2();
+      perfilAdmin();
+      break;
+    }
+    case 'reaberta-2': {
+      const t2 = p2 ? p2.reaberta_t : null;
+      add('revisao:pedidos', 2, d.pedidos.length);
+      add('revisao:pedido_2_origem', 'humana_triagem', p2 ? p2.origem : '-');
+      add('revisao:pedido_2_veredito', 'revertida', p2 ? p2.veredito : '-');
+      add('revisao:pedido_2_rejeitado_por_admin', true, !!p2 && q(p2.rejeitado_por) === 'admin', undefined, 'decisor = admin');
+      add('revisao:pedido_2_respondida_por_rh2', true, !!p2 && q(p2.respondida_por) === 'rh2', undefined, 'revisor = RH2');
+      add(
+        'revisao:pedido_2_decisor_distinto_do_revisor',
+        true,
+        !!p2 && p2.rejeitado_por !== null && p2.respondida_por !== null && p2.rejeitado_por !== p2.respondida_por,
+        undefined,
+        'REVISAO-05'
+      );
+      const hRej = p2 ? d.hist.find((h) => h.id === p2.hid) || null : null;
+      add('historico:rejeicao_do_pedido_2_ator_admin', true, !!hRej && !hRej.auto && q(hRej.ator) === 'admin');
+      add('revisao:pedido_2_reaberta_em_presente', true, t2 !== null);
+      add('revisao:pedido_2_prazo_presente', true, !!p2 && p2.prazo);
+      add('revisao:rejeicoes_distintas', 2, new Set(d.pedidos.map((p) => p.hid)).size, undefined, 'D-06');
+      const linhas =
+        t2 === null ? [] : d.hist.filter((h) => h.t !== null && h.t >= t2 && h.de === 'rejeitado' && h.para === p2.etapa_reabertura);
+      add('historico:linhas_de_reabertura_2', 1, linhas.length);
+      add('historico:reabertura_2_ator_rh2', true, linhas.length === 1 && q(linhas[0].ator) === 'rh2');
+      add('candidatura:etapa_atual', 'triagem', c.etapa);
+      add('candidatura:status', 'em_analise', c.status);
+      add('rejeicao:nao_voltou', 0, t2 === null ? '-' : rejeicoesDesde(d.hist, t2));
+      add('notificacao:revisao_respondida_2', true, t2 !== null && contaNotif(d, 'revisao_respondida', t2) >= 1);
+      add('titular:estado_origem', 'humana_triagem', est ? est.origem : '-');
+      add('titular:estado_veredito', 'revertida', est ? est.veredito : '-');
+      add('funil:conta_como_knockout', false, funil());
+      visivel();
+      perfilRh2();
+      perfilAdmin();
+      break;
+    }
+    case 'raven': {
+      const r = d.titular && d.titular.raven;
+      add('raven:liberacao_ativa', true, d.raven.lib >= 1);
+      add('notificacao:cognitivo_liberado', true, contaNotif(d, 'cognitivo_liberado') >= 1, undefined, 'D-31');
+      add('titular:raven_liberado', true, r ? r.liberado : '-');
+      add('titular:raven_registrado_coerente', true, !!r && typeof r.registrado === 'boolean' && r.registrado === d.raven.scores > 0);
+      break;
+    }
+    default:
+      throw new ErroSeguro('FASE DESCONHECIDA');
+  }
+  return cs;
+}
+
+function infos(fase, d, a) {
+  const q = (u) => quem(u, a);
+  const l = [];
+  l.push(linhaInfo('fase', { fase, candidatura: d.cand.id, vaga: d.cand.vaga }));
+  l.push(linhaInfo('candidatura', { etapa: d.cand.etapa, status: d.cand.status, motivo_knockout: d.cand.motivo_ko, opcao_knockout: d.cand.opcao_ko }));
+  l.push(linhaInfo('historico', { linhas: d.hist.length }));
+  d.hist.slice(-3).forEach((h, i, arr) => l.push(linhaInfo('historico_linha', { pos: i - arr.length, de: h.de, para: h.para, auto: h.auto, ator: q(h.ator) })));
+  d.pedidos.forEach((p, i) =>
+    l.push(
+      linhaInfo('pedido', {
+        k: i + 1,
+        id: p.id,
+        origem: p.origem,
+        etapa_rejeitada: p.etapa_rejeitada,
+        etapa_reabertura: p.etapa_reabertura,
+        veredito: p.veredito,
+        rejeitado_por: q(p.rejeitado_por),
+        respondida_por: q(p.respondida_por),
+        reaberta: p.reaberta_t !== null,
+        prazo: p.prazo,
+      })
+    )
+  );
+  d.analises.forEach((x) => l.push(linhaInfo('analise', { status: x.status })));
+  d.notif.forEach((x) => l.push(linhaInfo('notificacao', { evento: x.evento, status: x.status, template: x.template })));
+  for (const [ator, r] of Object.entries(d.atores)) {
+    l.push(linhaInfo('funil', { ator, kpi_knockouts: r.kpi, outros_knockouts_da_vaga: r.outras }));
+    r.fila.forEach((f) => l.push(linhaInfo('fila', { ator, pedido: f.pedido_id, origem: f.origem, pode_responder: f.pode_responder, veredito: f.veredito })));
+  }
+  if (d.vis) l.push(linhaInfo('rh2_ve', d.vis));
+  if (d.titular && d.titular.raven) l.push(linhaInfo('raven', { liberado: d.titular.raven.liberado, registrado: d.titular.raven.registrado, liberacoes_ativas: d.raven.lib, scores: d.raven.scores }));
+  if (d.titular && d.titular.estado) l.push(linhaInfo('estado_titular', { origem: d.titular.estado.origem, elegivel: d.titular.estado.elegivel, veredito: d.titular.estado.veredito }));
+  const ref = fase === 'reaberta-2' ? d.pedidos[d.pedidos.length - 1] : d.pedidos.find((p) => p.origem === 'automatica');
+  if (ref && ref.reaberta_t !== null && d.agora !== null) l.push(linhaInfo('tempo', { segundos_desde_reabertura: Math.floor(d.agora - ref.reaberta_t) }));
+  return l;
+}
+
+// ── Execução ─────────────────────────────────────────────────────────────────
+
+function principal(argv, deps) {
+  const { out, lerPg } = deps;
+  let a;
+  try {
+    a = lerArgs(argv);
+  } catch (e) {
+    if (e instanceof ErroUso) {
+      out.erro(e.message);
+      return 2;
+    }
+    throw e;
+  }
+  try {
+    const d = coletar(a, lerPg);
+    const cs = avaliar(a.fase, d, a);
+    for (const l of infos(a.fase, d, a)) out.linha(l);
+    for (const c of cs) out.linha(linhaCheck(c));
+    const k = cs.filter((c) => c.ok).length;
+    out.linha(`aceite: ${k}/${cs.length} conferencias OK`);
+    return cs.length > 0 && k === cs.length ? 0 : 1;
+  } catch (e) {
+    if (e instanceof ErroSeguro) {
+      out.erro(e.message);
+      return 1;
+    }
+    out.erro(`ERRO INESPERADO: ${(e && e.name) || 'Error'}`);
+    return 1;
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -274,7 +797,7 @@ function autoTeste() {
     af(valorSeguro('Resposta ao titular com mais de cinquenta caracteres, livre.') === '<redigido>', 'valorSeguro deixou passar justificativa');
     af(valorSeguro(T.CAND) === T.CAND, 'valorSeguro barrou uuid');
     af(valorSeguro(true) === 'true' && valorSeguro(false) === 'false', 'valorSeguro barrou booleano');
-    af(valorSeguro(3) === '3' && valorSeguro(null) === '-', 'valorSeguro numero/nulo');
+    af(valorSeguro(3) === '3' && valorSeguro(null) === '-' && valorSeguro('-') === '-', 'valorSeguro numero/nulo/ausente');
     af(valorSeguro('humana_triagem') === 'humana_triagem', 'valorSeguro barrou ficha');
     af(/^FALHA conferencia /.test(linhaCheck({ nome: 'Nome Livre', esperado: 1, obtido: 2, ok: false })), 'linhaCheck aceitou nome livre');
     af(!EMAIL_RE.test(linhaCheck({ nome: 'x', esperado: 'a@b.com', obtido: 'c@d.org', ok: false })), 'linhaCheck imprimiu e-mail');
