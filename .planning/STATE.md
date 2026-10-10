@@ -2,9 +2,9 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: verifying
-stopped_at: "51-17 concluido; 17/17 planos com SUMMARY; verificacao da fase 51 pendente"
-last_updated: "2026-10-10T03:30:00.000Z"
+status: gaps_found
+stopped_at: "Fase 51 verificada: gaps_found 7/9 (JORN-49 recibo x motor — disponibilidade e UF; WR-01 cache da lista apos a prova cognitiva). Proximo: decisao do operador sobre o recibo, entao /gsd-plan-phase 51 --gaps"
+last_updated: "2026-10-10T04:30:00.000Z"
 last_activity: 2026-10-10
 state_head: 53cb73ff
 progress:
@@ -15,7 +15,7 @@ progress:
   percent: 99
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "51-17 concluido: db:types (tsc 89), sonda p51_aceite.cjs; sessao real do operador com seis fases N/N na 8e4bb7a0 (knockout 13, reaberta 20, reaberta-10min 21, rejeitada-rh 23, reaberta-2 23, raven 4), D-23 recusado em PROD com a mensagem propria, Raven liberado (prova nao feita, opcional); 3a9254c3/af02c120 respondidas pelo admin por nomes trocados no cadastro (suplementares); push 87be2703..53cb73ff, origin/main = HEAD. Proximo: verificacao da fase 51"
+last_activity_desc: "Portoes finais da fase 51: code review 0C/2W/6I (51-REVIEW.md); regressao vitest 2698/2700 (2 falhas em promessasComExecutor: deferimento da Phase 46, vermelho desde 2026-10-05, nao e regressao da 51, pendencia do fecho do M8); verificador gaps_found 7/9; Nyquist nyquist_compliant=false (+3 testes JORN-48, locais); seguranca threats_open=1 (T-51-14: recibo promete apagar disponibilidade = WINDOWS 89); UI 13/24 (SelectItem branco sobre branco, login com sessao, volta ao painel). Seis checagens de tela (JORN-44..49) seguem em human_verification."
 ---
 
 # Project State
