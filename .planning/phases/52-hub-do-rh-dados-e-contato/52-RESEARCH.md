@@ -913,15 +913,19 @@ SELECT jsonb_agg(jsonb_build_object('opcao_id', o.opcao_id, 'texto', o.opcao_tex
 | A7 | Via de `service_role` para a remoção de Storage (EF de uso único vs. chave obtida pela Management API em memória) | Bloco D | Médio — segurança operacional |
 | A8 | Retenção dos logs de EF (dias, não auditoria) | Security | Baixo — D-11 já aceitou «linha de log», não trilha |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **O1 — Prova cognitiva entra na confirmação de perda?** O que sabemos: não tem rascunho (F1). Recomendação: sim, mesmo `AlertDialog` do SJT MC, rótulo «Voltar às avaliações». Levar ao operador como correção da lista da D-24.
-2. **O2 — Legenda e ordem das alternativas do SJT MC no hub.** A UI-SPEC diz «na ordem do banco»; essa ordem é o gabarito (F2). Recomendação: ordem neutra + legenda «Alternativas em ordem neutra — o candidato as viu embaralhadas.» Emenda de copy à UI-SPEC aprovada.
-3. **O3 — Motivo/justificativa `humana_triagem` com migration.** Recomendação: sim, na migration do bloco B, com review bloqueante; a decisão anterior do operador (51-17: «NÃO consertar agora… fica no backlog») foi substituída pela G-51-OP1/escopo da 52 — confirmar.
-4. **O4 — Via da remoção de Storage.** Recomendação: script local que lê a chave pela Management API só em memória e chama a Storage API com a lista aprovada; alternativa: EF admin de uso único. Exige OK explícito.
-5. **O5 — Tirar `metadata.dimensoes[].percentil` do payload de `getScores`?** Não exigido por UX-07 (tela). Recomendação: deixar para depois, declarar no SECURITY.
-6. **O6 — Direção da troca RH2/RH3** (A6).
-7. **O7 — Destino das vagas de teste:** para cada uma, `deleted_at` / remoção / manter; colisões `53f75c81` e `53b73af6` (candidaturas da conta excluída — remover a vaga **apaga por CASCADE**); `629a5f31` depois de limpar `d31c78bb` (F18). E as 16 contas sem candidatura e os 3 `auth.users` órfãos: entram?
+> Todas resolvidas em 2026-10-10. O1, O2, O3 e O6 pelo operador (D-36..D-39 do `52-CONTEXT.md`); O5 pela recomendação
+> adotada (CONTEXT, «O5»); O4 e O7 levadas, como a D-30/D-32 mandam, a um portão PLANEJADO — o checkpoint do 52-19 Task 2,
+> que só aceita escolhas que o 52-20/52-21 executam (o resto devolve ao planejamento). Cada item abaixo aponta onde.
+
+1. **O1 — Prova cognitiva entra na confirmação de perda?** O que sabemos: não tem rascunho (F1). Recomendação: sim, mesmo `AlertDialog` do SJT MC, rótulo «Voltar às avaliações». Levar ao operador como correção da lista da D-24. — **RESOLVED (D-36):** entra na confirmação de perda, com o SJT MC e o Raven; implementado no 52-02.
+2. **O2 — Legenda e ordem das alternativas do SJT MC no hub.** A UI-SPEC diz «na ordem do banco»; essa ordem é o gabarito (F2). Recomendação: ordem neutra + legenda «Alternativas em ordem neutra — o candidato as viu embaralhadas.» Emenda de copy à UI-SPEC aprovada. — **RESOLVED (D-37):** ordem neutra estável calculada no servidor (`ler_sjt_mc_rh`, 52-08) e a legenda emendada (`SjtMcDetalhe`, 52-11); o gerador do banco v2 embaralha a `ordem` (52-16).
+3. **O3 — Motivo/justificativa `humana_triagem` com migration.** Recomendação: sim, na migration do bloco B, com review bloqueante; a decisão anterior do operador (51-17: «NÃO consertar agora… fica no backlog») foi substituída pela G-51-OP1/escopo da 52 — confirmar. — **RESOLVED (D-38):** entra na migration do bloco B como `ler_contexto_rejeicao_triagem_revisao` (52-08), cliente no 52-13, review bloqueante no 52-14.
+4. **O4 — Via da remoção de Storage.** Recomendação: script local que lê a chave pela Management API só em memória e chama a Storage API com a lista aprovada; alternativa: EF admin de uso único. Exige OK explícito. — **RESOLVED (portão planejado):** o operador escolhe `storage_via` no 52-19 Task 2 (`script_local` | `nao_remover`; a EF de uso único devolve ao planejamento); o removedor é do 52-20 e a remoção roda no 52-21 Task 3, sob o OK destrutivo da Task 2 do 52-21.
+5. **O5 — Tirar `metadata.dimensoes[].percentil` do payload de `getScores`?** Não exigido por UX-07 (tela). Recomendação: deixar para depois, declarar no SECURITY. — **RESOLVED (recomendação adotada, CONTEXT «O5»):** fica no payload nesta fase; a Invariante 1 vale no tipo do componente (52-11); residual declarado no SUMMARY/`52-SECURITY.md` (52-22).
+6. **O6 — Direção da troca RH2/RH3** (A6). — **RESOLVED (D-39):** `af4ebf97` → «RH2», `66412f96` → «RH3»; migration `20261011000002` (52-08), aplicada no 52-15.
+7. **O7 — Destino das vagas de teste:** para cada uma, `deleted_at` / remoção / manter; colisões `53f75c81` e `53b73af6` (candidaturas da conta excluída — remover a vaga **apaga por CASCADE**); `629a5f31` depois de limpar `d31c78bb` (F18). E as 16 contas sem candidatura e os 3 `auth.users` órfãos: entram? — **RESOLVED (portão planejado):** decididos pelo operador no 52-19 Task 2 (`vaga_<id8>`, `contas_sem_candidatura`, `auth_orfaos`; colisão marcada `remover` é recusada pelo `<verify>`), executados pelo 52-20/52-21.
 
 ## Environment Availability
 

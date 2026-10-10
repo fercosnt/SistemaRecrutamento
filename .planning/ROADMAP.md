@@ -746,10 +746,15 @@ Plans:
   - **Limpeza dos dados de teste das vagas ativas** antes de abrir (+claude1..7; a conta +cand1 com suas duas candidaturas — «Teste Vaga Nova» é o nome dessa conta, não uma vaga; os 6 fictícios das migrations `20260830000005`/`20260905000002`), com portão destrutivo, depois do UAT da 52; o mesmo portão decide arquivar ou remover a vaga `629a5f31` (mina inerte)
   - **Achados do aceite 51-17 (`51-17-SUMMARY.md`):** `LoginCandidatoPage` ignora a sessão aberta; sem volta ao dashboard na área do candidato; cor do «Agradecemos seu interesse»; `SelectItem` branco sobre branco; nomes RH2/RH3 trocados no cadastro; motivo/justificativa no diálogo de revisão humana (`humana_triagem`)
 **Pontos de desenho para o discuss-phase**: registrar o acesso do RH aos dados pessoais (CPF, endereço, nascimento), como já se faz com o currículo; as tabelas de devolutiva/respostas são provavelmente de leitura só do titular — RPC de leitura própria para o RH (migration + smoke + prova de que nada abriu para `anon`/outro candidato, views incluídas); alertas já considerados pelo operador (Big Five não avaliativo, UX-07; idade × Lei 9.029/95) — decisão mantida
-**Success Criteria**: a fechar no discuss-phase
+**Success Criteria** (o que precisa ser VERDADE ao fim da fase):
+  1. Um recrutador ATIVO ou um admin abre `/rh/candidatos/:id` e vê, em quatro abas (Resumo · Cadastro e inscrição · Avaliações · Histórico, a aba na URL), o cadastro completo com nascimento e idade, a disponibilidade, as respostas da inscrição na ordem do formulário (eliminatória com selo, sem veredito), o Big Five nas cinco faixas da devolutiva com o texto recolhível e sem percentil, o SJT de múltipla escolha com as alternativas em ordem neutra e a escolhida destacada, e o caso aberto legível com as citações marcadas; recrutador inativo, candidato e `anon` não leem nada disso, e cada leitura dos dados pessoais deixa uma linha de log só com ids e papel
+  2. No cabeçalho do hub, «Enviar e-mail» (assunto pronto) e «Chamar no WhatsApp» (mensagem pronta e editável) abrem com um clique sempre que o dado existe e é válido; número fora do formato ou candidato anonimizado não gera link e a tela não diz a causa
+  3. Os defeitos (a)–(c), as pendências do UAT da 51 e os achados do 51-17 deixam de existir na tela: saída durante toda prova (confirmação de perda onde não há rascunho), «Tempo decorrido», devolutiva reabrível, Raven na shell da marca com instruções, painel «Avaliações concluídas — aguardando a equipe», notas da entrevista vazias e obrigatórias sem jargão, proveniência sem «modelo modelo», contagem uma vez, login com sessão aberta, «Meu painel», textos legíveis, nomes RH2/RH3 corretos e motivo/justificativa na revisão `humana_triagem`
+  4. A vaga ativa de pré-vendas responde 6 itens `mc` + 1 `caso_aberto` e os 3 cargos de marketing têm versão nova sem a pista do comprimento — texto aprovado pelo operador com a tabela de caracteres, itens antigos retirados no mesmo apply, nenhum cargo com bateria dobrada, casos abertos de marketing mantidos conferidos por máquina
+  5. Depois da UAT da 52 (conferida por máquina), nenhuma conta, candidatura, fictício ou currículo de teste resta em PROD — população por conta medida, aprovada pelo operador e re-medida no mesmo comando, nenhuma conta de RH/admin tocada, prova pós com resíduo 0 —, e `git log --oneline origin/main..HEAD` sai vazio com os marcadores no chunk certo
 **Guardrails**: os do Bloco 3 — migrations pelo `p46apply.cjs` (md5 do ledger), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado e `git log origin/main..HEAD` vazio com o marcador no chunk certo. Alarga leitura de dado pessoal: review bloqueante antes do apply
 **Requirements (planejamento, 2026-10-10)**: JORN-52..63 — quatro blocos em ondas (D-33): A (telas sem banco) e B (hub do RH) → portão B → C (banco SJT v2) → **UAT da 52** → D (limpeza destrutiva)
-**Plans**: 22 plans
+**Plans**: 25 plans
 
 **Wave 1**
 - [ ] 52-01-PLAN.md — Arnês da fase: `p52_ensaio.cjs` (ensaio que aborta), `p52_portao.cjs` (regra 8 sobre `_p52_`), `p52_tipografia.cjs`; base `refs/gsd/52/base`
@@ -761,41 +766,50 @@ Plans:
 - [ ] 52-06-PLAN.md — Achados do 51-17: login com sessão aberta, «Meu painel», «Agradecemos» legível, `SelectItem`
 - [ ] 52-07-PLAN.md — Entrevista: notas 1–5 vazias e obrigatórias, sem jargão (D-25)
 - [ ] 52-08-PLAN.md — Migrations do bloco B (ensaio): `ler_devolutiva_bigfive_rh`, `ler_sjt_mc_rh` (ordem neutra), `ler_contexto_rejeicao_triagem_revisao`; nomes RH2/RH3 (D-39); smoke por papel; mutações
-- [ ] 52-09-PLAN.md — EF `ler-cadastro-candidato-rh` com log redigido (D-10/D-11); contato no cabeçalho: «Enviar e-mail» e «Chamar no WhatsApp»
+- [ ] 52-09-PLAN.md — EF `ler-cadastro-candidato-rh` com log redigido (D-10/D-11), contrato inteiro (contato, cadastro, disponibilidade, inscrição); serviço e hook
 - [ ] 52-11-PLAN.md — Big Five no hub (faixas da devolutiva, aviso fixo, recolhível, sem percentil) e SJT MC (situação, alternativas, escolhida)
 - [ ] 52-13-PLAN.md — Motivo e justificativa no diálogo de revisão `humana_triagem` (D-38)
-- [ ] 52-16-PLAN.md — Banco SJT v2 em texto: pré-vendas 6+1 e versão nova de marketing; tabela de caracteres (D-34); gerador com ordem embaralhada (D-37); ensaio
+- [ ] 52-16-PLAN.md — Banco SJT v2 em texto: pré-vendas 6+1 e versão nova de marketing; tabela de caracteres (D-34); gerador com ordem embaralhada (D-37); casos abertos mantidos conferidos por máquina; LGPD-04 antes do portão; ensaio
 
 **Wave 3**
 - [ ] 52-03-PLAN.md — Raven na shell da marca, instruções visíveis, «Ir ao painel» com confirmação
-- [ ] 52-10-PLAN.md — Hub em quatro abas (`?aba=`); Dados do cadastro + Disponibilidade; Respostas da inscrição; contagem uma vez (defeito c)
+- [ ] 52-23-PLAN.md — Contato no cabeçalho do hub: «Enviar e-mail» e «Chamar no WhatsApp» (D-12..D-16)
 
 **Wave 4**
-- [ ] 52-12-PLAN.md — Caso aberto legível com as citações marcadas no texto (D-22)
+- [ ] 52-10-PLAN.md — Hub em quatro abas (`?aba=`); Dados do cadastro + Endereço + Disponibilidade
 
-**Wave 5** *(checkpoint)*
-- [ ] 52-14-PLAN.md — Portão do bloco B: prova sobre o estado vivo + review adversarial bloqueante + decisão do operador
+**Wave 5**
+- [ ] 52-24-PLAN.md — Respostas da inscrição na ordem do formulário, selo «Eliminatória», links só `http(s)` (D-19, D-20)
 
 **Wave 6**
-- [ ] 52-15-PLAN.md — Bloco B no ar: apply das RPCs e dos nomes, deploy da EF, push do cliente (A+B); `db:types`
+- [ ] 52-25-PLAN.md — «Avaliação assíncrona» aberta com a contagem uma vez (defeito c); títulos em 24px
 
-**Wave 7** *(checkpoint)*
-- [ ] 52-17-PLAN.md — Portão de texto do bloco C (operador aprova o texto e o critério); migration gerada do texto aprovado
+**Wave 7**
+- [ ] 52-12-PLAN.md — Caso aberto legível com as citações marcadas no texto (D-22)
 
 **Wave 8** *(checkpoint)*
+- [ ] 52-14-PLAN.md — Portão do bloco B: prova sobre o estado vivo + review adversarial bloqueante + decisão do operador
+
+**Wave 9**
+- [ ] 52-15-PLAN.md — Bloco B no ar: apply das RPCs e dos nomes, deploy da EF, push do cliente (A+B); `db:types`
+
+**Wave 10** *(checkpoint)*
+- [ ] 52-17-PLAN.md — Portão de texto do bloco C (operador aprova o texto e o critério); migration gerada do texto aprovado; guarda LGPD-04
+
+**Wave 11** *(checkpoint)*
 - [ ] 52-18-PLAN.md — Review do bloco C, apply do banco SJT v2, push — depois: **UAT da Phase 52**
 
-**Wave 9** *(checkpoint; só depois da UAT da 52)*
-- [ ] 52-19-PLAN.md — Varredura da população de teste por conta (trava do RH) e decisão do escopo da limpeza
+**Wave 12** *(checkpoint; só depois da UAT da 52 — conferida por máquina)*
+- [ ] 52-19-PLAN.md — Varredura da população de teste por conta (trava do RH) e decisão do escopo da limpeza (só opções executáveis)
 
-**Wave 10**
+**Wave 13**
 - [ ] 52-20-PLAN.md — Migration destrutiva do escopo decidido (ensaio), prova pós, mutações, removedor de Storage
 
-**Wave 11** *(checkpoint destrutivo)*
-- [ ] 52-21-PLAN.md — Portão destrutivo: medição fresca, review bloqueante, OK sobre os números, apply amarrado
+**Wave 14** *(checkpoint destrutivo)*
+- [ ] 52-21-PLAN.md — Portão destrutivo: medição fresca, review bloqueante, OK sobre os números, apply amarrado; currículos pela Storage API (lista aprovada, pin, ledger) sob a mesma porta
 
-**Wave 12**
-- [ ] 52-22-PLAN.md — Currículos removidos pela Storage API (lista aprovada); push final
+**Wave 15**
+- [ ] 52-22-PLAN.md — Push final da fase por sha; pendências do fecho do M8 nomeadas
 
 ## Progress
 
@@ -819,7 +833,7 @@ Plans:
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
 | 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | Complete | 2026-10-10 |
-| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 0/22 | Planned | - |
+| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 0/25 | Planned | - |
 
 ---
 
