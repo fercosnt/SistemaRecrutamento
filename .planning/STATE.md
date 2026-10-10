@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: gaps_found
-stopped_at: "Fase 51 verificada: gaps_found 7/9 (JORN-49 recibo x motor — disponibilidade e UF; WR-01 cache da lista apos a prova cognitiva). Proximo: decisao do operador sobre o recibo, entao /gsd-plan-phase 51 --gaps"
-last_updated: "2026-10-10T04:30:00.000Z"
+status: ready_to_execute
+stopped_at: "Fase 51: planos de fechamento dos gaps 51-18..51-24 prontos (plan-checker 0B/0W apos 1 revisao; decisoes do operador G1a motor apaga disponibilidade, G1b UF com razao propria no recibo, G2 so cliente em 51-GAPS-DECISAO.md). Proximo: /gsd-execute-phase 51 --gaps-only"
+last_updated: "2026-10-10T05:09:10.934Z"
 last_activity: 2026-10-10
-state_head: 53cb73ff
+state_head: 43d6d06c
 progress:
   total_phases: 10
   completed_phases: 9
-  total_plans: 164
+  total_plans: 171
   completed_plans: 164
-  percent: 99
+  percent: 96
 current_phase_name: Consertos da Jornada — Bloco 3
 current_phase: 51
-last_activity_desc: "Portoes finais da fase 51: code review 0C/2W/6I (51-REVIEW.md); regressao vitest 2698/2700 (2 falhas em promessasComExecutor: deferimento da Phase 46, vermelho desde 2026-10-05, nao e regressao da 51, pendencia do fecho do M8); verificador gaps_found 7/9; Nyquist nyquist_compliant=false (+3 testes JORN-48, locais); seguranca threats_open=1 (T-51-14: recibo promete apagar disponibilidade = WINDOWS 89); UI 13/24 (SelectItem branco sobre branco, login com sessao, volta ao painel). Seis checagens de tela (JORN-44..49) seguem em human_verification."
+last_activity_desc: "/gsd-plan-phase 51 --gaps: 7 planos gap_closure (51-18 G2 cache; 51-19 G1b texto do recibo com checkpoint; 51-20/21 G1a migrations aditiva e destrutiva; 51-22 review+apply do motor; 51-23 limpeza destrutiva com checkpoint; 51-24 redeploy, push, marcador). Checker: iteracao 1 0B/4W, iteracao 2 0B/0W/3I."
 ---
 
 # Project State
