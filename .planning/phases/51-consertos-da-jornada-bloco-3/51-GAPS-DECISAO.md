@@ -31,3 +31,13 @@ planos de `gap_closure` desta fase. Um plano que contradiga uma delas está erra
   redeployadas por `efdeploy.cjs`. Depois de tudo, `git log --oneline origin/main..HEAD` tem de sair
   vazio, e os marcadores têm de ser conferidos no chunk certo.
 - Fecho: rodar de novo `/gsd-secure-phase 51` (T-51-14) e `/gsd-verify-work` / re-verificação da fase.
+
+## Decisão de execução (operador, 2026-10-10, `/gsd-execute-phase 51 --gaps-only`, AskUserQuestion)
+
+- **Trava `verify.schema-drift` do GSD: pular nesta fase** (resposta: «Pular a trava nesta fase»). Ela bloqueou o fim
+  da wave 1 dizendo que «no database push was executed» e recomendando `supabase db push`. Medido no ledger de PROD
+  (leitura, 2026-10-10): `20261008000001..5` **aplicadas**; `20261010000001` não aplicada **de propósito** (apply no
+  51-22, depois do review e do OK do operador); `20261010000002` **não existia no disco** (a trava lê o
+  `files_modified` dos PLANs). `supabase db push` aqui aplicaria o motor antes do portão do 51-22 — não é a via do
+  projeto (`p46apply.cjs migrate`). As waves seguintes rodam com `GSD_SKIP_SCHEMA_CHECK=true`; os applies continuam
+  nos planos 51-22/51-23, com os portões deles.
