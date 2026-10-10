@@ -3,8 +3,8 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: ready_to_plan
-stopped_at: "Phase 52 context gathered (2026-10-10): 27 decisoes em 52-CONTEXT.md (Big Five em 5 faixas sem percentil, D-32 revogada e D-31 so no hub; dados pessoais visiveis com log de servidor; contato no cabecalho; hub em abas; pendencias do UAT da 51 decididas). Proximo: /gsd-plan-phase 52. Abertos: ratificar o comando destrutivo do 51-23; T-51-47 (medium)."
-last_updated: "2026-10-10T19:41:40.000Z"
+stopped_at: "Phase 52 UI-SPEC approved (2026-10-10): 52-UI-SPEC.md aprovado pelo gsd-ui-checker na rev. 1 (rev. 0 BLOCK na Dim. 4 resolvido: contrato tipografico {14,16,24,48}); D-52-U18 decidida pelo operador — Disponibilidade entra no hub (leitura pelo caminho de servidor com log D-10/D-11). Proximo: /gsd-plan-phase 52. Revisar no plano: D-52-U12 (botoes 1-5 no lugar do slider, D-25) e D-52-U14 (Raven: «Ir ao painel», diverge da D-24). Abertos: ratificar o comando destrutivo do 51-23; T-51-47 (medium)."
+last_updated: "2026-10-10T20:52:00.000Z"
 last_activity: 2026-10-10
 state_head: b6223730
 progress:
@@ -1806,9 +1806,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-10T19:41:40.000Z
-Stopped at: Phase 52 context gathered (próximo: /gsd-plan-phase 52)
-Resume file: .planning/phases/52-hub-do-rh-dados-e-contato/52-CONTEXT.md
+Last session: 2026-10-10T20:52:00.000Z
+Stopped at: Phase 52 UI-SPEC approved (próximo: /gsd-plan-phase 52)
+Resume file: .planning/phases/52-hub-do-rh-dados-e-contato/52-UI-SPEC.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
