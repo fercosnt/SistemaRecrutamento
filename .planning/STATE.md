@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: completed
-stopped_at: "Fase 51 CONCLUIDA (2026-10-10): UAT 5 pass + 1 adiado (teste 2 -> fase nova); VERIFICATION passed 9/9; SECURITY secured. Decisao do operador G-51-OP1 (hub do RH: contato, cadastro completo, inscricao, Big Five, SJT) vira fase nova. Abertos: ratificar o comando destrutivo do 51-23; T-51-47 (medium, nao bloqueante)."
-last_updated: "2026-10-10T18:32:26.000Z"
+status: ready_to_plan
+stopped_at: "Fase 51 CONCLUIDA (2026-10-10). Phase 52 criada a partir da G-51-OP1 (hub do RH: contato, cadastro completo, inscricao, Big Five com devolutiva, SJT; + defeitos e pendencias adiadas do UAT da 51 + achados do 51-17). Proximo: /gsd-discuss-phase 52. Abertos: ratificar o comando destrutivo do 51-23; T-51-47 (medium)."
+last_updated: "2026-10-10T18:33:43.000Z"
 last_activity: 2026-10-10
-state_head: d7d2bf99
+state_head: b6223730
 progress:
-  total_phases: 10
+  total_phases: 11
   completed_phases: 10
   total_plans: 171
   completed_plans: 171
-  percent: 100
-current_phase_name: Consertos da Jornada — Bloco 3
-current_phase: 51
-last_activity_desc: "/gsd-verify-work 51: UAT 6 testes (1,3,4,5,6 pass; 2 adiado para a fase nova, G-51-OP1); VERIFICATION human_needed -> passed; transicao escrita a mao (sem gsd-tools no STATE/ROADMAP)."
+  percent: 91
+current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
+current_phase: 52
+last_activity_desc: "Phase 51 concluida (UAT complete, VERIFICATION passed, transicao a mao, push 0faa7791..b6223730); Phase 52 criada a partir da G-51-OP1."
 ---
 
 # Project State
@@ -1473,6 +1473,8 @@ Log completo em PROJECT.md Key Decisions.
 
 ### Roadmap Evolution
 
+- Phase 52 added (2026-10-10): Hub do RH — Dados, Contato e Avaliações do Candidato — nasce da decisão do operador G-51-OP1 no UAT da 51 (contato e-mail/WhatsApp, cadastro completo, respostas da inscrição, Big Five com devolutiva — revoga D-31/49 e D-32/51, RNF-07a continua —, SJT MC, caso aberto) + defeitos a–c e pendências adiadas do `51-UAT.md` + achados do 51-17. Registro: `51-UAT.md` e `.planning/DECISAO-2026-10-10-hub-rh-dados-e-contato.md`. Requirements a criar no discuss-phase
+
 - Phase 51 added (2026-10-07): Consertos da Jornada — Bloco 3 — recebe JORN-42..49 (defeitos da UAT de 27–29/09), roteados pelo operador ao Bloco 3 em 2026-09-29. JORN-50..52 seguem sem fase. Rastreabilidade em REQUIREMENTS.md ainda diz «Bloco 3 (fase a criar)»
 
 - Phase 50 added (2026-10-05): Acesso do Recrutador — fecha o G4-b/EXPORT-05 da 44; recrutador vê todas as vagas (decisão do operador)
@@ -1805,7 +1807,7 @@ blocker; todos estão rastreados em arquivo.
 ## Session Continuity
 
 Last session: 2026-10-10T18:32:26.000Z
-Stopped at: Phase 51 concluída (UAT complete, VERIFICATION passed); transição escrita à mão
+Stopped at: Phase 51 concluída (UAT complete, VERIFICATION passed); transição escrita à mão; Phase 52 criada (próximo: /gsd-discuss-phase 52)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

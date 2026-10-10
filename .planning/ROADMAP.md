@@ -33,6 +33,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [x] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma (completed 2026-10-03)
 - [x] **Phase 50: Acesso do Recrutador** - O recrutador cadastrado vê todas as vagas e as filas que dependem delas, em vez da tela vazia do predicado `created_by` (completed 2026-10-06)
 - [x] **Phase 51: Consertos da Jornada — Bloco 3** - Defeitos da UAT de 27–29/09 (JORN-42..49): direito de revisão que depende do caminho da rejeição, prova cognitiva sem porta de entrada, navegação sem volta, notas de entrevista com 400 mudo, recibo de exclusão que promete demais (completed 2026-10-10)
+- [ ] **Phase 52: Hub do RH — Dados, Contato e Avaliações do Candidato** - Decisão do operador G-51-OP1 (2026-10-10): o RH vê o cadastro completo, as respostas da inscrição, o resultado do Big Five com a devolutiva e a escolha no SJT, e contata o candidato com um clique (e-mail / WhatsApp); mais os defeitos e pendências que o UAT da 51 adiou
 
 ### Ordem de execução, dependências e paralelização
 
@@ -731,6 +732,22 @@ Plans:
 **Gap wave 5** *(blocked on 51-23)*
 - [x] 51-24-PLAN.md — Redeploy de `executar-direito-titular` com o texto aprovado; push enumerado; marcador no chunk certo; DISPOSITION/SECURITY/VALIDATION; próximo: `/gsd-secure-phase 51` e re-verificação — ✓ 2026-10-10
 
+### Phase 52: Hub do RH — Dados, Contato e Avaliações do Candidato
+
+**Goal**: No hub do RH (`HubCandidatoRH.tsx`), quem decide vê tudo o que o candidato preencheu e respondeu — cadastro completo, respostas da inscrição, resultado do Big Five com o texto da devolutiva, pergunta/alternativas/escolha no SJT de múltipla escolha, texto do caso aberto legível — e contata o candidato com um clique (e-mail e WhatsApp); e os defeitos e pendências que o UAT da Phase 51 adiou deixam de existir
+**Depends on**: Phase 51
+**Requirements**: a definir no discuss-phase (sem ID ainda; JORN-50..52 seguem sem fase e não são esta)
+**Origem**: decisão do operador **G-51-OP1** (2026-10-10), verbatim: «Eu quero o resultado do Big Five e quero ver todos os dados preenchidos no cadastro e inscrição da vaga. Preciso também ter o e-mail e telefone para entrar em contato fácil, com um botão de enviar e-mail e, no telefone, um botão do lado de chamar no WhatsApp.» Registro: `51-UAT.md` (G-51-OP1 + «Deferred Follow-Ups» dos testes 2, 4 e 5) e `.planning/DECISAO-2026-10-10-hub-rh-dados-e-contato.md` (fonte de cada dado, linhas de código, pontos de desenho, alertas considerados pelo operador). **Revoga** a D-31 da 49 e a D-32 da 51 (Big Five «sem número»); **RNF-07a continua** — o sistema nunca rejeita por score
+**Escopo**:
+  - **Hub do RH:** (1) contato — e-mail com «Enviar e-mail» (`mailto:`) e celular com «Chamar no WhatsApp» (`wa.me`, número normalizado; botão escondido se inválido); (2) cadastro completo (`candidatos`: nome, e-mail, CPF, celular, nascimento, gênero, endereço completo, LinkedIn, Instagram, como conheceu); (3) todas as respostas da inscrição, na ordem do formulário, eliminatória destacada; (4) Big Five com resultado por dimensão + o texto da devolutiva que o candidato viu; (5) SJT múltipla escolha com pergunta, alternativas e a escolhida; (6) caso aberto com apresentação melhor do texto
+  - **Defeitos do UAT da 51:** (a) painel do candidato desatualizado depois de concluir todas as avaliações; (b) «Gerado pelo modelo modelo não registrado» (palavra duplicada e modelo não gravado — visto em 8101c56f e d31c78bb); (c) «N avaliações respondidas» duplicado
+  - **Pendências adiadas no UAT da 51:** saída DURANTE as provas, inclusive no Raven (no SJT MC exige confirmação de perda — decisão de produto); «Tempo sugerido» que é cronômetro progressivo; devolutiva do Big Five sem caminho para reabrir; Raven fora do shell da marca (e instruções definidas e nunca renderizadas); sliders BARS pré-marcados em 3/5 (viés de ancoragem — decidir se começam vazios); jargão «BARS sliders 1–5 — notas_humanas» na tela; menu lateral com «Dashboard» ativo dentro da entrevista
+  - **Achados do aceite 51-17 (`51-17-SUMMARY.md`):** `LoginCandidatoPage` ignora a sessão aberta; sem volta ao dashboard na área do candidato; cor do «Agradecemos seu interesse»; `SelectItem` branco sobre branco; nomes RH2/RH3 trocados no cadastro; motivo/justificativa no diálogo de revisão humana (`humana_triagem`)
+**Pontos de desenho para o discuss-phase**: registrar o acesso do RH aos dados pessoais (CPF, endereço, nascimento), como já se faz com o currículo; as tabelas de devolutiva/respostas são provavelmente de leitura só do titular — RPC de leitura própria para o RH (migration + smoke + prova de que nada abriu para `anon`/outro candidato, views incluídas); alertas já considerados pelo operador (Big Five não avaliativo, UX-07; idade × Lei 9.029/95) — decisão mantida
+**Success Criteria**: a fechar no discuss-phase
+**Guardrails**: os do Bloco 3 — migrations pelo `p46apply.cjs` (md5 do ledger), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado e `git log origin/main..HEAD` vazio com o marcador no chunk certo. Alarga leitura de dado pessoal: review bloqueante antes do apply
+**Plans**: 0 plans
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -753,6 +770,7 @@ Plans:
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
 | 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | Complete | 2026-10-10 |
+| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 0/0 | Not started | - |
 
 ---
 

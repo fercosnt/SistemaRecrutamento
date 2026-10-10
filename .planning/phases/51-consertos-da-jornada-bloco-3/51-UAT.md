@@ -75,7 +75,7 @@ blocked: 0
      ser registrados no próprio teste 3 quando ele for respondido. -->
 - gap_id: G-51-OP1
   kind: operator_decision
-  target: nova fase (hub do RH), depois do UAT da 51
+  target: Phase 52 — Hub do RH — Dados, Contato e Avaliações do Candidato (criada 2026-10-10)
   status: deferred_to_new_phase
   decided_at: 2026-10-10
   severity: major
