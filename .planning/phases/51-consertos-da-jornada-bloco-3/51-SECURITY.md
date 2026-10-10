@@ -1,16 +1,16 @@
 ---
 phase: "51"
 slug: "consertos-da-jornada-bloco-3"
-status: open_threats
-verdict: OPEN_THREATS
+status: secured
+verdict: SECURED
 # threats_open = ameaças OPEN com severidade >= block_on (o portão). Abertas abaixo do limiar não contam.
-threats_open: 1
+threats_open: 0
 threats_open_non_blocking: 1
-threats_total: 91          # 74 IDs numerados (T-51-01..T-51-74) + 17 linhas T-51-SC (uma por plano)
-threats_closed: 89
+threats_total: 122         # 98 IDs (T-51-01..T-51-98) + 24 linhas T-51-SC (uma por plano) — re-auditoria 2026-10-10 apos 51-18..51-24
+threats_closed: 121
 asvs_level: 1              # padrão (sem config de segurança em .planning/config.json); as ameaças de controle de acesso foram conferidas com profundidade L2 contra o estado vivo
 block_on: high
-unregistered_flags: 5
+unregistered_flags: 4       # UF-1, UF-2, UF-4, UF-5 (UF-3 mapeada para T-51-75)
 created: "2026-10-10"
 auditor: gsd-security-auditor
 ---
@@ -26,7 +26,13 @@ auditor: gsd-security-auditor
 > Nada foi escrito em PROD, nada foi commitado e nenhum arquivo de implementação foi tocado. Este relatório traz só
 > ids, booleanos e contagens. Nenhum nome ou e-mail de titular aparece aqui.
 
-## Veredito: **OPEN_THREATS**
+## Veredito: **SECURED** (re-auditoria de 2026-10-10, depois de 51-18..51-24)
+
+> A primeira auditoria (abaixo, mantida como registro) deu OPEN_THREATS por causa do T-51-14. A re-auditoria
+> fechou o T-51-14 e as 31 linhas novas dos planos de gap; ver «Re-auditoria (51-18..51-24)» no Threat Register.
+> `threats_open: 0`. Segue aberta, abaixo do limiar, a T-51-47 (medium).
+
+### Veredito da primeira auditoria: OPEN_THREATS
 
 | | Contagem |
 |---|---|
@@ -92,7 +98,7 @@ individualmente.
 
 | Threat ID | Categoria | Severidade | Disposição | Mitigação esperada | Evidência da ausência | Status |
 |---|---|---|---|---|---|---|
-| **T-51-14** | Repudiation (LGPD Art. 18 VI / transparência) | **high** | mitigate | «texto derivado do inventário com regras DIREÇÃO/COBERTURA; **prova no banco de que o motor faz o que o texto diz**» | (1) O item `dados_de_cadastro` diz que «… redes sociais e disponibilidade vão ser / foram apagados» (`docs/compliance/sql/gen-recibo-exclusao.cjs:267,269`; propagado para `supabase/functions/_shared/reciboExclusao.ts:363-364`, `docs/compliance/recibo-exclusao.json` e `src/features/privacidade/constants/reciboExclusao.generated.ts`). O texto está no ar em `executar-direito-titular` v14. O inventário classifica as 4 colunas de `disponibilidade` como `apagar` (`pii-inventory.yaml:436-441`), e por isso o gerador aceita. **Ao vivo:** `anonimizar_candidato` (md5 `a68e4a6a…` = arquivo 0004) não cita a tabela; nenhuma função de `public` a escreve; a FK `ON DELETE CASCADE` não dispara porque o motor faz UPDATE em `candidatos`; 2/2 anonimizados mantêm a linha. A prova no banco que a mitigação exige **falhou** no próprio 51-05 (EDGE-PROBE, WINDOWS 89 `unmet-truth`, aberta). O texto foi publicado assim mesmo, e o operador ainda não decidiu. (2) Na mesma família, o WR-02 do `51-REVIEW.md` (disposição `open`): o recibo diz que a UF fica «para relatório agregado» (`gen-recibo-exclusao.cjs:588,590`), e `gerar_bias_snapshot` vivo não lê `estado`. A `51-VERIFICATION.md` (gap 1, `gaps_found`) chegou à mesma conclusão de forma independente | **OPEN — BLOQUEANTE** |
+| **T-51-14** | Repudiation (LGPD Art. 18 VI / transparência) | **high** | mitigate | «texto derivado do inventário com regras DIREÇÃO/COBERTURA; **prova no banco de que o motor faz o que o texto diz**» | (1) O item `dados_de_cadastro` diz que «… redes sociais e disponibilidade vão ser / foram apagados» (`docs/compliance/sql/gen-recibo-exclusao.cjs:267,269`; propagado para `supabase/functions/_shared/reciboExclusao.ts:363-364`, `docs/compliance/recibo-exclusao.json` e `src/features/privacidade/constants/reciboExclusao.generated.ts`). O texto está no ar em `executar-direito-titular` v14. O inventário classifica as 4 colunas de `disponibilidade` como `apagar` (`pii-inventory.yaml:436-441`), e por isso o gerador aceita. **Ao vivo:** `anonimizar_candidato` (md5 `a68e4a6a…` = arquivo 0004) não cita a tabela; nenhuma função de `public` a escreve; a FK `ON DELETE CASCADE` não dispara porque o motor faz UPDATE em `candidatos`; 2/2 anonimizados mantêm a linha. A prova no banco que a mitigação exige **falhou** no próprio 51-05 (EDGE-PROBE, WINDOWS 89 `unmet-truth`, aberta). O texto foi publicado assim mesmo, e o operador ainda não decidiu. (2) Na mesma família, o WR-02 do `51-REVIEW.md` (disposição `open`): o recibo diz que a UF fica «para relatório agregado» (`gen-recibo-exclusao.cjs:588,590`), e `gerar_bias_snapshot` vivo não lê `estado`. A `51-VERIFICATION.md` (gap 1, `gaps_found`) chegou à mesma conclusão de forma independente | ~~OPEN — BLOQUEANTE~~ → **CLOSED** (re-auditoria 2026-10-10: ver «Re-auditoria (51-18..51-24)») |
 | T-51-47 | Repudiation | medium | mitigate | «D-57 completo; quatro `check:`; drift dentro do ensaio» | Os quatro `check:` estão verdes e o drift ao vivo deu `n_drift: 0`, então a mitigação declarada existe. O resíduo é a WINDOWS 93 (aberta), = IN-01 do review -1: `tem_decisao_registrada` soma só respostas (`executar-direito-titular/index.ts:1369`). Um pedido de `revisao_rejeicao` **não respondido** e sem `decisao_final` sobrevive à exclusão (origem, etapas, `solicitada_em`), e o recibo não mostra a linha `registro_da_decisao`. A linha `sempre` «registro do processo» só o cobre de forma frouxa. O recibo diz menos do que fica sobre a tabela nova | OPEN — não bloqueante (abaixo de `high`) |
 
 **Como fechar o T-51-14** (é decisão do operador; o auditor não corrige): escolher uma de três saídas.
@@ -105,7 +111,7 @@ individualmente.
 Em todos os casos, corrigir também a finalidade da UF (WR-02), regenerar os artefatos (`check:recibo-exclusao`) e
 redeployar `executar-direito-titular`. Depois, rodar de novo `/gsd-secure-phase 51`.
 
-#### Evidência do conserto (51-18..51-24) — aguardando a re-auditoria
+#### Evidência do conserto (51-18..51-24) — conferida pela re-auditoria (T-51-14 CLOSED)
 
 > Anexada pelo 51-24 em 2026-10-10. **Não muda veredito, `status`, `threats_open` nem a linha «OPEN — BLOQUEANTE»
 > do T-51-14 acima:** quem fecha é o `/gsd-secure-phase 51`. O operador escolheu a saída (a) + o conserto da UF
@@ -139,6 +145,68 @@ redeployar `executar-direito-titular`. Depois, rodar de novo `/gsd-secure-phase 
 prova concluída depois de «Prova registrada»; `4014c299`, `4003bfb1`; publicado no push do 51-24). O servidor
 (`pontuar_cognitivo` ainda faz upsert e aceita reenvio por fora do cliente) segue em backlog — entrada `(51-18)` de
 `deferred-items.md`. A disposição do UF-3 continua `open` até a re-auditoria decidir.
+
+### Re-auditoria (51-18..51-24) — 2026-10-10
+
+> gsd-security-auditor, ASVS 1, `block_on: high`; o T-51-14 e as ameaças destrutivas foram conferidos em profundidade
+> L2 contra o estado vivo, incluindo a busca de caminho de contorno. PROD só leitura (`set transaction read only`),
+> GETs na Management API (corpo publicado da EF) e no site. Só contagens, booleanos e md5.
+
+**T-51-14 — CLOSED.**
+- *Disponibilidade (G1a):* as 7 migrations p51 têm `md5(statements[1])` = md5 do arquivo (`20261010000001` =
+  `7e88599631e1d22666615935ef19477c`, `20261010000002` = `6b4a9d59d7da5e4a98cf66f4302dc175`). O corpo vivo de
+  `anonimizar_candidato` (`md5(prosrc)` `9b87e5ee3d072df5f9bf6e99ee1ae7c1`) = arquivo = `v_pin_anon` do p45, com
+  exatamente 1 `DELETE FROM public.disponibilidade d WHERE d.candidato_id = p_candidato_id;`, sem `OR`, entre
+  `tombstone_candidato` e `tombstone_decisao_final`. DEFINER, `search_path=''`, ACL `{postgres, service_role,
+  authenticated}`, `anon` sem EXECUTE, `config_purga.modo = dry_run`. Titulares anonimizados: 2 (os reconhecedores
+  alternativos também dão 2), 0 com linha em `disponibilidade`; 26 linhas no total (28 − 2). Nenhum caminho de
+  contorno: só o motor faz UPDATE/DELETE em `disponibilidade` e escreve a sentinela.
+- *UF (G1b = WR-02):* o texto do `51-19-TEXTO-APROVADO.md` é igual, byte a byte, ao do JSON, do `_shared`, do
+  `.generated.ts` e do gerador; o **corpo publicado** da EF `executar-direito-titular` v15 (ACTIVE, `verify_jwt=true`)
+  traz os dois tempos aprovados; o bundle servido `index--Yy-gC6F.js` contém «porque o cadastro exige uma UF». As duas
+  razões são verdadeiras ao vivo (`candidatos.estado` NOT NULL com `check_estado`; `gerar_bias_snapshot` lê
+  `faixa_etaria` e não `estado`). Quatro `check:` OK; testes (17)/(18)/(r13) 31/31.
+- *Resíduo que não reabre:* o COMMENT do motor no catálogo ainda diz «nao remove linha de tabela alguma»
+  (documentação interna, não texto ao titular) = WR-01 do `51-REVIEW-GAPS-1`, em backlog por decisão do operador.
+
+**Linhas novas dos planos de gap — todas CLOSED**
+
+| Threat ID | Categoria | Sev. | Disp. | Evidência |
+|---|---|---|---|---|
+| T-51-75 | Tampering | medium | mitigate | CLOSED no escopo declarado (a lista em cache): `avaliacaoStatusCache.ts:39-49`; chamadas em `ProvaCognitivaScreen.tsx:187` (depois do `locked`), `SjtCasoAbertoScreen.tsx:165`, `BigFiveQuestionnaireScreen.tsx:392`, `RedacaoEditorScreen.tsx:243-247` (só `conjuntoCompleto`); testes 16/16; helper no bundle servido. Resíduo do servidor = UF-3 (backlog) |
+| T-51-76 | Info Disclosure | high | mitigate | O updater escreve só `registrado: true` (`avaliacaoStatusCache.ts:46`); teste «toda folha booleana» (`avaliacaoStatusCache.test.ts:35-54`) |
+| T-51-77 | Tampering | low | mitigate | Chave de `avaliacaoStatusKey(candidaturaId)`; isolamento em `avaliacaoStatusCache.test.ts:83`; LOCKED não toca o cache (`conclusao-cache.test.tsx:197,237,272`) |
+| T-51-78 | Repudiation | high | mitigate | Ver a metade da UF acima; nota de `candidatos.estado` corrigida (`pii-inventory.yaml:103`), classificação inalterada |
+| T-51-79 | Tampering | medium | mitigate | Quatro `check:` OK; export allowlist inalterada em `53cb73ff..origin/main` |
+| T-51-80 | Repudiation | high | mitigate | Resposta verbatim e `opcao: aprovar` em `51-19-TEXTO-APROVADO.md`; igualdade reconferida por máquina |
+| T-51-81 | Tampering | critical | mitigate | Escopo em `20261010000001:805-806`; POS recusa falta de escopo/`OR` (`:1650`) e alvo fora de D-62 ∪ G1a (`:1656`); ao vivo 1 DELETE escopado; (B26/outros) `p45:3077`, MF2 `p51_mutacoes.cjs:672-680` |
+| T-51-82 | Repudiation | high | mitigate | md5 vivo = arquivo = `v_pin_anon` (`p45:3442`); (B26/apagou) `p45:3074`, MF1 `p51_mutacoes.cjs:656-663`; ao vivo 2 anonimizados, 0 com linha |
+| T-51-83 | Tampering | medium | mitigate | Pin = md5 do arquivo (recalculado); escopo G1a nomeado (`p45:3553`); vermelho antes do re-pin e K0/K1 no 51-20-SUMMARY |
+| T-51-84 / T-51-91 | DoS | medium | mitigate | `lock_timeout 3s`/`statement_timeout 5s` primeiro (`…0001:114-115`, `…0002:89-90`) e no prefixo do ensaio (`p51_ensaio.cjs:127-128`); `--so` (`p51_mutacoes.cjs:65,925`) |
+| T-51-85 | Tampering | critical | mitigate | Reconhecedor por igualdade (`…0002:129-131,184-189,213-217,226-230`); POS `(outros)` contra a impressão digital `to_jsonb` do PRE (`:159-166`, `:222-236`); L2 morde (`.red-51-21/mordida.txt`); ao vivo 26 = 28 − 2 |
+| T-51-86 | Repudiation | medium | mitigate | Ledger = arquivo; evidência `g1l:` só contagens e md5 (`…0002:243-252`); POS `(restantes)`/`(apagadas)` (`:210-241`) |
+| T-51-87 / T-51-94 | Info Disclosure | medium | mitigate | 15 artefatos dos planos de gap varridos: 0 UUID, 0 e-mail além do literal da sentinela; nenhuma cópia das linhas |
+| T-51-88 / T-51-97 | Tampering | high | mitigate | `51-REVIEW-GAPS-1.md` `critical: 0`, `diff_base ef7fa24c` (cobre os 3 `test(51-validacao)`); código publicado em `53cb73ff..origin/main` = exatamente os 24 arquivos revisados (diff vazio); nenhum código depois de `c35cd524`; `p51_portao.cjs` regras (4)/(7)/(8), auto-teste 68 ok; `origin/main..HEAD` vazio |
+| T-51-89 | EoP | high | mitigate | PRE recusa fora de `dry_run` (`…0001:141-142`); modo vivo `dry_run` |
+| T-51-90 | Tampering | high | mitigate | Pausa das outras janelas confirmada em `51-22-DECISAO.md` (b); portão exige árvore limpa e HEAD = pin |
+| T-51-92 | Tampering | critical | mitigate | `51-23-COMANDO-APPLY.sh` encadeado por `&&` com `pipefail`; medição no mesmo comando comparada com os números aprovados antes do portão e do `migrate`; POS na transação; ao vivo 0 linhas do alvo |
+| T-51-93 | Repudiation | medium | mitigate | `51-23-DECISAO.md` verbatim (autorização condicional, horário aproximado com limite superior); ledger; prova pós-apply no SUMMARY |
+| T-51-95 | Repudiation | low | mitigate | `db65ccf4` toca só o frontmatter, a linha 89 e o JSON 89; `fixed` às 06:25:53Z, depois da prova (06:25:09Z) |
+| T-51-96 | Repudiation | high | mitigate | Igualdade reconferida; corpo publicado da EF v15 traz o texto aprovado |
+| T-51-98 | Repudiation | medium | mitigate | O 51-24 não mudou o veredito (quem mudou foi esta re-auditoria) |
+| T-51-SC ×7 | Tampering | high | mitigate | Nenhum manifesto, lock ou `deno.json` mudou em `53cb73ff..origin/main`; imports novos só de dependências existentes |
+
+**Segue aberta, não bloqueante:** T-51-47 (medium) — inalterada; `executar-direito-titular/index.ts:1369` soma só
+`tombstone_decisao_final`; WINDOWS 93 `open`. Fecha com conserto ou AR datada pelo operador.
+
+**Observações da re-auditoria (informativas):**
+1. No 51-23, o comando destrutivo foi commitado antes do pin e reportado depois, mas **não foi visto pelo operador
+   antes de rodar** (ele dormia e deu autorização condicional por números, conferida por máquina). As mitigações
+   declaradas existem; **vale o operador ratificar**.
+2. As mordidas MD1/MF1/MF2, L1/L2, K0/K1 não foram re-executadas (escrevem em PROD dentro de transações que abortam,
+   fora do acesso só leitura); a evidência registrada mais a presença estática basta em L1.
+3. `anon` tem EXECUTE em `pontuar_cognitivo` (a guarda levanta 42501 com uid nulo; sonda `SET LOCAL ROLE anon` não
+   executada) — mesma classe do UF-2; incluir no `REVOKE` futuro do UF-2.
 
 ### Controle de acesso novo da fase (CLOSED, conferido ao vivo)
 
@@ -199,7 +267,7 @@ aceito sem conserto; IN-01 e IN-04 do review -2 foram aceitos. Nenhuma delas é 
 |---|---|---|---|---|
 | **UF-1** | WR-01 do `51-REVIEW-PORTAO-3` | **O decisor revertido rejeita de novo por PATCH direto em `candidaturas`.** A policy `rh_avanca_etapa` (UPDATE, `authenticated`, admin ou `rh` ativo) e o privilégio de UPDATE de `authenticated` continuam vivos. A `guard_rejeicao_auditada` viva (md5 `dc695aa4…`) aceita a entrada em `rejeitado` quando o mesmo UPDATE muda a etapa, e `rejeitar_candidatura` não declara `app.rejeicao_sancionada`. Isso contorna o D-23 da 0005 e também a justificativa de 50 caracteres ou mais e o motivo. Provado por execução no review -3 (ensaio que aborta). Ao vivo: 0 ocorrências. A UI não oferece o caminho | medium (EoP interno, com JWT de RH válido; sem vazamento; o titular pode pedir revisão de novo) | **Nenhum T-ID.** A trava D-23 (`20261008000005`) entrou pelas rodadas de review do 51-16 sem linha no registro, então o furo dela não mapeia ameaça existente. Não mapeia T-51-29 (é sobre responder a revisão) nem T-51-33 (a re-rejeição por PATCH grava trilha com o ator). A classe existe desde a P48 para a fonte `decisao_final`. **Recomendação:** registrar como ameaça própria (EoP, medium) e decidir entre mitigar num plano com review (`guard_rejeicao_auditada` exige a sanção para `auth.uid()` não nulo, e `rejeitar_candidatura` a declara) ou aceitar com uma entrada AR |
 | UF-2 | IN-16 do `51-REVIEW-PORTAO-1` | `solicitar_revisao_decisao(uuid)` ainda tem EXECUTE para `anon` (vivo `anon=true`, herança do `pg_default_acl`) | low | Fora do T-51-31: a função é anterior à fase, e todas as RPCs **novas** estão sem `anon`. Inofensivo hoje: sob `SET LOCAL ROLE anon` o corpo vivo recusa com 42501 (`ca.user_id = auth.uid()` com uid nulo). Destoa da regra nominal; `REVOKE` numa migration futura |
-| UF-3 | WR-01 do `51-REVIEW` (fase) | Depois de «Prova registrada», a lista abre do cache e permite refazer a prova cognitiva. `pontuar_cognitivo` faz `ON CONFLICT … DO UPDATE` e **sobrescreve a banda** que o RH vê (vivo: upsert = true, bloqueia reenvio = false) | medium (integridade da avaliação, pelo próprio candidato) | Nenhum T-ID. O 51-01 tornou o caminho padrão; o defeito do servidor é anterior. Disposição `open` |
+| UF-3 | WR-01 do `51-REVIEW` (fase) | Depois de «Prova registrada», a lista abre do cache e permite refazer a prova cognitiva. `pontuar_cognitivo` faz `ON CONFLICT … DO UPDATE` e **sobrescreve a banda** que o RH vê (vivo: upsert = true, bloqueia reenvio = false) | medium (integridade da avaliação, pelo próprio candidato) | **Mapeada para o T-51-75** (re-auditoria 2026-10-10): lado do cliente CLOSED pelo 51-18; lado do servidor OPEN em backlog por decisão do operador (`51-GAPS-DECISAO.md` G2; `deferred-items.md` (51-18)) — **não é risco aceito** (sem AR). Sai da contagem de flags |
 | UF-4 | WR-02 do `51-REVIEW-PORTAO-3` | O filtro `h.decisao = 'rejeitado'` do ramo arquivo do D-23 em `rejeitar_candidatura` não tem mutação nem sonda; uma edição futura que o tire passa verde e trava RH legítimo | low | É qualidade do portão do D-23, que também não tem registro (ver UF-1) |
 | UF-5 | IN-14 do `51-REVIEW-PORTAO-1` | A resposta `revertida` não confere exclusão ou anonimização do titular: reabre e despacha a análise de IA (D-36) sobre titular excluído | low | Nenhum T-ID. Não corrigido. O efeito é limitado ao dado já anonimizado, mas é processamento depois do pedido de exclusão |
 
@@ -213,6 +281,7 @@ aceito sem conserto; IN-01 e IN-04 do review -2 foram aceitos. Nenhuma delas é 
 | 2026-10-09 | Apply 0002..0005, EFs v19/v8/v14, push `ad2790a3..87be2703` (51-16) | ledger = arquivos |
 | 2026-10-10 | Sessão real (51-17): D-23 recusou o decisor revertido pela RPC | 6 fases N/N na `8e4bb7a0` |
 | 2026-10-10 | Esta auditoria: registro de 91 linhas, conferência viva só leitura, `check:` e auto-testes locais | **OPEN_THREATS: threats_open = 1 (T-51-14)** |
+| 2026-10-10 | Re-auditoria depois de 51-18..51-24 (gsd-security-auditor; PROD só leitura, corpo publicado da EF v15, bundle servido) | **SECURED: T-51-14 CLOSED, 31 linhas novas CLOSED, T-51-47 segue aberta não bloqueante, UF-3 mapeada para T-51-75 (servidor em backlog, não aceito)** |
 
 Observação de concorrência: durante a auditoria apareceram commits locais de outra sessão. São `test(51-validacao)`
 ×3 (só testes) e `docs(51)` da verificação, nenhum empurrado. Não mudam nenhuma superfície auditada.
