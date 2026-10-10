@@ -1,0 +1,32 @@
+{
+  "plan": "51-18",
+  "task": 1,
+  "base_ref": "refs/gsd/51-18/base",
+  "base_sha": "359fd59a88082f621e3eb006bdd12ba426cdae56",
+  "run_at": "2026-10-10T05:17:15Z",
+  "how": "git worktree add --detach $TMPDIR/p51_18_base refs/gsd/51-18/base; node_modules por symlink; copiados SO os dois testes novos (o helper NAO: ele e parte do conserto); npx vitest run --reporter=junit; worktree removido",
+  "vitest_exit": 1,
+  "junit": "task1-junit.xml",
+  "failed": [
+    {
+      "file": "src/features/avaliacao/lib/__tests__/avaliacaoStatusCache.test.ts",
+      "case": "(arquivo inteiro)",
+      "reason": "ausencia na base: Failed to resolve import \"../avaliacaoStatusCache\" — o helper e parte do conserto"
+    },
+    {
+      "file": "src/features/avaliacao-cognitiva/components/__tests__/ProvaCognitivaScreen.conclusao.test.tsx",
+      "case": "envio ok → cognitivo.registrado = true no cache, entrada invalidada, tela «Prova registrada»",
+      "reason": "comportamento: expected { registrado: false, iniciado: false } to deeply equal { registrado: true, iniciado: false } — o envio nao escreve o cache"
+    },
+    {
+      "file": "src/features/avaliacao-cognitiva/components/__tests__/ProvaCognitivaScreen.conclusao.test.tsx",
+      "case": "TRACER: «Voltar às avaliações» abre a lista REAL com «Prova cognitiva» em «Concluído» e sem «Começar avaliação»",
+      "reason": "comportamento: o card da lista real mostrou \"Prova cognitivaTempo estimado: ~10 minPendenteComeçar avaliação\" — o status de antes da prova, fresco no cache de 5 min (WR-01)"
+    }
+  ],
+  "passed_on_base": [
+    "envio locked → o cache fica idêntico ao semeado e não é invalidado",
+    "envio erro → o cache fica idêntico ao semeado e não é invalidado"
+  ],
+  "note": "os dois casos que passam na base sao bordas de regressao (o conserto nao pode escrever o cache num envio recusado); passam antes e depois, por construcao"
+}

@@ -36,7 +36,7 @@
  */
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Clock, ShieldCheck } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
@@ -67,6 +67,7 @@ import {
   type ItemCognitivoCandidato,
 } from '@/features/avaliacao-cognitiva/services/cognitivoService'
 import { useProctoring } from '@/features/avaliacao-cognitiva/hooks/useProctoring'
+import { marcarInstrumentoRegistrado } from '@/features/avaliacao/lib/avaliacaoStatusCache'
 
 /** Verbatim pt-BR copy from 14-UI-SPEC §Copywriting Contract (candidate cognitive prova). */
 const COPY = {
@@ -109,6 +110,7 @@ function mmss(totalSeconds: number): string {
 
 export function ProvaCognitivaScreen() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { candidaturaId } = useParams<{ candidaturaId: string }>()
 
   // D-37: inside the container → back to the assessment list.
@@ -179,6 +181,10 @@ export function ProvaCognitivaScreen() {
         setEtapaAvancou(true)
         return
       }
+      // 51-18 (G2 · WR-01): o 51-01 fez de «Voltar às avaliações» o caminho padrão depois do
+      // envio, e a lista lia o status de antes da prova (cache de 5 min) — o card convidava a
+      // refazer, e refazer sobrescrevia a banda. Registrada é fato do servidor a partir daqui.
+      marcarInstrumentoRegistrado(queryClient, candidaturaId as string, 'cognitivo')
       setDone(true)
     } catch {
       // IN-01: collapsed the duplicate-toast if/else — both branches showed the

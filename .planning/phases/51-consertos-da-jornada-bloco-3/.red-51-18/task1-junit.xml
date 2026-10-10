@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="5" failures="3" errors="0" time="1.170253042">
+    <testsuite name="src/features/avaliacao/lib/__tests__/avaliacaoStatusCache.test.ts" timestamp="2026-10-10T05:17:15.706Z" hostname="macmini" tests="1" failures="1" errors="0" skipped="0" time="0">
+        <testcase classname="src/features/avaliacao/lib/__tests__/avaliacaoStatusCache.test.ts" name="src/features/avaliacao/lib/__tests__/avaliacaoStatusCache.test.ts" time="0">
+            <failure message="Failed to resolve import &quot;../avaliacaoStatusCache&quot; from &quot;src/features/avaliacao/lib/__tests__/avaliacaoStatusCache.test.ts&quot;. Does the file exist?" type="Error">
+Error: Failed to resolve import &quot;../avaliacaoStatusCache&quot; from &quot;src/features/avaliacao/lib/__tests__/avaliacaoStatusCache.test.ts&quot;. Does the file exist?
+  Plugin: vite:import-analysis
+  File: /private/var/folders/09/kvmx5y5d6k764x8nh3sn6gj00000gn/T/p51_18_base/src/features/avaliacao/lib/__tests__/avaliacaoStatusCache.test.ts:14:0
+  3  |      }));
+  4  |  const __vi_import_0__ = await import(&quot;@tanstack/react-query&quot;);
+  5  |  const __vi_import_1__ = await import(&quot;../avaliacaoStatusCache&quot;);
+     |                                       ^
+  6  |  /**
+  7  |   * Phase 51 / Plan 51-18 (G2 · WR-01 · JORN-46) — `marcarInstrumentoRegistrado`.
+ ❯ TransformPluginContext._formatLog ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:42499:41
+ ❯ TransformPluginContext.error ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:42496:16
+ ❯ normalizeUrl ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:40475:23
+ ❯ ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:40594:37
+ ❯ TransformPluginContext.transform ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:40521:7
+ ❯ EnvironmentPluginContainer.transform ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:42294:18
+ ❯ loadAndTransform ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:35735:27
+            </failure>
+        </testcase>
+    </testsuite>
+    <testsuite name="src/features/avaliacao-cognitiva/components/__tests__/ProvaCognitivaScreen.conclusao.test.tsx" timestamp="2026-10-10T05:17:15.707Z" hostname="macmini" tests="4" failures="2" errors="0" skipped="0" time="1.170253042">
+        <testcase classname="src/features/avaliacao-cognitiva/components/__tests__/ProvaCognitivaScreen.conclusao.test.tsx" name="ProvaCognitivaScreen — concluir escreve a conclusão no cache da lista (51-18 / G2) &gt; envio ok → cognitivo.registrado = true no cache, entrada invalidada, tela «Prova registrada»" time="0.062426833">
+            <system-err>
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+RadioGroup is changing from uncontrolled to controlled. Components should not switch from controlled to uncontrolled (or vice versa). Decide between using a controlled or uncontrolled value for the lifetime of the component.
+
+Warning: An update to ProvaCognitivaScreen inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at ProvaCognitivaScreen (/private/var/folders/09/kvmx5y5d6k764x8nh3sn6gj00000gn/T/p51_18_base/src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx:85:59)
+    at RenderedRoute (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:539:7)
+    at Routes (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1273:7)
+    at Router (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1207:17)
+    at MemoryRouter (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+    at QueryClientProvider (file:///Users/fernando/code/SistemaRecrutamento/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js:20:3)
+Warning: An update to ProvaCognitivaScreen inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at ProvaCognitivaScreen (/private/var/folders/09/kvmx5y5d6k764x8nh3sn6gj00000gn/T/p51_18_base/src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx:85:59)
+    at RenderedRoute (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:539:7)
+    at Routes (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1273:7)
+    at Router (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1207:17)
+    at MemoryRouter (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+    at QueryClientProvider (file:///Users/fernando/code/SistemaRecrutamento/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js:20:3)
+
+            </system-err>
+            <failure message="expected { registrado: false, iniciado: false } to deeply equal { registrado: true, iniciado: false }" type="AssertionError">
+AssertionError: expected { registrado: false, iniciado: false } to deeply equal { registrado: true, iniciado: false }
+
+- Expected
++ Received
+
+  {
+    &quot;iniciado&quot;: false,
+-   &quot;registrado&quot;: true,
++   &quot;registrado&quot;: false,
+  }
+
+ ❯ src/features/avaliacao-cognitiva/components/__tests__/ProvaCognitivaScreen.conclusao.test.tsx:151:27
+            </failure>
+        </testcase>
+        <testcase classname="src/features/avaliacao-cognitiva/components/__tests__/ProvaCognitivaScreen.conclusao.test.tsx" name="ProvaCognitivaScreen — concluir escreve a conclusão no cache da lista (51-18 / G2) &gt; TRACER: «Voltar às avaliações» abre a lista REAL com «Prova cognitiva» em «Concluído» e sem «Começar avaliação»" time="1.043617625">
+            <system-err>
+RadioGroup is changing from uncontrolled to controlled. Components should not switch from controlled to uncontrolled (or vice versa). Decide between using a controlled or uncontrolled value for the lifetime of the component.
+
+Warning: An update to ProvaCognitivaScreen inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at ProvaCognitivaScreen (/private/var/folders/09/kvmx5y5d6k764x8nh3sn6gj00000gn/T/p51_18_base/src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx:85:59)
+    at RenderedRoute (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:539:7)
+    at Routes (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1273:7)
+    at Router (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1207:17)
+    at MemoryRouter (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+    at QueryClientProvider (file:///Users/fernando/code/SistemaRecrutamento/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js:20:3)
+Warning: An update to ProvaCognitivaScreen inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at ProvaCognitivaScreen (/private/var/folders/09/kvmx5y5d6k764x8nh3sn6gj00000gn/T/p51_18_base/src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx:85:59)
+    at RenderedRoute (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:539:7)
+    at Routes (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1273:7)
+    at Router (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1207:17)
+    at MemoryRouter (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+    at QueryClientProvider (file:///Users/fernando/code/SistemaRecrutamento/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js:20:3)
+
+            </system-err>
+            <failure message="expected &apos;Prova cognitivaTempo estimado: ~10 mi…&apos; to contain &apos;Concluído&apos;
+
+Ignored nodes: comments, script, style
+[36m&lt;html&gt;[39m
+  [36m&lt;head /&gt;[39m
+  [36m&lt;body&gt;[39m
+    [36m&lt;div&gt;[39m
+      [36m&lt;div[39m
+        [33mclass[39m=[32m&quot;relative min-h-screen&quot;[39m
+      [36m&gt;[39m
+        [36m&lt;div[39m
+          [33mclass[39m=[32m&quot;relative min-h-screen py-20&quot;[39m
+        [36m&gt;[39m
+          [36m&lt;div[39m
+            [33maria-hidden[39m=[32m&quot;true&quot;[39m
+            [33mclass[39m=[32m&quot;absolute inset-0 bg-[#00109E]&quot;[39m
+          [36m/&gt;[39m
+          [36m&lt;div[39m
+            [33mclass[39m=[32m&quot;absolute inset-0 bg-center bg-no-repeat transition-opacity duration-300 opacity-0&quot;[39m
+            [33mstyle[39m=[32m&quot;background-image: url(\&quot;/src/assets/72212e27083bc5aff34e367036bc5f1a36b908b7.jpeg\&quot;); background-size: cover; background-attachment: fixed;&quot;[39m
+          [36m/&gt;[39m
+          [36m&lt;div[39m
+            [33mclass[39m=[32m&quot;absolute inset-0 bg-gradient-to-br from-[#00109E] to-[#35BFAD] animate-pulse&quot;[39m
+          [36m/&gt;[39m
+          [36m&lt;div[39m
+            [33mclass[39m=[32m&quot;absolute inset-0 bg-black&quot;[39m
+            [33mstyle[39m=[32m&quot;opacity: 0.15;&quot;[39m
+          [36m/&gt;[39m
+          [36m&lt;div[39m
+            [33mclass[39m=[32m&quot;relative z-10&quot;[39m
+          [36m&gt;[39m
+            [36m&lt;div[39m
+              [33mclass[39m=[32m&quot;w-full border-b border-white/10 backdrop-blur-md bg-white/5 sticky top-0 z-50&quot;[39m
+            [36m&gt;[39m
+              [36m&lt;div[39m
+                [33mclass[39m=[32m&quot;container mx-auto px-4 py-4&quot;[39m
+              [36m&gt;[39m
+                [36m&lt;div[39m
+                  [33mclass[39m=[32m&quot;flex items-center justify-between&quot;[39m
+                [36m&gt;[39m
+                  [36m&lt;div[39m
+                    [33mclass[39m=[32m&quot;flex items-center gap-3&quot;[39m
+                  [36m&gt;[39m
+                    [36m&lt;div[39m
+                      [33mclass[39m=[32m&quot;w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md&quot;[39m
+                    [36m&gt;[39m
+                      [36m&lt;svg[39m
+                        [33mclass[39m=[32m&quot;lucide lucide-user w-5 h-5 text-white&quot;[39m
+                        [33mfill[39m=[32m&quot;none&quot;[39m
+                        [33mheight[39m=[32m&quot;24&quot;[39m
+                        [33mstroke[39m=[32m&quot;currentColor&quot;[39m
+                        [33mstroke-linecap[39m=[32m&quot;round&quot;[39m
+                        [33mstroke-linejoin[39m=[32m&quot;round&quot;[39m
+                        [33mstroke-width[39m=[32m&quot;2&quot;[39m
+                        [33mviewBox[39m=[32m&quot;0 0 24 24&quot;[39m
+                        [33mwidth[39m=[32m&quot;24&quot;[39m
+                        [33mxmlns[39m=[32m&quot;http://www.w3.org/2000/svg&quot;[39m
+                      [36m&gt;[39m
+                        [36m&lt;path[39m
+                          [33md[39m=[32m&quot;M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2&quot;[39m
+                        [36m/&gt;[39m
+                        [36m&lt;circle[39m
+                          [33mcx[39m=[32m&quot;12&quot;[39m
+                          [33mcy[39m=[32m&quot;7&quot;[39m
+                          [33mr[39m=[32m&quot;4&quot;[39m
+                        [36m/&gt;[39m
+                      [36m&lt;/svg&gt;[39m
+                    [36m&lt;/div&gt;[39m
+                    [36m&lt;div&gt;[39m
+                      [36m&lt;p[39m
+                        [33mclass[39m=[32m&quot;text-white font-medium drop-shadow-md&quot;[39m
+                      [36m&gt;[39m
+                        [0mMaria Teste[0m
+                      [36m&lt;/p&gt;[39m
+                      [36m&lt;p[39m
+                        [33mclass[39m=[32m&quot;text-white/70 text-sm drop-shadow-sm&quot;[39m
+                      [36m&gt;[39m
+                        [0mmaria@teste.com[0m
+                      [36m&lt;/p&gt;[39m
+                    [36m&lt;/div&gt;[39m
+                  [36m&lt;/div&gt;[39m
+                  [36m&lt;div[39m
+                    [33mclass[39m=[32m&quot;flex items-center gap-2&quot;[39m
+                  [36m&gt;[39m
+                    [36m&lt;button[39m
+                      [33mclass[39m=[32m&quot;flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg border border-white/20 backdrop-blur-md transition-all duration-300 hover:shadow-lg active:scale-95&quot;[39m
+                      [33mdata-testid[39m=[32m&quot;avaliacao-ir-ao-painel&quot;[39m
+                      [33mtype[39m=[32m&quot;button&quot;[39m
+                    [36m&gt;[39m
+                      [36m&lt;svg[39m
+                        [33mclass[39m=[32m&quot;lucide lucide-layout-dashboard w-4 h-4&quot;[39m
+                        [33mfill[39m=[32m&quot;none&quot;[39m
+                        [33mheight[39m=[32m&quot;24&quot;[39m
+                        [33mstroke[39m=[32m&quot;currentColor&quot;[39m
+                        [33mstroke-linecap[39m=[32m&quot;round&quot;[39m
+                        [33mstroke-linejoin[39m=[32m&quot;round&quot;[39m
+                        [33mstroke-width[39m=[32m&quot;2&quot;[39m
+                        [33mviewBox[39m=[32m&quot;0 0 24 24&quot;[39m
+                        [33mwidth[39m=[32m&quot;24&quot;[39m
+                        [33mxmlns[39m=[32m&quot;http://www.w3.org/2000/svg&quot;[39m
+                      [36m&gt;[39m
+                        [36m&lt;rect[39m
+                          [33mheight[39m=[32m&quot;9&quot;[39m
+                          [33mrx[39m=[32m&quot;1&quot;[39m
+                          [33mwidth[39m=[32m&quot;7&quot;[39m
+                          [33mx[39m=[32m&quot;3&quot;[39m
+                          [33my[39m=[32m&quot;3&quot;[39m
+                        [36m/&gt;[39m
+                        [36m&lt;rect[39m
+                          [33mheight[39m=[32m&quot;5&quot;[39m
+                          [33mrx[39m=[32m&quot;1&quot;[39m
+                          [33mwidth[39m=[32m&quot;7&quot;[39m
+                          [33mx[39m=[32m&quot;14&quot;[39m
+                          [33my[39m=[32m&quot;3&quot;[39m
+                        [36m/&gt;[39m
+                        [36m&lt;rect[39m
+                          [33mheight[39m=[32m&quot;9&quot;[39m
+                          [33mrx[39m=[32m&quot;1&quot;[39m
+                          [33mwidth[39m=[32m&quot;7&quot;[39m
+                          [33mx[39m=[32m&quot;14&quot;[39m
+                          [33my[39m=[32m&quot;12&quot;[39m
+                        [36m/&gt;[39m
+                        [36m&lt;rect[39m
+                          [33mheight[39m=[32m&quot;5&quot;[39m
+                          [33mrx[39m=[32m&quot;1&quot;[39m
+                          [33mwidth[39m=[32m&quot;7&quot;[39m
+                          [33mx[39m=[32m&quot;3&quot;[39m
+                          [33my[39m=[32m&quot;16&quot;[39m
+                        [36m/&gt;[39m
+                      [36m&lt;/svg&gt;[39m
+                      [36m&lt;span[39m
+                        [33mclass[39m=[32m&quot;drop-shadow-sm&quot;[39m
+                      [36m&gt;[39m
+                        [0mIr ao painel[0m
+                      [36m&lt;/span&gt;[39m
+                    [36m&lt;/button&gt;[39m
+                    [36m&lt;button[39m
+                      [33mclass[39m=[32m&quot;flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg border bo..." type="AssertionError">
+AssertionError: expected &apos;Prova cognitivaTempo estimado: ~10 mi…&apos; to contain &apos;Concluído&apos;
+
+Ignored nodes: comments, script, style
+&lt;html&gt;
+  &lt;head /&gt;
+  &lt;body&gt;
+    &lt;div&gt;
+      &lt;div
+        class=&quot;relative min-h-screen&quot;
+      &gt;
+        &lt;div
+          class=&quot;relative min-h-screen py-20&quot;
+        &gt;
+          &lt;div
+            aria-hidden=&quot;true&quot;
+            class=&quot;absolute inset-0 bg-[#00109E]&quot;
+          /&gt;
+          &lt;div
+            class=&quot;absolute inset-0 bg-center bg-no-repeat transition-opacity duration-300 opacity-0&quot;
+            style=&quot;background-image: url(\&quot;/src/assets/72212e27083bc5aff34e367036bc5f1a36b908b7.jpeg\&quot;); background-size: cover; background-attachment: fixed;&quot;
+          /&gt;
+          &lt;div
+            class=&quot;absolute inset-0 bg-gradient-to-br from-[#00109E] to-[#35BFAD] animate-pulse&quot;
+          /&gt;
+          &lt;div
+            class=&quot;absolute inset-0 bg-black&quot;
+            style=&quot;opacity: 0.15;&quot;
+          /&gt;
+          &lt;div
+            class=&quot;relative z-10&quot;
+          &gt;
+            &lt;div
+              class=&quot;w-full border-b border-white/10 backdrop-blur-md bg-white/5 sticky top-0 z-50&quot;
+            &gt;
+              &lt;div
+                class=&quot;container mx-auto px-4 py-4&quot;
+              &gt;
+                &lt;div
+                  class=&quot;flex items-center justify-between&quot;
+                &gt;
+                  &lt;div
+                    class=&quot;flex items-center gap-3&quot;
+                  &gt;
+                    &lt;div
+                      class=&quot;w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md&quot;
+                    &gt;
+                      &lt;svg
+                        class=&quot;lucide lucide-user w-5 h-5 text-white&quot;
+                        fill=&quot;none&quot;
+                        height=&quot;24&quot;
+                        stroke=&quot;currentColor&quot;
+                        stroke-linecap=&quot;round&quot;
+                        stroke-linejoin=&quot;round&quot;
+                        stroke-width=&quot;2&quot;
+                        viewBox=&quot;0 0 24 24&quot;
+                        width=&quot;24&quot;
+                        xmlns=&quot;http://www.w3.org/2000/svg&quot;
+                      &gt;
+                        &lt;path
+                          d=&quot;M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2&quot;
+                        /&gt;
+                        &lt;circle
+                          cx=&quot;12&quot;
+                          cy=&quot;7&quot;
+                          r=&quot;4&quot;
+                        /&gt;
+                      &lt;/svg&gt;
+                    &lt;/div&gt;
+                    &lt;div&gt;
+                      &lt;p
+                        class=&quot;text-white font-medium drop-shadow-md&quot;
+                      &gt;
+                        Maria Teste
+                      &lt;/p&gt;
+                      &lt;p
+                        class=&quot;text-white/70 text-sm drop-shadow-sm&quot;
+                      &gt;
+                        maria@teste.com
+                      &lt;/p&gt;
+                    &lt;/div&gt;
+                  &lt;/div&gt;
+                  &lt;div
+                    class=&quot;flex items-center gap-2&quot;
+                  &gt;
+                    &lt;button
+                      class=&quot;flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg border border-white/20 backdrop-blur-md transition-all duration-300 hover:shadow-lg active:scale-95&quot;
+                      data-testid=&quot;avaliacao-ir-ao-painel&quot;
+                      type=&quot;button&quot;
+                    &gt;
+                      &lt;svg
+                        class=&quot;lucide lucide-layout-dashboard w-4 h-4&quot;
+                        fill=&quot;none&quot;
+                        height=&quot;24&quot;
+                        stroke=&quot;currentColor&quot;
+                        stroke-linecap=&quot;round&quot;
+                        stroke-linejoin=&quot;round&quot;
+                        stroke-width=&quot;2&quot;
+                        viewBox=&quot;0 0 24 24&quot;
+                        width=&quot;24&quot;
+                        xmlns=&quot;http://www.w3.org/2000/svg&quot;
+                      &gt;
+                        &lt;rect
+                          height=&quot;9&quot;
+                          rx=&quot;1&quot;
+                          width=&quot;7&quot;
+                          x=&quot;3&quot;
+                          y=&quot;3&quot;
+                        /&gt;
+                        &lt;rect
+                          height=&quot;5&quot;
+                          rx=&quot;1&quot;
+                          width=&quot;7&quot;
+                          x=&quot;14&quot;
+                          y=&quot;3&quot;
+                        /&gt;
+                        &lt;rect
+                          height=&quot;9&quot;
+                          rx=&quot;1&quot;
+                          width=&quot;7&quot;
+                          x=&quot;14&quot;
+                          y=&quot;12&quot;
+                        /&gt;
+                        &lt;rect
+                          height=&quot;5&quot;
+                          rx=&quot;1&quot;
+                          width=&quot;7&quot;
+                          x=&quot;3&quot;
+                          y=&quot;16&quot;
+                        /&gt;
+                      &lt;/svg&gt;
+                      &lt;span
+                        class=&quot;drop-shadow-sm&quot;
+                      &gt;
+                        Ir ao painel
+                      &lt;/span&gt;
+                    &lt;/button&gt;
+                    &lt;button
+                      class=&quot;flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg border bo...
+
+Expected: &quot;Concluído&quot;
+Received: &quot;Prova cognitivaTempo estimado: ~10 minPendenteComeçar avaliação&quot;
+
+ ❯ src/features/avaliacao-cognitiva/components/__tests__/ProvaCognitivaScreen.conclusao.test.tsx:170:50
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+            </failure>
+        </testcase>
+        <testcase classname="src/features/avaliacao-cognitiva/components/__tests__/ProvaCognitivaScreen.conclusao.test.tsx" name="ProvaCognitivaScreen — concluir escreve a conclusão no cache da lista (51-18 / G2) &gt; envio locked → o cache fica idêntico ao semeado e não é invalidado" time="0.034771792">
+            <system-err>
+RadioGroup is changing from uncontrolled to controlled. Components should not switch from controlled to uncontrolled (or vice versa). Decide between using a controlled or uncontrolled value for the lifetime of the component.
+
+Warning: An update to ProvaCognitivaScreen inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at ProvaCognitivaScreen (/private/var/folders/09/kvmx5y5d6k764x8nh3sn6gj00000gn/T/p51_18_base/src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx:85:59)
+    at RenderedRoute (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:539:7)
+    at Routes (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1273:7)
+    at Router (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1207:17)
+    at MemoryRouter (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+    at QueryClientProvider (file:///Users/fernando/code/SistemaRecrutamento/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js:20:3)
+Warning: An update to ProvaCognitivaScreen inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at ProvaCognitivaScreen (/private/var/folders/09/kvmx5y5d6k764x8nh3sn6gj00000gn/T/p51_18_base/src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx:85:59)
+    at RenderedRoute (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:539:7)
+    at Routes (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1273:7)
+    at Router (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1207:17)
+    at MemoryRouter (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+    at QueryClientProvider (file:///Users/fernando/code/SistemaRecrutamento/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js:20:3)
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/features/avaliacao-cognitiva/components/__tests__/ProvaCognitivaScreen.conclusao.test.tsx" name="ProvaCognitivaScreen — concluir escreve a conclusão no cache da lista (51-18 / G2) &gt; envio erro → o cache fica idêntico ao semeado e não é invalidado" time="0.028219166">
+            <system-err>
+RadioGroup is changing from uncontrolled to controlled. Components should not switch from controlled to uncontrolled (or vice versa). Decide between using a controlled or uncontrolled value for the lifetime of the component.
+
+Warning: An update to ProvaCognitivaScreen inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at ProvaCognitivaScreen (/private/var/folders/09/kvmx5y5d6k764x8nh3sn6gj00000gn/T/p51_18_base/src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx:85:59)
+    at RenderedRoute (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:539:7)
+    at Routes (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1273:7)
+    at Router (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1207:17)
+    at MemoryRouter (/Users/fernando/code/SistemaRecrutamento/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+    at QueryClientProvider (file:///Users/fernando/code/SistemaRecrutamento/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js:20:3)
+
+            </system-err>
+        </testcase>
+    </testsuite>
+</testsuites>
