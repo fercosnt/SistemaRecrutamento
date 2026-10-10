@@ -129,3 +129,25 @@ describe('ScoreCard — célula Cultura: ausência NUNCA vira 0 (49-04 / JORN-13
     expect(celula.textContent ?? '').not.toMatch(/\d/)
   })
 })
+
+/**
+ * Validação Nyquist da 51 (JORN-48 / D-15) — a célula do Raven no card da lista diz «Matrizes»
+ * (forma curta que cabe na célula) com o nome completo «Raciocínio lógico (Matrizes)» no `title`.
+ * Antes da 51-03 a célula dizia «Intel», e nenhum teste fixava o rótulo — nem o antigo, nem o
+ * novo (51-03-SUMMARY, coverage D5, `human_judgment: true`). Mordida provada contra
+ * `refs/gsd/51-03/base` (cca99243).
+ */
+describe('ScoreCard — a célula do Raven se chama «Matrizes» (JORN-48 / D-15)', () => {
+  it('o rótulo visível é «Matrizes», com o nome completo no title, e não diz «Intel» nem «cognitiv»', () => {
+    const { container } = render(
+      <ScoreCard inteligencia={{ estado: 'faixa', faixa: 'Dentro do esperado' }} />
+    )
+    const rotulo = screen.getByText('Matrizes')
+    expect(rotulo).toHaveAttribute('title', 'Raciocínio lógico (Matrizes)')
+
+    const texto = container.textContent ?? ''
+    expect(texto).not.toMatch(/\bIntel/)
+    // O card da lista não mostra a prova textual; «cognitiv…» aqui confundiria os dois.
+    expect(texto).not.toMatch(/cognitiv/i)
+  })
+})
