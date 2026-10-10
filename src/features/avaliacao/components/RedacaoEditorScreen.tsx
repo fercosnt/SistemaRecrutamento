@@ -58,6 +58,7 @@ import {
   useAutosaveAvaliacao,
   type AutosaveStatus,
 } from '@/features/avaliacao/hooks/useAutosaveAvaliacao'
+import { marcarInstrumentoRegistrado } from '@/features/avaliacao/lib/avaliacaoStatusCache'
 import { RedacaoCounter, countWords, MIN_WORDS, MAX_WORDS } from './RedacaoCounter'
 import { RedacaoCronometro } from './RedacaoCronometro'
 
@@ -235,6 +236,16 @@ export function RedacaoEditorScreen() {
       void queryClient.invalidateQueries({
         queryKey: redacaoKeys.minhas(candidaturaId ?? ''),
       })
+      // 51-18 (G2 · WR-01): o ÚLTIMO envio — o que completa o conjunto, mesmo critério do
+      // `allSubmitted` abaixo (toda pergunta em `submittedIds` mais a que acabou de ir) —
+      // escreve a conclusão no status que a lista lê do cache (5 min). Os envios
+      // intermediários não: a redação só está concluída quando toda pergunta foi enviada.
+      const conjuntoCompleto = (perguntas ?? []).every(
+        (p) => p.id === pergunta.id || submittedIds.has(p.id),
+      )
+      if (conjuntoCompleto) {
+        marcarInstrumentoRegistrado(queryClient, candidaturaId ?? '', 'redacao')
+      }
       if (idx < total - 1) {
         goNext()
       } else {

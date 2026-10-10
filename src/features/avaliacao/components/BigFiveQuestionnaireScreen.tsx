@@ -19,7 +19,7 @@
  */
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Check, Lock } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
@@ -49,6 +49,7 @@ import {
 } from '@/features/avaliacao/services/bigfiveService'
 import { upsertResposta } from '@/features/avaliacao/services/avaliacaoService'
 import { useAutosaveAvaliacao } from '@/features/avaliacao/hooks/useAutosaveAvaliacao'
+import { marcarInstrumentoRegistrado } from '@/features/avaliacao/lib/avaliacaoStatusCache'
 import {
   LIKERT_LABELS,
   BIGFIVE_TOTAL_ITENS,
@@ -333,6 +334,7 @@ export function BigFiveIntro({
 
 export function BigFiveQuestionnaireScreen() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { candidaturaId } = useParams<{ candidaturaId: string }>()
 
   const { data: itens, isLoading, isError, error, refetch } = useQuery({
@@ -385,6 +387,9 @@ export function BigFiveQuestionnaireScreen() {
     try {
       await autosave.flushNow()
       await submitBigfiveFinal(candidaturaId as string, respostas)
+      // 51-18 (G2 · WR-01): a lista lê o status do cache (5 min) — sem escrever a conclusão,
+      // voltar da devolutiva às avaliações abria o card ainda em «Começar avaliação».
+      marcarInstrumentoRegistrado(queryClient, candidaturaId as string, 'big_five')
       toast.success('Avaliação enviada com sucesso')
       navigate(`/candidato/avaliacao/${candidaturaId}/bigfive/devolutiva`)
     } catch (err) {

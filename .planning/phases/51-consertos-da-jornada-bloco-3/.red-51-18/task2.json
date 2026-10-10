@@ -1,0 +1,30 @@
+{
+  "plan": "51-18",
+  "task": 2,
+  "base_ref": "refs/gsd/51-18/base",
+  "base_sha": "359fd59a88082f621e3eb006bdd12ba426cdae56",
+  "run_at": "2026-10-10T05:21:05Z",
+  "how": "git worktree add --detach $TMPDIR/p51_18_base refs/gsd/51-18/base; node_modules por symlink; copiados o teste novo E o helper avaliacaoStatusCache.ts (existe no HEAD, nao na base), para que o vermelho seja de COMPORTAMENTO das telas e nao de import; npx vitest run --reporter=junit; worktree removido",
+  "vitest_exit": 1,
+  "junit": "task2-junit.xml",
+  "failed": [
+    {
+      "case": "SjtCasoAbertoScreen — sucesso → sjt_caso_aberto.registrado = true e invalidada ANTES de ir à lista",
+      "reason": "comportamento: a rota-sentinela da lista leu o cache no render e mostrou \"LISTA:registrado=false\" — o envio do caso aberto nao escreve o status"
+    },
+    {
+      "case": "BigFiveQuestionnaireScreen — sucesso → big_five.registrado = true e invalidada ANTES de ir à devolutiva",
+      "reason": "comportamento: a rota-sentinela da devolutiva mostrou \"DEVOLUTIVA:registrado=false\" — o envio final do Big Five nao escreve o status"
+    },
+    {
+      "case": "RedacaoEditorScreen — 1º envio NÃO toca o status; o 2º (último) escreve redacao.registrado = true e invalida",
+      "reason": "comportamento: a parte do 1º envio (status intacto) passou; a asserção final, depois do envio que completa o conjunto, recebeu redacao = { iniciado: true, registrado: false } (esperado registrado: true)"
+    }
+  ],
+  "passed_on_base": [
+    "SjtCasoAbertoScreen — LOCKED → cache idêntico e não invalidado",
+    "BigFiveQuestionnaireScreen — LOCKED → cache idêntico e não invalidado",
+    "RedacaoEditorScreen — LOCKED → cache idêntico e não invalidado"
+  ],
+  "note": "os tres LOCKED sao bordas de regressao (o conserto nao pode escrever o cache num envio recusado); passam antes e depois, por construcao"
+}

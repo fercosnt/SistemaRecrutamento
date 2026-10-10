@@ -19,7 +19,7 @@
  */
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Check, AlertCircle, Lock } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
@@ -48,6 +48,7 @@ import {
   useAutosaveAvaliacao,
   type AutosaveStatus,
 } from '@/features/avaliacao/hooks/useAutosaveAvaliacao'
+import { marcarInstrumentoRegistrado } from '@/features/avaliacao/lib/avaliacaoStatusCache'
 
 const TESTE = 'sjt_caso_aberto'
 
@@ -109,6 +110,7 @@ function AutosaveIndicator({ status }: { status: AutosaveStatus }) {
 
 export function SjtCasoAbertoScreen() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { candidaturaId } = useParams<{ candidaturaId: string }>()
 
   const { data: ctx, isLoading, isError, error, refetch } = useQuery({
@@ -158,6 +160,9 @@ export function SjtCasoAbertoScreen() {
         pergunta_id: pergunta.id,
         texto,
       })
+      // 51-18 (G2 · WR-01): a lista lê o status do cache (5 min) — sem escrever a conclusão,
+      // «Voltar às avaliações» abria o card ainda em «Começar avaliação».
+      marcarInstrumentoRegistrado(queryClient, candidaturaId as string, 'sjt_caso_aberto')
       toast.success('Avaliação enviada com sucesso')
       backToList()
     } catch (err) {

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="6" failures="3" errors="0" time="3.073271125">
+    <testsuite name="src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx" timestamp="2026-10-10T05:21:05.026Z" hostname="macmini" tests="6" failures="3" errors="0" skipped="0" time="3.073271125">
+        <testcase classname="src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx" name="SjtCasoAbertoScreen — envio escreve a conclusão no cache (51-18 / G2) &gt; sucesso → sjt_caso_aberto.registrado = true e invalidada ANTES de ir à lista" time="1.051754">
+            <system-err>
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+            </system-err>
+            <failure message="Unable to find an element with the text: LISTA:registrado=true. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m&lt;body&gt;[39m
+  [36m&lt;div&gt;[39m
+    [36m&lt;p&gt;[39m
+      [0mLISTA:registrado=false[0m
+    [36m&lt;/p&gt;[39m
+  [36m&lt;/div&gt;[39m
+[36m&lt;/body&gt;[39m
+
+Ignored nodes: comments, script, style
+[36m&lt;body&gt;[39m
+  [36m&lt;div&gt;[39m
+    [36m&lt;p&gt;[39m
+      [0mLISTA:registrado=false[0m
+    [36m&lt;/p&gt;[39m
+  [36m&lt;/div&gt;[39m
+[36m&lt;/body&gt;[39m" type="TestingLibraryElementError">
+TestingLibraryElementError: Unable to find an element with the text: LISTA:registrado=true. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+&lt;body&gt;
+  &lt;div&gt;
+    &lt;p&gt;
+      LISTA:registrado=false
+    &lt;/p&gt;
+  &lt;/div&gt;
+&lt;/body&gt;
+
+Ignored nodes: comments, script, style
+&lt;body&gt;
+  &lt;div&gt;
+    &lt;p&gt;
+      LISTA:registrado=false
+    &lt;/p&gt;
+  &lt;/div&gt;
+&lt;/body&gt;
+ ❯ waitForWrapper ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ findByText ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx:193:25
+            </failure>
+        </testcase>
+        <testcase classname="src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx" name="SjtCasoAbertoScreen — envio escreve a conclusão no cache (51-18 / G2) &gt; LOCKED → cache idêntico e não invalidado" time="0.030291541">
+        </testcase>
+        <testcase classname="src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx" name="BigFiveQuestionnaireScreen — envio final escreve a conclusão no cache (51-18 / G2) &gt; sucesso → big_five.registrado = true e invalidada ANTES de ir à devolutiva" time="1.0433595">
+            <system-err>
+RadioGroup is changing from uncontrolled to controlled. Components should not switch from controlled to uncontrolled (or vice versa). Decide between using a controlled or uncontrolled value for the lifetime of the component.
+
+            </system-err>
+            <failure message="Unable to find an element with the text: DEVOLUTIVA:registrado=true. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m&lt;body&gt;[39m
+  [36m&lt;div&gt;[39m
+    [36m&lt;p&gt;[39m
+      [0mDEVOLUTIVA:registrado=false[0m
+    [36m&lt;/p&gt;[39m
+  [36m&lt;/div&gt;[39m
+[36m&lt;/body&gt;[39m
+
+Ignored nodes: comments, script, style
+[36m&lt;body&gt;[39m
+  [36m&lt;div&gt;[39m
+    [36m&lt;p&gt;[39m
+      [0mDEVOLUTIVA:registrado=false[0m
+    [36m&lt;/p&gt;[39m
+  [36m&lt;/div&gt;[39m
+[36m&lt;/body&gt;[39m" type="TestingLibraryElementError">
+TestingLibraryElementError: Unable to find an element with the text: DEVOLUTIVA:registrado=true. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+&lt;body&gt;
+  &lt;div&gt;
+    &lt;p&gt;
+      DEVOLUTIVA:registrado=false
+    &lt;/p&gt;
+  &lt;/div&gt;
+&lt;/body&gt;
+
+Ignored nodes: comments, script, style
+&lt;body&gt;
+  &lt;div&gt;
+    &lt;p&gt;
+      DEVOLUTIVA:registrado=false
+    &lt;/p&gt;
+  &lt;/div&gt;
+&lt;/body&gt;
+ ❯ waitForWrapper ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ findByText ../../../../../../../Users/fernando/code/SistemaRecrutamento/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx:233:25
+            </failure>
+        </testcase>
+        <testcase classname="src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx" name="BigFiveQuestionnaireScreen — envio final escreve a conclusão no cache (51-18 / G2) &gt; LOCKED → cache idêntico e não invalidado" time="0.044427917">
+            <system-err>
+RadioGroup is changing from uncontrolled to controlled. Components should not switch from controlled to uncontrolled (or vice versa). Decide between using a controlled or uncontrolled value for the lifetime of the component.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx" name="RedacaoEditorScreen — só o envio que completa o conjunto escreve no cache (51-18 / G2) &gt; 1º envio NÃO toca o status; o 2º (último) escreve redacao.registrado = true e invalida" time="0.670894333">
+            <failure message="expected { …(6) } to deeply equal { …(6) }" type="AssertionError">
+AssertionError: expected { …(6) } to deeply equal { …(6) }
+
+- Expected
++ Received
+
+@@ -11,11 +11,11 @@
+      &quot;liberado&quot;: true,
+      &quot;registrado&quot;: false,
+    },
+    &quot;redacao&quot;: {
+      &quot;iniciado&quot;: true,
+-     &quot;registrado&quot;: true,
++     &quot;registrado&quot;: false,
+    },
+    &quot;sjt_caso_aberto&quot;: {
+      &quot;iniciado&quot;: true,
+      &quot;registrado&quot;: false,
+    },
+
+ ❯ esperarSoOCard src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx:151:14
+ ❯ src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx:269:5
+            </failure>
+        </testcase>
+        <testcase classname="src/features/avaliacao/components/__tests__/conclusao-cache.test.tsx" name="RedacaoEditorScreen — só o envio que completa o conjunto escreve no cache (51-18 / G2) &gt; LOCKED → cache idêntico e não invalidado" time="0.231099958">
+        </testcase>
+    </testsuite>
+</testsuites>
