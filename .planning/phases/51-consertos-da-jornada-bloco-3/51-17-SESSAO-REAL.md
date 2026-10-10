@@ -222,7 +222,7 @@ O assunto do e-mail ficou com o marcador `<confirmar na caixa>`. O corpo nomeia 
 
 ## Aceite formal — as seis fases numa só candidatura (`8e4bb7a0`)
 
-Cópia do log em `51-17-aceite.log`:
+O log `$TMPDIR/p51_17_aceite.log`, transcrito aqui (o `.gitignore` recusa `*.log`):
 ```
 FASE knockout: aceite: 13/13 conferencias OK
 FASE reaberta: aceite: 20/20 conferencias OK
