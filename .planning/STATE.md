@@ -3,7 +3,7 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 52 planned (2026-10-10): 25 planos em 15 ondas (blocos A/B/C → UAT da 52 → D); plan-checker sem blocker nem warning (4 info). Operador decidiu no plan-phase D-36..D-40 (cognitiva com confirmação de perda; ordem neutra das alternativas SJT no hub; motivo humana_triagem na migration do bloco B; RH2/RH3 af4ebf97→RH2, 66412f96→RH3; fictício/anonimizado sem ação de contato). JORN-53..63 registrados. Próximo: /gsd-execute-phase 52."
+stopped_at: "Phase 52 planned (2026-10-10): 25 planos em 15 ondas (blocos A/B/C → UAT da 52 → D); plan-checker sem blocker nem warning (4 info). Operador decidiu no plan-phase D-36..D-40 (cognitiva com confirmação de perda; ordem neutra das alternativas SJT no hub; motivo humana_triagem na migration do bloco B; nomes por papel — af4ebf97 «Recrutador (teste)», 66412f96 «Admin (teste)», emenda da D-39; fictício/anonimizado sem ação de contato) e D-41 (bloco D exige pitr_enabled=true, conferido no 52-19; hoje false — ligar PITR no painel é ação do operador antes do bloco D). JORN-53..63 registrados. Próximo: /gsd-execute-phase 52."
 last_updated: "2026-10-11T01:46:15.117Z"
 last_activity: 2026-10-10
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
@@ -63,6 +63,7 @@ adiadas do UAT e os achados do 51-17. Registro: `51-UAT.md` (G-51-OP1 + «Deferr
   é «remover depois que acabar tudo»).
 - [ ] Conferir que painéis, KPIs e exports não contaram as 8 fixtures como dado real.
 - [ ] PITR: o operador decidiu ligar; confirmar `pitr_enabled=true` pela Management API.
+  ↳ 2026-10-10: virou pré-condição do bloco D da 52 (D-41) — o 52-19 recusa sem `pitr_enabled=true`; medido hoje: `false`.
 
 ## ▶ ESTADO EM 2026-10-04 — Phases 42 e 47 concluídas; respostas do operador registradas
 
