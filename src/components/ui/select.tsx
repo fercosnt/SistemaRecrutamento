@@ -129,11 +129,12 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        // Liquid glass effect on hover/focus - enhanced
-        "transition-all duration-200 hover:bg-white/25 hover:backdrop-blur-md hover:text-white focus:text-white focus:bg-white/25 focus:backdrop-blur-md",
-        // Ensure text stays white/light - force override
-        "[&_*]:hover:text-white [&_*]:focus:text-white [&_*]:hover:!text-white [&_*]:focus:!text-white",
+        "focus:bg-[#35BFAD]/20 [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        // 52-06 (D-52-U21): realce turquesa 20% em hover/foco e o texto HERDA a cor do painel.
+        // Forçar `text-white` deixava a opção sob o cursor branco sobre branco no painel padrão
+        // (`bg-popover`); forçar texto escuro quebraria o painel azul (`bg-[#00109E]/95`). Só a
+        // herança acerta os dois fundos.
+        "transition-all duration-200 hover:bg-[#35BFAD]/20",
         className,
       )}
       {...props}

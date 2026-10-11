@@ -120,21 +120,24 @@ function groupByBloco(
  * lugar do formulário depois de um knockout no servidor (status='rejeitado'). O critério NUNCA
  * aparece — só a mensagem D-15, TRAVADA.
  *
- * 52-06 (51-17): extraído da página, sem mudar o texto, para o teste ler o cartão sozinho.
+ * 52-06 (51-17): extraído da página, sem mudar o texto, para o teste ler o cartão sozinho. As
+ * cores eram de fundo CLARO (`text-gray-900/700/500`) sobre o VIDRO — «Agradecemos…» ficava
+ * ilegível. Agora `text-white` / `text-white/80` / `text-white/70`, e o `h1` 24px (era 30px), o
+ * tamanho dos outros `h1` da página.
  */
 export function CartaoInscricaoEncerrada() {
   const navigate = useNavigate()
   return (
     <GlassCard variant="white" className="rounded-xl text-center space-y-4">
-      <h1 className="text-3xl font-semibold text-gray-900">
+      <h1 className="text-2xl font-semibold text-white">
         Inscrição recebida
       </h1>
       {/* D-15 [LOCKED] neutral message — never exposes the criterion. */}
-      <p className="text-base text-gray-700 leading-relaxed">
+      <p className="text-base text-white/80 leading-relaxed">
         Após análise dos requisitos da vaga, não seguiremos com sua
         candidatura neste momento.
       </p>
-      <p className="text-base text-gray-500">
+      <p className="text-base text-white/70">
         Agradecemos seu interesse na Beauty Smile.
       </p>
       <div className="pt-2">
@@ -559,8 +562,8 @@ export function FormularioCandidaturaPage() {
   // after a server-side knockout (status='rejeitado'), replacing the form.
   // Tone is dignified/calm (muted glass, NOT a red alarm banner). The knockout
   // criterion is NEVER rendered — only the single locked D-15 message.
-  // UI-SPEC tokens: Display 28/600 heading (text-3xl font-semibold), Body 16/400
-  // (text-base) message on a neutral/muted surface.
+  // Tokens (52-06): heading 24/600 (`text-2xl font-semibold`), Body 16/400 (`text-base`),
+  // brancos sobre o vidro — ver `CartaoInscricaoEncerrada`.
   if (submitResult === 'rejeitado') {
     return (
       <BackgroundImage
