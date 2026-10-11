@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-01-PLAN.md (2026-10-11): arnês da Wave 0 — p52_ensaio (tracer VERDE contra PROD, vistas=vacua, nada persistiu), p52_portao (68/68), p52_tipografia (16/16), p52_vitest_delta (9/9; uso normal pre-existentes=2 · alteradas=0 · novas=0 · mordida=ok); refs/gsd/52/base = 0d70ac7d. Próximo: Wave 2 da Phase 52."
-last_updated: "2026-10-11T02:57:39.000Z"
+stopped_at: "Completed 52-08-PLAN.md (2026-10-11): bloco B em arquivo, NADA aplicado — 20261011000001 (ler_devolutiva_bigfive_rh, ler_sjt_mc_rh em ordem neutra md5, ler_contexto_rejeicao_triagem_revisao) e 20261011000002 (nomes por papel: «Recrutador (teste)»/«Admin (teste)»); ensaio das duas + smoke52l VERDE 20/20, vistas=igual; p52_mutacoes 8/8 mordem, nada persistiu. Apply no 52-15, depois do review 52-14."
+last_updated: "2026-10-11T03:22:31.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 172
+  completed_plans: 173
   percent: 88
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52

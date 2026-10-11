@@ -765,7 +765,7 @@ Plans:
 - [ ] 52-05-PLAN.md — Proveniência sem «modelo modelo» (D-23, data só quando verdadeira); menu «Candidatos» aceso nos workspaces
 - [ ] 52-06-PLAN.md — Achados do 51-17: login com sessão aberta, «Meu painel», «Agradecemos» legível, `SelectItem`
 - [ ] 52-07-PLAN.md — Entrevista: notas 1–5 vazias e obrigatórias, sem jargão (D-25)
-- [ ] 52-08-PLAN.md — Migrations do bloco B (ensaio): `ler_devolutiva_bigfive_rh`, `ler_sjt_mc_rh` (ordem neutra), `ler_contexto_rejeicao_triagem_revisao`; nomes por papel do cadastro de RH (D-39, emenda); smoke por papel; mutações
+- [x] 52-08-PLAN.md — Migrations do bloco B (ensaio): `ler_devolutiva_bigfive_rh`, `ler_sjt_mc_rh` (ordem neutra), `ler_contexto_rejeicao_triagem_revisao`; nomes por papel do cadastro de RH (D-39, emenda); smoke por papel; mutações
 - [ ] 52-09-PLAN.md — EF `ler-cadastro-candidato-rh` com log redigido (D-10/D-11), contrato inteiro (contato, cadastro, disponibilidade, inscrição); serviço e hook
 - [ ] 52-11-PLAN.md — Big Five no hub (faixas da devolutiva, aviso fixo, recolhível, sem percentil) e SJT MC (situação, alternativas, escolhida)
 - [ ] 52-13-PLAN.md — Motivo e justificativa no diálogo de revisão `humana_triagem` (D-38)
