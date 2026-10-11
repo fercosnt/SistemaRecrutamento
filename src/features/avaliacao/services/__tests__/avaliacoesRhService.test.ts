@@ -5,6 +5,8 @@
  * - `lerDevolutivaBigFiveRh`: retorno válido → objeto tipado (campo extra que vier, como um número
  *   da escala, é descartado na projeção — T-52-31); `situacao` desconhecida → erro de mensagem fixa,
  *   que não ecoa o retorno; `42501` → `UNAUTHORIZED`; `P0002` → `NOT_FOUND`.
+ * - `lerSjtMcRh`: itens tipados; uma `tag`/`peso` que viesse DENTRO de uma alternativa é descartada
+ *   na projeção (o tipo não tem os campos — T-52-32, nenhum gabarito chega à tela).
  *
  * @see src/features/avaliacao/services/avaliacoesRhService.ts
  */
@@ -21,6 +23,7 @@ vi.mock('@/lib/supabase/client', () => ({
 import {
   AvaliacoesRhServiceError,
   lerDevolutivaBigFiveRh,
+  lerSjtMcRh,
 } from '../avaliacoesRhService'
 import { supabase } from '@/lib/supabase/client'
 
@@ -101,5 +104,78 @@ describe('lerDevolutivaBigFiveRh (52-11 / JORN-56)', () => {
   it('sem candidaturaId → INVALID_INPUT, sem chamar a RPC', async () => {
     await expect(lerDevolutivaBigFiveRh('')).rejects.toMatchObject({ code: 'INVALID_INPUT' })
     expect(supabase.rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('lerSjtMcRh (52-11 / JORN-57)', () => {
+  const ITEM = {
+    pergunta_id: 'p-1',
+    cenario: 'Um paciente liga irritado.',
+    alternativas: [
+      { opcao_id: 'o-3', texto: 'C', escolhida: false, tag: 'fortemente_pontua', peso: 3 },
+      { opcao_id: 'o-1', texto: 'A', escolhida: true, tag: 'pontua', peso: 2 },
+    ],
+    escolhida_tag: 'pontua',
+    escolhida_peso: 2,
+    escolhida_no_banco: true,
+  }
+
+  it('retorno válido → itens tipados; alternativas PROJETADAS sem tag/peso, na ordem do servidor', async () => {
+    responde({ situacao: 'disponivel', itens: [ITEM] })
+    const r = await lerSjtMcRh('cand-1')
+    expect(supabase.rpc).toHaveBeenCalledWith('ler_sjt_mc_rh', { p_candidatura_id: 'cand-1' })
+    expect(r).toEqual({
+      situacao: 'disponivel',
+      itens: [
+        {
+          pergunta_id: 'p-1',
+          cenario: 'Um paciente liga irritado.',
+          alternativas: [
+            { opcao_id: 'o-3', texto: 'C', escolhida: false },
+            { opcao_id: 'o-1', texto: 'A', escolhida: true },
+          ],
+          escolhida_tag: 'pontua',
+          escolhida_peso: 2,
+          escolhida_no_banco: true,
+        },
+      ],
+    })
+    for (const a of r.itens[0].alternativas) {
+      expect(Object.keys(a).sort()).toEqual(['escolhida', 'opcao_id', 'texto'])
+    }
+    expect(JSON.stringify(r.itens[0].alternativas)).not.toContain('fortemente_pontua')
+  })
+
+  it('linha sem respostas (motor antigo) → «disponivel» com itens []; sem linha → «sem_sjt_mc»', async () => {
+    responde({ situacao: 'disponivel', itens: [] })
+    await expect(lerSjtMcRh('cand-1')).resolves.toEqual({ situacao: 'disponivel', itens: [] })
+    responde({ situacao: 'sem_sjt_mc', itens: [] })
+    await expect(lerSjtMcRh('cand-1')).resolves.toEqual({ situacao: 'sem_sjt_mc', itens: [] })
+  })
+
+  it('cenário e etiqueta nulos são aceitos; formato errado → erro de mensagem fixa', async () => {
+    responde({
+      situacao: 'disponivel',
+      itens: [{ ...ITEM, pergunta_id: null, cenario: null, escolhida_tag: null, escolhida_peso: null }],
+    })
+    const r = await lerSjtMcRh('cand-1')
+    expect(r.itens[0]).toMatchObject({ pergunta_id: null, cenario: null, escolhida_tag: null, escolhida_peso: null })
+
+    responde({ situacao: 'disponivel', itens: [{ ...ITEM, escolhida_no_banco: 'sim' }] })
+    const err = await lerSjtMcRh('cand-1').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(AvaliacoesRhServiceError)
+    expect((err as Error).message).toBe('Situações em formato inesperado.')
+  })
+
+  it('situacao desconhecida → erro; 42501 → UNAUTHORIZED; P0002 → NOT_FOUND', async () => {
+    responde({ situacao: 'gabarito', itens: [] })
+    await expect(lerSjtMcRh('cand-1')).rejects.toMatchObject({ code: 'DATABASE_ERROR' })
+    responde(null, { message: 'forbidden', code: '42501' })
+    await expect(lerSjtMcRh('cand-1')).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+      message: 'Não foi possível carregar as situações.',
+    })
+    responde(null, { message: 'x', code: 'P0002' })
+    await expect(lerSjtMcRh('cand-1')).rejects.toMatchObject({ code: 'NOT_FOUND' })
   })
 })

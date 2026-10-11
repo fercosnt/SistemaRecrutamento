@@ -25,9 +25,14 @@ import '@testing-library/jest-dom'
 // 52-11: as leituras do hub (Big Five e SJT MC) vão por `avaliacoesRhService` — mockadas no
 // mesmo idioma lazy do `getRespostaMock`, com reset e padrão num `beforeEach` próprio.
 const lerDevolutivaMock = vi.fn()
+const lerSjtMcMock = vi.fn()
 vi.mock('../../services/avaliacoesRhService', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../services/avaliacoesRhService')>()
-  return { ...actual, lerDevolutivaBigFiveRh: (...a: unknown[]) => lerDevolutivaMock(...a) }
+  return {
+    ...actual,
+    lerDevolutivaBigFiveRh: (...a: unknown[]) => lerDevolutivaMock(...a),
+    lerSjtMcRh: (...a: unknown[]) => lerSjtMcMock(...a),
+  }
 })
 beforeEach(() => {
   lerDevolutivaMock.mockReset()
@@ -37,6 +42,8 @@ beforeEach(() => {
     disclaimer_emocional: null,
     disclaimer_lgpd_crp: null,
   })
+  lerSjtMcMock.mockReset()
+  lerSjtMcMock.mockResolvedValue({ situacao: 'disponivel', itens: [] })
 })
 
 // Sem `.env.local` (worktree da prova de mordida, CI) o client real lança ao carregar.
@@ -272,5 +279,52 @@ describe('ScorecardAvaliacao — o motivo do sinal, com qualquer status (49-41 /
     const tokens = rotulo.className.split(/\s+/)
     expect(tokens.filter((t) => /^(bg|text|border)-(red|destructive)/.test(t))).toEqual([])
     expect(screen.getByText('17')).toBeInTheDocument()
+  })
+})
+
+// ── Phase 52 / plano 52-11 — SJT de múltipla escolha no hub (JORN-57, D-21, D-37) ───────────
+//
+// Antes, o card listava «Item N · <código cru da etiqueta> · peso». Agora mostra cada situação
+// com TODAS as alternativas em ordem neutra e a escolhida destacada — a etiqueta, em pt-BR, SÓ
+// nela. As alternativas abaixo carregam etiquetas distintas (cast, como se a rede as trouxesse):
+// o DOM tem de ter exatamente UMA etiqueta.
+describe('ScorecardAvaliacao — SJT MC: exatamente uma etiqueta, nenhum código cru (52-11 / D-21)', () => {
+  const MC_COM_RESPOSTA = {
+    ...MC_ROW,
+    metadata: {
+      respostas: [{ pergunta_id: 'p-1', opcao_id: 'o-2', tag: 'fortemente_pontua', peso: 3 }],
+    },
+  } as unknown as ScoreRow
+
+  it('linha sjt/mc: a escolhida com «Pontua forte», as outras sem etiqueta, e nenhum `fortemente_pontua` cru', async () => {
+    lerSjtMcMock.mockResolvedValue({
+      situacao: 'disponivel',
+      itens: [
+        {
+          pergunta_id: 'p-1',
+          cenario: 'Cenário da situação.',
+          alternativas: [
+            { opcao_id: 'o-1', texto: 'Primeira', escolhida: false, tag: 'atencao' },
+            { opcao_id: 'o-2', texto: 'Segunda', escolhida: true, tag: 'fortemente_pontua' },
+            { opcao_id: 'o-3', texto: 'Terceira', escolhida: false, tag: 'neutro' },
+            { opcao_id: 'o-4', texto: 'Quarta', escolhida: false, tag: 'knockout' },
+          ],
+          escolhida_tag: 'fortemente_pontua',
+          escolhida_peso: 3,
+          escolhida_no_banco: true,
+        },
+      ],
+    })
+    mockRows([MC_COM_RESPOSTA])
+    const { container } = render(<ScorecardAvaliacao candidaturaId="cand-1" />)
+    expect(await screen.findByText('Situação 1')).toBeInTheDocument()
+    expect(lerSjtMcMock).toHaveBeenCalledWith('cand-1')
+    expect(screen.getByText('Múltipla escolha')).toBeInTheDocument()
+    expect(screen.getAllByTestId('sjt-mc-etiqueta')).toHaveLength(1)
+    expect(screen.getByTestId('sjt-mc-etiqueta')).toHaveTextContent('Pontua forte')
+    expect(screen.getAllByText('Escolhida')).toHaveLength(1)
+    for (const rotulo of ['Atenção', 'Neutro', 'Eliminatória']) expect(screen.queryByText(rotulo)).toBeNull()
+    expect(container.textContent).not.toContain('fortemente_pontua')
+    expect(screen.queryByText(/^Item \d/)).toBeNull()
   })
 })
