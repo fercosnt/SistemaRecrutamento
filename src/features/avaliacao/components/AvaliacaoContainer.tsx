@@ -25,7 +25,7 @@
  */
 import { useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, queryOptions } from '@tanstack/react-query'
 import {
   Circle,
   CircleDot,
@@ -176,6 +176,38 @@ function statusInfo(status: string) {
 }
 
 /**
+ * 52-04 (JORN-59 · D-27) — A regra «todas as avaliações concluídas», UMA só: é o `allDone` da
+ * lista (o estado «Tudo concluído») e é o que o painel do candidato lê, pelo hook
+ * `useIdsAvaliacoesConcluidas`, para dizer «Avaliações concluídas — aguardando a equipe». Lista
+ * vazia NÃO conta como concluída (vaga sem avaliação nenhuma não está «esperando a equipe» por
+ * causa delas). Pura: lê os cards já derivados por `deriveCards`, nunca o banco.
+ */
+export function avaliacoesConcluidas(cards: readonly TesteCard[]): boolean {
+  return cards.length > 0 && cards.every((c) => statusInfo(c.status).label === 'Concluído')
+}
+
+/**
+ * 52-04 — As DUAS leituras do container (contexto e status), com as chaves e as funções de
+ * serviço de sempre. Exportadas para que o painel do candidato leia pelas MESMAS entradas de
+ * cache: o que `marcarInstrumentoRegistrado` escreve e invalida na chave de status vale para os
+ * dois lados sem código novo. A chave de status é literal idêntica à de `avaliacaoStatusKey` (o
+ * card do Raven e o cache de conclusão); importá-la daqui quebraria os testes que mockam aquele
+ * módulo só com o hook. Só leitura (D-27): nenhuma delas escreve.
+ */
+export const avaliacaoQueryOptions = {
+  contexto: (candidaturaId: string) =>
+    queryOptions({
+      queryKey: ['avaliacao', 'context', candidaturaId] as const,
+      queryFn: () => getAvaliacaoContext(candidaturaId),
+    }),
+  status: (candidaturaId: string) =>
+    queryOptions({
+      queryKey: ['avaliacao', 'status', candidaturaId] as const,
+      queryFn: () => getAvaliacaoStatus(candidaturaId),
+    }),
+}
+
+/**
  * Presentational shell — pure render, no router/query hooks. Reused by both
  * modes. `onLogout`/`onOpenTeste`/`onBackToPanel` are injected so the bare test
  * mount needs no providers.
@@ -196,8 +228,7 @@ function AvaliacaoShell({
   /** JORN-44 / D-26: «Ir ao painel» (header, every list state + «tudo concluído»). */
   onBackToPanel?: () => void
 }) {
-  const pendentes = cards.filter((c) => statusInfo(c.status).label !== 'Concluído')
-  const allDone = cards.length > 0 && pendentes.length === 0
+  const allDone = avaliacoesConcluidas(cards)
 
   return (
     <div className="relative min-h-screen">
@@ -407,7 +438,7 @@ function deriveCardState(
  * FUNIL-12: EVERY card's state is derived from the neutral `get_avaliacao_status`
  * booleans (`status`), never the phantom per-entry vaga-config status field.
  */
-function deriveCards(
+export function deriveCards(
   ctx: AvaliacaoContext | undefined,
   status: AvaliacaoStatus | undefined,
 ): TesteCard[] {
@@ -472,8 +503,7 @@ function ConnectedAvaliacaoContainer() {
   const { logout } = useAuthStore()
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['avaliacao', 'context', candidaturaId],
-    queryFn: () => getAvaliacaoContext(candidaturaId as string),
+    ...avaliacaoQueryOptions.contexto(candidaturaId as string),
     enabled: Boolean(candidaturaId),
   })
 
@@ -481,8 +511,7 @@ function ConnectedAvaliacaoContainer() {
   // rows (get_avaliacao_status). This is the source of truth for card completion state
   // (replaces the phantom per-entry vaga-config status field); it never carries a raw score.
   const { data: statusData } = useQuery({
-    queryKey: ['avaliacao', 'status', candidaturaId],
-    queryFn: () => getAvaliacaoStatus(candidaturaId as string),
+    ...avaliacaoQueryOptions.status(candidaturaId as string),
     enabled: Boolean(candidaturaId),
   })
 

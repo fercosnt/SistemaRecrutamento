@@ -83,6 +83,14 @@ vi.mock('@/features/avaliacao-cognitiva/hooks/useStatusRavenCandidato', () => ({
   useStatusRavenCandidato: () => ({ data: mocks.statusRaven, error: null }),
 }))
 
+// 52-04 (JORN-59 · D-27) — o painel passou a chamar `useIdsAvaliacoesConcluidas`, que possui um
+// `useQueries`. Mockado pelo MESMO motivo e no MESMO idioma dos hooks acima: o mock é do HOOK,
+// nunca do componente. `Set` vazio ⇒ nenhuma candidatura «concluída» ⇒ todo cartão segue o
+// caminho de hoje (o estado novo é provado no `DashboardCandidatoPage.concluidas.test.tsx`).
+vi.mock('@/features/avaliacao/hooks/useIdsAvaliacoesConcluidas', () => ({
+  useIdsAvaliacoesConcluidas: () => new Set<string>(),
+}))
+
 import { DashboardCandidatoPage } from '../DashboardCandidatoPage'
 
 function renderDashboard() {

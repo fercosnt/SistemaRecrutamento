@@ -16,6 +16,27 @@ import { PrazoEstimadoLinha } from '@/features/timeline/components';
 import { RetirarCandidaturaAcao } from '@/features/vagas/components/RetirarCandidaturaAcao';
 import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada';
 import { formatDataLimiteReabertura } from '@/lib/datetime/formatDataHoraSP';
+import { useIdsAvaliacoesConcluidas } from '@/features/avaliacao/hooks/useIdsAvaliacoesConcluidas';
+
+/**
+ * 52-04 (JORN-59 · D-27 · D-52-U16) — o que o painel diz quando a candidatura em avaliação
+ * assíncrona tem TODAS as avaliações concluídas. Nada muda no banco: o estado chega às linhas
+ * herdadas pelos DADOS que elas já leem — a frase vai ao span neutro herdado do «Próximo passo»
+ * por `stepCTA` com `destino: null` (sem rota ⇒ sem botão), e o selo herdado recebe
+ * `SELO_AGUARDANDO_EQUIPE` por `statusInfo`. Nenhum markup é copiado.
+ */
+export const COPY_PAINEL_AVALIACOES = {
+  concluidas: 'Avaliações concluídas — aguardando a equipe',
+  selo: 'Aguardando a equipe',
+} as const;
+
+/** O tratamento neutro do selo (o mesmo de «Finalizado»): esperar a equipe não é alarme nem vitória. */
+const SELO_AGUARDANDO_EQUIPE = {
+  icon: Clock,
+  color: 'text-gray-300',
+  bg: 'bg-gray-500/20',
+  label: COPY_PAINEL_AVALIACOES.selo,
+};
 
 /**
  * 48-14 (JORN-19 · D-01/D-10) — a linha de prazo de uma candidatura REABERTA, ou null.
@@ -64,6 +85,10 @@ export function DashboardCandidatoPage() {
   // alimenta a linha de estimativa de cada card de espera; loading/erro ⇒ Map vazio ⇒
   // rotuloDeEspera devolve null ⇒ nenhuma linha (enhancement silencioso).
   const { lookup: slaLookup } = useSlaEtapas();
+
+  // 52-04 (D-27) — ids das candidaturas com todas as avaliações concluídas, pela regra e pelas
+  // chaves do AvaliacaoContainer. Carregando/erro ⇒ fora do conjunto ⇒ o CTA de hoje (D-52-U16).
+  const idsAvaliacoesConcluidas = useIdsAvaliacoesConcluidas(candidaturasData?.data);
 
   /**
    * Handler para navegar para detalhes da vaga
@@ -333,10 +358,13 @@ export function DashboardCandidatoPage() {
             ) : (
               <div className="space-y-4">
                 {candidaturasData.data.map((candidatura) => {
-                  const statusInfo = getStatusInfo(candidatura.status);
+                  // 52-04 (D-27) — todas as avaliações concluídas: o selo herdado e o span
+                  // neutro herdado recebem o estado novo pelos dados; o banco não muda.
+                  const concluidas = idsAvaliacoesConcluidas.has(candidatura.id);
+                  const statusInfo = concluidas ? SELO_AGUARDANDO_EQUIPE : getStatusInfo(candidatura.status);
                   const StatusIcon = statusInfo.icon;
                   // Phase 17 / D-09 — funnel step-CTA (drift-guarded) + D-11 LGPD card.
-                  const stepCTA = getStepCTA(candidatura);
+                  const stepCTA = concluidas ? { label: COPY_PAINEL_AVALIACOES.concluidas, destino: null } : getStepCTA(candidatura);
                   const mostrarLGPD = hasDecisaoFinal(candidatura);
                   // Phase 35 / AGEND-04 — for the two entrevista etapas, the "Próximo
                   // passo" footer (a dead no-op: funilNavMap.rotaCandidato returns null)
@@ -451,7 +479,7 @@ export function DashboardCandidatoPage() {
                       {candidaturaEncerrada(candidatura.etapa_atual, candidatura.status) ? null : ehEntrevista ? (
                         <AgendamentoCandidatoCard candidaturaId={candidatura.id} />
                       ) : (
-                        <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div data-testid="painel-proximo-passo" className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                           <span className="text-xs uppercase tracking-wide text-white/60">
                             Próximo passo
                           </span>
