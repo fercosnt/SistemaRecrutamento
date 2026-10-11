@@ -26,6 +26,17 @@
  *                smoke. A função é reescrita como `CREATE OR REPLACE` com assinatura e RETURNS
  *                idênticos (vale com a migration prefixada e contra o objeto vivo).
  *
+ *     ENTRADA de RECUSA (52-17, B4 — o único caso em que a mordida está no PRE da migration, não
+ *     num smoke): `{ id, desc, smoke, recusa, requer, migracao: { versao, transformar } }`, sem
+ *     `letra` nem `sql`.
+ *       migracao.transformar(texto) devolve o texto da migration `versao` com a troca LITERAL
+ *                (`trocar`, alvo único); o texto mutado vai a um arquivo temporário que SUBSTITUI
+ *                a migration na lista prefixada SÓ nesta rodada. A versão tem de estar prefixada
+ *                (fora do ledger), senão erro do harness — mutar o texto de uma migration que não
+ *                roda não é teste.
+ *       recusa   texto LITERAL que a saída tem de conter. Morde sse não chegou ao sentinela, NENHUM
+ *                `<X> FAIL (…)` saiu (a recusa é do PRE, antes de qualquer smoke) e o texto está lá.
+ *
  * (2) TABELA `SMOKES`: `{ prefixo, par }` — o par `<k>=pass/esperado` que o sentinela reporta.
  *
  * (3) VEREDITO: a reprovação é a PRIMEIRA ocorrência de `<X> FAIL (<rótulo>)[: [<rótulos>]]`
@@ -56,15 +67,30 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const E = require('./p52_ensaio.cjs');
 
 const SMOKES = {
   'supabase/tests/p52_leituras_rh_smoke.sql': { prefixo: 'P52L', par: '52l' },
+  'supabase/tests/p52_banco_sjt_smoke.sql': { prefixo: 'P52B', par: '52b' },
 };
 
 /* Baseline de persistência; null até ser lida. */
 let antes = null;
+
+/* Arquivo temporário da migration mutada de uma entrada de RECUSA (só durante a rodada dela). */
+let tmpMutacao = null;
+function apagarTmpMutacao() {
+  if (!tmpMutacao) return;
+  try {
+    fs.unlinkSync(tmpMutacao);
+  } catch {
+    /* já apagado */
+  }
+  tmpMutacao = null;
+}
 
 function conferirPersistencia() {
   const depois = E.capturar();
@@ -81,6 +107,7 @@ function conferirPersistencia() {
 
 /* TODA saída passa por aqui. Depois da baseline, mede a persistência antes de sair. */
 function sair(msg, codigo = 1) {
+  apagarTmpMutacao();
   let c = codigo;
   if (antes) {
     try {
@@ -135,6 +162,52 @@ const HELPER =
   "  IF v_role = 'rh' AND NOT public.is_active_rh_user() THEN\n" +
   "    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';\n" +
   '  END IF;\n';
+
+// ── 52-17: banco SJT v2 (migration 20261011000003, GERADA — o texto vem do disco) ───
+// Toda mutação abaixo lê o alvo NESTA transação (GUCs locais que o `DO $pre$` da migration grava,
+// ou o próprio texto da migration): nenhum uuid literal, nenhuma contagem fixa. Sem alvo, o bloco
+// levanta `MUTACAO Bn SEM ALVO` — sai como «nao morde», nunca como mordida.
+const V03 = '20261011000003';
+const S52B = 'supabase/tests/p52_banco_sjt_smoke.sql';
+const VIVO_PONTUAR = 'scripts/geradores/pontuar_sjt_vivo.plpgsql';
+
+/* B4: o `v_mant_hash` do `DO $pre$`, com o PRIMEIRO hash de caso mantido trocado por um sha256 que
+ * não é de nenhum item. A troca é feita na LINHA da declaração (o mesmo hash também está em
+ * `v_hashes`, no mesmo bloco) e a linha tem de ocorrer uma vez só no arquivo. */
+const B4_HASH_FALSO = crypto.createHash('sha256').update('p52-17 B4: caso mantido trocado no PRE').digest('hex');
+function b4Alvo(texto) {
+  const pre = extrair(texto, 'DO $pre$\n', '\n$pre$;', 'B4 ($pre$)');
+  const linha = (rotulo) => {
+    const ls = pre.split('\n').filter((l) => l.startsWith(`  ${rotulo} text[] := ARRAY[`));
+    if (ls.length !== 1) throw new Error(`ANCORA AUSENTE/AMBIGUA: B4 (declaracao ${rotulo.trim()} ocorre ${ls.length} vez(es) no $pre$)`);
+    return ls[0];
+  };
+  const lHash = linha('v_mant_hash ');
+  const lCargo = linha('v_mant_cargo');
+  const hash = (lHash.match(/'([0-9a-f]{64})'/) || [])[1];
+  const cargo = (lCargo.match(/'([a-z0-9-]+)'/) || [])[1];
+  if (!hash || !cargo) throw new Error('ANCORA AUSENTE/AMBIGUA: B4 (sem caso mantido no $pre$ — com caso_aberto_marketing: versao_nova, B4 nao tem alvo e sai da lista)');
+  return { lHash, hash, cargo };
+}
+function b4Transformar(texto) {
+  const { lHash, hash } = b4Alvo(texto);
+  const nova = trocar(lHash, `'${hash}'`, `'${B4_HASH_FALSO}'`, 'B4 (hash na linha)');
+  return trocar(texto, lHash, nova, 'B4 (linha no arquivo)');
+}
+
+/* B5: `pontuar_sjt` recriado com o corpo VELHO — o cabeçalho da própria migration (assinatura,
+ * RETURNS, propriedades) + o `prosrc` guardado em `scripts/geradores/pontuar_sjt_vivo.plpgsql`, cujo
+ * md5 tem de ser o `pontuar_sjt_prosrc_md5_antes` do cabeçalho da migration (o que o PRE confere). */
+function b5Sql() {
+  const t = mig(V03);
+  const antes = (t.match(/^-- pontuar_sjt_prosrc_md5_antes: ([0-9a-f]{32})$/m) || [])[1];
+  if (!antes) throw new Error('ANCORA AUSENTE/AMBIGUA: B5 (cabecalho sem pontuar_sjt_prosrc_md5_antes)');
+  const vivo = fs.readFileSync(path.join(E.ROOT, VIVO_PONTUAR), 'utf8');
+  const md5 = crypto.createHash('md5').update(vivo, 'utf8').digest('hex');
+  if (md5 !== antes) throw new Error(`ANCORA AUSENTE/AMBIGUA: B5 (${VIVO_PONTUAR} md5 ${md5} != pontuar_sjt_prosrc_md5_antes ${antes})`);
+  if (vivo.includes('$function$')) throw new Error('ANCORA AUSENTE/AMBIGUA: B5 (o corpo velho contem $function$)');
+  return extrair(t, 'CREATE OR REPLACE FUNCTION public.pontuar_sjt(', 'AS $function$', 'B5') + vivo + '$function$;';
+}
 
 const MUTACOES = [
   {
@@ -221,6 +294,110 @@ const MUTACOES = [
     requer: [V01],
     sql: () => trocar(fnSjt(), ' AND c.deleted_at IS NULL AND c.is_rascunho = false', '', 'L8'),
   },
+  {
+    // T-52-52: item antigo e item novo do mesmo cargo ativos juntos (a vaga sorteia do cargo).
+    id: 'B1',
+    desc: 'depois da migration, um item da baseline da retirada volta a active',
+    smoke: S52B,
+    letra: 'a',
+    requer: [V03],
+    sql:
+      'DO $b1$\n' +
+      'DECLARE v_id uuid;\n' +
+      'BEGIN\n' +
+      '  SELECT p.id INTO v_id FROM public.perguntas p\n' +
+      "   WHERE p.id::text = ANY (string_to_array(nullif(current_setting('p52.banco_retirar_ids', true), ''), ','))\n" +
+      "     AND p.status = 'retired' ORDER BY p.id LIMIT 1;\n" +
+      "  IF v_id IS NULL THEN RAISE EXCEPTION 'MUTACAO B1 SEM ALVO: nenhum item da baseline da retirada esta retired nesta transacao'; END IF;\n" +
+      "  UPDATE public.perguntas SET status = 'active' WHERE id = v_id;\n" +
+      'END\n' +
+      '$b1$;',
+  },
+  {
+    // D-37: a `ordem` volta a ser o gabarito (escada pela etiqueta) num cargo do texto.
+    id: 'B2',
+    desc: 'ordem das alternativas reescrita em escada pela etiqueta no primeiro cargo do texto',
+    smoke: S52B,
+    letra: 'g',
+    requer: [V03],
+    sql:
+      'DO $b2$\n' +
+      "DECLARE v_cargo text := split_part(coalesce(current_setting('p52.banco_cargos', true), ''), ',', 1); v_n bigint;\n" +
+      'BEGIN\n' +
+      "  IF v_cargo = '' THEN RAISE EXCEPTION 'MUTACAO B2 SEM ALVO: p52.banco_cargos vazio'; END IF;\n" +
+      "  UPDATE public.perguntas_opcao_sjt o SET ordem = CASE o.tag WHEN 'fortemente_pontua' THEN 1 WHEN 'pontua' THEN 2 WHEN 'neutro' THEN 3 WHEN 'atencao' THEN 4 END\n" +
+      '    FROM public.perguntas p\n' +
+      "   WHERE p.id = o.pergunta_id AND p.tipo = 'sjt' AND p.cargo = v_cargo AND p.status = 'active' AND p.formato = 'mc';\n" +
+      '  GET DIAGNOSTICS v_n = ROW_COUNT;\n' +
+      "  IF v_n = 0 THEN RAISE EXCEPTION 'MUTACAO B2 SEM ALVO: nenhuma alternativa mc ativa no cargo %', v_cargo; END IF;\n" +
+      'END\n' +
+      '$b2$;',
+  },
+  {
+    // D-34/(f): etiqueta e peso descasados — o peso de pontua e o de neutro trocados num item do texto.
+    id: 'B3',
+    desc: 'pesos de pontua e neutro trocados entre si num mc ativo do texto',
+    smoke: S52B,
+    letra: 'f',
+    requer: [V03],
+    sql:
+      'DO $b3$\n' +
+      'DECLARE v_pid uuid; v_n bigint;\n' +
+      'BEGIN\n' +
+      '  SELECT p.id INTO v_pid FROM public.perguntas p\n' +
+      "   WHERE p.tipo = 'sjt' AND p.status = 'active' AND p.formato = 'mc'\n" +
+      "     AND p.content_hash = ANY (string_to_array(nullif(current_setting('p52.banco_hashes', true), ''), ','))\n" +
+      '   ORDER BY p.id LIMIT 1;\n' +
+      "  IF v_pid IS NULL THEN RAISE EXCEPTION 'MUTACAO B3 SEM ALVO: nenhum mc ativo com hash do texto'; END IF;\n" +
+      '  UPDATE public.perguntas_opcao_sjt o SET peso = x.peso\n' +
+      '    FROM public.perguntas_opcao_sjt x\n' +
+      "   WHERE o.pergunta_id = v_pid AND x.pergunta_id = v_pid AND o.tag IN ('pontua', 'neutro') AND x.tag IN ('pontua', 'neutro') AND x.tag <> o.tag AND x.peso <> o.peso;\n" +
+      '  GET DIAGNOSTICS v_n = ROW_COUNT;\n' +
+      "  IF v_n <> 2 THEN RAISE EXCEPTION 'MUTACAO B3 SEM ALVO: a troca alcancou % alternativa(s), esperado o par pontua/neutro', v_n; END IF;\n" +
+      'END\n' +
+      '$b3$;',
+  },
+  {
+    // D-35: o caso aberto que FICA tem de existir no ar com o hash do texto — o PRE recusa antes de mudar nada.
+    // Só existe com `caso_aberto_marketing: ficam` (52-17-TEXTO-APROVADO.md); sem caso mantido, `b4Alvo` lança.
+    id: 'B4',
+    desc: 'hash do primeiro caso mantido trocado, no v_mant_hash do $pre$, por um sha256 que nao e de item nenhum',
+    smoke: S52B,
+    // O texto inteiro da recusa: o cargo do alvo, o hash FALSO e «0 item(ns)» — a recusa é a da troca, não outra.
+    recusa: () =>
+      `P52B PRE-PORTAO: caso mantido ausente do ar — cargo ${b4Alvo(mig(V03)).cargo}, content_hash ${B4_HASH_FALSO}: 0 item(ns) ativo(s) com esse hash (esperado 1)`,
+    requer: [V03],
+    migracao: { versao: V03, transformar: b4Transformar },
+  },
+  {
+    // WR-02 do 52-REVIEW-PORTAO-2: o corpo VELHO volta — a resposta sem alternativa é pontuada em silêncio.
+    id: 'B5',
+    desc: `pontuar_sjt recriado com o corpo velho (${VIVO_PONTUAR}) depois da migration`,
+    smoke: S52B,
+    letra: 'n',
+    requer: [V03],
+    sql: b5Sql,
+  },
+  {
+    // WR-01 do 52-REVIEW-PORTAO-2: o mapa velho→novo perde uma linha — o desfazer não devolveria aquela alternativa.
+    id: 'B6',
+    desc: 'uma linha do mapa supabase_migrations.p52_remap_opcao_sjt apagada depois da migration',
+    smoke: S52B,
+    letra: 'm',
+    requer: [V03],
+    sql:
+      'DO $b6$\n' +
+      'DECLARE v_n bigint;\n' +
+      'BEGIN\n' +
+      '  DELETE FROM supabase_migrations.p52_remap_opcao_sjt m\n' +
+      "   WHERE m.versao = '" + V03 + "'\n" +
+      '     AND m.opcao_linha_id = (SELECT x.opcao_linha_id FROM supabase_migrations.p52_remap_opcao_sjt x\n' +
+      "                              WHERE x.versao = '" + V03 + "' ORDER BY x.opcao_linha_id LIMIT 1);\n" +
+      '  GET DIAGNOSTICS v_n = ROW_COUNT;\n' +
+      "  IF v_n <> 1 THEN RAISE EXCEPTION 'MUTACAO B6 SEM ALVO: o mapa da versao " + V03 + " esta vazio nesta transacao'; END IF;\n" +
+      'END\n' +
+      '$b6$;',
+  },
 ];
 
 /* Primeira reprovação da saída, com QUALQUER prefixo. */
@@ -252,6 +429,15 @@ function julgarMutacao(m, r) {
   if (r.serializacao) return { tipo: 'inconclusivo', motivo: 'SERIALIZACAO (40001)', f: null };
   const S = linhaSmoke(m.smoke);
   const f = falha(r.out);
+  if (m.recusa !== undefined) {
+    // Entrada de RECUSA (contrato (1)): `m.recusa` já resolvido para texto pelo chamador.
+    let motivoR = null;
+    if (typeof m.recusa !== 'string' || !m.recusa) motivoR = 'recusa esperada vazia ou nao resolvida — erro do harness';
+    else if (r.sentinela) motivoR = `chegou ao sentinela (smokes=[${r.smokes}]) — a migration mutada nao foi recusada`;
+    else if (f) motivoR = `reprovou em ${f.prefixo} FAIL (${f.letra}), nao no PRE — ${f.texto.slice(0, 200)}`;
+    else if (!String(r.out).includes(m.recusa)) motivoR = `sem a recusa esperada na saida — ${E.primeiraFalha(r.out).slice(0, 300)}`;
+    return { tipo: motivoR ? 'nao_morde' : 'morde', motivo: motivoR, f: null };
+  }
   const exigidos = m.rotulos || [];
   let motivo = null;
   if (r.sentinela) motivo = `chegou ao sentinela (smokes=[${r.smokes}])`;
@@ -295,7 +481,16 @@ function validarCarga() {
     if (ids.has(m.id)) throw new Error(`ERRO DO HARNESS: id repetido ${m.id}`);
     ids.add(m.id);
     if (!SMOKES[m.smoke]) throw new Error(`ERRO DO HARNESS: ${m.id} aponta smoke sem linha em SMOKES: ${m.smoke}`);
-    if (!m.letra || !Array.isArray(m.requer) || !m.requer.length || !m.sql) throw new Error(`ERRO DO HARNESS: ${m.id} sem letra/requer/sql`);
+    if (!Array.isArray(m.requer) || !m.requer.length) throw new Error(`ERRO DO HARNESS: ${m.id} sem requer`);
+    if (m.recusa !== undefined) {
+      // Entrada de RECUSA: migracao + recusa, sem letra nem sql (contrato (1)).
+      if (m.letra || m.sql) throw new Error(`ERRO DO HARNESS: ${m.id} de recusa nao leva letra nem sql`);
+      if (!m.migracao || typeof m.migracao.transformar !== 'function' || !m.requer.includes(m.migracao.versao)) {
+        throw new Error(`ERRO DO HARNESS: ${m.id} de recusa sem migracao.transformar, ou migracao.versao fora de requer`);
+      }
+    } else if (!m.letra || !m.sql || m.migracao) {
+      throw new Error(`ERRO DO HARNESS: ${m.id} sem letra/sql (ou com migracao sem recusa)`);
+    }
     for (const v of m.requer) {
       if (!E.MIGS.some((x) => E.versao(x) === v)) throw new Error(`ERRO DO HARNESS: ${m.id} requer ${v}, que nao esta em MIGS do p52_ensaio`);
     }
@@ -351,7 +546,18 @@ function principal() {
     // Cada `sql` é montado AGORA, antes da baseline: alvo de troca ausente/ambíguo para tudo
     // sem enviar nada (mutação que não se aplica não é teste).
     for (const m of alvo) if (typeof m.sql === 'function') m.sql();
+    // Idem para as entradas de RECUSA: a troca no texto da migration e o texto da recusa.
+    for (const m of alvo) {
+      if (m.recusa === undefined) continue;
+      m.migracao.transformar(mig(m.migracao.versao));
+      if (typeof m.recusa === 'function') m.recusa();
+    }
     plano = planejarPrefixo(alvo, E.lerEstado().ledger, posApply);
+    for (const m of alvo) {
+      if (m.migracao && !plano.prefixadas.some((x) => E.versao(x) === m.migracao.versao)) {
+        throw new Error(`ERRO DO HARNESS: ${m.id} muta o texto da migration ${m.migracao.versao}, que nao e prefixada nesta execucao (ja no ledger, ou --pos-apply) — mutar migration que nao roda nao e teste`);
+      }
+    }
   } catch (e) {
     sair(e.message);
   }
@@ -389,14 +595,25 @@ function principal() {
     // ── MUTAÇÕES deste smoke ──────────────────────────────────────────────
     for (const m of alvo.filter((x) => x.smoke === smoke)) {
       contadas += 1;
-      const sql = typeof m.sql === 'function' ? m.sql() : m.sql;
+      const sql = typeof m.sql === 'function' ? m.sql() : m.sql || null;
+      const recusa = typeof m.recusa === 'function' ? m.recusa() : m.recusa;
+      let prefixadas = plano.prefixadas;
       let r;
       try {
-        r = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [smoke], mutacao: sql, rotuloMutacao: `MUTACAO ${m.id}` }), m.id);
+        if (m.migracao) {
+          // A migration mutada vai a um arquivo temporário (nome começa pela versão) que a substitui SÓ nesta rodada.
+          const original = plano.prefixadas.find((x) => E.versao(x) === m.migracao.versao);
+          tmpMutacao = path.join(os.tmpdir(), `${m.migracao.versao}_p52_mutacao_${m.id}_${process.pid}.sql`);
+          fs.writeFileSync(tmpMutacao, m.migracao.transformar(fs.readFileSync(path.join(E.ROOT, original), 'utf8')), 'utf8');
+          prefixadas = plano.prefixadas.map((x) => (x === original ? tmpMutacao : x));
+        }
+        r = rodarOuSair(E.compor({ prefixadas, arquivos: [smoke], mutacao: sql, rotuloMutacao: `MUTACAO ${m.id}` }), m.id);
       } catch (e) {
         sair(`ERRO DO HARNESS: ${m.id}: ${e.message}`);
+      } finally {
+        apagarTmpMutacao();
       }
-      const v = julgarMutacao(m, r);
+      const v = julgarMutacao(recusa === undefined ? m : { ...m, recusa }, r);
       if (v.tipo === 'inconclusivo') sair(`INCONCLUSIVO: ${m.id} (${r.ms} ms) — ${v.motivo}; nada concluido sobre o portao`, 3);
       if (v.motivo) {
         console.log(`NAO MORDE: ${m.id} (${m.desc}) — ${v.motivo} (${r.ms} ms)`);
@@ -406,8 +623,12 @@ function principal() {
       } else {
         mordem += 1;
         seguidasSemMorder = 0;
-        const lst = v.f.rotulos.length ? ` [${v.f.rotulos.join(',')}]` : '';
-        console.log(`${m.id} morde: ${m.desc} -> ${S.prefixo} FAIL (${v.f.letra})${lst} (${r.ms} ms)`);
+        if (recusa !== undefined) {
+          console.log(`${m.id} morde: ${m.desc} -> ${recusa} (${r.ms} ms)`);
+        } else {
+          const lst = v.f.rotulos.length ? ` [${v.f.rotulos.join(',')}]` : '';
+          console.log(`${m.id} morde: ${m.desc} -> ${S.prefixo} FAIL (${v.f.letra})${lst} (${r.ms} ms)`);
+        }
       }
     }
   }
