@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-03-PLAN.md (2026-10-11): Raven na shell da marca (RavenShell: BackgroundImage gradient + overlay 15%, max-w-4xl, em todos os estados) com saida «Ir ao painel» -> /candidato/dashboard (SairDaProvaButton; confirma com resposta enviada OU escolha atual, T-52-06); COPY.subtitulo e COPY.semVolta em todo item; grade com classes inteiras (prova de FONTE: o DOM nao distingue o defeito do JIT); matriz/alternativas em ladrilho branco; CTA bg-[#35BFAD]; h1 24/600, eyebrow 14/600; RED_EVIDENCE_OK (JUnit) nos 2 alvos; vitest 211/211 nos escopos, suite 2934/2936 (2 reds baseline promessasComExecutor), tipografia OK (144 linhas), guarda de rotulos mordeu e voltou a verde, tsc 89; JORN-60 segue aberto (52-14/52-15); sem push."
-last_updated: "2026-10-11T05:20:00.000Z"
+stopped_at: "Completed 52-23-PLAN.md (2026-10-11): contato no cabecalho do hub (ContatoCandidatoHeader fora das abas, lido pelo useCadastroCandidatoRh do 52-09): «Enviar e-mail» com mailto validado (regex sem ?/&/#, assunto da vaga codificado) e «Chamar no WhatsApp» (wa.me/55 com mensagem pronta, noopener noreferrer; numero invalido vira texto + frase da Invariante 7); contatoUtilizavel derruba @invalido.local em qualquer caixa; skeleton, erro com «Recarregar contato», «Vaga: {titulo}»; 3 renders de privacidade sem mailto/wa.me/mensagem; RED_EVIDENCE_OK (JUnit) nos 3 alvos; mutacoes mordem; vitest hub+guardas 280/280, suite 2991/2993 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89; nada publicado (52-15); sem push."
+last_updated: "2026-10-11T05:31:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 183
-  percent: 93
+  completed_plans: 184
+  percent: 94
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."

@@ -773,7 +773,7 @@ Plans:
 
 **Wave 3**
 - [x] 52-03-PLAN.md — Raven na shell da marca, instruções visíveis, «Ir ao painel» com confirmação
-- [ ] 52-23-PLAN.md — Contato no cabeçalho do hub: «Enviar e-mail» e «Chamar no WhatsApp» (D-12..D-16)
+- [x] 52-23-PLAN.md — Contato no cabeçalho do hub: «Enviar e-mail» e «Chamar no WhatsApp» (D-12..D-16)
 
 **Wave 4**
 - [ ] 52-10-PLAN.md — Hub em quatro abas (`?aba=`); Dados do cadastro + Endereço + Disponibilidade

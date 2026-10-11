@@ -134,7 +134,7 @@ status: complete
    - `32b2fc04` test(52-23): RED — WhatsApp, mailto validado, estados e privacidade do contato
    - `806045c7` feat(52-23): Chamar no WhatsApp, mailto validado e estados do contato (D-13..D-16)
 
-**Tracer gate** (modo interativo, `end-of-phase`, `<verify>` só com `<automated>`): o verify da Task 1 foi re-executado depois do commit e saiu verde, com exit 0 e 280→227 casos (16 arquivos) na época. Só então a expansão começou.
+**Tracer gate** (modo interativo, `end-of-phase`, `<verify>` só com `<automated>`): o verify da Task 1 foi re-executado depois do commit e saiu verde, com exit 0, 16 arquivos e 227 casos. Só então a expansão começou.
 
 ## Verificação (comandos do plano, literais)
 
