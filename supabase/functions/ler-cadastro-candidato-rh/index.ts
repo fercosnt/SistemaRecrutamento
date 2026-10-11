@@ -15,7 +15,7 @@
  *   3. INPUT: `{ candidatura_id }` uuid (400).
  *   4. Candidatura VIVA (`deleted_at IS NULL`, `is_rascunho = false` — o ramo rh de
  *      `rh_le_candidaturas`); ausente, excluída e rascunho dão o MESMO 404 (nada distingue).
- *   5. Leituras com projeção explícita — NUNCA select('*') ([[reference_select_star_leaks_pii]]).
+ *   5. Leituras com projeção explícita — NUNCA a projeção com curinga ([[reference_select_star_leaks_pii]]).
  *
  * ── Registro sem contato (D-16 refinada pela D-40; JORN-53; ROADMAP SC2) ──────────────
  *   TODO registro cujo e-mail termina em `@invalido.local` (depois de trim, sem diferenciar
@@ -83,22 +83,101 @@ export interface Deps {
   supabaseUser: any;
 }
 
-/** Projeção de `candidaturas` (nunca select('*')). */
+/** Projeção de `candidaturas` (lista explícita, nunca curinga). */
 interface CandidaturaRow {
   candidato_id: string;
   vaga_id: string;
 }
 
-/** Projeção de `candidatos`. `id`/`user_id` servem só ao predicado do tombstone — nunca saem. */
-interface CandidatoRow {
-  id: string;
-  user_id: string | null;
+/**
+ * Os 19 campos do cadastro devolvidos ao hub (D-08), na ordem do contrato. Colunas medidas em
+ * `information_schema.columns` (PROD, só nomes) no 52-09.
+ */
+export const CAMPOS_CADASTRO = [
+  "nome_completo",
+  "email",
+  "cpf",
+  "celular",
+  "data_nascimento",
+  "genero",
+  "cep",
+  "logradouro",
+  "numero",
+  "complemento",
+  "bairro",
+  "cidade",
+  "estado",
+  "linkedin_url",
+  "linkedin",
+  "instagram_url",
+  "instagram",
+  "como_conheceu",
+  "como_conheceu_detalhes",
+] as const;
+
+type CampoCadastro = typeof CAMPOS_CADASTRO[number];
+export type Cadastro = Record<CampoCadastro, string | null>;
+
+/**
+ * Projeção de `candidatos`: os 19 campos + `id`/`user_id`, que servem SÓ ao predicado do
+ * tombstone e nunca saem no JSON.
+ */
+type CandidatoRow = { id: string; user_id: string | null } & Partial<Record<CampoCadastro, unknown>> & {
   email: string | null;
-  celular: string | null;
   data_nascimento: string | null;
+};
+
+const COLUNAS_CANDIDATO = ["id", "user_id", ...CAMPOS_CADASTRO].join(", ");
+
+/** Os 4 campos de `disponibilidade` (por `candidato_id`; F12 — nomes medidos). */
+const CAMPOS_DISPONIBILIDADE = [
+  "periodo_disponivel",
+  "regime_trabalho",
+  "disponibilidade_imediata",
+  "data_disponibilidade",
+] as const;
+
+export interface Disponibilidade {
+  periodo_disponivel: string | null;
+  regime_trabalho: string | null;
+  disponibilidade_imediata: boolean | null;
+  data_disponibilidade: string | null;
 }
 
-const COLUNAS_CANDIDATO = "id, user_id, email, celular, data_nascimento";
+/** Resposta de uma pergunta da inscrição: só os campos preenchidos; `null` sem resposta. */
+export interface RespostaInscricao {
+  texto?: string;
+  opcoes?: string[];
+  numero?: number;
+}
+
+/** Item da inscrição (D-19): nunca a opção que elimina — só `eliminatoria: boolean`. */
+export interface ItemInscricao {
+  pergunta_id: string;
+  bloco: string;
+  ordem: number;
+  texto_pergunta: string;
+  tipo_resposta: string;
+  eliminatoria: boolean;
+  removida: boolean;
+  resposta: RespostaInscricao | null;
+}
+
+interface PerguntaRow {
+  id: string;
+  bloco: string;
+  ordem: number;
+  texto_pergunta: string;
+  tipo_resposta: string;
+  deleted_at: string | null;
+}
+
+interface RespostaRow {
+  pergunta_id: string;
+  resposta_texto: string | null;
+  resposta_opcoes: unknown;
+  resposta_numerica: number | string | null;
+}
 
 /** Contrato de contato devolvido ao hub (cabeçalho do 52-23). */
 export interface Contato {
@@ -137,6 +216,54 @@ function textoOuNulo(v: unknown): string | null {
 function montarContato(c: CandidatoRow): Contato | null {
   if (semContato(c.email)) return null;
   return { email: textoOuNulo(c.email), celular: textoOuNulo(c.celular) };
+}
+
+/**
+ * O cadastro como o candidato preencheu (D-08). `null` para o tombstone (F6: «01/01/1900 (126
+ * anos)» seria dado falso e pista de exclusão). Nos fictícios `@invalido.local`, `email: null` —
+ * nenhum endereço substituto sai; os outros campos (o celular inclusive) seguem, e a aba Cadastro
+ * do 52-10 os mostra como texto, nunca como ação de contato (D-40).
+ */
+function montarCadastro(c: CandidatoRow): Cadastro | null {
+  if (ehTombstone(c)) return null;
+  const out = {} as Cadastro;
+  for (const campo of CAMPOS_CADASTRO) {
+    const v = c[campo];
+    out[campo] = typeof v === "string" ? v : null;
+  }
+  if (semContato(c.email)) out.email = null;
+  return out;
+}
+
+function montarDisponibilidade(row: Record<string, unknown> | null): Disponibilidade | null {
+  if (!row) return null;
+  return {
+    periodo_disponivel: typeof row.periodo_disponivel === "string" ? row.periodo_disponivel : null,
+    regime_trabalho: typeof row.regime_trabalho === "string" ? row.regime_trabalho : null,
+    disponibilidade_imediata: typeof row.disponibilidade_imediata === "boolean"
+      ? row.disponibilidade_imediata
+      : null,
+    data_disponibilidade: typeof row.data_disponibilidade === "string" ? row.data_disponibilidade : null,
+  };
+}
+
+/**
+ * `resposta_opcoes` (jsonb, array de textos) / `resposta_texto` / `resposta_numerica` →
+ * `{ opcoes?, texto?, numero? }` com só o que foi preenchido; nada preenchido → `null`.
+ */
+function montarResposta(r: RespostaRow | undefined): RespostaInscricao | null {
+  if (!r) return null;
+  const out: RespostaInscricao = {};
+  if (Array.isArray(r.resposta_opcoes)) {
+    const opcoes = r.resposta_opcoes.filter((o): o is string => typeof o === "string" && o.trim() !== "");
+    if (opcoes.length > 0) out.opcoes = opcoes;
+  }
+  if (typeof r.resposta_texto === "string" && r.resposta_texto.trim() !== "") out.texto = r.resposta_texto;
+  if (r.resposta_numerica !== null && r.resposta_numerica !== undefined && r.resposta_numerica !== "") {
+    const n = typeof r.resposta_numerica === "number" ? r.resposta_numerica : Number(r.resposta_numerica);
+    if (Number.isFinite(n)) out.numero = n;
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -231,7 +358,75 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     if (vagaErr) return falhaServidor(candidaturaId, "vaga");
     const vagaTitulo = textoOuNulo((vagaRaw as { titulo?: unknown } | null)?.titulo);
 
+    const tombstone = ehTombstone(pessoa);
     const contato = montarContato(pessoa);
+    const cadastro = montarCadastro(pessoa);
+
+    // ── 7. Disponibilidade (sem linha → null). `candidato_id` não é único na tabela: a mais
+    //      recente vence. O tombstone não tem disponibilidade a mostrar (a limpeza da 51-23
+    //      apagou as linhas; uma remanescente seria dado de titular removido).
+    let disponibilidade: Disponibilidade | null = null;
+    if (!tombstone) {
+      const { data: dispRaw, error: dispErr } = await supabaseAdmin
+        .from("disponibilidade")
+        .select(CAMPOS_DISPONIBILIDADE.join(", "))
+        .eq("candidato_id", candidatura.candidato_id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (dispErr) return falhaServidor(candidaturaId, "disponibilidade");
+      const linhas = Array.isArray(dispRaw) ? dispRaw as Array<Record<string, unknown>> : [];
+      disponibilidade = montarDisponibilidade(linhas[0] ?? null);
+    }
+
+    // ── 8. Inscrição (D-19): perguntas da vaga em `ordem` ASC × respostas DESTA candidatura.
+    //      As removidas (`deleted_at`) entram só se esta candidatura as respondeu, marcadas
+    //      `removida`. `eliminatoria` = existe metadata `knockout` para a pergunta — a opção
+    //      que elimina NUNCA é lida nem devolvida.
+    const { data: pergRaw, error: pergErr } = await supabaseAdmin
+      .from("perguntas_formulario")
+      .select("id, bloco, ordem, texto_pergunta, tipo_resposta, deleted_at")
+      .eq("vaga_id", candidatura.vaga_id)
+      .order("ordem", { ascending: true });
+    if (pergErr) return falhaServidor(candidaturaId, "perguntas");
+    const perguntas = Array.isArray(pergRaw) ? pergRaw as PerguntaRow[] : [];
+
+    const { data: respRaw, error: respErr } = await supabaseAdmin
+      .from("respostas_formulario")
+      .select("pergunta_id, resposta_texto, resposta_opcoes, resposta_numerica")
+      .eq("candidatura_id", candidaturaId);
+    if (respErr) return falhaServidor(candidaturaId, "respostas");
+    const respostas = new Map<string, RespostaRow>();
+    for (const r of (Array.isArray(respRaw) ? respRaw as RespostaRow[] : [])) respostas.set(r.pergunta_id, r);
+
+    const eliminatorias = new Set<string>();
+    if (perguntas.length > 0) {
+      const { data: metaRaw, error: metaErr } = await supabaseAdmin
+        .from("pergunta_opcao_metadata")
+        .select("pergunta_id")
+        .in("pergunta_id", perguntas.map((p) => p.id))
+        .eq("tag", "knockout");
+      if (metaErr) return falhaServidor(candidaturaId, "metadata");
+      for (const m of (Array.isArray(metaRaw) ? metaRaw as Array<{ pergunta_id: string }> : [])) {
+        eliminatorias.add(m.pergunta_id);
+      }
+    }
+
+    const inscricao: ItemInscricao[] = [];
+    for (const p of [...perguntas].sort((a, b) => a.ordem - b.ordem)) {
+      const resposta = montarResposta(respostas.get(p.id));
+      const removida = p.deleted_at !== null && p.deleted_at !== undefined;
+      if (removida && resposta === null) continue;
+      inscricao.push({
+        pergunta_id: p.id,
+        bloco: p.bloco,
+        ordem: p.ordem,
+        texto_pergunta: p.texto_pergunta,
+        tipo_resposta: p.tipo_resposta,
+        eliminatoria: eliminatorias.has(p.id),
+        removida,
+        resposta,
+      });
+    }
 
     // Log redigido (D-11) — só ids e papel; NUNCA um valor do candidato.
     console.log(`${LOG_TAG} ok`, { candidatura_id: candidaturaId, rh_user_id: user.id, role });
@@ -241,9 +436,9 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
         ok: true,
         vaga_titulo: vagaTitulo,
         contato,
-        cadastro: null,
-        disponibilidade: null,
-        inscricao: [],
+        cadastro,
+        disponibilidade,
+        inscricao,
       },
       200,
     );

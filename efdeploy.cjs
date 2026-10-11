@@ -54,6 +54,7 @@ const VERIFY_JWT = {
   'gerar-guia-entrevista': true,
   'gerenciar-usuario-rh': true,
   'get-curriculo-url': true,
+  'ler-cadastro-candidato-rh': true,
   'submit-bigfive-final': true,
   'submit-candidatura': true,
   // servidor → servidor (pg_net com Vault Bearer, ou segredo próprio)

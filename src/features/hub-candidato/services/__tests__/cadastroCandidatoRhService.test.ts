@@ -147,3 +147,144 @@ describe('lerCadastroCandidatoRh — erro do invoke', () => {
     expect(e.code).toBe('NETWORK_ERROR')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Task 2 — contrato completo (cadastro, disponibilidade, inscrição)
+// ---------------------------------------------------------------------------
+
+const CPF = '123.456.789-09'
+
+function cadastroCompleto(extra: Record<string, unknown> = {}) {
+  return {
+    nome_completo: 'Maria Aparecida Souza',
+    email: EMAIL,
+    cpf: CPF,
+    celular: CELULAR,
+    data_nascimento: '1994-03-12',
+    genero: 'feminino',
+    cep: '01415-001',
+    logradouro: 'Rua Haddock Lobo',
+    numero: '120',
+    complemento: null,
+    bairro: 'Jardim Paulista',
+    cidade: 'São Paulo',
+    estado: 'SP',
+    linkedin_url: 'https://www.linkedin.com/in/maria',
+    linkedin: null,
+    instagram_url: null,
+    instagram: '@maria',
+    como_conheceu: 'indicacao',
+    como_conheceu_detalhes: null,
+    ...extra,
+  }
+}
+
+function item(extra: Record<string, unknown> = {}) {
+  return {
+    pergunta_id: 'a0000000-0000-4000-8000-000000000001',
+    bloco: 'jornada',
+    ordem: 1,
+    texto_pergunta: 'Você trabalha aos sábados?',
+    tipo_resposta: 'single_choice',
+    eliminatoria: true,
+    removida: false,
+    resposta: { opcoes: ['Sim'] },
+    ...extra,
+  }
+}
+
+function corpoCompleto(extra: Record<string, unknown> = {}) {
+  return corpoValido({
+    cadastro: cadastroCompleto(),
+    disponibilidade: {
+      periodo_disponivel: 'Integral',
+      regime_trabalho: 'Presencial',
+      disponibilidade_imediata: true,
+      data_disponibilidade: null,
+    },
+    inscricao: [
+      item(),
+      item({ pergunta_id: 'p2', ordem: 2, tipo_resposta: 'numerico', eliminatoria: false, resposta: { numero: 4.5 } }),
+      item({ pergunta_id: 'p3', ordem: 3, eliminatoria: false, removida: true, resposta: { texto: 'antiga' } }),
+      item({ pergunta_id: 'p4', ordem: 4, eliminatoria: false, resposta: null }),
+      item({ pergunta_id: 'p5', ordem: 5, eliminatoria: false, resposta: { opcoes: ['A', 'B'], texto: 'Outro' } }),
+    ],
+    ...extra,
+  })
+}
+
+describe('lerCadastroCandidatoRh — contrato completo', () => {
+  it('contrato completo válido → objeto tipado, na ordem recebida', async () => {
+    invoke.mockResolvedValue({ data: corpoCompleto(), error: null })
+    const r = await lerCadastroCandidatoRh(ID)
+    expect(r.cadastro?.cpf).toBe(CPF)
+    expect(r.cadastro && Object.keys(r.cadastro)).toHaveLength(19)
+    expect(r.disponibilidade?.regime_trabalho).toBe('Presencial')
+    expect(r.inscricao.map((i) => i.ordem)).toEqual([1, 2, 3, 4, 5])
+    expect(r.inscricao[0]).toEqual(item())
+    expect(r.inscricao[1].resposta).toEqual({ numero: 4.5 })
+    expect(r.inscricao[2].removida).toBe(true)
+    expect(r.inscricao[3].resposta).toBeNull()
+    expect(r.inscricao[4].resposta).toEqual({ opcoes: ['A', 'B'], texto: 'Outro' })
+  })
+
+  it('cadastro null (tombstone) e disponibilidade null aceitos', async () => {
+    invoke.mockResolvedValue({
+      data: corpoCompleto({ contato: null, cadastro: null, disponibilidade: null }),
+      error: null,
+    })
+    const r = await lerCadastroCandidatoRh(ID)
+    expect(r.cadastro).toBeNull()
+    expect(r.disponibilidade).toBeNull()
+  })
+
+  it('cadastro do fictício: email null com celular presente é aceito', async () => {
+    invoke.mockResolvedValue({
+      data: corpoCompleto({ contato: null, cadastro: cadastroCompleto({ email: null }) }),
+      error: null,
+    })
+    const r = await lerCadastroCandidatoRh(ID)
+    expect(r.contato).toBeNull()
+    expect(r.cadastro?.email).toBeNull()
+    expect(r.cadastro?.celular).toBe(CELULAR)
+  })
+
+  it('campos a mais no corpo NÃO atravessam para a tela (cópia só do contrato)', async () => {
+    invoke.mockResolvedValue({
+      data: corpoCompleto({
+        cadastro: cadastroCompleto({ user_id: 'u-1', deleted_at: null }),
+        inscricao: [item({ opcao_eliminatoria: 'Não' })],
+      }),
+      error: null,
+    })
+    const r = await lerCadastroCandidatoRh(ID)
+    expect(r.cadastro).not.toHaveProperty('user_id')
+    expect(r.cadastro).not.toHaveProperty('deleted_at')
+    expect(r.inscricao[0]).not.toHaveProperty('opcao_eliminatoria')
+  })
+
+  it.each([
+    ['inscricao não-array', { inscricao: { a: 1 } }],
+    ['inscricao ausente', { inscricao: undefined }],
+    ['item com eliminatoria string', { inscricao: [item({ eliminatoria: 'sim' })] }],
+    ['item com ordem string', { inscricao: [item({ ordem: '1' })] }],
+    ['item sem removida', { inscricao: [item({ removida: undefined })] }],
+    ['resposta com opcoes numéricas', { inscricao: [item({ resposta: { opcoes: [1, 2] } })] }],
+    ['resposta com chave desconhecida', { inscricao: [item({ resposta: { cpf: CPF } })] }],
+    ['resposta objeto vazio', { inscricao: [item({ resposta: {} })] }],
+    ['resposta com numero string', { inscricao: [item({ resposta: { numero: '4' } })] }],
+    ['cadastro com campo numérico', { cadastro: cadastroCompleto({ cpf: 12345678909 }) }],
+    ['cadastro sem um campo', { cadastro: cadastroCompleto({ bairro: undefined }) }],
+    ['disponibilidade com imediata string', {
+      disponibilidade: { periodo_disponivel: 'x', regime_trabalho: 'y', disponibilidade_imediata: 'sim', data_disponibilidade: null },
+    }],
+  ])('%s → SERVER_ERROR de mensagem fixa, sem ecoar o retorno', async (_n, extra) => {
+    invoke.mockResolvedValue({ data: corpoCompleto(extra), error: null })
+    const e = await capturar(lerCadastroCandidatoRh(ID))
+    expect(e.code).toBe('SERVER_ERROR')
+    expect(e.message).toBe('Dados do candidato em formato inesperado.')
+    expect(e.details).toBeUndefined()
+    const serializado = JSON.stringify({ m: e.message, d: e.details })
+    for (const v of [EMAIL, CELULAR, CPF, 'Haddock']) expect(serializado).not.toContain(v)
+  })
+})
