@@ -39,6 +39,41 @@ interface RHSidebarProps {
   onMobileClose?: () => void;
 }
 
+/**
+ * Qual item do menu acende em cada rota — função PURA e exportada (52-05 / JORN-61) para
+ * que a tabela de rotas seja testada sem montar a sidebar
+ * (`__tests__/RHSidebar.activePage.test.tsx`). A ORDEM dos `startsWith` importa: o prefixo
+ * mais específico vem antes do genérico.
+ */
+export function getActivePageFromPath(pathname: string): string {
+  if (pathname.startsWith('/rh/dashboard')) return 'dashboard-rh';
+  if (pathname.startsWith('/rh/candidatos')) return 'candidatos-rh';
+  // Sítio 2 de 3 da entrada de Revisões — ANTES de /rh/vagas, mantendo a ordem de
+  // especificidade das demais. Sem esta linha o item navega mas nunca se acende.
+  if (pathname.startsWith('/rh/revisoes')) return 'revisoes-rh';
+  // Sítio 2 de 3 da entrada de Pedidos de dados (Phase 44 / EXPORT-05) — junto das
+  // irmãs de /rh/*. Sem esta linha o item navega e nunca se acende. Não há armadilha de
+  // precedência de prefixo aqui: não existe rota `/rh` genérica.
+  if (pathname.startsWith('/rh/pedidos-dados')) return 'pedidos-dados-rh';
+  if (pathname.startsWith('/rh/vagas')) return 'vagas-rh';
+  if (pathname.startsWith('/rh/relatorios')) return 'relatorios-rh';
+  if (pathname.startsWith('/rh/suporte')) return 'suporte-rh';
+  if (pathname.startsWith('/rh/configuracoes')) return 'configuracoes-rh';
+  // Sítio 2 de 3 da entrada de Retenção — ANTES do `/admin` genérico (Phase 43 / 43-09).
+  // Sem esta ORDEM o match genérico rouba a rota e o item nunca acende: é a mesma
+  // armadilha que a Phase 42 documentou para /rh/revisoes × /rh/vagas, e ela é
+  // silenciosa — o item navega, a página abre, e o menu continua realçando "Admin".
+  if (pathname.startsWith('/admin/retencao')) return 'retencao-admin';
+  if (pathname.startsWith('/admin')) return 'admin';
+  // Phase 52 / 52-05 (JORN-61, Achado F17): os workspaces do candidato são SINGULARES
+  // (`/rh/candidato/:id/{entrevista,redacao,decisao}`) e o `startsWith('/rh/candidatos')`
+  // acima, plural, não os casa — caíam no fallback e o menu acendia «Dashboard» no meio
+  // de uma entrevista. A barra final exige o sub-segmento: `/rh/candidato` sozinho não é
+  // workspace (a rota real redireciona para o hub plural).
+  if (pathname.startsWith('/rh/candidato/')) return 'candidatos-rh';
+  return 'dashboard-rh';
+}
+
 export function RHSidebar({
   isCollapsed: externalCollapsed,
   onToggleCollapse,
@@ -103,29 +138,6 @@ export function RHSidebar({
   const badgePedidosDados = formatarBadgePendentes(pedidosDadosPendentes);
 
   // Detectar página ativa baseado na rota atual
-  const getActivePageFromPath = (pathname: string): string => {
-    if (pathname.startsWith('/rh/dashboard')) return 'dashboard-rh';
-    if (pathname.startsWith('/rh/candidatos')) return 'candidatos-rh';
-    // Sítio 2 de 3 da entrada de Revisões — ANTES de /rh/vagas, mantendo a ordem de
-    // especificidade das demais. Sem esta linha o item navega mas nunca se acende.
-    if (pathname.startsWith('/rh/revisoes')) return 'revisoes-rh';
-    // Sítio 2 de 3 da entrada de Pedidos de dados (Phase 44 / EXPORT-05) — junto das
-    // irmãs de /rh/*. Sem esta linha o item navega e nunca se acende. Não há armadilha de
-    // precedência de prefixo aqui: não existe rota `/rh` genérica.
-    if (pathname.startsWith('/rh/pedidos-dados')) return 'pedidos-dados-rh';
-    if (pathname.startsWith('/rh/vagas')) return 'vagas-rh';
-    if (pathname.startsWith('/rh/relatorios')) return 'relatorios-rh';
-    if (pathname.startsWith('/rh/suporte')) return 'suporte-rh';
-    if (pathname.startsWith('/rh/configuracoes')) return 'configuracoes-rh';
-    // Sítio 2 de 3 da entrada de Retenção — ANTES do `/admin` genérico (Phase 43 / 43-09).
-    // Sem esta ORDEM o match genérico rouba a rota e o item nunca acende: é a mesma
-    // armadilha que a Phase 42 documentou para /rh/revisoes × /rh/vagas, e ela é
-    // silenciosa — o item navega, a página abre, e o menu continua realçando "Admin".
-    if (pathname.startsWith('/admin/retencao')) return 'retencao-admin';
-    if (pathname.startsWith('/admin')) return 'admin';
-    return 'dashboard-rh';
-  };
-
   const activePage = getActivePageFromPath(location.pathname);
 
   const menuItems: MenuItem[] = [
