@@ -20,8 +20,10 @@
  * @see supabase/migrations/20261003000001_p49_44_resposta_caso_aberto_rh.sql
  */
 import { useId, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRespostaCasoAbertoSjt } from '@/features/avaliacao/services/scoresRhService'
+import { TextoComCitacoes } from '@/features/avaliacao/components/TextoComCitacoes'
 import { decisaoKeys } from '../hooks/useConsolidacao'
 
 /** As frases da tela, exportadas para que o teste asserte a constante E o render (PATTERNS §N). */
@@ -43,8 +45,85 @@ export interface RespostaCasoAbertoSjtProps {
   candidaturaId: string
 }
 
+/**
+ * 52-12 / D-22: onde o conteúdo é mostrado. `decisao` (padrão) é a Decisão Final, como sempre foi
+ * (C-7 da 51). `hub` é a ficha neutra de leitura do hub do RH, com as citações da IA marcadas no
+ * texto — um ramo próprio, logo depois da MESMA leitura (a query não bifurca).
+ */
+export type VarianteRespostaCasoAberto = 'hub' | 'decisao'
+
+export interface RespostaCasoAbertoConteudoProps {
+  candidaturaId: string
+  variante?: VarianteRespostaCasoAberto
+  /** Só na variante do hub: as citações da análise da IA, como texto. */
+  citacoes?: string[]
+}
+
+type LeituraCasoAberto = Awaited<ReturnType<typeof getRespostaCasoAbertoSjt>>
+
+/**
+ * A variante do hub. Desenha SEMPRE o `TextoComCitacoes`, em todo estado: sem o texto (carregando,
+ * erro, removida, indisponível, sem resposta enviada), a frase do estado ocupa o lugar dele e
+ * todas as citações ficam na lista ao lado — nunca somem. Sem rótulo próprio: o rótulo do texto é
+ * do card que monta esta variante (um dono só). Cada elemento com texto declara a própria cor
+ * neutra; nada depende da cor herdada do contêiner.
+ */
+function RespostaCasoAbertoHub({
+  data,
+  isLoading,
+  isError,
+  refetch,
+  citacoes,
+}: {
+  data: LeituraCasoAberto | undefined
+  isLoading: boolean
+  isError: boolean
+  refetch: () => unknown
+  citacoes: string[]
+}) {
+  let texto: string | null = null
+  let semTexto: ReactNode = null
+
+  if (isLoading) {
+    semTexto = (
+      <p role="status" className="text-base text-white/80">
+        {COPY.carregando}
+      </p>
+    )
+  } else if (isError || !data) {
+    semTexto = (
+      <p className="flex flex-wrap items-center gap-2 text-base text-white/80">
+        <span className="text-base text-white/80">{COPY.erro}</span>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="text-sm font-semibold text-white underline underline-offset-2"
+        >
+          {COPY.tentarDeNovo}
+        </button>
+      </p>
+    )
+  } else if (data.situacao === 'disponivel' && data.texto) {
+    texto = data.texto
+  } else {
+    const frase =
+      data.situacao === 'removida'
+        ? COPY.removida
+        : data.situacao === 'sem_resposta_enviada'
+          ? COPY.semRespostaEnviada
+          : COPY.indisponivel
+    semTexto = <p className="text-base text-white/80">{frase}</p>
+  }
+
+  return (
+    <div data-testid="caso-aberto-hub">
+      <TextoComCitacoes texto={texto} citacoes={citacoes} semTexto={semTexto} />
+    </div>
+  )
+}
+
 /** O conteúdo aberto: só existe depois do clique, e é ele que busca. */
-export function RespostaCasoAbertoConteudo({ candidaturaId }: { candidaturaId: string }) {
+export function RespostaCasoAbertoConteudo({ candidaturaId, variante = 'decisao', citacoes = [] }: RespostaCasoAbertoConteudoProps) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...decisaoKeys.all, 'resposta-caso-aberto', candidaturaId] as const,
     queryFn: () => getRespostaCasoAbertoSjt(candidaturaId),
@@ -52,6 +131,18 @@ export function RespostaCasoAbertoConteudo({ candidaturaId }: { candidaturaId: s
     gcTime: 0,
     retry: false,
   })
+
+  if (variante === 'hub') {
+    return (
+      <RespostaCasoAbertoHub
+        data={data}
+        isLoading={isLoading}
+        isError={isError}
+        refetch={refetch}
+        citacoes={citacoes}
+      />
+    )
+  }
 
   if (isLoading) {
     return (

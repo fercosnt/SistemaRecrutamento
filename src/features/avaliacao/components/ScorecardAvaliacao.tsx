@@ -86,9 +86,10 @@ export const ROTULO_TEXTO_DO_CANDIDATO = 'Texto do candidato'
 /**
  * Open-case BARS card (subtipo='caso_aberto'): dimensions + composite + citations/red_flags.
  *
- * D-20 (51-02): as citações recortadas pela IA nunca aparecem sem o original — o texto integral
- * do candidato fica AO LADO delas (duas colunas a partir de `md:`, empilhado no celular). O texto
- * aparece mesmo quando a pontuação falhou: é o conteúdo do candidato, não da IA.
+ * D-20 (51-02): as citações recortadas pela IA nunca aparecem sem o original. D-22 (52-12): as
+ * citações ficam marcadas DENTRO do texto onde aparecem literalmente; as não localizadas ficam ao
+ * lado (`TextoComCitacoes`). O texto aparece mesmo quando a pontuação falhou: é o conteúdo do
+ * candidato, não da IA.
  */
 function CasoAbertoBreakdown({ row, candidaturaId }: { row: ScoreRow; candidaturaId: string }) {
   const meta = (row.metadata ?? {}) as CasoAbertoMetadata
@@ -101,6 +102,10 @@ function CasoAbertoBreakdown({ row, candidaturaId }: { row: ScoreRow; candidatur
   // texto, não reprova nada, não trava ação e não mexe no composto (RNF-07a).
   const sinalInstrucao = sinaisDe(meta.motivos_revisao).includes(SINAL_INSTRUCAO_AO_MODELO)
   const citacoes = Array.isArray(row.citacoes) ? (row.citacoes as unknown[]) : []
+  // Como texto (não-string vira JSON, o idioma de sempre); vazias quando a pontuação falhou.
+  const citacoesTexto = falhou
+    ? []
+    : citacoes.map((c) => (typeof c === 'string' ? c : JSON.stringify(c)))
   const redFlags = Array.isArray(row.red_flags) ? (row.red_flags as unknown[]) : []
 
   return (
@@ -163,27 +168,18 @@ function CasoAbertoBreakdown({ row, candidaturaId }: { row: ScoreRow; candidatur
           </ul>
         ) : null}
 
-        {/* D-20: citações (IA) e texto integral (candidato) lado a lado. Os dois só como nó de
-            texto React. */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {!falhou && citacoes.length > 0 ? (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-                Citações
-              </p>
-              <ul className="list-disc space-y-1 pl-5 text-sm text-white/70">
-                {citacoes.map((c, i) => (
-                  <li key={i}>{typeof c === 'string' ? c : JSON.stringify(c)}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          <div className="space-y-1 text-amber-100">
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-              {ROTULO_TEXTO_DO_CANDIDATO}
-            </p>
-            <RespostaCasoAbertoConteudo candidaturaId={candidaturaId} />
-          </div>
+        {/* D-22 (52-12): o texto do candidato com as citações da IA marcadas onde aparecem; as não
+            localizadas — ou todas, sem o texto — ficam ao lado, numa grade que é do
+            `TextoComCitacoes`. Tudo como nó de texto React. */}
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            {ROTULO_TEXTO_DO_CANDIDATO}
+          </p>
+          <RespostaCasoAbertoConteudo
+            candidaturaId={candidaturaId}
+            variante="hub"
+            citacoes={citacoesTexto}
+          />
         </div>
 
         {!falhou && redFlags.length > 0 ? (
