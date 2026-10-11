@@ -251,14 +251,47 @@ describe('DadosCadastroBloco — fictício/anonimizado e campo livre (52-10 / D-
     expect(valor('Celular').textContent).toMatch(/98765-?4321/)
   })
 
-  it('nenhum link na ficha: LinkedIn/Instagram com URL aparecem como texto (o link é do 52-24)', async () => {
+  // 52-24 (D-20) substitui o caso do 52-10 «nenhum link na ficha: LinkedIn/Instagram com URL
+  // aparecem como texto (o link é do 52-24)». O link `http(s)` chegou; o resto do contrato fica
+  // mais estreito, não mais largo: só LinkedIn/Instagram podem ter `<a>`, só `http(s)`, sempre em
+  // aba nova com `rel="noopener noreferrer"`; sem esquema ou com outro esquema → texto.
+  it('LinkedIn https → link em aba nova; Instagram sem esquema → texto; nenhum outro link na ficha (52-24 / D-20)', async () => {
     await montar({
-      cadastro: cadastro({ linkedin_url: 'https://linkedin.com/in/x', instagram_url: 'https://instagram.com/x' }),
+      cadastro: cadastro({
+        linkedin_url: 'https://linkedin.com/in/x',
+        instagram_url: 'www.instagram.com/x',
+        celular: '11987654321',
+        email: 'fulana@exemplo.com',
+      }),
       disponibilidade: null,
     })
     const bloco = screen.getByTestId('hub-dados-cadastro')
+    const linkedin = within(valor('LinkedIn')).getAllByRole('link')
+    expect(linkedin).toHaveLength(1)
+    expect(linkedin[0]).toHaveAttribute('href', 'https://linkedin.com/in/x')
+    expect(linkedin[0]).toHaveAttribute('target', '_blank')
+    expect(linkedin[0]).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(linkedin[0]).toHaveAttribute('aria-label', 'https://linkedin.com/in/x (abre em nova aba)')
+    expect(valor('Instagram')).toHaveTextContent('www.instagram.com/x')
+    expect(valor('Instagram').querySelector('a')).toBeNull()
+    // O único <a> da ficha é o do LinkedIn — e-mail e celular seguem texto (D-40).
+    expect(bloco.querySelectorAll('a')).toHaveLength(1)
+  })
+
+  it('LinkedIn/Instagram com javascript: ou data: ficam texto, sem href (52-24 / D-20)', async () => {
+    await montar({
+      cadastro: cadastro({
+        linkedin_url: 'javascript:alert(1)',
+        instagram_url: 'data:text/html,<script>alert(1)</script>',
+      }),
+      disponibilidade: null,
+    })
+    const bloco = screen.getByTestId('hub-dados-cadastro')
+    expect(valor('LinkedIn')).toHaveTextContent('javascript:alert(1)')
+    expect(valor('Instagram')).toHaveTextContent('data:text/html,<script>alert(1)</script>')
     expect(bloco.querySelector('a')).toBeNull()
-    expect(valor('Instagram')).toHaveTextContent('https://instagram.com/x')
+    expect(bloco.querySelector('[href]')).toBeNull()
+    expect(bloco.querySelector('script')).toBeNull()
   })
 
   it('campo livre com marcação vira texto — sem elemento novo (T-52-71)', async () => {

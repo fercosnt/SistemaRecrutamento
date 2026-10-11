@@ -163,6 +163,38 @@ describe('HubCandidatoRH — quatro abas com a aba na URL (52-10 / D-17, D-52-U0
     expect(useCadastroCandidatoRhMock).toHaveBeenCalledWith('cand-1')
   })
 
+  it('?aba=cadastro → «Respostas da inscrição» abaixo de «Dados do cadastro», com a inscricao do MESMO hook (52-24 / D-19)', () => {
+    useCadastroCandidatoRhMock.mockReturnValue({
+      data: {
+        ...PAYLOAD,
+        inscricao: [
+          {
+            pergunta_id: 'perg-1',
+            bloco: 'curriculo',
+            ordem: 1,
+            texto_pergunta: 'Onde trabalhou por último?',
+            tipo_resposta: 'texto_curto',
+            eliminatoria: false,
+            removida: false,
+            resposta: { texto: 'Clínica Sorriso' },
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+    montar('/rh/candidatos/cand-1?aba=cadastro')
+    const titulo = screen.getByRole('heading', { name: 'Respostas da inscrição' })
+    const dados = screen.getByRole('heading', { name: 'Dados do cadastro' })
+    expect(dados.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const respostas = screen.getByTestId('hub-respostas-inscricao')
+    expect(respostas).toHaveTextContent('Onde trabalhou por último?')
+    expect(respostas).toHaveTextContent('Clínica Sorriso')
+    // Nenhuma leitura nova: todas as chamadas do hook são a mesma query, pela candidatura.
+    expect(useCadastroCandidatoRhMock.mock.calls.every((c) => c.length === 1 && c[0] === 'cand-1')).toBe(true)
+  })
+
   it('as quatro abas, nesta ordem, com os rótulos da D-17', () => {
     montar('/rh/candidatos/cand-1')
     expect(within(screen.getByTestId('hub-abas')).getAllByRole('tab').map((t) => t.textContent)).toEqual([
