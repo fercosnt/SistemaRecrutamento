@@ -779,7 +779,7 @@ Plans:
 - [x] 52-10-PLAN.md — Hub em quatro abas (`?aba=`); Dados do cadastro + Endereço + Disponibilidade
 
 **Wave 5**
-- [ ] 52-24-PLAN.md — Respostas da inscrição na ordem do formulário, selo «Eliminatória», links só `http(s)` (D-19, D-20)
+- [x] 52-24-PLAN.md — Respostas da inscrição na ordem do formulário, selo «Eliminatória», links só `http(s)` (D-19, D-20)
 
 **Wave 6**
 - [ ] 52-25-PLAN.md — «Avaliação assíncrona» aberta com a contagem uma vez (defeito c); títulos em 24px

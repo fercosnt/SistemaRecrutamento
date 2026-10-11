@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-10-PLAN.md (2026-10-11): hub do RH em quatro abas (Resumo · Cadastro e inscrição · Avaliações · Histórico, hub-abas) com a aba em ?aba= gravada com replace (desconhecido → resumo); secoes redistribuidas pela D-52-U01 sem mudar conteudo, contato fora das abas; aba Cadastro com «Dados do cadastro» (DadosCadastroBloco: 10 pares + Endereço + Disponibilidade, «Não informado», celular texto puro no ficticio — D-40) lido pelo useCadastroCandidatoRh; lib/formatos (CPF, CEP, idade em America/Sao_Paulo, mapas sobre lower); testes do hub existentes so com MemoryRouter ?aba= (nenhuma assercao mudou); RED_EVIDENCE_OK (JUnit) nos 3 alvos; 10 mutacoes mordem; vitest hub+guardas 305/305, suite 3025/3027 (2 reds baseline promessasComExecutor), tsc 89, marcador hub-abas no chunk lazy; 2 achados de tipografia herdados (h2 Linha do funil/Curriculo re-indentados) ficam para o 52-25 (D-52-U22); nada publicado (52-15); sem push."
-last_updated: "2026-10-11T05:40:00.000Z"
+stopped_at: "Completed 52-24-PLAN.md (2026-10-11): «Respostas da inscrição» na aba Cadastro do hub (RespostasInscricaoBloco, abaixo de «Dados do cadastro», inscricao do mesmo useCadastroCandidatoRh — nenhuma leitura nova); grupos e ordem do formulário com groupByBloco/rotuloDoBloco extraídos para src/features/vagas/lib/blocosFormulario.ts (formulário importa, 204/204); selo neutro «Eliminatória» sem veredito nem opção não escolhida (D-19, RNF-07a); links só http(s) por segmento (segmentosComLinks + TextoComLinks, aba nova, rel noopener noreferrer), também no LinkedIn/Instagram da ficha (D-20); caso do 52-10 «nenhum link (o link é do 52-24)» substituído por contrato mais estrito — revisor do 52-14 conferir; RED_EVIDENCE_OK (JUnit) nos 4 alvos; 15 mutações mordem; vitest hub+páginas+guardas 500/500, suíte 3045/3047 (2 reds baseline promessasComExecutor), tsc 89, marcador hub-respostas-inscricao no chunk lazy; 2 achados de tipografia herdados no HubCandidatoRH seguem do 52-25 (D-52-U22); nada publicado (52-15); sem push."
+last_updated: "2026-10-11T05:52:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 185
-  percent: 94
+  completed_plans: 186
+  percent: 95
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."
