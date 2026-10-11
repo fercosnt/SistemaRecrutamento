@@ -3,7 +3,7 @@
  *
  * Desktop RH shell (NOT the candidate glass shell — inherits the Phase-10 panel
  * contract). Renders the deterministic MC situations (`SjtMcDetalhe`, 52-11) + the open-case BARS
- * dimensions (1-5 → composite 0-25) + citations/red_flags from `metadata`, in a
+ * dimensions (1-5 → composite 0-25) + citations/red_flags («Pontos de atenção», 52-12) from `metadata`, in a
  * NEUTRAL/structured presentation (no red/green pass-fail tints). Every AI-derived
  * block carries the reused `SugestaoIABadge` (RNF-07a — full on the panel header,
  * compact inline on each AI dimension). When a row is `pendente_humano` it surfaces
@@ -114,14 +114,14 @@ function CasoAbertoBreakdown({ row, candidaturaId }: { row: ScoreRow; candidatur
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-white">Caso aberto (BARS)</CardTitle>
           <div className="flex items-center gap-2">
-            <SugestaoIABadge variant="full" />
+            <SugestaoIABadge variant="full" className="text-sm" />
             {pendente ? <RevisaoHumanaMarker /> : null}
           </div>
         </div>
         {sinalInstrucao ? (
           <p
             data-testid="sjt-sinal-revisao"
-            className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs leading-relaxed text-white/80"
+            className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm leading-relaxed text-white/80"
           >
             {rotuloDoSinal(SINAL_INSTRUCAO_AO_MODELO)}
           </p>
@@ -146,15 +146,15 @@ function CasoAbertoBreakdown({ row, candidaturaId }: { row: ScoreRow; candidatur
             {dimensions.map((dim, i) => (
               <li key={`${dim.dimension}-${i}`} className="space-y-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium text-white/90">{dim.dimension}</span>
+                  <span className="font-semibold text-white/90">{dim.dimension}</span>
                   <span className="flex items-center gap-2">
-                    <SugestaoIABadge variant="compact" />
+                    <SugestaoIABadge variant="compact" className="text-sm" />
                     <span className="font-semibold text-white">
                       {dim.score_1_5}
                       <span className="text-white/50"> / 5</span>
                     </span>
                     {dim.level ? (
-                      <Badge className="border-white/15 bg-white/5 text-white/70 text-xs">
+                      <Badge className="border-white/15 bg-white/5 text-white/70 text-sm font-semibold">
                         {dim.level}
                       </Badge>
                     ) : null}
@@ -172,7 +172,7 @@ function CasoAbertoBreakdown({ row, candidaturaId }: { row: ScoreRow; candidatur
             localizadas — ou todas, sem o texto — ficam ao lado, numa grade que é do
             `TextoComCitacoes`. Tudo como nó de texto React. */}
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          <p className="text-sm font-semibold text-white/70">
             {ROTULO_TEXTO_DO_CANDIDATO}
           </p>
           <RespostaCasoAbertoConteudo
@@ -184,8 +184,8 @@ function CasoAbertoBreakdown({ row, candidaturaId }: { row: ScoreRow; candidatur
 
         {!falhou && redFlags.length > 0 ? (
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-              Red flags
+            <p className="text-sm font-semibold text-white/70">
+              Pontos de atenção
             </p>
             <ul className="list-disc space-y-1 pl-5 text-sm text-white/70">
               {redFlags.map((f, i) => (
