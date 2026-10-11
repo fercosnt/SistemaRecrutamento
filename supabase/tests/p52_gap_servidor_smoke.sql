@@ -64,6 +64,11 @@
 --       ela delega à primária e herda a regra.
 --   (m) análise com `competencias = []` → o conjunto são os 4 nomes de DEFAULT_COMPETENCIAS: três de
 --       quatro → 23514 'scores_humanos incompleto'; os quatro notados gravam (4.00).
+--   (n) WR-01 do 52-REVIEW-GAP-1 — os ramos da normalização que (c)/(d) não exercitam: análise com
+--       competências [competencia '' + competency A, competencia 7 + competency B, competencia C +
+--       competency X, competency 9, objeto vazio] — conjunto esperado {A, B, C, ''} (o MESMO do teste
+--       de cliente `competencias-normalizacao-servidor.test.ts`): sem a chave '' → 23514
+--       'scores_humanos incompleto: 1 de 4'; com {A, B, C, ''} grava (4.00).
 --
 -- Toda recusa é conferida por SQLSTATE E pelo rótulo da mensagem (sem o rótulo, uma recusa por
 -- outro motivo passaria por esta).
@@ -74,9 +79,9 @@
 -- ⚠ PROIBIDO: `node p46apply.cjs run` deste arquivo (ele COMMITA): a guarda abaixo recusa.
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
--- deliberado), num ÚNICO literal (`smoke52g.esperado`, abaixo). Hoje: 13 — a … m.
--- As mutações G1–G7 (`scripts/p52_mutacoes.cjs`) provam que as cláusulas mordem: G1/G2 → (a),
--- G3 → (e), G4 → (c), G5 → (i), G6 → (m), G7 → (d).
+-- deliberado), num ÚNICO literal (`smoke52g.esperado`, abaixo). Hoje: 14 — a … n.
+-- As mutações G1–G9 (`scripts/p52_mutacoes.cjs`) provam que as cláusulas mordem: G1/G2 → (a),
+-- G3 → (e), G4 → (c), G5 → (i), G6 → (m), G7 → (d), G8/G9 → (n).
 -- Reprovação: `P52G FAIL (<letra>): …` — só SQLSTATE, rótulos, contagens e notas; nenhum dado pessoal.
 -- =============================================================================
 
@@ -99,7 +104,7 @@ $p52_so_ensaio$;
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);
 SELECT set_config('smoke52g.pass', '0', false);
-SELECT set_config('smoke52g.esperado', '13', false);
+SELECT set_config('smoke52g.esperado', '14', false);
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -931,5 +936,56 @@ BEGIN
   PERFORM pg_temp.p52g_passou('52g.m=padrao:23514+4.00');
 END
 $m$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (n) F13 / WR-01 (52-REVIEW-GAP-1) — os ramos da normalização que (c)/(d) não exercitam:
+--     `competencia` string VAZIA não vale (cai para `competency`), `competencia` não string idem,
+--     `competency` não string vira '' e o objeto vazio também. Conjunto esperado {A, B, C, ''} —
+--     o MESMO fixture e o MESMO conjunto de
+--     `src/features/entrevista/__tests__/competencias-normalizacao-servidor.test.ts` (cliente).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $n$
+DECLARE
+  v_cdt   uuid := current_setting('p52g.cdt')::uuid;
+  v_admin uuid := current_setting('p52g.admin')::uuid;
+  v_an    uuid;
+  v_r     jsonb;
+  v_res   text[] := ARRAY[]::text[];
+  v_ok    jsonb;
+  v_st    text;
+  v_sc    numeric;
+  v_err   text;
+  v_fim   boolean := false;
+BEGIN
+  BEGIN
+    v_an := pg_temp.p52g_analise(v_cdt,
+      '[{"competencia":"","competency":"A"},{"competencia":7,"competency":"B"},{"competencia":"C","competency":"X"},{"competency":9},{}]'::jsonb);
+    -- sem a chave '': exatamente 1 de 4 sem nota (o conjunto tem 4 nomes, e '' é um deles)
+    v_r := pg_temp.p52g_salvar4(v_cdt, v_an, '{"A":4,"B":4,"C":4}'::jsonb, v_admin);
+    v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    -- com as 4 chaves do conjunto {A, B, C, ''}: grava
+    v_ok := pg_temp.p52g_salvar4(v_cdt, v_an, '{"A":4,"B":4,"C":4,"":4}'::jsonb, v_admin);
+    SELECT ea.status_analise INTO v_st FROM public.entrevista_analises ea WHERE ea.id = v_an;
+    SELECT s.score INTO v_sc FROM public.scores_candidato s WHERE s.candidatura_id = v_cdt AND s.tipo = 'entrevista';
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('n', NULL);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (n): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF cardinality(v_res) <> 1 OR v_res[1] NOT LIKE '23514:scores_humanos incompleto: 1 de 4 competencia(s)%'
+     OR v_ok ? 'err' OR (v_ok -> 'ok' ->> 'score_entrevista')::numeric IS DISTINCT FROM 4.00
+     OR v_st IS DISTINCT FROM 'concluida' OR v_sc IS DISTINCT FROM 4.00 THEN
+    RAISE EXCEPTION 'P52G FAIL (n): o conjunto {A, B, C, vazio} sem a chave vazia devolveu [%] e com as 4 chaves [%] (status %, score %) — esperado 23514 scores_humanos incompleto: 1 de 4, depois 4.00 concluida',
+      left(array_to_string(v_res, ' | '), 160), coalesce(left(v_ok ->> 'err', 120), v_ok -> 'ok' ->> 'score_entrevista'), v_st, coalesce(v_sc::text, 'nenhum');
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.n=normalizacao:23514(1/4)+4.00');
+END
+$n$;
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);
