@@ -14,7 +14,8 @@
  * `capturar()`, as funções `public.p52_mutacao_%` e os titulares sintéticos `p52%smoke-%`.
  * Nenhuma outra mudança de comportamento: uma «melhoria» aqui seria código novo sem review.
  * Exceção revisada: a rodada 1 do portão do bloco B (WR-02 do 52-REVIEW-PORTAO-1) acrescentou a
- * chave `usuarios_rh` a `capturar()` — ver o comentário dela; vai ao 52-REVIEW-PORTAO-2.
+ * chave `usuarios_rh` a `capturar()` — ver o comentário dela; vai ao 52-REVIEW-PORTAO-2. Na mesma
+ * rodada, o WR-03 acrescentou a chave `opcoes_sjt` (o remapeamento do bloco C) — idem.
  * Serve aos blocos B (52-08, leituras do RH), C (52-17, banco SJT v2) e D (52-20/52-21, limpeza).
  *
  * O QUE GARANTE QUE NADA PERSISTE. O endpoint da Management API roda o corpo INTEIRO da
@@ -315,9 +316,19 @@ const MD5_SET = (expr, from) => `(SELECT md5(coalesce(string_agg(x, E'\\n' ORDER
  *                  deixaria os nomes trocados em PROD com saída VERDE. Baseline medida nesta execução,
  *                  nunca constante. `candidaturas` fica de fora de propósito: tem tráfego real de
  *                  candidatos entre as duas capturas — compará-la inteira reprovaria trabalho correto.
+ *   opcoes_sjt     (WR-03 do 52-REVIEW-PORTAO-1, rodada 1 do 52-14) `public.perguntas_opcao_sjt`
+ *                  INTEIRA, no mesmo idioma (`<contagem>:<md5>` de `to_jsonb` por linha). A 0003
+ *                  (bloco C) insere alternativas E remapeia `opcao_id` artesanais — com as respostas
+ *                  gravadas do candidato na MESMA transação: um ensaio cujo aborto falhasse deixaria
+ *                  os ids trocados em PROD com saída VERDE. A tabela não tem tráfego de candidato
+ *                  (só o RH a edita, pela policy `rh_gerencia_opcoes_sjt`). `scores_candidato` fica
+ *                  de fora pelo motivo de `candidaturas`; a escrita nela é atômica com esta.
  */
 const FP_USUARIOS_RH =
   "(select count(*)::text || ':' || md5(coalesce(string_agg(to_jsonb(u)::text, E'\\n' ORDER BY to_jsonb(u)::text), '')) from public.usuarios_rh u)";
+
+const FP_OPCOES_SJT =
+  "(select count(*)::text || ':' || md5(coalesce(string_agg(to_jsonb(o)::text, E'\\n' ORDER BY to_jsonb(o)::text), '')) from public.perguntas_opcao_sjt o)";
 
 function capturar() {
   const vs = MIGS.map(versao).map(lit).join(',');
@@ -342,7 +353,8 @@ function capturar() {
     // G1a: o reconhecedor do motor, por IGUALDADE (0004 / p46_purga_smoke), e as linhas de disponibilidade deles
     "(with anon as (select c.id from public.candidatos c where c.email = 'anonimizado+' || c.id::text || '@invalido.local' and c.user_id is null and c.data_nascimento = date '1900-01-01') " +
     "select json_build_object('titulares', (select count(*) from anon), 'linhas', (select count(*) from public.disponibilidade d where d.candidato_id in (select a.id from anon a)))) as disp_anonimizados, " +
-    `${FP_USUARIOS_RH} as usuarios_rh`;
+    `${FP_USUARIOS_RH} as usuarios_rh, ` +
+    `${FP_OPCOES_SJT} as opcoes_sjt`;
   return sqlLeitura(q)[0];
 }
 
@@ -567,6 +579,7 @@ module.exports = {
   recusarTerminadores,
   ponto,
   FP_USUARIOS_RH,
+  FP_OPCOES_SJT,
   MIGS,
   PARES,
   SENTINELA,
