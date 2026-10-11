@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-12-PLAN.md (2026-10-11): caso aberto legível no hub — TextoComCitacoes (localizarCitacoes literal, só espaço normalizado; <mark> turquesa 30% por segmentos; não localizadas — ou todas, sem o texto — na lista lateral, nunca somem); RespostaCasoAbertoConteudo ganha variante hub|decisao (padrão decisao, Decisão Final âmbar/12px intocada e fixada por teste novo; só a assinatura muda no arquivo) e citacoes; CasoAbertoBreakdown sem âmbar, «Pontos de atenção», rótulos/selos/sinal/nível em 14px (D-22, D-52-U08/U09/U19/U23); portões D-20 e INTACTO verdes, p52_tipografia OK (326 linhas), RED_EVIDENCE_OK (JUnit) nos 5 alvos, 2 mutações mordem (6 e 12 falhas); vitest avaliação+decisão+hub+guardas 768/768, suíte 3085/3087 (2 reds baseline promessasComExecutor), tsc 89; nada publicado (52-15); sem push."
-last_updated: "2026-10-11T06:10:00.000Z"
+stopped_at: "Completed 52-14-PLAN.md (2026-10-11): portão do bloco B — tracer verde no estado vivo (ensaio vistas=igual 52l=20/20, mutações 8/8, deno 40/0, delta vitest alteradas=0 novas=0 mordida=ok, lint 89, chunks, tipografia OK); 52-REVIEW-PORTAO-1 recusou (CR-01: Big Five e Caso prático saíam sem aviso) → rodada nos donos (aacef0a6, 0b4d486b, 794aaf26, 1f688f52, 040c6b4d) → 52-REVIEW-PORTAO-2 critical 0, PORTAO OK (reviewed_head 040c6b4d); operador: (a) «aplicar», (b) «Confirmo»; registros emendados (WR-03 do -2, 355f1249); carry-forwards obrigatórios do bloco C antes do 52-17/52-18: WR-01 (52-18-PLAN: 0003 destrutiva, mapa velho→novo, prova pós «zero opcao_id não-v4 em item ativo»), WR-02 (pontuar_sjt recusa opcao_id sem par, dentro da migration do bloco C), IN-09 (review do bloco C inclui scripts/geradores/ e p52_banco_sjt_smoke.sql inteiros); nada aplicado, sem push. Próximo: 52-15."
+last_updated: "2026-10-11T17:15:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 188
+  completed_plans: 189
   percent: 96
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52

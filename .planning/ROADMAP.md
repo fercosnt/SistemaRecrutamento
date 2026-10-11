@@ -788,7 +788,7 @@ Plans:
 - [x] 52-12-PLAN.md — Caso aberto legível com as citações marcadas no texto (D-22)
 
 **Wave 8** *(checkpoint)*
-- [ ] 52-14-PLAN.md — Portão do bloco B: prova sobre o estado vivo + review adversarial bloqueante + decisão do operador
+- [x] 52-14-PLAN.md — Portão do bloco B: prova sobre o estado vivo + review adversarial bloqueante + decisão do operador
 
 **Wave 9**
 - [ ] 52-15-PLAN.md — Bloco B no ar: apply das RPCs e dos nomes, deploy da EF, push do cliente (A+B); `db:types`
