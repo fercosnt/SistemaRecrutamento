@@ -785,7 +785,7 @@ Plans:
 - [x] 52-25-PLAN.md — «Avaliação assíncrona» aberta com a contagem uma vez (defeito c); títulos em 24px
 
 **Wave 7**
-- [ ] 52-12-PLAN.md — Caso aberto legível com as citações marcadas no texto (D-22)
+- [x] 52-12-PLAN.md — Caso aberto legível com as citações marcadas no texto (D-22)
 
 **Wave 8** *(checkpoint)*
 - [ ] 52-14-PLAN.md — Portão do bloco B: prova sobre o estado vivo + review adversarial bloqueante + decisão do operador

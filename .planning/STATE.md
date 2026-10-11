@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-25-PLAN.md (2026-10-11): aba Avaliações aberta — seção «Avaliação assíncrona» com COPY_AVALIACOES_RESPONDIDAS.contagem(n) uma vez e o ScorecardAvaliacao aberto dentro dela (defeito c, D-18, D-52-U03); o «Ver respostas» saiu do hub e AvaliacoesRespondidasBloco.tsx ficou só com a constante; estadoDaAssincrona: com linha sjt/big_five a seção é com_dados em qualquer etapa (o dado vence a etapa), sem linha o estadoDoInstrumento de hoje (nao_se_aplica intacto); títulos de seção em text-2xl fixo nos 5 lugares (D-52-U22) — p52_tipografia OK (748 linhas), os 2 achados herdados do HubCandidatoRH resolvidos; hubVerRespostas.test.tsx substituído (não apagado); hubAbas.test.tsx editado fora da lista (título + stub do bloco removido) — revisor do 52-14 conferir; RED_EVIDENCE_OK (JUnit) nos 3 alvos; 4 mutações mordem; vitest hub+agendamento+avaliação+guardas 725/725, suíte 3048/3050 (2 reds baseline promessasComExecutor), tsc 89; nada publicado (52-15); sem push."
-last_updated: "2026-10-11T06:00:00.000Z"
+stopped_at: "Completed 52-12-PLAN.md (2026-10-11): caso aberto legível no hub — TextoComCitacoes (localizarCitacoes literal, só espaço normalizado; <mark> turquesa 30% por segmentos; não localizadas — ou todas, sem o texto — na lista lateral, nunca somem); RespostaCasoAbertoConteudo ganha variante hub|decisao (padrão decisao, Decisão Final âmbar/12px intocada e fixada por teste novo; só a assinatura muda no arquivo) e citacoes; CasoAbertoBreakdown sem âmbar, «Pontos de atenção», rótulos/selos/sinal/nível em 14px (D-22, D-52-U08/U09/U19/U23); portões D-20 e INTACTO verdes, p52_tipografia OK (326 linhas), RED_EVIDENCE_OK (JUnit) nos 5 alvos, 2 mutações mordem (6 e 12 falhas); vitest avaliação+decisão+hub+guardas 768/768, suíte 3085/3087 (2 reds baseline promessasComExecutor), tsc 89; nada publicado (52-15); sem push."
+last_updated: "2026-10-11T06:10:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 187
-  percent: 95
+  completed_plans: 188
+  percent: 96
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."
