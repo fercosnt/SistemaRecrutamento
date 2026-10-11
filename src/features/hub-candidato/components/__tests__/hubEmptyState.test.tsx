@@ -81,6 +81,11 @@ vi.mock('@/features/hub-candidato/hooks/useAnaliseCandidato', () => ({
 vi.mock('@/features/hub-candidato/hooks/useHistoricoCandidatura', () => ({
   useHistoricoCandidatura: () => ({ data: [], isLoading: false, isError: false }),
 }))
+// 52-23: o cabeçalho do hub monta o contato (ContatoCandidatoHeader), que lê pela EF do 52-09.
+// Stub do hook — sem rede, sem QueryClientProvider; fora do contrato deste arquivo.
+vi.mock('@/features/hub-candidato/hooks/useCadastroCandidatoRh', () => ({
+  useCadastroCandidatoRh: () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() }),
+}))
 // Blocos irmãos que leem por conta própria — fora deste contrato.
 vi.mock('../CvButton', () => ({ CvButton: () => null }))
 vi.mock('@/features/avaliacao-cognitiva/components/LiberacaoCognitivoBlock', () => ({

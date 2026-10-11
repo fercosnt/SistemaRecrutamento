@@ -70,6 +70,11 @@ vi.mock('@/features/hub-candidato/hooks/useAnaliseCandidato', () => ({
 vi.mock('@/features/hub-candidato/hooks/useHistoricoCandidatura', () => ({
   useHistoricoCandidatura: () => ({ data: [], isLoading: false, isError: false }),
 }))
+// 52-23: o cabeçalho do hub monta o contato (ContatoCandidatoHeader), que lê pela EF do 52-09.
+// Stub do hook — sem rede, sem QueryClientProvider; fora do contrato deste arquivo.
+vi.mock('@/features/hub-candidato/hooks/useCadastroCandidatoRh', () => ({
+  useCadastroCandidatoRh: () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() }),
+}))
 // 2026-08-26: o hub passou a montar o bloco de liberacao da avaliacao de raciocinio,
 // que consulta `cognitivo_liberacao`/`scores_raven` por useQuery. Stub para esta
 // suite nao precisar de QueryClientProvider nem de rede.
