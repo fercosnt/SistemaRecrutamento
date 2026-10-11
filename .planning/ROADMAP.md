@@ -769,7 +769,7 @@ Plans:
 - [x] 52-09-PLAN.md — EF `ler-cadastro-candidato-rh` com log redigido (D-10/D-11), contrato inteiro (contato, cadastro, disponibilidade, inscrição); serviço e hook
 - [x] 52-11-PLAN.md — Big Five no hub (faixas da devolutiva, aviso fixo, recolhível, sem percentil) e SJT MC (situação, alternativas, escolhida)
 - [x] 52-13-PLAN.md — Motivo e justificativa no diálogo de revisão `humana_triagem` (D-38)
-- [ ] 52-16-PLAN.md — Banco SJT v2 em texto: pré-vendas 6+1 e versão nova de marketing; tabela de caracteres (D-34); gerador com ordem embaralhada (D-37); casos abertos mantidos conferidos por máquina; LGPD-04 antes do portão; ensaio
+- [x] 52-16-PLAN.md — Banco SJT v2 em texto: pré-vendas 6+1 e versão nova de marketing; tabela de caracteres (D-34); gerador com ordem embaralhada (D-37); casos abertos mantidos conferidos por máquina; LGPD-04 antes do portão; ensaio
 
 **Wave 3**
 - [ ] 52-03-PLAN.md — Raven na shell da marca, instruções visíveis, «Ir ao painel» com confirmação

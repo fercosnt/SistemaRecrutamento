@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-07-PLAN.md (2026-10-11): entrevista com notas 1–5 em radiogroup por competência, nenhuma marcada ao abrir (nota da IA fora do estado e da lista), «Salvar avaliação» só com todas as notas + notas escritas (aviso nota-faltante por aria-describedby), payload só com notas escolhidas; subtítulo sem jargão (D-52-U13) e «Notas do gestor (obrigatório)»; ban p52-ban-jargao-entrevista com mordida provada na linha real; RED_EVIDENCE_OK (JUnit) nos 2 alvos; vitest 283/283 nos escopos, suíte 2922/2924 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89; residual F13 (servidor aceita notas parciais) para o 52-SECURITY; sem push."
-last_updated: "2026-10-11T04:52:00.000Z"
+stopped_at: "Completed 52-16-PLAN.md (2026-10-11): banco SJT v2 em TEXTO (docs/specs/BANCO-SJT-V2.md) — sdr-social-seller 6 mc + 1 caso novo e versao nova dos 18 mc de marketing (casos abertos mantidos, hash de PROD conferido); criterio proposto D-34 cumprido (a certa estritamente a mais longa em 2 de 24; no ar 17 de 19; razao 0,93-1,07); scripts/geradores/{sjt_texto,tabela-comprimento-sjt,gen-sjt-v2}.py + smoke52b; ensaio em PROD (aborta) verde nos 4 cargos: 52b=9/9, retirados=19, mantidos=3, tabela_md5 do SQL = do script; RED_EVIDENCE_OK (unittest); nenhuma migration em supabase/migrations (portao de texto no 52-17); DRAFT so lido (arvore de trabalho), segue M; sem push."
+last_updated: "2026-10-11T05:10:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 181
-  percent: 92
+  completed_plans: 182
+  percent: 93
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."
