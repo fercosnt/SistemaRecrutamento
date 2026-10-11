@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-17-PLAN.md (2026-10-11): texto do bloco C aprovado pelo operador (rodada 1 mudar, rodada 2 aprovar + polir) — texto md5 03b2a0d5…, tabela 1d441390…, criterio proposto, casos abertos ficam; migration 20261011000003 GERADA (md5 18141c60…, NAO aplicada); ensaio exato ENSAIO VERDE 52b=14/14 mantidos=3 remap=32/8; vitest delta alteradas=0 novas=0 mordida=ok; MUTACOES 14/14 (B5 mordendo apos o fix ::text da :743 do smoke, decidido pelo orquestrador). Proximo: 52-18 (review do bloco C, decisao destrutiva do operador + LOCK TABLE e cliente apos 22023 nao decididos, apply, push). Aberto: p49_12_pos_estado.sql:126,135 com o mesmo 22P02."
-last_updated: "2026-10-11T18:35:00.000Z"
+stopped_at: "Completed 52-18-PLAN.md (2026-10-11): bloco C no ar — 20261011000003 aplicada pelo portao (ledger BATE 18141c60…), Passo 0b IGUAL ao token aprovado (remap=32/8,refs=3,linhas=1,em_curso=1), PROD 6+1 nos 4 cargos, tabela = aprovada, pontuar_sjt 66fe507f…, mapa 32/8 fora da API, 0 resposta no id velho, forma WR-01 parciais=0; push bc0d2720..c3e04a71 (inclui fa6ab81b db:types), origin/main = HEAD apos o push. Abertos: WR-04 antes de candidatos reais (migration propria), WR-05 backlog, verificacao +claudeN/3a9254c3 no 52-19. Proximo: UAT da Phase 52 (/gsd-verify-work 52) antes do 52-19."
+last_updated: "2026-10-11T19:02:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 191
-  percent: 97
+  completed_plans: 192
+  percent: 98
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."

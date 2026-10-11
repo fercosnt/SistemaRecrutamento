@@ -797,7 +797,7 @@ Plans:
 - [x] 52-17-PLAN.md — Portão de texto do bloco C (operador aprova o texto e o critério); migration gerada do texto aprovado; guarda LGPD-04
 
 **Wave 11** *(checkpoint)*
-- [ ] 52-18-PLAN.md — Review do bloco C, apply do banco SJT v2, push — depois: **UAT da Phase 52**
+- [x] 52-18-PLAN.md — Review do bloco C, apply do banco SJT v2, push — depois: **UAT da Phase 52** (concluído 2026-10-11: 0003 no ar, push bc0d2720..c3e04a71)
 
 **Wave 12** *(checkpoint; só com PITR ligado — D-41 — e depois da UAT da 52, os dois conferidos por máquina)*
 - [ ] 52-19-PLAN.md — PITR ligado conferido pela Management API (D-41); varredura da população de teste por conta (trava do RH) e decisão do escopo da limpeza (só opções executáveis)
