@@ -25,7 +25,20 @@ import '@testing-library/jest-dom'
 // is mocked, so the client is a stub — the test runs in a clean checkout too.
 vi.mock('@/lib/supabase/client', () => ({ supabase: {} }))
 
-const state = vi.hoisted(() => ({ locked: false }))
+const state = vi.hoisted(() => ({
+  locked: false,
+  // 52-02: perguntas/opções do contexto — vazias por padrão (os casos de estado de borda
+  // do 51-01 dependem disso); os casos «durante a prova» preenchem.
+  perguntas: [] as Array<{
+    id: string
+    cargo: string
+    cenario: string
+    formato: string
+    tempo_est_min: number | null
+    status: string
+  }>,
+  opcoes: [] as Array<{ opcao_id: string; opcao_texto: string }>,
+}))
 
 vi.mock('@/features/avaliacao/hooks/useAutosaveAvaliacao', () => ({
   useAutosaveAvaliacao: () => ({
@@ -45,10 +58,10 @@ vi.mock('@/features/avaliacao/services/avaliacaoService', async (importOriginal)
       Promise.resolve({
         candidatura: { id: 'CAND1', status: 'em_andamento', etapa_atual: 'avaliacao_assincrona', vaga_id: 'V1' },
         testes_aplicaveis: [],
-        perguntas: [],
+        perguntas: state.perguntas,
       }),
     ),
-    getOpcoesSjt: vi.fn(() => Promise.resolve([])),
+    getOpcoesSjt: vi.fn(() => Promise.resolve(state.opcoes)),
     upsertResposta: vi.fn(() => Promise.resolve()),
     loadResposta: vi.fn(() => Promise.resolve(null)),
   }
@@ -109,6 +122,8 @@ async function clicarEChegar(rotulo: string, sentinela: 'SENTINELA-LISTA' | 'SEN
 describe('Telas de prova — rótulo diz o destino (51-01 / JORN-46)', () => {
   beforeEach(() => {
     state.locked = false
+    state.perguntas = []
+    state.opcoes = []
   })
 
   it('Redação, «Sua etapa avançou» → «Ir ao painel» vai DIRETO ao painel', async () => {
@@ -177,5 +192,88 @@ describe('Telas de prova — rótulo diz o destino (51-01 / JORN-46)', () => {
     )
     await screen.findByText(/Acompanhe o andamento pelo seu painel/)
     await clicarEChegar(VOLTAR_AVALIACOES, 'SENTINELA-LISTA')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// Phase 52 / Plan 52-02 (JORN-60 — D-24, D-26, D-36, D-52-U15): saída DURANTE a prova.
+//
+// SJT MC guarda as respostas só na memória da tela: com ≥1 resposta marcada, «Voltar às
+// avaliações» abre a confirmação de perda; sem nenhuma, sai direto (não há o que perder,
+// e um diálogo dizendo «não serão salvas» seria falso). Navegação REAL, como acima.
+// ─────────────────────────────────────────────────────────────────────────────────────
+
+const PERGUNTA_MC = {
+  id: 'P-MC-1',
+  cargo: 'sdr',
+  cenario: 'Um cliente reclama do atraso.',
+  formato: 'mc',
+  tempo_est_min: null,
+  status: 'ativo',
+}
+const OPCOES_MC = [
+  { opcao_id: 'O1', opcao_texto: 'Opção A' },
+  { opcao_id: 'O2', opcao_texto: 'Opção B' },
+]
+const TITULO_DIALOGO = 'Sair da avaliação?'
+const CORPO_DIALOGO = 'Se sair agora, as respostas desta prova não serão salvas.'
+
+const renderSjtMc = () =>
+  renderAt(
+    '/candidato/avaliacao/CAND1/mc',
+    '/candidato/avaliacao/:candidaturaId/mc',
+    <SjtMultiplaEscolhaScreen />,
+  )
+
+describe('SJT múltipla escolha — saída durante a prova (52-02 / D-24, D-52-U15)', () => {
+  beforeEach(() => {
+    state.locked = false
+    state.perguntas = [PERGUNTA_MC]
+    state.opcoes = OPCOES_MC
+  })
+
+  it('o botão de saída está na tela da prova e diz «Voltar às avaliações»', async () => {
+    renderSjtMc()
+    const btn = await screen.findByTestId('sair-da-prova')
+    expect(btn).toHaveAccessibleName(VOLTAR_AVALIACOES)
+    expect(await screen.findByRole('heading', { name: /Situação 1 de 1/ })).toBeInTheDocument()
+  })
+
+  it('sem nenhuma resposta marcada → navega DIRETO à lista, sem diálogo', async () => {
+    renderSjtMc()
+    fireEvent.click(await screen.findByTestId('sair-da-prova'))
+    expect(await screen.findByText('SENTINELA-LISTA')).toBeInTheDocument()
+    expect(screen.queryByText(TITULO_DIALOGO)).toBeNull()
+  })
+
+  it('com 1 resposta → diálogo; «Continuar» fecha e MANTÉM a resposta; «Sair» vai à lista', async () => {
+    renderSjtMc()
+    const opcaoA = await screen.findByRole('radio', { name: 'Opção A' })
+    fireEvent.click(opcaoA)
+    expect(opcaoA).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(screen.getByTestId('sair-da-prova'))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    expect(screen.getByText(TITULO_DIALOGO)).toBeInTheDocument()
+    expect(screen.getByText(CORPO_DIALOGO)).toBeInTheDocument()
+    expect(screen.queryByText('SENTINELA-LISTA')).toBeNull()
+
+    // «Continuar» é o cancelar: fecha, fica na prova, a resposta continua marcada.
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByText('SENTINELA-LISTA')).toBeNull()
+    expect(screen.getByRole('radio', { name: 'Opção A' })).toHaveAttribute('aria-checked', 'true')
+
+    // De novo, agora «Sair»: chega à lista.
+    fireEvent.click(screen.getByTestId('sair-da-prova'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Sair' }))
+    expect(await screen.findByText('SENTINELA-LISTA')).toBeInTheDocument()
+  })
+
+  it('cronômetro diz «Tempo decorrido: mm:ss (sem limite de tempo)» com tabular-nums (D-26)', async () => {
+    renderSjtMc()
+    const tempo = await screen.findByText(/^Tempo decorrido: \d{2}:\d{2} \(sem limite de tempo\)$/)
+    expect(tempo).toHaveClass('tabular-nums')
+    expect(document.body.textContent ?? '').not.toMatch(/Tempo sugerido/i)
   })
 })
