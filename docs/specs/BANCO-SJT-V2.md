@@ -120,7 +120,7 @@ as duas mensagens foram entregues e não lidas. São 17h, e a agenda de amanhã 
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Liga ainda hoje; se ele não atender, deixa recado, deixa a lista de espera de sobreaviso e anota no CRM. |
+| 1 | fortemente_pontua | 4 | Liga ainda hoje; se ele não atender, manda recado, deixa a lista de espera de sobreaviso e anota no CRM. |
 | 2 | pontua | 2 | Manda mais uma mensagem agora e, se não houver resposta até amanhã cedo, oferece o horário à lista. |
 | 3 | neutro | 1 | Mantém o horário como está e confia na confirmação de ontem, que foi entregue, mesmo sem ter sido lida. |
 | 4 | atencao | 0 | Libera o horário para a lista de espera agora, porque mensagem sem leitura costuma virar falta amanhã. |
@@ -341,7 +341,7 @@ janela de 40 minutos e não haverá outra nesta semana.
 |---|---|---|---|
 | 1 | fortemente_pontua | 4 | Resolve com o que tem: microfone do celular por perto e o roteiro impresso em cartões fora do quadro. |
 | 2 | pontua | 2 | Grava com o áudio do celular e o Dr. lendo o roteiro do próprio celular na mão, sem teleprompter. |
-| 3 | neutro | 1 | Usa os 20 minutos tentando consertar o lapela e começa a sessão atrasado, com menos tempo de gravação. |
+| 3 | neutro | 1 | Usa os 20 minutos tentando consertar o lapela e começa a sessão com atraso, com menos tempo de gravação. |
 | 4 | atencao | 0 | Remarca a sessão e comunica que, sem o equipamento funcionando, não dá para garantir a qualidade. |
 
 ### MC6 · Três dias de material e o editor começa segunda às 8h
