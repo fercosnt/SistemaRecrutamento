@@ -190,10 +190,13 @@ export function AvaliacaoRavenScreen() {
       <RavenShell>
         <Glass variant="white" blur="lg" className="mx-auto max-w-2xl rounded-xl p-8 text-center">
           <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-[#35BFAD]" aria-hidden="true" />
-          <h1 className="mb-2 text-2xl font-bold text-slate-900">
+          <h1 className="mb-2 text-2xl font-semibold text-white">
             {concluida ? COPY.concluida : COPY.jaRespondeu}
           </h1>
-          <GlassButton onClick={voltarAoPainel} className="mt-6">
+          <GlassButton
+            onClick={voltarAoPainel}
+            className="mt-6 min-h-[44px] text-sm font-semibold text-white"
+          >
             {COPY.voltar}
           </GlassButton>
         </Glass>
@@ -205,10 +208,13 @@ export function AvaliacaoRavenScreen() {
     return (
       <RavenShell>
         <Glass variant="white" blur="lg" className="mx-auto max-w-2xl rounded-xl p-8 text-center">
-          <Lock className="mx-auto mb-4 h-10 w-10 text-slate-400" aria-hidden="true" />
-          <h1 className="mb-2 text-xl font-bold text-slate-900">{COPY.titulo}</h1>
-          <p className="mx-auto max-w-[52ch] text-slate-700">{COPY.naoLiberado}</p>
-          <GlassButton onClick={voltarAoPainel} className="mt-6">
+          <Lock className="mx-auto mb-4 h-10 w-10 text-white/70" aria-hidden="true" />
+          <h1 className="mb-2 text-2xl font-semibold text-white">{COPY.titulo}</h1>
+          <p className="mx-auto max-w-[52ch] text-base text-white/80">{COPY.naoLiberado}</p>
+          <GlassButton
+            onClick={voltarAoPainel}
+            className="mt-6 min-h-[44px] text-sm font-semibold text-white"
+          >
             {COPY.voltar}
           </GlassButton>
         </Glass>
@@ -225,96 +231,109 @@ export function AvaliacaoRavenScreen() {
   }
 
   const nOpcoes = questao.opcoes_imagens.length
+  // Classes INTEIRAS no fonte: o JIT do Tailwind só gera a classe que aparece escrita por
+  // completo. O template antigo interpolava o sufixo depois do prefixo `sm:`: punha
+  // «sm:grid-cols-8» no DOM, mas a classe nunca existia no CSS — a grade ficava em 3/4
+  // colunas também no desktop.
+  const classeGrade = nOpcoes > 6 ? 'grid-cols-4 sm:grid-cols-8' : 'grid-cols-3 sm:grid-cols-6'
 
   return (
     <RavenShell>
       <div onPaste={pasteBlockHandler}>
-      {/* Cabeçalho — saída, progresso e tempo. O tempo é informativo: não há limite, e o
-          instrumento não é cronometrado para corte. */}
-      <Glass variant="white" blur="lg" className="mb-4 rounded-xl p-4">
-        {/* 52-03 / D-24 + D-52-U14: saída durante a prova. O Raven vive fora do container,
-            então o caminho dele é o painel. As respostas só existem na memória (nenhum
-            rascunho): a escolha do item atual, ainda não enviada, também se perde — por
-            isso conta para a confirmação (T-52-06). */}
-        <div className="mb-3 flex justify-start">
-          <SairDaProvaButton
-            rotulo="irAoPainel"
-            destino="/candidato/dashboard"
-            temRespostaNaoSalva={Object.keys(respostas).length > 0 || escolha !== null}
-          />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Item {index + 1} de {questoes.length} · Série {questao.serie}
-            </p>
-            <h1 className="text-lg font-bold text-slate-900">{COPY.titulo}</h1>
+        {/* Cabeçalho — saída, progresso, tempo e instruções. O tempo é informativo: não há
+            limite, e o instrumento não é cronometrado para corte. */}
+        <Glass variant="white" blur="lg" className="mb-4 rounded-xl p-4 text-white">
+          {/* 52-03 / D-24 + D-52-U14: saída durante a prova. O Raven vive fora do container,
+              então o caminho dele é o painel. As respostas só existem na memória (nenhum
+              rascunho): a escolha do item atual, ainda não enviada, também se perde — por
+              isso conta para a confirmação (T-52-06). */}
+          <div className="mb-3 flex justify-start">
+            <SairDaProvaButton
+              rotulo="irAoPainel"
+              destino="/candidato/dashboard"
+              temRespostaNaoSalva={Object.keys(respostas).length > 0 || escolha !== null}
+            />
           </div>
-          <div className="flex items-center gap-2 text-slate-600">
-            <Clock className="h-4 w-4" aria-hidden="true" />
-            <span className="tabular-nums">{hhmmss(seconds)}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-white/70">
+                Item {index + 1} de {questoes.length} · Série {questao.serie}
+              </p>
+              <h1 className="text-2xl font-semibold text-white">{COPY.titulo}</h1>
+            </div>
+            <div className="flex items-center gap-2 text-white/80">
+              <Clock className="h-4 w-4" aria-hidden="true" />
+              <span className="tabular-nums">{hhmmss(seconds)}</span>
+            </div>
           </div>
-        </div>
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-          <div
-            className="h-full rounded-full bg-[#35BFAD] transition-all duration-300"
-            style={{ width: `${progresso}%` }}
-          />
-        </div>
-        <p className="mt-2 text-xs text-slate-500">{COPY.semVolta}</p>
-      </Glass>
+          {/* 52-03: as instruções estavam definidas no COPY e nunca apareciam. Ficam em
+              todo item — o candidato que volta à aba no item 40 lê de novo a regra. */}
+          <p className="mt-2 text-base text-white/80">{COPY.subtitulo}</p>
+          <p className="mt-1 text-sm text-white/70">{COPY.semVolta}</p>
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/20">
+            <div
+              className="h-full rounded-full bg-[#35BFAD] transition-all duration-300"
+              style={{ width: `${progresso}%` }}
+            />
+          </div>
+        </Glass>
 
-      {/* A matriz */}
-      <Glass variant="white" blur="lg" className="mb-4 rounded-xl p-4">
-        <img
-          src={questao.imagem_matriz_url}
-          alt={`Item ${questao.numero_questao} da série ${questao.serie}`}
-          className="mx-auto max-h-[46vh] w-auto max-w-full object-contain"
-          loading="eager"
-        />
-      </Glass>
+        {/* A matriz — desenho preto sobre branco: fica num ladrilho branco sólido, que o
+            glass translúcido não garante. */}
+        <Glass variant="white" blur="lg" className="mb-4 rounded-xl p-4">
+          <div className="rounded-lg bg-white p-2">
+            <img
+              src={questao.imagem_matriz_url}
+              alt={`Item ${questao.numero_questao} da série ${questao.serie}`}
+              className="mx-auto max-h-[46vh] w-auto max-w-full object-contain"
+              loading="eager"
+            />
+          </div>
+        </Glass>
 
-      {/* As alternativas. Séries A/B trazem 6; C/D/E trazem 8 — o grid segue o
-          número real de opções em vez de assumir um dos dois. */}
-      <Glass variant="white" blur="lg" className="rounded-xl p-4">
-        <div
-          className={`grid gap-3 ${nOpcoes > 6 ? 'grid-cols-4' : 'grid-cols-3'} sm:${
-            nOpcoes > 6 ? 'grid-cols-8' : 'grid-cols-6'
-          }`}
-        >
-          {questao.opcoes_imagens.map((url, i) => {
-            const numero = i + 1
-            const ativa = escolha === numero
-            return (
-              <button
-                key={`${questao.id}-${numero}`}
-                type="button"
-                onClick={() => setEscolha(numero)}
-                aria-pressed={ativa}
-                aria-label={`Alternativa ${numero}`}
-                className={`rounded-lg border-2 p-1 transition-all ${
-                  ativa
-                    ? 'border-[#35BFAD] bg-[#35BFAD]/10 ring-2 ring-[#35BFAD]/40'
-                    : 'border-slate-200 hover:border-slate-400'
-                }`}
-              >
-                {url ? (
-                  <img src={url} alt="" className="h-full w-full object-contain" />
-                ) : (
-                  <span className="block py-4 text-sm font-semibold text-slate-700">{numero}</span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+        {/* As alternativas. Séries A/B trazem 6; C/D/E trazem 8 — o grid segue o
+            número real de opções em vez de assumir um dos dois. */}
+        <Glass variant="white" blur="lg" className="rounded-xl p-4">
+          <div className={`grid gap-3 ${classeGrade}`}>
+            {questao.opcoes_imagens.map((url, i) => {
+              const numero = i + 1
+              const ativa = escolha === numero
+              return (
+                <button
+                  key={`${questao.id}-${numero}`}
+                  type="button"
+                  onClick={() => setEscolha(numero)}
+                  aria-pressed={ativa}
+                  aria-label={`Alternativa ${numero}`}
+                  className={`rounded-lg border-2 bg-white p-2 transition-all ${
+                    ativa
+                      ? 'border-[#35BFAD] ring-2 ring-[#35BFAD]/40'
+                      : 'border-white/30 hover:border-white/70'
+                  }`}
+                >
+                  {url ? (
+                    <img src={url} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    // Sobre o ladrilho BRANCO: o número fica escuro, não na escala branca.
+                    <span className="block py-4 text-sm font-semibold text-slate-900">{numero}</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
 
-        <div className="mt-5 flex justify-end">
-          <GlassButton onClick={avancar} disabled={enviando}>
-            {index + 1 < questoes.length ? 'Próximo item' : 'Concluir avaliação'}
-            <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
-          </GlassButton>
-        </div>
-      </Glass>
+          <div className="mt-5 flex justify-end">
+            {/* Accent sólido (UI-SPEC §Color 5): é a ação repetida 60 vezes. */}
+            <GlassButton
+              onClick={avancar}
+              disabled={enviando}
+              className="min-h-[44px] bg-[#35BFAD] text-sm font-semibold text-white hover:bg-[#35BFAD]/90"
+            >
+              {index + 1 < questoes.length ? 'Próximo item' : 'Concluir avaliação'}
+              <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+            </GlassButton>
+          </div>
+        </Glass>
       </div>
     </RavenShell>
   )
