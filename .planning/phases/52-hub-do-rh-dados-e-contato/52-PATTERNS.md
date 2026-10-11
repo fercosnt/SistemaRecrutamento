@@ -45,7 +45,7 @@
 | `src/features/avaliacao/components/ScorecardAvaliacao.tsx` (modify — restyle, swap McBreakdown/BigFiveEstado in hub) | component | — | same file | exact |
 | `src/features/decisao/components/RespostaCasoAbertoSjt.tsx` (modify — hub variant of `RespostaCasoAbertoConteudo`) | component | on-demand read | same file :47-94 | exact |
 | `src/features/hub-candidato/components/AvaliacoesRespondidasBloco.tsx` (leaves the hub; `COPY_AVALIACOES_RESPONDIDAS` stays) | component | — | same file | exact |
-| `src/features/hub-candidato/components/__tests__/hubVerRespostas.test.tsx` (**replace**), `src/features/avaliacao/components/__tests__/ScorecardAvaliacao.test.tsx` (**replace**), new `__tests__` for each new component | test (vitest) | — | `hubVerRespostas.test.tsx:1-40` (mock harness) | exact |
+| `src/features/hub-candidato/components/__tests__/hubVerRespostas.test.tsx` (**replace**), `src/features/avaliacao/components/__tests__/ScorecardAvaliacao.test.tsx` (**edit, scoped** — only the D-32 `describe` is replaced (52-11) and new `describe`s are appended (52-11, 52-12); the harness, fixtures, UX-07, D-20 and 49-41 blocks stay byte for byte versus `refs/gsd/52/base`, gated in 52-11 and 52-12), new `__tests__` for each new component | test (vitest) | — | `hubVerRespostas.test.tsx:1-40` (mock harness) | exact |
 | `src/components/pages/FormularioCandidaturaPage.tsx` (modify — extract `ROTULO_BLOCO`/`groupByBloco`; knockout card colors 532-548) | page | — | same file | exact |
 
 ### Bloco A — Telas sem banco
