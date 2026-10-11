@@ -173,6 +173,7 @@ class Gerador(Base):
 
 class OrdemPermutada(Base):
     def test_anti_escada_e_deterministica(self):
+        sys.dont_write_bytecode = True
         sys.path.insert(0, AQUI)
         import sjt_texto
         itens = sjt_texto.parse(self.escrever(texto_cargo()))

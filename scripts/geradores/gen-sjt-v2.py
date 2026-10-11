@@ -16,6 +16,7 @@ import json
 import os
 import sys
 
+sys.dont_write_bytecode = True  # nenhum __pycache__ no repositorio
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # roda sob python3 -I
 
 import sjt_texto  # noqa: E402
