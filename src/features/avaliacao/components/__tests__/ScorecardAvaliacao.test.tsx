@@ -328,3 +328,147 @@ describe('ScorecardAvaliacao — SJT MC: exatamente uma etiqueta, nenhum código
     expect(screen.queryByText(/^Item \d/)).toBeNull()
   })
 })
+
+import { within } from '@testing-library/react'
+
+// ── Phase 52 / plano 52-12 — o card do caso aberto no hub (D-22, D-52-U19, D-52-U23) ───────────
+//
+// Pelo card INTEIRO: o texto do candidato com as citações marcadas, as não localizadas (ou todas,
+// sem o texto) na lista lateral, nenhum âmbar na cadeia de classes do ramo do hub, «Pontos de
+// atenção» no lugar de «Red flags», e rótulos/selos em 14px. Os casos D-20 acima ficam como estão.
+describe('ScorecardAvaliacao — caso aberto no hub: citações no texto, cor neutra, 14px (52-12 / D-22)', () => {
+  const CIT_A = 'ouviria a paciente com calma'
+  const CIT_B = 'trecho que a IA citou e não está no texto'
+  const CASO_HUB = {
+    id: 'ca-12',
+    tipo: 'sjt',
+    subtipo: 'caso_aberto',
+    pergunta_id: 'p-12',
+    score: 18,
+    score_max: 25,
+    status: 'sucesso',
+    metadata: {
+      dimension_scores: [{ dimension: 'Empatia', score_1_5: 4, level: 'Proficiente', reasoning: 'Raciocínio.' }],
+      composite_0_25: 18,
+      motivos_revisao: [SINAL_INSTRUCAO_AO_MODELO],
+    },
+    citacoes: [CIT_A, CIT_B],
+    red_flags: ['Promete prazo que não depende dela'],
+  } as unknown as ScoreRow
+
+  /** Cor por classe: jsdom não computa Tailwind; a cor herdada é a do ancestral mais próximo que declara cor. */
+  const COR = /^text-(white|black|amber|red|green|yellow|orange|emerald|teal|cyan|sky|blue|slate|gray|zinc|neutral|stone|\[#)/
+
+  function cadeiaDeClasses(el: Element): string[][] {
+    const cadeia: string[][] = []
+    for (let n: Element | null = el; n; n = n.parentElement) {
+      cadeia.push((n.getAttribute('class') ?? '').split(/\s+/).filter(Boolean))
+      if (n === document.body) break
+    }
+    return cadeia
+  }
+
+  function corNeutraNoRamoDoHub() {
+    const hub = screen.getByTestId('caso-aberto-hub')
+    const comTexto = [hub, ...Array.from(hub.querySelectorAll('*'))].filter((el) =>
+      Array.from(el.childNodes).some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim() !== ''),
+    )
+    expect(comTexto.length).toBeGreaterThan(0)
+    for (const el of comTexto) {
+      const cadeia = cadeiaDeClasses(el)
+      expect(cadeia.flat().filter((c) => c.startsWith('text-amber')), `âmbar na cadeia de «${el.textContent}»`).toEqual([])
+      let dono: Element | null = el
+      let cor: string | undefined
+      for (const classes of cadeia) {
+        cor = classes.find((c) => COR.test(c))
+        if (cor) break
+        dono = dono?.parentElement ?? null
+      }
+      expect(cor, `sem cor declarada para «${el.textContent}»`).toMatch(/^text-white/)
+      expect(hub.contains(dono), `cor de «${el.textContent}» vem de fora do ramo do hub`).toBe(true)
+    }
+  }
+
+  const SEM_TEXTO = [
+    ['carregando', () => getRespostaMock.mockReturnValue(new Promise(() => {})), 'Carregando a resposta…'],
+    ['erro', () => getRespostaMock.mockRejectedValue(new Error('rede')), 'Não foi possível carregar a resposta.'],
+    ['removida', () => getRespostaMock.mockResolvedValue({ situacao: 'removida', texto: null }), 'O texto desta resposta não está mais disponível.'],
+    ['indisponivel', () => getRespostaMock.mockResolvedValue({ situacao: 'indisponivel', texto: null }), 'O texto desta resposta não está disponível.'],
+    [
+      'sem_resposta_enviada',
+      () => getRespostaMock.mockResolvedValue({ situacao: 'sem_resposta_enviada', texto: null }),
+      'Não há resposta enviada ao caso aberto.',
+    ],
+  ] as const
+
+  it.each(SEM_TEXTO)('%s: as 2 citações na lista lateral, zero <mark> no card, e nenhum âmbar no ramo do hub', async (_nome, preparar, frase) => {
+    preparar()
+    mockRows([CASO_HUB])
+    const { container } = render(<ScorecardAvaliacao candidaturaId="cand-1" />)
+    expect(await screen.findByText(frase)).toBeInTheDocument()
+    const lista = screen.getByTestId('caso-aberto-citacoes-nao-localizadas')
+    expect(within(lista).getByText(CIT_A)).toBeInTheDocument()
+    expect(within(lista).getByText(CIT_B)).toBeInTheDocument()
+    expect(container.querySelectorAll('mark')).toHaveLength(0)
+    corNeutraNoRamoDoHub()
+  })
+
+  it('caso marcado: a citação presente no texto vira <mark>, e a lista lateral fica só com a outra', async () => {
+    getRespostaMock.mockResolvedValue({
+      situacao: 'disponivel',
+      texto: `Primeiro eu ${CIT_A}.\nDepois explicaria o protocolo.`,
+    })
+    mockRows([CASO_HUB])
+    const { container } = render(<ScorecardAvaliacao candidaturaId="cand-1" />)
+    expect(await screen.findByText(CIT_A, { selector: 'mark' })).toBeInTheDocument()
+    expect(container.querySelectorAll('mark')).toHaveLength(1)
+    const lista = screen.getByTestId('caso-aberto-citacoes-nao-localizadas')
+    expect(within(lista).getByText(CIT_B)).toBeInTheDocument()
+    expect(within(lista).queryByText(CIT_A)).toBeNull()
+    expect(screen.getByText('Trechos marcados: citados pela análise da IA.')).toBeInTheDocument()
+    corNeutraNoRamoDoHub()
+  })
+
+  it('exatamente um «Texto do candidato», com a variante do hub montada', async () => {
+    mockRows([CASO_HUB])
+    render(<ScorecardAvaliacao candidaturaId="cand-1" />)
+    expect(screen.getAllByText('Texto do candidato')).toHaveLength(1)
+    expect(screen.getByTestId('caso-aberto-hub')).toBeInTheDocument()
+    expect(await screen.findByText('Não há resposta enviada ao caso aberto.')).toBeInTheDocument()
+    expect(screen.getAllByText('Texto do candidato')).toHaveLength(1)
+  })
+
+  it('«Pontos de atenção» no lugar de «Red flags» (D-52-U19), e os rótulos em 14px/600 sem caixa-alta', async () => {
+    mockRows([CASO_HUB])
+    render(<ScorecardAvaliacao candidaturaId="cand-1" />)
+    expect(screen.queryByText(/Red flags/i)).toBeNull()
+    for (const rotulo of ['Pontos de atenção', 'Texto do candidato']) {
+      const classes = screen.getByText(rotulo).className.split(/\s+/)
+      expect(classes).toEqual(expect.arrayContaining(['text-sm', 'font-semibold', 'text-white/70']))
+      expect(classes).not.toContain('uppercase')
+      expect(classes).not.toContain('text-xs')
+    }
+    expect(screen.getByText('Promete prazo que não depende dela')).toBeInTheDocument()
+    await screen.findByText('Não há resposta enviada ao caso aberto.')
+  })
+
+  it('selos e sinais do card em 14px (D-52-U23): as duas SugestaoIABadge, o sinal de revisão e o nível; a dimensão em 600', async () => {
+    mockRows([CASO_HUB])
+    render(<ScorecardAvaliacao candidaturaId="cand-1" />)
+    for (const texto of ['Sugestão da IA — decisão é sempre humana', 'Sugestão da IA']) {
+      const classes = screen.getByText(texto).className.split(/\s+/)
+      expect(classes, texto).toContain('text-sm')
+      expect(classes, texto).not.toContain('text-xs')
+    }
+    const sinal = screen.getByTestId('sjt-sinal-revisao').className.split(/\s+/)
+    expect(sinal).toContain('text-sm')
+    expect(sinal).not.toContain('text-xs')
+    const nivel = screen.getByText('Proficiente').className.split(/\s+/)
+    expect(nivel).toEqual(expect.arrayContaining(['text-sm', 'font-semibold']))
+    expect(nivel).not.toContain('text-xs')
+    const dimensao = screen.getByText('Empatia').className.split(/\s+/)
+    expect(dimensao).toContain('font-semibold')
+    expect(dimensao).not.toContain('font-medium')
+    await screen.findByText('Não há resposta enviada ao caso aberto.')
+  })
+})
