@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-05-PLAN.md (2026-10-11): selo de proveniência diz «Modelo não registrado» como frase inteira (chave do fragmento minúsculo removida), com «(análise anterior a 22/09/2026)» só quando a data da análise (created_at → gerado_em no hub) é ≤ 22/09/2026 em São Paulo (D-23, D-52-U17); cinco asserções de consumidor pinam a frase inteira; guarda p52-ban-modelo-modelo sobre src/ com piso medido; getActivePageFromPath exportada e «Candidatos» aceso em /rh/candidato/:id/*; vitest 703/703 + 93/93 nos escopos, suíte 2885/2887 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89; andaime de tipos chore antes do RED (hook tsc ≤ 96); sem push."
-last_updated: "2026-10-11T04:31:00.000Z"
+stopped_at: "Completed 52-06-PLAN.md (2026-10-11): login do candidato respeita a sessão aberta (resolveRedirect + escopo /candidato/, senão painel; «Verificando sua sessão…» durante a hidratação; envioEmCursoRef impede o efeito de sequestrar o ?redirect do próprio envio); «Meu painel» na CandidatoNavbar (ausente em /candidato/dashboard); CartaoInscricaoEncerrada extraído e legível no vidro (text-2xl text-white / white/80 / white/70, texto D-15 intacto); SelectItem com realce bg-[#35BFAD]/20 e texto herdado (D-52-U21); RED_EVIDENCE_OK (JUnit) nos 4 alvos; vitest 173/173 + 550/550 nos escopos, suíte 2910/2912 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89; conferência visual do SelectItem nos dois consumidores fica para a UAT da 52; sem push."
+last_updated: "2026-10-11T04:42:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 179
+  completed_plans: 180
   percent: 91
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
