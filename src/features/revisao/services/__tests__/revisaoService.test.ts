@@ -81,6 +81,8 @@ import {
   lerConfigSlaRevisao,
   responderRevisao,
   lerContextoKnockout,
+  lerContextoRejeicaoTriagem,
+  revisaoService,
   CHAVE_SLA_REVISAO,
 } from '../revisaoService'
 
@@ -761,5 +763,100 @@ describe('lerContextoKnockout — RPC do contexto do knockout, coerção estrita
   it('erro da RPC → lança `RevisaoError` (a tela mostra a falha com «Tentar novamente»)', async () => {
     rpcMock.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'x' } })
     await expect(lerContextoKnockout(PEDIDO)).rejects.toBeInstanceOf(RevisaoError)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Plano 52-13 Task 2 (JORN-62, D-38) — o contexto da rejeição pelo RH na triagem.
+//
+// `ler_contexto_rejeicao_triagem_revisao(p_pedido_id)` (52-08) devolve `{situacao: 'disponivel',
+// motivo, justificativa}`; pedido de outra origem/inexistente → P0002; sem permissão → 42501.
+// A coerção é estrita: só `disponivel` passa; qualquer outra forma vira vazio.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('lerContextoRejeicaoTriagem — RPC do contexto da triagem, coerção estrita (52-13)', () => {
+  const VAZIO = { situacao: 'indisponivel', motivo: null, justificativa: null }
+
+  it('chama `ler_contexto_rejeicao_triagem_revisao` com `p_pedido_id` e devolve os dados', async () => {
+    rpcMock.mockResolvedValue({
+      data: { situacao: 'disponivel', motivo: 'x', justificativa: 'y' },
+      error: null,
+    })
+    await expect(lerContextoRejeicaoTriagem(PEDIDO)).resolves.toEqual({
+      situacao: 'disponivel',
+      motivo: 'x',
+      justificativa: 'y',
+    })
+    expect(rpcMock).toHaveBeenCalledTimes(1)
+    expect(rpcMock).toHaveBeenCalledWith('ler_contexto_rejeicao_triagem_revisao', {
+      p_pedido_id: PEDIDO,
+    })
+    expect(fromMock).not.toHaveBeenCalled()
+  })
+
+  it('`disponivel` com campo nulo, vazio ou de outro tipo → o campo vira `null`', async () => {
+    rpcMock.mockResolvedValue({
+      data: { situacao: 'disponivel', motivo: 42, justificativa: '   ' },
+      error: null,
+    })
+    await expect(lerContextoRejeicaoTriagem(PEDIDO)).resolves.toEqual({
+      situacao: 'disponivel',
+      motivo: null,
+      justificativa: null,
+    })
+    rpcMock.mockResolvedValue({
+      data: { situacao: 'disponivel', motivo: 'outro', justificativa: null },
+      error: null,
+    })
+    await expect(lerContextoRejeicaoTriagem(PEDIDO)).resolves.toEqual({
+      situacao: 'disponivel',
+      motivo: 'outro',
+      justificativa: null,
+    })
+  })
+
+  it('a justificativa sai inteira, com as quebras de linha (nada aparado nem truncado)', async () => {
+    const longa = `Primeira linha.\n${'x'.repeat(1500)}\nÚltima linha.`
+    rpcMock.mockResolvedValue({
+      data: { situacao: 'disponivel', motivo: 'outro', justificativa: longa },
+      error: null,
+    })
+    const r = await lerContextoRejeicaoTriagem(PEDIDO)
+    expect(r.justificativa).toBe(longa)
+  })
+
+  it('forma estranha (`situacao` desconhecida, nulo, array, escalar) → vazio, sem texto', async () => {
+    for (const data of [
+      { situacao: 'outra', motivo: 'x', justificativa: 'y' },
+      { motivo: 'x', justificativa: 'y' },
+      null,
+      [{ situacao: 'disponivel', motivo: 'x', justificativa: 'y' }],
+      'disponivel',
+    ]) {
+      rpcMock.mockResolvedValue({ data, error: null })
+      await expect(lerContextoRejeicaoTriagem(PEDIDO)).resolves.toEqual(VAZIO)
+    }
+  })
+
+  it('42501 (sem permissão) → `RevisaoError` classificado, NÃO a recusa do decisor', async () => {
+    const cru = { code: '42501', message: 'permission denied' }
+    rpcMock.mockResolvedValue({ data: null, error: cru })
+    const erro = await lerContextoRejeicaoTriagem(PEDIDO).catch((e: unknown) => e)
+    expect(erro).toBeInstanceOf(RevisaoError)
+    expect((erro as RevisaoError).code).toBe('DESCONHECIDO')
+    expect((erro as RevisaoError).details).toBe(cru)
+    // A mensagem do banco nunca chega à tela.
+    expect((erro as RevisaoError).message).not.toContain('permission denied')
+  })
+
+  it('P0002 (pedido de outra origem ou inexistente) → `RevisaoError` de VALIDACAO', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'no_data_found' } })
+    const erro = await lerContextoRejeicaoTriagem(PEDIDO).catch((e: unknown) => e)
+    expect(erro).toBeInstanceOf(RevisaoError)
+    expect((erro as RevisaoError).code).toBe('VALIDACAO')
+  })
+
+  it('está no objeto `revisaoService` (convenção camelCaseService)', () => {
+    expect(revisaoService.lerContextoRejeicaoTriagem).toBe(lerContextoRejeicaoTriagem)
   })
 })
