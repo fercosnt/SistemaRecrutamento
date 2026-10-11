@@ -782,7 +782,7 @@ Plans:
 - [x] 52-24-PLAN.md — Respostas da inscrição na ordem do formulário, selo «Eliminatória», links só `http(s)` (D-19, D-20)
 
 **Wave 6**
-- [ ] 52-25-PLAN.md — «Avaliação assíncrona» aberta com a contagem uma vez (defeito c); títulos em 24px
+- [x] 52-25-PLAN.md — «Avaliação assíncrona» aberta com a contagem uma vez (defeito c); títulos em 24px
 
 **Wave 7**
 - [ ] 52-12-PLAN.md — Caso aberto legível com as citações marcadas no texto (D-22)

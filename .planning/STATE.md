@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-24-PLAN.md (2026-10-11): «Respostas da inscrição» na aba Cadastro do hub (RespostasInscricaoBloco, abaixo de «Dados do cadastro», inscricao do mesmo useCadastroCandidatoRh — nenhuma leitura nova); grupos e ordem do formulário com groupByBloco/rotuloDoBloco extraídos para src/features/vagas/lib/blocosFormulario.ts (formulário importa, 204/204); selo neutro «Eliminatória» sem veredito nem opção não escolhida (D-19, RNF-07a); links só http(s) por segmento (segmentosComLinks + TextoComLinks, aba nova, rel noopener noreferrer), também no LinkedIn/Instagram da ficha (D-20); caso do 52-10 «nenhum link (o link é do 52-24)» substituído por contrato mais estrito — revisor do 52-14 conferir; RED_EVIDENCE_OK (JUnit) nos 4 alvos; 15 mutações mordem; vitest hub+páginas+guardas 500/500, suíte 3045/3047 (2 reds baseline promessasComExecutor), tsc 89, marcador hub-respostas-inscricao no chunk lazy; 2 achados de tipografia herdados no HubCandidatoRH seguem do 52-25 (D-52-U22); nada publicado (52-15); sem push."
-last_updated: "2026-10-11T05:52:00.000Z"
+stopped_at: "Completed 52-25-PLAN.md (2026-10-11): aba Avaliações aberta — seção «Avaliação assíncrona» com COPY_AVALIACOES_RESPONDIDAS.contagem(n) uma vez e o ScorecardAvaliacao aberto dentro dela (defeito c, D-18, D-52-U03); o «Ver respostas» saiu do hub e AvaliacoesRespondidasBloco.tsx ficou só com a constante; estadoDaAssincrona: com linha sjt/big_five a seção é com_dados em qualquer etapa (o dado vence a etapa), sem linha o estadoDoInstrumento de hoje (nao_se_aplica intacto); títulos de seção em text-2xl fixo nos 5 lugares (D-52-U22) — p52_tipografia OK (748 linhas), os 2 achados herdados do HubCandidatoRH resolvidos; hubVerRespostas.test.tsx substituído (não apagado); hubAbas.test.tsx editado fora da lista (título + stub do bloco removido) — revisor do 52-14 conferir; RED_EVIDENCE_OK (JUnit) nos 3 alvos; 4 mutações mordem; vitest hub+agendamento+avaliação+guardas 725/725, suíte 3048/3050 (2 reds baseline promessasComExecutor), tsc 89; nada publicado (52-15); sem push."
+last_updated: "2026-10-11T06:00:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 186
+  completed_plans: 187
   percent: 95
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
