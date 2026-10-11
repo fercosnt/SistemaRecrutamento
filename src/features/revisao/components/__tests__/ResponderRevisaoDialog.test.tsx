@@ -27,12 +27,14 @@ import { render, screen, fireEvent, within, waitFor } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
 
-const { mutateMock, resetMock, useResponderMock, lerContextoMock } = vi.hoisted(() => ({
-  mutateMock: vi.fn(),
-  resetMock: vi.fn(),
-  useResponderMock: vi.fn(),
-  lerContextoMock: vi.fn(),
-}))
+const { mutateMock, resetMock, useResponderMock, lerContextoMock, lerContextoTriagemMock } =
+  vi.hoisted(() => ({
+    mutateMock: vi.fn(),
+    resetMock: vi.fn(),
+    useResponderMock: vi.fn(),
+    lerContextoMock: vi.fn(),
+    lerContextoTriagemMock: vi.fn(),
+  }))
 
 vi.mock('../../hooks/useResponderRevisao', () => ({
   useResponderRevisao: useResponderMock,
@@ -42,6 +44,8 @@ vi.mock('../../hooks/useResponderRevisao', () => ({
 vi.mock('../../services/revisaoService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/revisaoService')>()),
   lerContextoKnockout: lerContextoMock,
+  // 52-13 (D-38): o contexto da rejeição na triagem, idem.
+  lerContextoRejeicaoTriagem: lerContextoTriagemMock,
 }))
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -132,6 +136,12 @@ const COPY_DE_CONTORNO = [
 beforeEach(() => {
   vi.clearAllMocks()
   useResponderMock.mockReturnValue(estadoMutacao())
+  // 52-13: um `humana_triagem` monta o contexto da triagem; por padrão ele resolve vazio.
+  lerContextoTriagemMock.mockResolvedValue({
+    situacao: 'indisponivel',
+    motivo: null,
+    justificativa: null,
+  })
 })
 
 describe('ResponderRevisaoDialog — vazio: abre sem veredito e com o envio bloqueado', () => {
@@ -657,5 +667,69 @@ describe('ResponderRevisaoDialog — origens sem knockout não buscam contexto',
       </QueryClientProvider>,
     )
     await waitFor(() => expect(screen.getByLabelText(/Justificativa/i)).toHaveValue(''))
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 52-13 (JORN-62 · D-38) — motivo e justificativa da rejeição pelo RH na triagem.
+// O rótulo do motivo vem do MESMO mapa do diálogo de rejeição (`MOTIVO_OPTIONS`); a
+// justificativa é a de quem rejeitou, inteira (nunca truncada).
+// ══════════════════════════════════════════════════════════════════════════════
+
+const TRIAGEM = linha({
+  origem: 'humana_triagem',
+  pedido_id: '88888888-8888-4888-8888-888888888888',
+})
+
+describe('ResponderRevisaoDialog — pedido de rejeição na triagem (D-38)', () => {
+  it('mostra «Motivo da rejeição» com o rótulo do MOTIVO_OPTIONS e a justificativa inteira', async () => {
+    lerContextoTriagemMock.mockResolvedValue({
+      situacao: 'disponivel',
+      motivo: 'perfil_desalinhado',
+      justificativa: 'Texto\nem duas linhas',
+    })
+    renderComQuery(TRIAGEM)
+    const bloco = await screen.findByTestId('revisao-contexto-triagem')
+    expect(await within(bloco).findByText('Perfil desalinhado com a vaga')).toBeInTheDocument()
+    expect(within(bloco).getByText('Motivo da rejeição')).toBeInTheDocument()
+    expect(within(bloco).getByText('Justificativa registrada')).toBeInTheDocument()
+    // As duas linhas, no MESMO nó de texto, com a quebra preservada (nada truncado).
+    const justificativa = within(bloco).getByText(
+      (_, el) => el?.textContent === 'Texto\nem duas linhas' && el.tagName === 'P',
+    )
+    expect(justificativa).toHaveClass('whitespace-pre-wrap')
+    expect(justificativa.className).not.toMatch(/truncate|line-clamp/)
+    expect(lerContextoTriagemMock).toHaveBeenCalledTimes(1)
+    expect(lerContextoTriagemMock).toHaveBeenCalledWith('88888888-8888-4888-8888-888888888888')
+    // O contexto do knockout não é o desta origem.
+    expect(screen.queryByTestId('revisao-contexto-knockout')).not.toBeInTheDocument()
+    expect(lerContextoMock).not.toHaveBeenCalled()
+  })
+
+  it('motivo desconhecido → o código cru; justificativa nula → «Não registrado»', async () => {
+    lerContextoTriagemMock.mockResolvedValue({
+      situacao: 'disponivel',
+      motivo: 'perfil_nao_aderente',
+      justificativa: null,
+    })
+    renderComQuery(TRIAGEM)
+    const bloco = await screen.findByTestId('revisao-contexto-triagem')
+    expect(await within(bloco).findByText('perfil_nao_aderente')).toBeInTheDocument()
+    expect(within(bloco).getByText('Não registrado')).toBeInTheDocument()
+  })
+
+  it('pedido de knockout (`automatica`) → o contexto de hoje, sem o da triagem', async () => {
+    lerContextoMock.mockResolvedValue(DISPONIVEL)
+    renderComQuery(KNOCKOUT)
+    expect(await screen.findByText(DISPONIVEL.pergunta)).toBeInTheDocument()
+    expect(screen.getByTestId('revisao-contexto-knockout')).toBeInTheDocument()
+    expect(screen.queryByTestId('revisao-contexto-triagem')).not.toBeInTheDocument()
+    expect(lerContextoTriagemMock).not.toHaveBeenCalled()
+  })
+
+  it('decisão final (`humana`) → nenhum dos dois contextos', () => {
+    renderComQuery(linha({ origem: 'humana' }))
+    expect(screen.queryByTestId('revisao-contexto-triagem')).not.toBeInTheDocument()
+    expect(lerContextoTriagemMock).not.toHaveBeenCalled()
   })
 })
