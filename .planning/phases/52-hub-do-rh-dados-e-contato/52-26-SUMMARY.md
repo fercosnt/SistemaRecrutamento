@@ -329,6 +329,13 @@ Nenhum: nenhum endpoint, caminho de auth ou ACL novo; as duas funções mantêm 
 - PROD intocado: ledger p52 = 0001..0003; md5 vivos = os `ANTES_*`. Nenhum push; nenhum STATE/ROADMAP tocado.
 - Próximo: Task 3 — o orquestrador roda o review adversarial (`52-REVIEW-GAP-1.md`, base `refs/gsd/52-18/sha`); o operador confirma POR ESCRITO a janela única (e decide os WR, se houver). Depois a Task 4 (apply pelo portão, `52-APLICACOES.json` da 0005 por máquina, provas em PROD, push que leva `8fa8193a`/`e9dfc369`).
 
+## Self-Check: PASSED
+
+- 8/8 arquivos criados presentes; 9/9 commits (os 8 de código + o do SUMMARY `278db72f`) ancestrais do HEAD.
+- PROD intocado, lido depois do SUMMARY (só leitura): ledger p52 = `[20261011000001, 20261011000002, 20261011000003]`; `pontuar_sjt` = `66fe507f…`; primária `salvar_avaliacao_entrevista` = `070e0f1b…`.
+- Sem push: `origin/main` = `c3e04a71`; local à frente por 18 commits (os só-`.planning/` do 52-18 e da replanificação + os desta sessão — sobem no push da Task 4).
+- `STATE.md`/`ROADMAP.md`: 0 alterações desde `d1c06bca`.
+
 ---
 *Phase: 52-hub-do-rh-dados-e-contato*
 *Sessão A concluída: 2026-10-11*
