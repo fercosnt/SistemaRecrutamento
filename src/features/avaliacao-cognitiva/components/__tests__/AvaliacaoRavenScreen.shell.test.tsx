@@ -17,6 +17,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ReactNode } from 'react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -68,6 +70,9 @@ import { AvaliacaoRavenScreen } from '../AvaliacaoRavenScreen'
 
 const CID = 'CAND1'
 const IR_AO_PAINEL = 'Ir ao painel'
+const SUBTITULO =
+  'São 60 itens em ordem crescente de dificuldade. Escolha a peça que completa cada figura.'
+const SEM_VOLTA = 'Não é possível voltar a um item já respondido.'
 
 const questao = (n: number, opcoes: number) => ({
   id: `q${n}`,
@@ -184,6 +189,50 @@ describe('AvaliacaoRavenScreen — shell da marca (52-03 / 51-UI-REVIEW Pilar 2)
     expect(shell).toContainElement(screen.getByTestId('sair-da-prova'))
     expect(titulo.closest('.max-w-4xl')).not.toBeNull()
     expect(titulo.closest('.container')).not.toBeNull()
+  })
+
+  it('as instruções (subtítulo e «sem volta») estão no item 1 e continuam no item seguinte', async () => {
+    montar()
+    await noItem1()
+    expect(screen.getByText(SUBTITULO)).toBeInTheDocument()
+    expect(screen.getByText(SEM_VOLTA)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Alternativa 1' }))
+    fireEvent.click(screen.getByRole('button', { name: /Próximo item/ }))
+    expect(await screen.findByText(/Item 2 de 2/)).toBeInTheDocument()
+    expect(screen.getByText(SUBTITULO)).toBeInTheDocument()
+    expect(screen.getByText(SEM_VOLTA)).toBeInTheDocument()
+  })
+
+  it('8 alternativas → grade com as classes literais grid-cols-4 e sm:grid-cols-8', async () => {
+    m.listarQuestoesRaven.mockResolvedValue([questao(1, 8)])
+    montar()
+    const grade = (await noItem1()).parentElement as HTMLElement
+    expect(grade).toHaveClass('grid', 'grid-cols-4', 'sm:grid-cols-8')
+    expect(grade).not.toHaveClass('grid-cols-3')
+  })
+
+  it('6 alternativas → grade com as classes literais grid-cols-3 e sm:grid-cols-6', async () => {
+    montar()
+    const grade = (await noItem1()).parentElement as HTMLElement
+    expect(grade).toHaveClass('grid', 'grid-cols-3', 'sm:grid-cols-6')
+    expect(grade).not.toHaveClass('grid-cols-4')
+  })
+
+  // O DOM não distingue o defeito: o template `sm:${…}` também produz «sm:grid-cols-8» no
+  // atributo class. O que falha é o JIT do Tailwind, que só gera a classe que aparece INTEIRA
+  // no fonte. Por isso a prova é sobre o fonte.
+  it('fonte: as classes da grade estão escritas inteiras (o JIT do Tailwind as gera)', () => {
+    const fonte = readFileSync(resolve(__dirname, '../AvaliacaoRavenScreen.tsx'), 'utf-8')
+    expect(fonte).toContain("'grid-cols-4 sm:grid-cols-8'")
+    expect(fonte).toContain("'grid-cols-3 sm:grid-cols-6'")
+    expect(fonte).not.toMatch(/sm:\$\{/)
+  })
+
+  it('o CTA de avanço é accent sólido (bg-[#35BFAD] text-white)', async () => {
+    montar()
+    await noItem1()
+    expect(screen.getByRole('button', { name: /Próximo item/ })).toHaveClass('bg-[#35BFAD]', 'text-white')
   })
 
   it('não liberado: a mesma shell envolve o aviso', async () => {
