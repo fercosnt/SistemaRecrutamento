@@ -61,6 +61,18 @@
  *                    tem de estar no ledger, senão erro do harness antes da baseline.
  *       --so=<id>[,<id>…]  só as entradas pedidas, na ordem DECLARADA.
  *
+ * (7) APOSENTADORIA (52-26). Uma linha de SMOKES pode declarar `exigePrefixadas: [<versão>…]` — o
+ *     smoke só tem sentido com essas migrations PREFIXADAS (lê GUCs que o PRE delas grava NESTA
+ *     transação). Depois de ler o ledger, toda entrada cujo smoke exige versão que JÁ está no
+ *     ledger — e toda entrada de RECUSA cuja `migracao.versao` já está no ledger — é APOSENTADA:
+ *     impressa `APOSENTADA: <id> — <smoke> so roda com <versão> prefixada, e <versão> esta no
+ *     ledger desde o apply` e retirada da rodada completa. Nunca em silêncio: pedi-la em `--so=` é
+ *     `ERRO DO HARNESS: <id> aposentada …`; rodada sem nenhuma entrada viva é erro (vacuidade); a
+ *     linha final ganha ` (aposentadas: <ids>)`. `aposentar` é PURA e exportada. Motivo (medido no
+ *     planejamento do 52-26): depois do apply do 52-18 o smoke52b (0003) não roda mais sem o PRE da
+ *     0003, e a rodada completa era vermelha por construção. `julgarMutacao`/`julgarControle` não
+ *     mudam.
+ *
  * LOCK: o do prefixo do ensaio (`lock_timeout 3s` / `statement_timeout 5s`); duração impressa.
  *
  * Uso: node scripts/p52_mutacoes.cjs [--pos-apply] [--so=L1,L4]   (sem dependências)
@@ -74,7 +86,8 @@ const E = require('./p52_ensaio.cjs');
 
 const SMOKES = {
   'supabase/tests/p52_leituras_rh_smoke.sql': { prefixo: 'P52L', par: '52l' },
-  'supabase/tests/p52_banco_sjt_smoke.sql': { prefixo: 'P52B', par: '52b' },
+  // (7) o smoke52b lê as GUCs do PRE da 0003 (p52.banco_*): só roda com ela PREFIXADA.
+  'supabase/tests/p52_banco_sjt_smoke.sql': { prefixo: 'P52B', par: '52b', exigePrefixadas: ['20261011000003'] },
   'supabase/tests/p52_gap_servidor_smoke.sql': { prefixo: 'P52G', par: '52g' },
 };
 
@@ -621,8 +634,32 @@ function validarCarga() {
   }
   for (const [k, s] of Object.entries(SMOKES)) {
     if (!s.prefixo || !s.par) throw new Error(`ERRO DO HARNESS: linha SMOKES incompleta: ${k}`);
+    if (s.exigePrefixadas !== undefined) {
+      if (!Array.isArray(s.exigePrefixadas) || !s.exigePrefixadas.length) throw new Error(`ERRO DO HARNESS: exigePrefixadas vazio ou nao lista: ${k}`);
+      for (const v of s.exigePrefixadas) {
+        if (!E.MIGS.some((x) => E.versao(x) === v)) throw new Error(`ERRO DO HARNESS: ${k} exige ${v} prefixada, que nao esta em MIGS do p52_ensaio`);
+      }
+    }
   }
 }
+
+/*
+ * (7) APOSENTADORIA, PURA: as entradas cujo smoke exige versão prefixada que já está no ledger, e as
+ * de RECUSA cuja migration já está no ledger. Devolve [{ id, smoke, versao }] na ordem DECLARADA.
+ */
+function aposentar(mutacoes, smokes, ledger) {
+  const noLedger = new Set(ledger);
+  const out = [];
+  for (const m of mutacoes) {
+    const exige = (smokes[m.smoke] && smokes[m.smoke].exigePrefixadas) || [];
+    let v = exige.find((x) => noLedger.has(x));
+    if (!v && m.migracao && noLedger.has(m.migracao.versao)) v = m.migracao.versao;
+    if (v) out.push({ id: m.id, smoke: m.smoke, versao: v });
+  }
+  return out;
+}
+
+const linhaAposentada = (a) => `APOSENTADA: ${a.id} — ${a.smoke} so roda com ${a.versao} prefixada, e ${a.versao} esta no ledger desde o apply`;
 
 /* `--so=` — as entradas pedidas, na ORDEM DECLARADA. PURA; id desconhecido ou lista vazia LANÇA. */
 function selecionar(mutacoes, ids) {
@@ -664,9 +701,24 @@ function principal() {
   }
   let alvo = MUTACOES;
   let plano;
+  let aposentadas = [];
   try {
     validarCarga();
-    if (so) alvo = selecionar(MUTACOES, so);
+    const ledger = E.lerEstado().ledger;
+    // (7) aposentadoria: impressa, por versão no ledger; pedida em --so é erro; vácua é erro.
+    aposentadas = aposentar(MUTACOES, SMOKES, ledger);
+    for (const a of aposentadas) console.log(linhaAposentada(a));
+    const idsAp = new Set(aposentadas.map((a) => a.id));
+    if (so) {
+      alvo = selecionar(MUTACOES, so);
+      const pedidasAp = aposentadas.filter((a) => alvo.some((m) => m.id === a.id));
+      if (pedidasAp.length) {
+        throw new Error(`ERRO DO HARNESS: ${pedidasAp.map((a) => `${a.id} aposentada (${a.smoke} so roda com ${a.versao} prefixada, e ${a.versao} esta no ledger desde o apply)`).join('; ')} — nao roda mais; retire-a do --so`);
+      }
+    } else {
+      alvo = MUTACOES.filter((m) => !idsAp.has(m.id));
+    }
+    if (!alvo.length) throw new Error('ERRO DO HARNESS: nenhuma entrada viva nesta rodada (todas aposentadas) — rodada vacua nao prova nada');
     // Cada `sql` é montado AGORA, antes da baseline: alvo de troca ausente/ambíguo para tudo
     // sem enviar nada (mutação que não se aplica não é teste).
     for (const m of alvo) if (typeof m.sql === 'function') m.sql();
@@ -676,7 +728,7 @@ function principal() {
       m.migracao.transformar(mig(m.migracao.versao));
       if (typeof m.recusa === 'function') m.recusa();
     }
-    plano = planejarPrefixo(alvo, E.lerEstado().ledger, posApply);
+    plano = planejarPrefixo(alvo, ledger, posApply);
     for (const m of alvo) {
       if (m.migracao && !plano.prefixadas.some((x) => E.versao(x) === m.migracao.versao)) {
         throw new Error(`ERRO DO HARNESS: ${m.id} muta o texto da migration ${m.migracao.versao}, que nao e prefixada nesta execucao (ja no ledger, ou --pos-apply) — mutar migration que nao roda nao e teste`);
@@ -764,10 +816,12 @@ function principal() {
     antes = null; // já medido e reportado
     sair('PERSISTIU — ver a linha acima');
   }
-  console.log(`MUTACOES: ${mordem}/${contadas} mordem; controle verde; nada persistiu${so ? ` (so=${alvo.map((m) => m.id).join(',')})` : ''}${posApply ? ' (pos-apply)' : ''}`);
+  console.log(
+    `MUTACOES: ${mordem}/${contadas} mordem; controle verde; nada persistiu${so ? ` (so=${alvo.map((m) => m.id).join(',')})` : ''}${posApply ? ' (pos-apply)' : ''}${aposentadas.length ? ` (aposentadas: ${aposentadas.map((a) => a.id).join(',')})` : ''}`
+  );
 }
 
-module.exports = { MUTACOES, SMOKES, julgarMutacao, julgarControle, falha, validarCarga, selecionar, planejarPrefixo, trocar, extrair };
+module.exports = { MUTACOES, SMOKES, julgarMutacao, julgarControle, falha, validarCarga, selecionar, planejarPrefixo, aposentar, trocar, extrair };
 
 if (require.main === module) {
   try {
