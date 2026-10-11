@@ -36,7 +36,9 @@
  * O mesmo diálogo responde aos três tipos de pedido da fila. A origem vem do servidor e escolhe
  * a RPC no serviço (`responderRevisao`); o diálogo só repassa `origem` e `pedidoId`. Num pedido
  * de KNOCKOUT (`automatica`) não há autor — «Automático (knockout)», nunca «Não identificado» —
- * e o RH vê o que encerrou a candidatura (`ContextoKnockoutRevisao`, lido ao abrir). A reversão
+ * e o RH vê o que encerrou a candidatura (`ContextoKnockoutRevisao`, lido ao abrir). Num pedido de
+ * rejeição pelo RH (`humana_triagem`), o bloco de contexto ganha o motivo e a justificativa de quem
+ * rejeitou (`ContextoRejeicaoTriagemRevisao`, 52-13 · D-38, também lido ao abrir). A reversão
  * das origens novas reabre na ETAPA (D-02; triagem no knockout, D-30), e a cópia da reversão
  * diz isso — a de «Decisão final» só vale para a decisão final.
  *
@@ -84,6 +86,7 @@ import {
 import { RevisaoError, type FilaRevisaoRow } from '../services/revisaoService'
 import { useResponderRevisao } from '../hooks/useResponderRevisao'
 import { ContextoKnockoutRevisao } from './ContextoKnockoutRevisao'
+import { ContextoRejeicaoTriagemRevisao } from './ContextoRejeicaoTriagemRevisao'
 import { VereditoBadge } from './VereditoBadge'
 
 type Veredito = ResponderRevisaoFormValues['veredito']
@@ -345,6 +348,11 @@ export function ResponderRevisaoDialog({
             rotulo={DIALOGO_COPY.contexto.pedidoEm}
             valor={formatarData(linha.revisao_solicitada_em)}
           />
+          {/* D-38 (52-13): motivo e justificativa da rejeição pelo RH — dois pares a mais neste
+              bloco, só nesta origem, buscados ao abrir. */}
+          {linha.origem === 'humana_triagem' ? (
+            <ContextoRejeicaoTriagemRevisao pedidoId={linha.pedido_id} />
+          ) : null}
         </div>
 
         {/* D-11: o que encerrou a candidatura — só no knockout, buscado ao abrir. */}

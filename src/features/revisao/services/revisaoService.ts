@@ -439,6 +439,65 @@ export async function lerContextoKnockout(pedidoId: string): Promise<ContextoKno
   return { situacao: 'indisponivel', ...CONTEXTO_KNOCKOUT_VAZIO }
 }
 
+/**
+ * O contexto de um pedido de revisão de REJEIÇÃO PELO RH (`humana_triagem`), já coagido — 52-13 ·
+ * JORN-62 · D-38.
+ *
+ * · `disponivel` — o que a RPC devolveu; cada campo pode faltar (`null` → «Não registrado»).
+ * · `indisponivel` — qualquer outra forma; os dois campos nulos (a tela mostra o estado vazio).
+ *
+ * `motivo` é o CÓDIGO do enum `motivo_rejeicao_rh` (a tela o rotula pelo `MOTIVO_OPTIONS` do
+ * diálogo de rejeição — um mapa só); `justificativa` é o texto de quem rejeitou.
+ */
+export interface ContextoRejeicaoTriagem {
+  situacao: 'disponivel' | 'indisponivel'
+  motivo: string | null
+  justificativa: string | null
+}
+
+/**
+ * Lê motivo e justificativa da rejeição de UM pedido `humana_triagem` pela RPC
+ * `ler_contexto_rejeicao_triagem_revisao(p_pedido_id)` (52-08, migration `20261011000001`; vai
+ * a PROD no 52-15). A tabela de pedidos não tem leitura para `authenticated` e a justificativa
+ * só sobrevive no histórico (achado F3) — por isso RPC, e não PostgREST.
+ *
+ * Chamada SOB DEMANDA (o diálogo só monta o contexto para `origem = 'humana_triagem'`), por cast
+ * estreito confinado ao nome até o db:types do 52-15 (molde `lerContextoKnockout`). Coerção
+ * ESTRITA: só um objeto com `situacao = 'disponivel'` passa, e cada texto só passa se for string
+ * não vazia (string vazia é ausência — assumido no plano); qualquer outra forma (nulo, array,
+ * situação desconhecida) vira `indisponivel` sem texto. Erro da RPC (42501 do guarda, P0002 de
+ * pedido de outra origem ou inexistente) é LANÇADO classificado por `classificarErroRevisao` — a
+ * tela mostra a falha com «Tentar novamente», nunca a mensagem do banco.
+ *
+ * ⚠ O motivo vem de `candidaturas.motivo_rejeicao` (ressalva A5 da 52-RESEARCH): pode ter sido
+ * reescrito por uma re-rejeição posterior; num pedido pendente é o certo.
+ */
+export async function lerContextoRejeicaoTriagem(
+  pedidoId: string,
+): Promise<ContextoRejeicaoTriagem> {
+  const { data, error } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>
+  )('ler_contexto_rejeicao_triagem_revisao', { p_pedido_id: pedidoId })
+  if (error) throw classificarErroRevisao(error)
+
+  const bruto =
+    data !== null && typeof data === 'object' && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : null
+
+  if (bruto?.situacao === 'disponivel') {
+    return {
+      situacao: 'disponivel',
+      motivo: textoOuNulo(bruto.motivo),
+      justificativa: textoOuNulo(bruto.justificativa),
+    }
+  }
+  return { situacao: 'indisponivel', motivo: null, justificativa: null }
+}
+
 /** Export namespaced (convenção `camelCaseService`). */
 export const revisaoService = {
   classificarErroRevisao,
@@ -448,4 +507,5 @@ export const revisaoService = {
   lerConfigSlaRevisao,
   responderRevisao,
   lerContextoKnockout,
+  lerContextoRejeicaoTriagem,
 }

@@ -53,7 +53,7 @@ import type { MotivoRejeicaoRh } from '../services/triagemService'
 const JUSTIFICATIVA_MIN = 50
 
 /** Enum `motivo_rejeicao_rh` → rótulos pt-BR (31-UI-SPEC §Motivo table). */
-const MOTIVO_OPTIONS: { value: MotivoRejeicaoRh; label: string }[] = [
+export const MOTIVO_OPTIONS: { value: MotivoRejeicaoRh; label: string }[] = [
   { value: 'perfil_desalinhado', label: 'Perfil desalinhado com a vaga' },
   { value: 'reprovado_avaliacao', label: 'Reprovado na avaliação' },
   { value: 'reprovado_entrevista', label: 'Reprovado na entrevista' },
