@@ -78,6 +78,25 @@ export const DEFAULT_COMPETENCIAS = [
   'Sede de Crescimento',
 ] as const
 
+/**
+ * As competências que a tela renderiza (e pede notadas): os NOMES da análise da IA — já
+ * normalizados por `normalizeCompetencia` no service — e, sem nenhum, `DEFAULT_COMPETENCIAS`.
+ * 52-07 (D-25): a nota da IA não entra na lista — nada perto do controle pode ancorar o gestor.
+ *
+ * 52-26 (F13; WR-01 do 52-REVIEW-GAP-1): o servidor exige notado EXATAMENTE este conjunto (o CASE
+ * da migration `20261011000005`). Vigiada por `__tests__/competencias-normalizacao-servidor.test.ts`
+ * (o mesmo fixture e o mesmo conjunto da cláusula (n) do smoke52g).
+ */
+export function competenciasDoScorecard(
+  competenciasIA: AnaliseCompetencia[] | null | undefined,
+): { key: string; label: string }[] {
+  const fromIA = (competenciasIA ?? [])
+    .filter((c) => c && typeof c.competencia === 'string')
+    .map((c) => ({ key: c.competencia, label: c.competencia }))
+  if (fromIA.length > 0) return fromIA
+  return DEFAULT_COMPETENCIAS.map((label) => ({ key: label, label }))
+}
+
 export interface EntrevistaScorecardInlineProps {
   /** The AI-suggested competency scores (from the transcript analysis), if any. */
   competenciasIA?: AnaliseCompetencia[] | null
@@ -111,13 +130,7 @@ export function EntrevistaScorecardInline({
 
   // Build the competency list from the AI suggestion (só os NOMES), falling back to defaults.
   // 52-07 (D-25): a nota da IA não entra na lista — nada perto do controle pode ancorar o gestor.
-  const competencias = useMemo<{ key: string; label: string }[]>(() => {
-    const fromIA = (competenciasIA ?? [])
-      .filter((c) => c && typeof c.competencia === 'string')
-      .map((c) => ({ key: c.competencia, label: c.competencia }))
-    if (fromIA.length > 0) return fromIA
-    return DEFAULT_COMPETENCIAS.map((label) => ({ key: label, label }))
-  }, [competenciasIA])
+  const competencias = useMemo(() => competenciasDoScorecard(competenciasIA), [competenciasIA])
 
   // 52-07 (D-25): nasce VAZIO — nenhuma leitura da nota da IA para o estado.
   const [scores, setScores] = useState<Record<string, number | undefined>>({})

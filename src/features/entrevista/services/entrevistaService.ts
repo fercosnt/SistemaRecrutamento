@@ -483,8 +483,15 @@ export async function getGuia(candidaturaId: string): Promise<EntrevistaGuiaRow 
  * SERVICE READ LAYER ONLY — the EF write is NOT renamed (gerar-guia's
  * weakDimsFromScores keeps reading `competency`, IN-03). A missing label falls
  * through to an empty string so the UI filters/keys never crash.
+ *
+ * ⚠ 52-26 (F13; WR-01 do 52-REVIEW-GAP-1): esta regra é ESPELHADA no servidor — o CASE da
+ * `salvar_avaliacao_entrevista` (migration `20261011000005`, gerada por
+ * `scripts/geradores/gen-p52-gap.cjs`) monta com ela o conjunto de competências que exige notado.
+ * Mudar aqui exige mudar lá (pelo gerador, numa migration nova se a 0005 já estiver aplicada). As
+ * guardas: `__tests__/competencias-normalizacao-servidor.test.ts` (este lado) e a cláusula (n) do
+ * smoke52g com as mutações G8/G9 (o servidor) — o mesmo fixture e o mesmo conjunto nos dois.
  */
-function normalizeCompetencia(c: AnaliseCompetencia): AnaliseCompetencia {
+export function normalizeCompetencia(c: AnaliseCompetencia): AnaliseCompetencia {
   return {
     ...c,
     competencia:
