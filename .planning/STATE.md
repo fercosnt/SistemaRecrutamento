@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-04-PLAN.md (2026-10-11): painel do candidato diz «Avaliações concluídas — aguardando a equipe» (span neutro herdado, sem botão) e selo «Aguardando a equipe» quando todas as avaliações estão concluídas, por useIdsAvaliacoesConcluidas (useQueries das chaves do AvaliacaoContainer; regra avaliacoesConcluidas = allDone), sem escrita no banco (D-27; mordida com update plantado provada); «Ver devolutiva» no card Big Five concluído e no «Tudo concluído» por callback injetado; vitest 455/455 nos escopos, suíte 2845/2847 (2 reds baseline promessasComExecutor), harness 4/4 só acréscimo, tipografia OK, tsc 89; sem push."
-last_updated: "2026-10-11T04:19:00.000Z"
+stopped_at: "Completed 52-05-PLAN.md (2026-10-11): selo de proveniência diz «Modelo não registrado» como frase inteira (chave do fragmento minúsculo removida), com «(análise anterior a 22/09/2026)» só quando a data da análise (created_at → gerado_em no hub) é ≤ 22/09/2026 em São Paulo (D-23, D-52-U17); cinco asserções de consumidor pinam a frase inteira; guarda p52-ban-modelo-modelo sobre src/ com piso medido; getActivePageFromPath exportada e «Candidatos» aceso em /rh/candidato/:id/*; vitest 703/703 + 93/93 nos escopos, suíte 2885/2887 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89; andaime de tipos chore antes do RED (hook tsc ≤ 96); sem push."
+last_updated: "2026-10-11T04:31:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 178
+  completed_plans: 179
   percent: 91
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
