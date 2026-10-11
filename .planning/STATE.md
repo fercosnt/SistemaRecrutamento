@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-11-PLAN.md (2026-10-11): Big Five no hub (faixas da devolutiva, aviso fixo, recolhível, sem número da escala) e SJT MC (situação, alternativas em ordem neutra, etiqueta pt-BR só na escolhida) em CÓDIGO; RPCs do 52-08 ainda não aplicadas (52-15) — não publicar o front antes; vitest 79/672 verde, INTACTO ×3, tipografia OK, tsc 89 ≤ 90, hubVerRespostas intacto."
-last_updated: "2026-10-11T03:52:00.000Z"
+stopped_at: "Completed 52-13-PLAN.md (2026-10-11): motivo (rótulo do MOTIVO_OPTIONS, exportado) e justificativa inteira no diálogo de revisão humana_triagem, dois pares sm:col-span-2 na grade de contexto, leitura sob demanda sem cache, em CÓDIGO; RPC ler_contexto_rejeicao_triagem_revisao do 52-08 ainda não aplicada (52-15) — não publicar o front antes; vitest revisão+triagem 23/419 verde, suíte 2812/2814 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89."
+last_updated: "2026-10-11T03:58:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 175
-  percent: 89
+  completed_plans: 176
+  percent: 90
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."
