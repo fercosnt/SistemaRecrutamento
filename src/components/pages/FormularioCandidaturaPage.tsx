@@ -113,6 +113,43 @@ function groupByBloco(
   return groups
 }
 
+// ---- knockout card ---------------------------------------------------------
+
+/**
+ * Phase 8 / D-15 + D-16 — o cartão NEUTRO da inscrição encerrada por knockout, renderizado no
+ * lugar do formulário depois de um knockout no servidor (status='rejeitado'). O critério NUNCA
+ * aparece — só a mensagem D-15, TRAVADA.
+ *
+ * 52-06 (51-17): extraído da página, sem mudar o texto, para o teste ler o cartão sozinho.
+ */
+export function CartaoInscricaoEncerrada() {
+  const navigate = useNavigate()
+  return (
+    <GlassCard variant="white" className="rounded-xl text-center space-y-4">
+      <h1 className="text-3xl font-semibold text-gray-900">
+        Inscrição recebida
+      </h1>
+      {/* D-15 [LOCKED] neutral message — never exposes the criterion. */}
+      <p className="text-base text-gray-700 leading-relaxed">
+        Após análise dos requisitos da vaga, não seguiremos com sua
+        candidatura neste momento.
+      </p>
+      <p className="text-base text-gray-500">
+        Agradecemos seu interesse na Beauty Smile.
+      </p>
+      <div className="pt-2">
+        <button
+          type="button"
+          onClick={() => navigate('/candidato/dashboard', { replace: true })}
+          className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-white font-semibold hover:bg-primary/90 transition-colors"
+        >
+          Voltar
+        </button>
+      </div>
+    </GlassCard>
+  )
+}
+
 // ---- component -------------------------------------------------------------
 
 export function FormularioCandidaturaPage() {
@@ -534,28 +571,7 @@ export function FormularioCandidaturaPage() {
       >
         <CandidatoNavbar />
         <div className="container mx-auto px-4 max-w-3xl">
-          <GlassCard variant="white" className="rounded-xl text-center space-y-4">
-            <h1 className="text-3xl font-semibold text-gray-900">
-              Inscrição recebida
-            </h1>
-            {/* D-15 [LOCKED] neutral message — never exposes the criterion. */}
-            <p className="text-base text-gray-700 leading-relaxed">
-              Após análise dos requisitos da vaga, não seguiremos com sua
-              candidatura neste momento.
-            </p>
-            <p className="text-base text-gray-500">
-              Agradecemos seu interesse na Beauty Smile.
-            </p>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => navigate('/candidato/dashboard', { replace: true })}
-                className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-white font-semibold hover:bg-primary/90 transition-colors"
-              >
-                Voltar
-              </button>
-            </div>
-          </GlassCard>
+          <CartaoInscricaoEncerrada />
         </div>
       </BackgroundImage>
     )
