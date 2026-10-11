@@ -1,12 +1,20 @@
 /**
  * EntrevistaScorecardInline — the inline-editable interview scorecard (ENTREV-02).
  *
- * BARS `Slider` rows per competência (`notas_humanas`, 1-5) + notas do gestor obrigatórias
- * (espelho de `salvar_avaliacao_entrevista`, D-22) + "Salvar avaliação" via the LIVE RPC. Built on the
- * neutral `ScorecardAvaliacao` presentation idiom — NO red/green tint on the scores
- * (mirrors the Phase-11/13 neutrality). The AI suggestion (if any transcript-analysis
- * row exists) seeds the slider defaults; the gestor always decides (RNF-07a).
- * RH-facing only.
+ * Uma fileira de notas 1–5 por competência (52-07: `radiogroup` de 5 botões, começando VAZIA) +
+ * notas do gestor obrigatórias (espelho de `salvar_avaliacao_entrevista`, D-22) + "Salvar
+ * avaliação" via the LIVE RPC. Built on the neutral `ScorecardAvaliacao` presentation idiom — NO
+ * red/green tint on the scores (mirrors the Phase-11/13 neutrality). A análise da IA dá só os
+ * NOMES das competências; a nota é sempre do gestor (RNF-07a). RH-facing only.
+ *
+ * 52-07 (JORN-61 — D-25 com a emenda D-52-U12): antes, cada competência era um `Slider` que
+ * nascia com a nota da IA (`clampScore(c.ia)`, e 3 quando a IA não dava nota) — dava para
+ * salvar notas que o entrevistador não escolheu, e a nota da IA ancorava a dele. O `Slider` do
+ * Radix não tem estado vazio (sem valor não há polegar), então o controle virou 5 botões
+ * `role="radio"` num `radiogroup` por competência, NENHUM marcado ao abrir. «Salvar avaliação»
+ * só habilita com TODAS as competências notadas (`entrevista-nota-faltante` diz o que falta) e
+ * o payload leva só as notas escolhidas. Residual (F13): o servidor recusa apenas «nenhuma
+ * nota entre 1 e 5» — a regra «todas notadas» vive aqui no cliente (bloco A é sem banco).
  *
  * 49-31 (gap CR-03, D-39): a nota humana é gravada numa análise NOMEADA por id, e a tela
  * diz qual — «Esta avaliação será registrada sobre a análise da {entrevista}». Com mais de
@@ -23,12 +31,11 @@
  * servidor só espaços — o cliente é igual ou mais estrito; nada que o servidor recusa passa.
  *
  * @module features/entrevista/components/EntrevistaScorecardInline
- * @see src/features/triagem/components/RedacaoOverrideForm.tsx (BARS Slider + notes + save)
  * @see .planning/phases/14-entrevistas-com-ia-companion-etapas-4-5/14-UI-SPEC.md (§Copywriting Scorecard)
+ * @see .planning/phases/52-hub-do-rh-dados-e-contato/52-UI-SPEC.md (D-52-U12, E9)
  */
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Slider } from '@/components/ui/slider'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -48,7 +55,12 @@ export const SCORECARD_COPY = {
   semVigente: 'Nenhuma análise vigente: analise a transcrição antes de registrar a avaliação.',
   /** 51-04 (D-22): notas vazias depois de `trim()` — o servidor recusaria com 23514. */
   notasObrigatorias: 'Escreva as notas do gestor para salvar a avaliação.',
+  /** 52-07 (D-25): alguma competência ainda sem nota — nenhuma nasce marcada. */
+  notaFaltante: 'Escolha uma nota para todas as competências para salvar a avaliação.',
 } as const
+
+/** As notas possíveis, na ordem em que aparecem. */
+const NOTAS = [1, 2, 3, 4, 5] as const
 
 /** Default Beauty Smile interview competencies (used when the AI gives none). */
 const DEFAULT_COMPETENCIAS = [
@@ -57,11 +69,6 @@ const DEFAULT_COMPETENCIAS = [
   'Atitude de Dono',
   'Sede de Crescimento',
 ] as const
-
-function clampScore(v: number | null | undefined): number {
-  if (typeof v !== 'number' || Number.isNaN(v)) return 3
-  return Math.min(5, Math.max(1, Math.round(v)))
-}
 
 export interface EntrevistaScorecardInlineProps {
   /** The AI-suggested competency scores (from the transcript analysis), if any. */
@@ -78,9 +85,9 @@ export interface EntrevistaScorecardInlineProps {
 }
 
 /**
- * The inline-editable scorecard — BARS sliders per competência + notas obrigatórias +
- * Salvar via the RPC. The AI seeds the defaults (badge on the header); the gestor
- * always decides.
+ * The inline-editable scorecard — notas 1–5 por competência (vazias e obrigatórias) + notas
+ * do gestor obrigatórias + Salvar via the RPC. A IA dá só os nomes das competências (badge no
+ * cabeçalho); nenhuma nota nasce dela — o gestor sempre decide.
  */
 export function EntrevistaScorecardInline({
   competenciasIA,
@@ -94,36 +101,51 @@ export function EntrevistaScorecardInline({
   const emRevisao = analiseId ? (vigentes.find((a) => a.id === analiseId) ?? null) : null
   const semAnalise = !analiseId
 
-  // Build the competency list from the AI suggestion, falling back to defaults.
-  const competencias = useMemo<{ key: string; label: string; ia: number | null }[]>(() => {
+  // Build the competency list from the AI suggestion (só os NOMES), falling back to defaults.
+  // 52-07 (D-25): a nota da IA não entra na lista — nada perto do controle pode ancorar o gestor.
+  const competencias = useMemo<{ key: string; label: string }[]>(() => {
     const fromIA = (competenciasIA ?? [])
       .filter((c) => c && typeof c.competencia === 'string')
-      .map((c) => ({
-        key: c.competencia,
-        label: c.competencia,
-        ia: typeof c.score === 'number' ? c.score : null,
-      }))
+      .map((c) => ({ key: c.competencia, label: c.competencia }))
     if (fromIA.length > 0) return fromIA
-    return DEFAULT_COMPETENCIAS.map((label) => ({ key: label, label, ia: null }))
+    return DEFAULT_COMPETENCIAS.map((label) => ({ key: label, label }))
   }, [competenciasIA])
 
-  const [scores, setScores] = useState<Record<string, number>>(() =>
-    Object.fromEntries(competencias.map((c) => [c.key, clampScore(c.ia)])),
-  )
+  // 52-07 (D-25): nasce VAZIO — nenhuma leitura da nota da IA para o estado.
+  const [scores, setScores] = useState<Record<string, number | undefined>>({})
   const [notas, setNotas] = useState('')
   // D-22: mesma regra do servidor (ou mais estrita) — vazio depois de trim() não salva.
   const semNotas = notas.trim().length === 0
+  // D-25: todas as competências precisam de nota escolhida pelo gestor.
+  const semNotaFaltante = competencias.some((c) => scores[c.key] == null)
+
+  const idBase = useId()
+  const idSemVigente = `${idBase}-sem-vigente`
+  const idNotaFaltante = `${idBase}-nota-faltante`
+  const idNotasObrigatorias = `${idBase}-notas-obrigatorias`
+  const avisosVisiveis = [
+    semAnalise ? idSemVigente : null,
+    semNotaFaltante ? idNotaFaltante : null,
+    semNotas ? idNotasObrigatorias : null,
+  ].filter((id): id is string => id !== null)
 
   function setDim(key: string, value: number) {
     setScores((prev) => ({ ...prev, [key]: value }))
   }
 
   function handleSalvar() {
-    if (saving || semAnalise || semNotas) return
-    onSalvar?.({ scoresHumanos: scores, notas })
+    if (saving || semAnalise || semNotas || semNotaFaltante) return
+    // Só as notas escolhidas — nenhuma chave com `undefined` chega à RPC.
+    const scoresHumanos: Record<string, number> = {}
+    for (const c of competencias) {
+      const nota = scores[c.key]
+      if (typeof nota === 'number') scoresHumanos[c.key] = nota
+    }
+    onSalvar?.({ scoresHumanos, notas })
   }
 
-  const hasIA = competencias.some((c) => c.ia != null)
+  // Só o selo «Sugestão IA» do cabeçalho: diz que há análise da IA, sem mostrar nota nenhuma.
+  const hasIA = (competenciasIA ?? []).some((c) => c && typeof c.score === 'number')
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -184,27 +206,39 @@ export function EntrevistaScorecardInline({
         </fieldset>
       ) : null}
 
-      {/* BARS sliders — neutral, no red/green tint on the value readout. */}
-      <div className="space-y-4">
+      {/* Notas 1–5 por competência (52-07, D-52-U12) — neutras, nenhuma marcada ao abrir. */}
+      <fieldset className="space-y-4 border-0 p-0" disabled={saving}>
         {competencias.map((c) => (
           <div key={c.key} className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white/90">{c.label}</span>
-              <span className="text-sm font-semibold text-white/70">{scores[c.key]} / 5</span>
+            <p className="break-words text-sm font-semibold text-white/90">{c.label}</p>
+            <div role="radiogroup" aria-label={c.label} className="flex flex-wrap gap-2">
+              {NOTAS.map((n) => {
+                const marcada = scores[c.key] === n
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={marcada}
+                    aria-label={`${n} de 5`}
+                    data-testid={`entrevista-nota-${c.key}-${n}`}
+                    onClick={() => setDim(c.key, n)}
+                    disabled={saving}
+                    className={cn(
+                      'min-h-[44px] min-w-[44px] rounded-lg border px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-50',
+                      marcada
+                        ? 'border-white/40 bg-white/25 text-white'
+                        : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/15',
+                    )}
+                  >
+                    {n}
+                  </button>
+                )
+              })}
             </div>
-            <Slider
-              min={1}
-              max={5}
-              step={1}
-              value={[scores[c.key]]}
-              onValueChange={(v: number[]) => setDim(c.key, v[0])}
-              aria-label={c.label}
-              aria-valuetext={`${scores[c.key]} de 5`}
-              disabled={saving}
-            />
           </div>
         ))}
-      </div>
+      </fieldset>
 
       {/* Notas do gestor obrigatórias (espelho de `salvar_avaliacao_entrevista`, D-22). */}
       <div className="space-y-2">
@@ -224,16 +258,32 @@ export function EntrevistaScorecardInline({
       </div>
 
       {semAnalise ? (
-        <p className="text-sm text-white/75">{SCORECARD_COPY.semVigente}</p>
+        <p id={idSemVigente} className="text-sm text-white/75">
+          {SCORECARD_COPY.semVigente}
+        </p>
+      ) : null}
+      {semNotaFaltante ? (
+        <p
+          id={idNotaFaltante}
+          data-testid="entrevista-nota-faltante"
+          className="text-sm text-white/75"
+        >
+          {SCORECARD_COPY.notaFaltante}
+        </p>
       ) : null}
       {semNotas ? (
-        <p data-testid="entrevista-notas-obrigatorias" className="text-sm text-white/75">
+        <p
+          id={idNotasObrigatorias}
+          data-testid="entrevista-notas-obrigatorias"
+          className="text-sm text-white/75"
+        >
           {SCORECARD_COPY.notasObrigatorias}
         </p>
       ) : null}
       <Button
         type="button"
-        disabled={saving || semAnalise || semNotas}
+        disabled={saving || semAnalise || semNotas || semNotaFaltante}
+        aria-describedby={avisosVisiveis.length > 0 ? avisosVisiveis.join(' ') : undefined}
         onClick={handleSalvar}
         className="min-h-[44px] w-full bg-white/20 text-white hover:bg-white/30"
       >
