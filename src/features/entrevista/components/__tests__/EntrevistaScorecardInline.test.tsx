@@ -75,7 +75,9 @@ describe('EntrevistaScorecardInline — qual análise está sendo avaliada (CR-0
     )
     const linha = screen.getByTestId('scorecard-analise-em-revisao')
     expect(linha).toHaveTextContent(`${SCORECARD_COPY.registradaSobre} ${TRANSCRICAO_COPY.online}`)
-    expect(screen.queryByRole('radiogroup')).toBeNull()
+    // 52-07: as notas 1–5 também são `radiogroup` (um por competência) — o seletor de ANÁLISE
+    // é o que tem o nome da legenda, e é ele que não pode existir com uma só vigente.
+    expect(screen.queryByRole('radiogroup', { name: SCORECARD_COPY.escolherLegenda })).toBeNull()
     // 51-04 (D-22): com as notas vazias o Salvar NÃO habilita — antes este caso esperava
     // `onSalvar` com `notas: ''`, que o servidor recusa com 23514.
     const salvar = screen.getByRole('button', { name: 'Salvar avaliação' })
@@ -95,7 +97,7 @@ describe('EntrevistaScorecardInline — qual análise está sendo avaliada (CR-0
         onSalvar={vi.fn()}
       />,
     )
-    const grupo = screen.getByRole('radiogroup')
+    const grupo = screen.getByRole('radiogroup', { name: SCORECARD_COPY.escolherLegenda })
     const radios = within(grupo).getAllByRole('radio')
     expect(radios).toHaveLength(2)
     expect(within(grupo).getByRole('radio', { name: TRANSCRICAO_COPY.presencial })).toHaveAttribute(
@@ -180,8 +182,10 @@ describe('EntrevistaScorecardInline — notas do gestor obrigatórias, espelho d
     expect(onSalvar).not.toHaveBeenCalled()
   })
 
-  it('com texto nas notas e análise vigente ⇒ Salvar habilitado; o clique entrega o texto', () => {
+  it('com texto nas notas, nota escolhida e análise vigente ⇒ Salvar habilitado; o clique entrega o texto', () => {
     const onSalvar = renderComVigente()
+    // 52-07 (D-25): a nota não vem mais da IA (a fixture traz `score: 4`) — o entrevistador escolhe.
+    fireEvent.click(screen.getByTestId('entrevista-nota-Comunicação-4'))
     escreverNotas('Boa entrevista')
     const salvar = screen.getByRole('button', { name: 'Salvar avaliação' })
     expect(salvar).toBeEnabled()
@@ -226,5 +230,124 @@ describe('EntrevistaScorecardInline — notas do gestor obrigatórias, espelho d
     expect(campo).toHaveAttribute('aria-required', 'true')
     expect(campo.getAttribute('placeholder') ?? '').not.toMatch(/opcional/i)
     expect(document.body.textContent ?? '').not.toMatch(/opcional/i)
+  })
+})
+
+/*
+ * 52-07 (JORN-61 — D-25 com a emenda D-52-U12). O defeito do UAT da 51 (teste 5): a avaliação
+ * chegava PRÉ-MARCADA pela nota da IA (`clampScore(c.ia)`, e 3 quando a IA não dava nota), e dava
+ * para salvar notas que o entrevistador não escolheu. Agora cada competência é um `radiogroup`
+ * com 5 botões «1»…«5», NENHUM marcado ao abrir; «Salvar avaliação» só habilita com todas as
+ * competências notadas E as notas escritas; o payload leva só as notas escolhidas.
+ *
+ * A fixture traz `score: 4` da IA em TODAS as competências de propósito: se qualquer valor
+ * inicial vier dela, o caso (a) reprova.
+ */
+const COMPETENCIAS_4 = ['Experiência UAU', 'Inovação', 'Atitude de Dono', 'Sede de Crescimento']
+const competenciasComIA = COMPETENCIAS_4.map((competencia) => ({ competencia, score: 4 }))
+const NOTA_FALTANTE = 'Escolha uma nota para todas as competências para salvar a avaliação.'
+
+function renderQuatro(onSalvar = vi.fn(), saving = false) {
+  const vig = analise({ id: 'v-4', competencias: competenciasComIA })
+  render(
+    <EntrevistaScorecardInline
+      competenciasIA={competenciasComIA}
+      vigentes={[vig]}
+      analiseId="v-4"
+      onEscolherAnalise={vi.fn()}
+      saving={saving}
+      onSalvar={onSalvar}
+    />,
+  )
+  return onSalvar
+}
+
+function notar(competencia: string, n: number) {
+  fireEvent.click(screen.getByTestId(`entrevista-nota-${competencia}-${n}`))
+}
+
+describe('EntrevistaScorecardInline — notas 1–5 vazias e obrigatórias (52-07 / JORN-61, D-25, D-52-U12)', () => {
+  it('(a) abre com score 4 da IA e NENHUMA nota marcada: 5 radios por competência, todos aria-checked=false; a nota da IA não aparece', () => {
+    renderQuatro()
+    for (const nome of COMPETENCIAS_4) {
+      const grupo = screen.getByRole('radiogroup', { name: nome })
+      const radios = within(grupo).getAllByRole('radio')
+      expect(radios).toHaveLength(5)
+      expect(radios.map((r) => r.textContent)).toEqual(['1', '2', '3', '4', '5'])
+      for (const r of radios) expect(r).toHaveAttribute('aria-checked', 'false')
+    }
+    // Nenhuma leitura «x / 5» junto do controle (era assim que a nota da IA ancorava).
+    expect(document.body.textContent ?? '').not.toMatch(/\d\s*\/\s*5/)
+    // E9 empty: Salvar desabilitado com os dois avisos visíveis.
+    expect(screen.getByRole('button', { name: 'Salvar avaliação' })).toBeDisabled()
+    expect(screen.getByTestId('entrevista-nota-faltante')).toHaveTextContent(NOTA_FALTANTE)
+    expect(screen.getByTestId('entrevista-notas-obrigatorias')).toBeInTheDocument()
+  })
+
+  it('(b) 3 de 4 competências notadas + notas escritas ⇒ Salvar desabilitado e o aviso de nota faltante visível', () => {
+    const onSalvar = renderQuatro()
+    notar('Experiência UAU', 5)
+    notar('Inovação', 3)
+    notar('Atitude de Dono', 1)
+    escreverNotas('Boa entrevista')
+    expect(screen.getByTestId('entrevista-nota-Experiência UAU-5')).toHaveAttribute('aria-checked', 'true')
+    const salvar = screen.getByRole('button', { name: 'Salvar avaliação' })
+    expect(salvar).toBeDisabled()
+    expect(screen.getByTestId('entrevista-nota-faltante')).toHaveTextContent(NOTA_FALTANTE)
+    expect(screen.queryByTestId('entrevista-notas-obrigatorias')).toBeNull()
+    // O aviso está ligado ao botão por aria-describedby.
+    const aviso = screen.getByTestId('entrevista-nota-faltante')
+    expect(aviso.id).not.toBe('')
+    expect((salvar.getAttribute('aria-describedby') ?? '').split(/\s+/)).toContain(aviso.id)
+    fireEvent.click(salvar)
+    expect(onSalvar).not.toHaveBeenCalled()
+  })
+
+  it('(c) 4 de 4 notadas + notas vazias ⇒ desabilitado pelo aviso de notas (o de nota faltante some)', () => {
+    const onSalvar = renderQuatro()
+    for (const nome of COMPETENCIAS_4) notar(nome, 2)
+    const salvar = screen.getByRole('button', { name: 'Salvar avaliação' })
+    expect(salvar).toBeDisabled()
+    expect(screen.queryByTestId('entrevista-nota-faltante')).toBeNull()
+    const avisoNotas = screen.getByTestId('entrevista-notas-obrigatorias')
+    expect(avisoNotas.id).not.toBe('')
+    expect((salvar.getAttribute('aria-describedby') ?? '').split(/\s+/)).toContain(avisoNotas.id)
+    fireEvent.click(salvar)
+    expect(onSalvar).not.toHaveBeenCalled()
+  })
+
+  it('(d) 4 de 4 + notas ⇒ habilitado; o clique envia só as 4 notas escolhidas, nenhuma chave undefined', () => {
+    const onSalvar = renderQuatro()
+    notar('Experiência UAU', 5)
+    notar('Inovação', 1)
+    notar('Atitude de Dono', 3)
+    notar('Sede de Crescimento', 2)
+    // Trocar de ideia vale; clicar de novo na mesma nota a mantém (não desmarca).
+    notar('Sede de Crescimento', 4)
+    notar('Sede de Crescimento', 4)
+    escreverNotas('Boa entrevista')
+    const salvar = screen.getByRole('button', { name: 'Salvar avaliação' })
+    expect(salvar).toBeEnabled()
+    expect(salvar).not.toHaveAttribute('aria-describedby')
+    fireEvent.click(salvar)
+    expect(onSalvar).toHaveBeenCalledTimes(1)
+    const payload = onSalvar.mock.calls[0][0]
+    expect(payload).toEqual({
+      scoresHumanos: {
+        'Experiência UAU': 5,
+        Inovação: 1,
+        'Atitude de Dono': 3,
+        'Sede de Crescimento': 4,
+      },
+      notas: 'Boa entrevista',
+    })
+    expect(Object.values(payload.scoresHumanos).every((v) => typeof v === 'number')).toBe(true)
+  })
+
+  it('(e) saving ⇒ os botões de nota ficam desabilitados (E9 loading)', () => {
+    renderQuatro(vi.fn(), true)
+    for (const r of within(screen.getByRole('radiogroup', { name: 'Inovação' })).getAllByRole('radio')) {
+      expect(r).toBeDisabled()
+    }
   })
 })
