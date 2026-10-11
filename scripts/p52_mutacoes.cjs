@@ -276,6 +276,10 @@ function g6Alvo(fn) {
   return t;
 }
 const G7_COMPETENCIA = "                   WHEN jsonb_typeof(e->'competencia') = 'string' AND length(e->>'competencia') > 0 THEN e->>'competencia'\n";
+/* G8/G9 (WR-01 do 52-REVIEW-GAP-1): os dois ramos do CASE da normalização que só a cláusula (n) exercita. */
+const G8_COMPRIMENTO = " AND length(e->>'competencia') > 0 THEN e->>'competencia'\n";
+const G9_COMPETENCY = "                   WHEN jsonb_typeof(e->'competency') = 'string' THEN e->>'competency'\n";
+const G9_QUALQUER = "                   WHEN e ? 'competency' THEN e->>'competency'\n";
 
 const MUTACOES = [
   {
@@ -534,6 +538,26 @@ const MUTACOES = [
     letra: 'd',
     requer: [V05],
     sql: () => trocar(fnSalvar4(), G7_COMPETENCIA, '', 'G7'),
+  },
+  {
+    // T-52-84 (F13) / WR-01 do 52-REVIEW-GAP-1: `competencia` string VAZIA passa a valer — o conjunto
+    // do servidor deixa de ser o de `normalizeCompetencia` (o cliente cai para `competency`).
+    id: 'G8',
+    desc: "salvar_avaliacao_entrevista: a normalizacao aceita competencia string vazia (sem o length > 0)",
+    smoke: S52G,
+    letra: 'n',
+    requer: [V05],
+    sql: () => trocar(fnSalvar4(), G8_COMPRIMENTO, " THEN e->>'competencia'\n", 'G8'),
+  },
+  {
+    // T-52-84 (F13) / WR-01 do 52-REVIEW-GAP-1: `competency` deixa de exigir string — um número vira
+    // nome no servidor e '' no cliente.
+    id: 'G9',
+    desc: "salvar_avaliacao_entrevista: a normalizacao aceita competency de qualquer tipo (e ? 'competency')",
+    smoke: S52G,
+    letra: 'n',
+    requer: [V05],
+    sql: () => trocar(fnSalvar4(), G9_COMPETENCY, G9_QUALQUER, 'G9'),
   },
 ];
 
