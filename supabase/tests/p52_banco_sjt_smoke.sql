@@ -740,7 +740,7 @@ BEGIN
     RAISE EXCEPTION 'P52B FAIL (n): p52.banco_pontuar_velho/_md5_novo vazios — o PRE do pontuar_sjt nao rodou nesta transacao';
   END IF;
   IF (SELECT md5(p.prosrc) FROM pg_catalog.pg_proc p WHERE p.oid = to_regprocedure('public.pontuar_sjt(uuid,jsonb)')) IS DISTINCT FROM v_md5_novo THEN
-    v_rot := v_rot || 'o pontuar_sjt no ar nao e o corpo novo';
+    v_rot := v_rot || 'o pontuar_sjt no ar nao e o corpo novo'::text;
   END IF;
   IF EXISTS (SELECT 1 FROM public.perguntas_opcao_sjt o WHERE o.opcao_id::text = v_forjado) THEN
     RAISE EXCEPTION 'P52B FAIL (n): o uuid forjado existe — repetir';
