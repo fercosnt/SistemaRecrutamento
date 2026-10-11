@@ -300,6 +300,12 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   bloqueante antes do apply e mesma prova por papel das outras RPCs do bloco B (achado F3).
 - **D-39 (O6):** direção da troca dos nomes: recrutador **`af4ebf97` → «RH2»**, admin **`66412f96` → «RH3»**.
   É escrita de dado, controlada, com leitura antes e depois.
+- **D-40 (operador, 2026-10-10, no plan-phase — refina a D-16):** registro **fictício ou anonimizado**
+  (e-mail em `@invalido.local`: o tombstone e os 6 fictícios das migrations `20260830000005`/`20260905000002`)
+  **não tem ação de contato nenhuma** — nem «Enviar e-mail», nem «Chamar no WhatsApp», nem mensagem pronta —
+  **mesmo que tenha celular**. A EF devolve `contato: null` para esses registros (JORN-53, ROADMAP SC2). Na aba
+  **Cadastro**, o celular desses registros **continua aparecendo como texto puro**, sem link (D-08: todos os
+  campos visíveis); o que se proíbe é a ação de contato, não a exibição do dado. Os fictícios saem na limpeza do bloco D.
 - **O5 (sem decisão do operador; segue a recomendação da pesquisa):** `metadata.dimensoes[].percentil` continua
   no payload de `getScores` nesta fase. A Invariante 1 (nunca percentil na tela) vale no tipo do componente.
   O residual é declarado no SECURITY/SUMMARY. **O4 e O7** ficam para os portões do bloco D, como manda a D-30/D-32.
