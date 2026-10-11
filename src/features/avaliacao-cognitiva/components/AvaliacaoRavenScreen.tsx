@@ -17,12 +17,13 @@
  *
  * @module features/avaliacao-cognitiva/components/AvaliacaoRavenScreen
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Glass, GlassButton } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackgroundImage } from '@/components/BackgroundImage'
 import { ArrowRight, CheckCircle2, Clock, Lock } from 'lucide-react'
 import {
   listarQuestoesRaven,
@@ -34,6 +35,8 @@ import {
 import { useProctoring } from '../hooks/useProctoring'
 import { avaliacaoStatusKey } from '../hooks/useStatusRavenCandidato'
 import type { AvaliacaoStatus } from '@/features/avaliacao/services/avaliacaoService'
+// Importação direta, nunca pelo barrel `components/index.ts` (ciclo de import — 52-02).
+import { SairDaProvaButton } from '@/features/avaliacao/components/SairDaProvaButton'
 
 const COPY = {
   // Phase 51 / D-15: distinct from the textual «Prova cognitiva» of the vaga.
@@ -50,6 +53,26 @@ const COPY = {
   // D-37: this screen lives OUTSIDE the assessment container → its way back is the panel.
   voltar: 'Ir ao painel',
 } as const
+
+/**
+ * 52-03 (51-UI-REVIEW, Pilar 2) — a shell do candidato, a mesma do `ScreenShell` do SJT MC
+ * (`BackgroundImage` gradient + overlay preto 15%), com `max-w-4xl`: a grade de 8 alternativas
+ * das séries C/D/E pede a largura. Todos os estados da tela vivem nela.
+ */
+function RavenShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative min-h-screen">
+      <BackgroundImage
+        background="gradient"
+        className="min-h-screen py-20"
+        overlayColor="bg-black"
+        overlayOpacity={15}
+      >
+        <div className="container mx-auto px-4 max-w-4xl mt-8">{children}</div>
+      </BackgroundImage>
+    </div>
+  )
+}
 
 function hhmmss(total: number): string {
   const h = Math.floor(total / 3600)
@@ -156,16 +179,16 @@ export function AvaliacaoRavenScreen() {
   // ── Estados que não são a prova ────────────────────────────────────────────
   if (liberacaoQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
+      <RavenShell>
         <Skeleton className="h-40 w-full rounded-xl" />
-      </div>
+      </RavenShell>
     )
   }
 
   if (concluida || jaRespondeu) {
     return (
-      <div className="mx-auto max-w-2xl p-6">
-        <Glass variant="white" blur="lg" className="rounded-xl p-8 text-center">
+      <RavenShell>
+        <Glass variant="white" blur="lg" className="mx-auto max-w-2xl rounded-xl p-8 text-center">
           <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-[#35BFAD]" aria-hidden="true" />
           <h1 className="mb-2 text-2xl font-bold text-slate-900">
             {concluida ? COPY.concluida : COPY.jaRespondeu}
@@ -174,14 +197,14 @@ export function AvaliacaoRavenScreen() {
             {COPY.voltar}
           </GlassButton>
         </Glass>
-      </div>
+      </RavenShell>
     )
   }
 
   if (!liberado) {
     return (
-      <div className="mx-auto max-w-2xl p-6">
-        <Glass variant="white" blur="lg" className="rounded-xl p-8 text-center">
+      <RavenShell>
+        <Glass variant="white" blur="lg" className="mx-auto max-w-2xl rounded-xl p-8 text-center">
           <Lock className="mx-auto mb-4 h-10 w-10 text-slate-400" aria-hidden="true" />
           <h1 className="mb-2 text-xl font-bold text-slate-900">{COPY.titulo}</h1>
           <p className="mx-auto max-w-[52ch] text-slate-700">{COPY.naoLiberado}</p>
@@ -189,25 +212,37 @@ export function AvaliacaoRavenScreen() {
             {COPY.voltar}
           </GlassButton>
         </Glass>
-      </div>
+      </RavenShell>
     )
   }
 
   if (questoesQuery.isLoading || !questao) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
+      <RavenShell>
         <Skeleton className="h-96 w-full rounded-xl" />
-      </div>
+      </RavenShell>
     )
   }
 
   const nOpcoes = questao.opcoes_imagens.length
 
   return (
-    <div className="mx-auto max-w-4xl p-4 sm:p-6" onPaste={pasteBlockHandler}>
-      {/* Cabeçalho — progresso e tempo. O tempo é informativo: não há limite, e o
+    <RavenShell>
+      <div onPaste={pasteBlockHandler}>
+      {/* Cabeçalho — saída, progresso e tempo. O tempo é informativo: não há limite, e o
           instrumento não é cronometrado para corte. */}
       <Glass variant="white" blur="lg" className="mb-4 rounded-xl p-4">
+        {/* 52-03 / D-24 + D-52-U14: saída durante a prova. O Raven vive fora do container,
+            então o caminho dele é o painel. As respostas só existem na memória (nenhum
+            rascunho): a escolha do item atual, ainda não enviada, também se perde — por
+            isso conta para a confirmação (T-52-06). */}
+        <div className="mb-3 flex justify-start">
+          <SairDaProvaButton
+            rotulo="irAoPainel"
+            destino="/candidato/dashboard"
+            temRespostaNaoSalva={Object.keys(respostas).length > 0 || escolha !== null}
+          />
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -280,6 +315,7 @@ export function AvaliacaoRavenScreen() {
           </GlassButton>
         </div>
       </Glass>
-    </div>
+      </div>
+    </RavenShell>
   )
 }
