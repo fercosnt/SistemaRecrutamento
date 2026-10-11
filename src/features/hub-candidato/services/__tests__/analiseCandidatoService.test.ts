@@ -63,6 +63,9 @@ const ALLOWLIST_COLS = [
   'status',
   'provedor_ia',
   'modelo_ia',
+  // 52-05 (D-52-U17): a data da análise, só para a frase de proveniência — o parêntese
+  // «análise anterior a 22/09/2026» só pode ser dito quando a data o confirma.
+  'created_at',
 ]
 
 /** As internas da IA que a allowlist existe para NÃO projetar (T-34-02-01). */
@@ -89,7 +92,7 @@ describe('analiseCandidatoService — allowlist read of analise_candidato_vaga (
     }
   })
 
-  it('the exported ANALISE_HUB_ALLOWLIST const is star-free and names the 7 columns', () => {
+  it('the exported ANALISE_HUB_ALLOWLIST const is star-free and names every allowlisted column', () => {
     expect(ANALISE_HUB_ALLOWLIST).not.toContain('*')
     for (const col of ALLOWLIST_COLS) {
       expect(ANALISE_HUB_ALLOWLIST).toContain(col)
@@ -127,6 +130,33 @@ describe('analiseCandidatoService — allowlist read of analise_candidato_vaga (
     const row = await getAnalise('cand-1')
     expect(row?.provedor_ia).toBeNull()
     expect(row?.modelo_ia).toBeNull()
+  })
+
+  it('devolve `created_at` como `gerado_em` (52-05 / D-52-U17 — a data da frase de proveniência)', async () => {
+    result.data = {
+      score_match: 61,
+      pontos_fortes: [],
+      gaps: [],
+      flags: [],
+      status: 'sucesso',
+      provedor_ia: null,
+      modelo_ia: null,
+      created_at: '2026-09-15T14:00:00+00:00',
+    }
+    const row = await getAnalise('cand-1')
+    expect(row?.gerado_em).toBe('2026-09-15T14:00:00+00:00')
+  })
+
+  it('`created_at` ausente ⇒ `gerado_em` null, nunca undefined (sem data, a frase não inventa uma)', async () => {
+    result.data = {
+      score_match: 61,
+      pontos_fortes: [],
+      gaps: [],
+      flags: [],
+      status: 'sucesso',
+    }
+    const row = await getAnalise('cand-1')
+    expect(row?.gerado_em).toBeNull()
   })
 
   it('filters by candidatura_id', async () => {

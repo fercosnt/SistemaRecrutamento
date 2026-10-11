@@ -13,7 +13,7 @@
  * O que este arquivo trava:
  *  1. a linha de proveniência existe, LOGO ABAIXO do título (não no rodapé, não na tabela);
  *  2. em fallback, ela diz que foi contingência, QUAL modelo e a causa legível;
- *  3. `modelo_ia` NULL ⇒ «modelo não registrado» (D-30), nunca linha ausente;
+ *  3. `modelo_ia` NULL ⇒ «Modelo não registrado» (D-30, frase inteira — 52-05), nunca linha ausente;
  *  4. a cópia é EXATAMENTE a da tela (`textoProveniencia`), não uma segunda redação — duas
  *     redações divergem, e a que ninguém revisaria é a do arquivo que sai da empresa.
  *
@@ -126,11 +126,13 @@ describe('exportComparativo — a linha de proveniência (D-27b)', () => {
     expect(prov.texto).not.toContain('contingência')
   })
 
-  it('modelo NULL ⇒ «modelo não registrado» (D-30); a linha NÃO desaparece', () => {
+  it('modelo NULL ⇒ «Modelo não registrado» (D-30, frase inteira — 52-05); a linha NÃO desaparece', () => {
     exportComparativo(CANDIDATOS, { provedorIa: null, modeloIa: null })
     const prov = linhaDeProveniencia()
     expect(prov).toBeDefined()
-    expect(prov.texto).toContain(PROVENIENCIA_IA_COPY.modeloDesconhecido)
+    // 52-05 (D-23): o PDF não passa data ⇒ a frase sem parêntese, INTEIRA e exata.
+    expect(prov.texto).toBe(PROVENIENCIA_IA_COPY.semModelo)
+    expect(prov.texto).not.toMatch(/modelo\s+modelo/i)
   })
 
   it('contingência com modelo NULL diz as DUAS coisas', () => {
@@ -140,9 +142,9 @@ describe('exportComparativo — a linha de proveniência (D-27b)', () => {
       fallbackCause: 'anthropic_timeout',
     })
     const t = linhaDeProveniencia().texto
-    expect(t).toContain('modelo de contingência')
-    expect(t).toContain(PROVENIENCIA_IA_COPY.modeloDesconhecido)
+    expect(t).toContain(PROVENIENCIA_IA_COPY.contingenciaSemModelo)
     expect(t).toContain('demorou')
+    expect(t).not.toMatch(/modelo\s+modelo/i)
   })
 })
 

@@ -30,6 +30,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
+import { PROVENIENCIA_IA_COPY } from '@/features/triagem/components/ProvenienciaIABadge'
 import {
   TranscricaoReviewPanel,
   TRANSCRICAO_COPY,
@@ -708,15 +709,16 @@ describe('TranscricaoReviewPanel — selo de proveniência (D-27b)', () => {
     )
   })
 
-  it('modelo_ia NULL ⇒ «modelo não registrado», nunca silêncio (D-30)', () => {
+  it('modelo_ia NULL ⇒ «Modelo não registrado» (frase inteira — 52-05), nunca silêncio (D-30)', () => {
     render(
       <TranscricaoReviewPanel
         analises={grupo({ vigentes: [analise({ provedor_ia: null, modelo_ia: null })] })}
       />,
     )
-    expect(screen.getByTestId('proveniencia-ia-badge')).toHaveTextContent(
-      'modelo não registrado',
-    )
+    // 52-05 (D-23): a frase INTEIRA — o fragmento minúsculo passava com «modelo» duplicado.
+    const selo = screen.getByTestId('proveniencia-ia-badge')
+    expect(selo.textContent).toBe(PROVENIENCIA_IA_COPY.semModelo)
+    expect(selo.textContent).not.toMatch(/modelo\s+modelo/i)
   })
 
   it('a SUPERADA também carrega o seu selo — a proveniência dela não é a da vigente', () => {

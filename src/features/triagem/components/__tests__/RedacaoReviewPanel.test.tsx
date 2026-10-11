@@ -34,6 +34,7 @@ import { render, screen, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 import { AnaliseIA } from '../RedacaoReviewPanel'
+import { PROVENIENCIA_IA_COPY } from '../ProvenienciaIABadge'
 import type {
   AnaliseIARedacao,
   DimensionScoreIA,
@@ -246,11 +247,12 @@ describe('AnaliseIA — proveniência e versão da rubrica (D-26 / D-27b)', () =
     expect(selo).toHaveTextContent(/claude-sonnet-4-6/)
   })
 
-  it('modelo_ia NULL ⇒ «modelo não registrado», nunca silêncio (D-30)', () => {
+  it('modelo_ia NULL ⇒ «Modelo não registrado» (frase inteira — 52-05), nunca silêncio (D-30)', () => {
     render(<AnaliseIA row={row({ provedor_ia: null, modelo_ia: null })} />)
-    expect(screen.getByTestId('proveniencia-ia-badge')).toHaveTextContent(
-      /modelo não registrado/,
-    )
+    // 52-05 (D-23): a frase INTEIRA — o fragmento minúsculo passava com «modelo» duplicado.
+    const selo = screen.getByTestId('proveniencia-ia-badge')
+    expect(selo.textContent).toBe(PROVENIENCIA_IA_COPY.semModelo)
+    expect(selo.textContent).not.toMatch(/modelo\s+modelo/i)
   })
 })
 

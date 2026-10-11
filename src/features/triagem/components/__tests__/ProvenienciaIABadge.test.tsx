@@ -10,8 +10,9 @@
  *     achando que lia o modelo configurado.
  *  2. **`provedor_ia='anthropic'` NÃO leva aviso de contingência.** Avisar sempre é o mesmo
  *     que não avisar: o selo perde a capacidade de distinguir.
- *  3. **`modelo_ia = null` ⇒ «modelo não registrado», nunca silêncio (D-30).** Ausência de
- *     selo é indistinguível de proveniência confirmada.
+ *  3. **`modelo_ia = null` ⇒ «Modelo não registrado», nunca silêncio (D-30).** Ausência de
+ *     selo é indistinguível de proveniência confirmada. A frase é INTEIRA (52-05 / D-23) e
+ *     o parêntese de data só aparece quando a data é ≤ 22/09/2026 (D-52-U17).
  *  4. **A causa legível vem de `CAUSA_FALLBACK_ROTULO`** (`_shared/ai-error-codes.ts`), não
  *     de uma segunda tabela nesta camada — duas tabelas divergiriam em silêncio.
  *
@@ -97,19 +98,23 @@ describe('ProvenienciaIABadge — resultado do modelo configurado', () => {
   })
 })
 
-describe('ProvenienciaIABadge — proveniência desconhecida (D-30)', () => {
-  it('modelo_ia null ⇒ «modelo não registrado», e o selo APARECE (nunca silêncio)', () => {
+describe('ProvenienciaIABadge — proveniência desconhecida (D-30, frase inteira — 52-05 / D-23)', () => {
+  // 52-05: estas asserções pinavam um FRAGMENTO minúsculo («modelo não registrado») com
+  // `toContain` — e passavam com o defeito na tela, porque a frase errada («Gerado pelo
+  // modelo» + o fragmento) também contém o fragmento. Agora pinam a frase INTEIRA.
+  it('modelo_ia null ⇒ «Modelo não registrado», e o selo APARECE (nunca silêncio)', () => {
     render(<ProvenienciaIABadge provedorIa="anthropic" modeloIa={null} />)
     const selo = screen.getByTestId('proveniencia-ia-badge')
     expect(selo).toBeInTheDocument()
-    expect(selo.textContent).toContain(PROVENIENCIA_IA_COPY.modeloDesconhecido)
+    expect(selo.textContent).toBe(PROVENIENCIA_IA_COPY.semModelo)
+    expect(selo.textContent).not.toMatch(/modelo\s+modelo/i)
   })
 
   it('provedor E modelo nulos ⇒ ainda renderiza, dizendo que o modelo não foi registrado', () => {
     render(<ProvenienciaIABadge provedorIa={null} modeloIa={null} />)
     const selo = screen.getByTestId('proveniencia-ia-badge')
     expect(selo).toBeInTheDocument()
-    expect(selo.textContent).toContain(PROVENIENCIA_IA_COPY.modeloDesconhecido)
+    expect(selo.textContent).toBe(PROVENIENCIA_IA_COPY.semModelo)
     expect(selo).toHaveAttribute('data-contingencia', 'false')
   })
 
@@ -122,8 +127,132 @@ describe('ProvenienciaIABadge — proveniência desconhecida (D-30)', () => {
       />,
     )
     const t = screen.getByTestId('proveniencia-ia-badge').textContent ?? ''
-    expect(t).toContain('modelo de contingência')
-    expect(t).toContain(PROVENIENCIA_IA_COPY.modeloDesconhecido)
+    expect(t.startsWith(PROVENIENCIA_IA_COPY.contingenciaSemModelo)).toBe(true)
+    expect(t).toContain('demorou')
+    expect(t).not.toMatch(/modelo\s+modelo/i)
+  })
+})
+
+describe('ProvenienciaIABadge — a data da análise só quando é verdadeira (52-05 / D-52-U17)', () => {
+  it('a cópia nova tem as três frases inteiras, com os textos exatos da UI-SPEC', () => {
+    expect(PROVENIENCIA_IA_COPY.semModelo).toBe('Modelo não registrado')
+    expect(PROVENIENCIA_IA_COPY.semModeloAntigo).toBe(
+      'Modelo não registrado (análise anterior a 22/09/2026)',
+    )
+    expect(PROVENIENCIA_IA_COPY.contingenciaSemModelo).toBe(
+      'Gerado pelo modelo de contingência (modelo não registrado)',
+    )
+    // A chave do fragmento que ocupava `{modelo}` saiu: ela só servia à substituição que
+    // produzia o «modelo» duplicado.
+    expect(Object.values(PROVENIENCIA_IA_COPY)).not.toContain('modelo não registrado')
+  })
+
+  it('modelo nulo com análise de 22/09/2026 às 23:30 (São Paulo) ⇒ parêntese de data (dia inclusive)', () => {
+    expect(
+      textoProveniencia({
+        provedorIa: 'anthropic',
+        modeloIa: null,
+        geradoEm: '2026-09-22T23:30:00-03:00',
+      }),
+    ).toBe('Modelo não registrado (análise anterior a 22/09/2026)')
+  })
+
+  it('modelo nulo com análise de 23/09/2026 às 00:10 (São Paulo) ⇒ SEM parêntese', () => {
+    expect(
+      textoProveniencia({
+        provedorIa: 'anthropic',
+        modeloIa: null,
+        geradoEm: '2026-09-23T00:10:00-03:00',
+      }),
+    ).toBe('Modelo não registrado')
+  })
+
+  it('o dia é o de São Paulo, não o de UTC: 23/09 02:30Z é 22/09 23:30 em SP ⇒ parêntese', () => {
+    expect(
+      textoProveniencia({ provedorIa: null, modeloIa: null, geradoEm: '2026-09-23T02:30:00Z' }),
+    ).toBe(PROVENIENCIA_IA_COPY.semModeloAntigo)
+  })
+
+  it('sem data, ou data ilegível ⇒ só «Modelo não registrado» (nunca uma razão inventada)', () => {
+    for (const geradoEm of [null, undefined, '', 'não é data']) {
+      expect(textoProveniencia({ provedorIa: null, modeloIa: null, geradoEm })).toBe(
+        PROVENIENCIA_IA_COPY.semModelo,
+      )
+    }
+  })
+
+  it('modelo vazio conta como não registrado (não imprime «Gerado pelo modelo » sem nome)', () => {
+    expect(textoProveniencia({ provedorIa: 'anthropic', modeloIa: '' })).toBe(
+      PROVENIENCIA_IA_COPY.semModelo,
+    )
+  })
+
+  it('o selo aceita `geradoEm` e diz a frase com data', () => {
+    render(
+      <ProvenienciaIABadge
+        provedorIa="anthropic"
+        modeloIa={null}
+        geradoEm="2026-09-10T12:00:00Z"
+        variant="compact"
+      />,
+    )
+    expect(screen.getByTestId('proveniencia-ia-badge').textContent).toBe(
+      PROVENIENCIA_IA_COPY.semModeloAntigo,
+    )
+  })
+
+  it('com modelo registrado a frase NÃO muda, com ou sem data', () => {
+    for (const geradoEm of [null, '2026-09-10T12:00:00Z', '2026-10-01T12:00:00Z']) {
+      expect(
+        textoProveniencia({ provedorIa: 'anthropic', modeloIa: 'claude-sonnet-4-6', geradoEm }),
+      ).toBe('Gerado pelo modelo claude-sonnet-4-6')
+    }
+  })
+
+  it('contingência sem modelo NÃO ganha o parêntese de data — a frase da contingência é outra', () => {
+    expect(
+      textoProveniencia({
+        provedorIa: 'openai',
+        modeloIa: null,
+        geradoEm: '2026-09-10T12:00:00Z',
+        comCausa: false,
+      }),
+    ).toBe(PROVENIENCIA_IA_COPY.contingenciaSemModelo)
+  })
+
+  it('TODA combinação provedor × modelo × data × causa: nunca «modelo» duas vezes, nunca vazio, e a data só quando ≤ 22/09/2026', () => {
+    const provedores = [null, 'anthropic', 'openai'] as const
+    const modelos = [null, 'x'] as const
+    const datas = [
+      { geradoEm: null, antiga: false },
+      { geradoEm: '2026-09-22T23:59:00-03:00', antiga: true },
+      { geradoEm: '2026-09-23T00:01:00-03:00', antiga: false },
+    ] as const
+    let combinacoes = 0
+    for (const provedorIa of provedores) {
+      for (const modeloIa of modelos) {
+        for (const { geradoEm, antiga } of datas) {
+          for (const comCausa of [true, false]) {
+            const t = textoProveniencia({
+              provedorIa,
+              modeloIa,
+              geradoEm,
+              comCausa,
+              fallbackCause: 'anthropic_timeout',
+            })
+            combinacoes += 1
+            const ctx = JSON.stringify({ provedorIa, modeloIa, geradoEm, comCausa, t })
+            expect(t, ctx).not.toMatch(/modelo\s+modelo/i)
+            expect(t.length, ctx).toBeGreaterThan(0)
+            // D-52-U17: a razão datada só aparece para modelo nulo, fora da contingência,
+            // com data ≤ 22/09/2026 — em qualquer outro caso seria uma afirmação falsa.
+            const deveTerData = modeloIa === null && provedorIa !== 'openai' && antiga
+            expect(t.includes('anterior a 22/09/2026'), ctx).toBe(deveTerData)
+          }
+        }
+      }
+    }
+    expect(combinacoes).toBe(provedores.length * modelos.length * datas.length * 2)
   })
 })
 
@@ -163,9 +292,8 @@ describe('ProvenienciaIABadge — variante compact e os helpers exportados', () 
     expect(textoProveniencia({ provedorIa: 'anthropic', modeloIa: 'claude-sonnet-4-6' })).toBe(
       'Gerado pelo modelo claude-sonnet-4-6',
     )
-    expect(textoProveniencia({ provedorIa: null, modeloIa: null })).toBe(
-      'Gerado pelo modelo modelo não registrado',
-    )
+    // 52-05 (D-23): esta asserção pinava o PRÓPRIO defeito. A frase de modelo nulo é inteira.
+    expect(textoProveniencia({ provedorIa: null, modeloIa: null })).toBe('Modelo não registrado')
     // A garantia estrutural: nenhuma combinação produz vazio (vazio apagaria o selo).
     for (const p of ['openai', 'anthropic', null, undefined]) {
       for (const m of ['x', null, undefined]) {

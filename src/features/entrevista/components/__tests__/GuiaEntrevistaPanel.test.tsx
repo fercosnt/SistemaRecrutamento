@@ -19,6 +19,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { GuiaEntrevistaPanel } from '../GuiaEntrevistaPanel'
+import { PROVENIENCIA_IA_COPY } from '@/features/triagem/components/ProvenienciaIABadge'
 import type { EntrevistaGuiaRow, GuiaPergunta } from '../../services/entrevistaService'
 
 /** A guide row with the given perguntas (online tipo by default). */
@@ -299,12 +300,13 @@ describe('GuiaEntrevistaPanel — selo de proveniência do resultado de IA (49-1
     )
   })
 
-  it('modelo_ia NULL ⇒ «modelo não registrado» (as 5 linhas legadas de PROD), nunca silêncio', () => {
+  it('modelo_ia NULL ⇒ «Modelo não registrado» (as 5 linhas legadas de PROD, frase inteira — 52-05), nunca silêncio', () => {
     const guia = { ...sampleGuia(), provedor_ia: null, modelo_ia: null } as EntrevistaGuiaRow
     render(<GuiaEntrevistaPanel guia={guia} />)
-    expect(screen.getByTestId('proveniencia-ia-badge')).toHaveTextContent(
-      'modelo não registrado',
-    )
+    // 52-05 (D-23): a frase INTEIRA — o fragmento minúsculo passava com «modelo» duplicado.
+    const selo = screen.getByTestId('proveniencia-ia-badge')
+    expect(selo.textContent).toBe(PROVENIENCIA_IA_COPY.semModelo)
+    expect(selo.textContent).not.toMatch(/modelo\s+modelo/i)
   })
 
   it('sem guia gerado NÃO há selo — não existe proveniência de um resultado que não existe', () => {

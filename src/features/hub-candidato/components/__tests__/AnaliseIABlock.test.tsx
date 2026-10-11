@@ -16,6 +16,7 @@ import '@testing-library/jest-dom'
 
 import { AnaliseIABlock } from '../AnaliseIABlock'
 import { SUGESTAO_IA_COPY } from '@/features/triagem/components/SugestaoIABadge'
+import { PROVENIENCIA_IA_COPY } from '@/features/triagem/components/ProvenienciaIABadge'
 // 49-41: o vocabulário do sinal tem UMA fonte, a mesma que a EF escreve (zero imports).
 import {
   SINAL_INSTRUCAO_AO_MODELO,
@@ -27,7 +28,11 @@ import {
  * exigi-los (em vez de deixá-los opcionais) é deliberado: todo lugar que constrói uma
  * linha de análise passa a DECLARAR de onde ela veio, em vez de poder esquecer. NULL é o
  * valor honesto aqui — é o estado das 25 linhas vivas em PROD (medido 2026-09-23), e a
- * tela o traduz para «modelo não registrado» (D-30).
+ * tela o traduz para «Modelo não registrado» (D-30).
+ *
+ * 52-05 (D-52-U17): a fixture ganhou `gerado_em` (a data da análise, de `created_at`) num
+ * dia ANTERIOR a 22/09/2026 — é o caso das linhas nulas medidas em PROD (D-23) — e por isso
+ * a frase esperada para ela é a com o parêntese de data.
  */
 const cheia = {
   score_match: 82,
@@ -37,6 +42,7 @@ const cheia = {
   analise_status: 'sucesso' as const,
   provedor_ia: null,
   modelo_ia: null,
+  gerado_em: '2026-09-15T14:00:00+00:00',
 }
 
 describe('AnaliseIABlock — análise completa da IA (VISRH-02)', () => {
@@ -123,10 +129,32 @@ describe('AnaliseIABlock — selo de proveniência (49-16 / D-27b / JORN-28)', (
     )
   })
 
-  it('proveniência NULL ⇒ «modelo não registrado», nunca silêncio (as 25 linhas de PROD)', () => {
+  it('proveniência NULL, análise de 15/09/2026 ⇒ «Modelo não registrado (análise anterior a 22/09/2026)», nunca silêncio (as linhas de PROD)', () => {
     render(<AnaliseIABlock analise={cheia} />)
-    expect(screen.getByTestId('proveniencia-ia-badge')).toHaveTextContent(
-      'modelo não registrado',
+    // 52-05 (D-23 + D-52-U17): a frase INTEIRA, com a data porque a data da fixture é ≤ 22/09.
+    const selo = screen.getByTestId('proveniencia-ia-badge')
+    expect(selo.textContent).toBe(PROVENIENCIA_IA_COPY.semModeloAntigo)
+    expect(selo.textContent).not.toMatch(/modelo\s+modelo/i)
+  })
+
+  it('proveniência NULL com análise POSTERIOR a 22/09/2026 ⇒ só «Modelo não registrado» (uma nula futura nunca lê «anterior a 22/09»)', () => {
+    render(<AnaliseIABlock analise={{ ...cheia, gerado_em: '2026-10-05T12:00:00+00:00' }} />)
+    expect(screen.getByTestId('proveniencia-ia-badge').textContent).toBe(
+      PROVENIENCIA_IA_COPY.semModelo,
+    )
+  })
+
+  it('proveniência NULL sem data ⇒ só «Modelo não registrado»', () => {
+    render(<AnaliseIABlock analise={{ ...cheia, gerado_em: null }} />)
+    expect(screen.getByTestId('proveniencia-ia-badge').textContent).toBe(
+      PROVENIENCIA_IA_COPY.semModelo,
+    )
+  })
+
+  it('a análise que FALHOU também recebe a data (o segundo selo do bloco)', () => {
+    render(<AnaliseIABlock analise={{ ...cheia, analise_status: 'falhou' }} />)
+    expect(screen.getByTestId('proveniencia-ia-badge').textContent).toBe(
+      PROVENIENCIA_IA_COPY.semModeloAntigo,
     )
   })
 

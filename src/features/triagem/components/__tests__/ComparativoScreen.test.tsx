@@ -65,6 +65,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { ComparativoScreen, type ComparativoCandidate } from '../ComparativoScreen'
 import { exportComparativo } from '../../pdf/exportComparativo'
+import { PROVENIENCIA_IA_COPY } from '../ProvenienciaIABadge'
 import {
   SINAL_INSTRUCAO_AO_MODELO,
   rotuloDoSinal,
@@ -307,7 +308,7 @@ describe('ComparativoScreen — selo de proveniência (D-27b / JORN-28)', () => 
     expect(selo.textContent).toContain('claude-sonnet-4-6')
   })
 
-  it('modelo NULL fiado ⇒ «modelo não registrado» (D-30), nunca silêncio', () => {
+  it('modelo NULL fiado ⇒ «Modelo não registrado» (D-30, frase inteira — 52-05), nunca silêncio', () => {
     render(
       <ComparativoScreen
         candidates={[makeCandidate({ candidaturaId: '1', rank: 1 })]}
@@ -317,9 +318,10 @@ describe('ComparativoScreen — selo de proveniência (D-27b / JORN-28)', () => 
         onRejeitar={vi.fn()}
       />,
     )
-    expect(screen.getByTestId('proveniencia-ia-badge').textContent).toContain(
-      'modelo não registrado',
-    )
+    // 52-05 (D-23): a frase INTEIRA — o fragmento minúsculo passava com «modelo» duplicado.
+    const selo = screen.getByTestId('proveniencia-ia-badge')
+    expect(selo.textContent).toBe(PROVENIENCIA_IA_COPY.semModelo)
+    expect(selo.textContent).not.toMatch(/modelo\s+modelo/i)
   })
 
   it('consumidor que NÃO fia a proveniência (embed read-only até o 49-22) não ganha selo inventado', () => {
