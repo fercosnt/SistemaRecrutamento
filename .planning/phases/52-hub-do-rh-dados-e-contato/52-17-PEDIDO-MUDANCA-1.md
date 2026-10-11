@@ -31,3 +31,22 @@ espírito do social-media MC3.
 
 Não é aprovação. O texto volta a ser editado SÓ em `docs/specs/BANCO-SJT-V2.md`, a Task 1 do 52-17 roda de novo
 (tabela com `--criterio proposto`, LGPD-04, ensaio) e o portão de texto volta ao operador com os md5 novos.
+
+---
+
+# Rodada 2 — resposta do operador (2026-10-11)
+
+Texto apresentado: `docs/specs/BANCO-SJT-V2.md` md5 `539bc858464ff0b768b12e96ea7492ef` (commit 4b84b815),
+tabela_md5 `bc32d39834a3a5fbf55bf48b3c24cc4d`, SQL md5 `158bcb4911a540343854620c0e2dcf9f`, ensaio `52b=14/14`.
+Incluía as escolhas do executor 1–4 (videomaker MC3 neutro reescrito; sdr MC4 neutro reescrito; «mudar no sorriso»;
+sdr MC5 com o texto do operador verbatim).
+
+**Resposta (verbatim): «aprovar + polir»**
+
+Significado da opção escolhida, como apresentada ao operador: aprova o texto como mostrado (inclusive as escolhas
+1–4), com dois polimentos aplicados antes de registrar:
+- sdr-social-seller MC5, fortemente_pontua: «manda recado, deixa a lista de espera de sobreaviso»
+  (no lugar de «deixa recado, deixa a lista…»);
+- videomaker-storymaker MC5, neutro: «começa a sessão com atraso» (no lugar de «atrasado»).
+Depois, uma rodada automática de tabela (`--criterio proposto`) + LGPD-04 + ensaio; só volta ao operador se uma
+verificação falhar. (b)–(f) seguem como respondidos na rodada 1.
