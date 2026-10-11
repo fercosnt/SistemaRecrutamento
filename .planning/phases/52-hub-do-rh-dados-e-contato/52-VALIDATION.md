@@ -61,7 +61,7 @@ Manual-only (justificado): a sessão real do operador no hub com conta de recrut
 - [ ] `scripts/p52_mutacoes.cjs` — mutações: guard sem helper, RPC que projeta `percentil`/`tag` das outras, item antigo ativo, `NOT IN` no lugar de `NOT EXISTS`
 - [ ] `supabase/functions/ler-cadastro-candidato-rh/index.test.ts`
 - [ ] `scripts/geradores/tabela-comprimento-sjt.py` (+ `--auto-teste`) e `scripts/geradores/gen-sjt-v2.py`
-- [ ] Testes que travavam D-32 **substituídos** (não apagados): `ScorecardAvaliacao.test.tsx`, `hubVerRespostas.test.tsx`
+- [ ] Teste que travava D-32 **substituído** (não apagado): `ScorecardAvaliacao.test.tsx` (o `describe` de `:104-124` — a única trava da D-32; 52-11). *(Corrigido na revisão de 2026-10-10: `hubVerRespostas.test.tsx` NÃO trava a D-32 — nenhum «Concluído», «Big Five», `87` ou «faixa»; ele é substituído pelo 52-25 porque o «Ver respostas» sai do hub, D-52-U03.)*
 
 ---
 

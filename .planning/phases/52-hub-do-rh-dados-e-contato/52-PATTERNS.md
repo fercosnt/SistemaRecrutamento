@@ -78,7 +78,7 @@
 | `supabase/migrations/2026101?00000N_p52_banco_sjt_v2.sql` (new — inserts + retirada) | migration (data) | batch | `20260929000001_banco_sjt_marketing.sql` (body) + `20261010000002_p51_limpa_disponibilidade_anonimizados.sql` (PRE/POS with baseline) | exact |
 | `supabase/tests/p52_banco_sjt_smoke.sql` (new) | test (SQL smoke) | read | `p50_acesso_recrutador_smoke.sql:365-383` (ensaio guard + pass/esperado) | role-match |
 
-### Bloco D — Limpeza (destrutiva) + dado RH2/RH3
+### Bloco D — Limpeza (destrutiva) + nomes do cadastro de RH (dado; emenda da D-39: por papel)
 
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |---|---|---|---|---|
@@ -87,7 +87,7 @@
 | `.planning/phases/52-…/52-NN-COMANDO-APPLY.sh` + `52-NN-DECISAO.md` + `52-NN-POPULACAO.json` (new) | config/gate | batch | `.planning/phases/51-consertos-da-jornada-bloco-3/51-23-COMANDO-APPLY.sh` | exact |
 | `scripts/p52_limpeza_portao.cjs` (new, `--auto-teste`) | utility (gate) | transform | inline `CMP` in `51-23-COMANDO-APPLY.sh:38` + `scripts/p51_portao.cjs` | role-match |
 | Storage removal script / single-use EF (new) | utility | file-I/O (Storage API) | `supabase/functions/purgar-retencao/index.ts:266-292` (list + lotes via Storage API) | partial |
-| `supabase/migrations/2026101?00000N_p52_nomes_rh2_rh3.sql` (new — controlled data write, D-39) | migration (data) | CRUD-update | PRE/POS shape of `20261010000002` (minus DELETE); `20260929000002_jorn50_reaponta_sjt_social_media.sql` (⚠ has no gate — do not copy its shape) | role-match |
+| `supabase/migrations/2026101?00000N_p52_nomes_rh_por_papel.sql` (new — controlled data write, D-39 as amended 2026-10-10: names by role; file renamed from the RH2/RH3 swap name) | migration (data) | CRUD-update | PRE/POS shape of `20261010000002` (minus DELETE); `20260929000002_jorn50_reaponta_sjt_social_media.sql` (⚠ has no gate — do not copy its shape) | role-match |
 
 ### Wave 0 harness
 
@@ -822,9 +822,11 @@ rm -f "$AGORA" \
 
 **Partial analog:** `supabase/functions/purgar-retencao/index.ts:266-292` (`admin.storage.from(...).list` per prefix, `dividirEmLotes`) and its docblock `:66` «NUNCA APAGAR STORAGE POR SQL» (trigger `protect_objects_delete`). The path list is captured from `candidaturas.curriculo_url` **before** the DELETE and committed with the gate artifacts. Via (EF de uso único vs. script local com chave em memória) = O4, explicit operator OK.
 
-### RH2/RH3 data migration (D-39)
+### Names-by-role data migration (D-39, **amended** 2026-10-10)
 
-No gated small-UPDATE analog exists; `20260929000002_jorn50_reaponta_sjt_social_media.sql` is a bare `UPDATE` (do **not** copy its lack of gate). Use the PRE/POS frame of `20261010000002`: PRE asserts the current names on the two `usuarios_rh` rows (by `user_id` `af4ebf97…` → «RH2», `66412f96…` → «RH3»; full uuids resolved at plan time) and exactly 2 target rows; `UPDATE … GET DIAGNOSTICS = 2`; POS reads back. `trg_usuarios_rh_anti_lockout` and `update_usuarios_rh_updated_at` are the only triggers (noted in `p50_acesso_recrutador_smoke.sql` header) — a name change does not trip them.
+> **Amended (operator, 2026-10-10, after plan-phase — CONTEXT «Emenda da D-39»):** the two rows are named **by role** — `af4ebf97…` (recrutador) → «Recrutador (teste)», `66412f96…` (administrador) → «Admin (teste)». This **replaces** the RH2↔RH3 swap below the line; the PRE/POS frame is unchanged. Plan 52-08 Task 3 carries the amended values.
+
+No gated small-UPDATE analog exists; `20260929000002_jorn50_reaponta_sjt_social_media.sql` is a bare `UPDATE` (do **not** copy its lack of gate). Use the PRE/POS frame of `20261010000002`: PRE asserts the current measured names on the two `usuarios_rh` rows (today the admin `66412f96…` carries «RH2» and the recruiter `af4ebf97…` carries «RH3»; full uuids resolved at plan time) and exactly 1 row per `user_id`; one `UPDATE` per row to its role literal, each `GET DIAGNOSTICS = 1`; POS reads back the two exact literals. ~~Swap direction `af4ebf97…` → «RH2», `66412f96…` → «RH3»~~ (superseded by the amendment). `trg_usuarios_rh_anti_lockout` and `update_usuarios_rh_updated_at` are the only triggers (noted in `p50_acesso_recrutador_smoke.sql` header) — a name change does not trip them.
 
 ---
 
@@ -893,7 +895,7 @@ GRANT EXECUTE ON FUNCTION public.<fn>(uuid) TO authenticated;
 |---|---|---|---|
 | Storage removal step (script or single-use EF) | utility | file-I/O | Only `purgar-retencao` deletes Storage, and it is cron-invoked with its own secret; a one-shot path with an operator-approved list has no precedent (O4). Use RESEARCH §Bloco D Storage + `purgar-retencao:266-292` for the API calls only |
 | `scripts/geradores/tabela-comprimento-sjt.py` | utility (gate) | report | No length-table tool exists; reuse the generator's parser (closest piece) |
-| RH2/RH3 controlled data migration | migration | CRUD-update | No gated small `UPDATE` migration in the repo; compose from the PRE/POS of `20261010000002` |
+| Names-by-role controlled data migration (D-39 amended; was the RH2/RH3 swap) | migration | CRUD-update | No gated small `UPDATE` migration in the repo; compose from the PRE/POS of `20261010000002` |
 
 ## Discrepancies flagged for the planner
 

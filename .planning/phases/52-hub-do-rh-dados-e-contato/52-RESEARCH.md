@@ -343,7 +343,7 @@ planejador pode renumerar, mas cada linha da tabela tem de cair em algum require
 | JORN-59 *(proposto)* | Painel do candidato «Avaliações concluídas — aguardando a equipe» (defeito a, D-27) + «Ver devolutiva» reabrível | §Bloco A; Achado F7 |
 | JORN-60 *(proposto)* | Saída durante as provas com confirmação de perda onde não há rascunho; «Tempo decorrido»; Raven na shell da marca com instruções (D-24, D-26, D-52-U14) | §Bloco A; **Achado F1** |
 | JORN-61 *(proposto)* | Entrevista: notas 1–5 em botões começando vazias e obrigatórias, sem jargão, menu «Candidatos» aceso (D-25, D-52-U12) | §Bloco A; Achado F13, F17 |
-| JORN-62 *(proposto)* | Achados do 51-17: login com sessão aberta, «Meu painel», «Agradecemos», `SelectItem`, nomes RH2/RH3, motivo/justificativa na revisão `humana_triagem` | §Bloco A; **Achado F3** |
+| JORN-62 *(proposto)* | Achados do 51-17: login com sessão aberta, «Meu painel», «Agradecemos», `SelectItem`, nomes RH2/RH3 (trocados no 51-17; corrigidos **por papel** — emenda da D-39, 2026-10-10), motivo/justificativa na revisão `humana_triagem` | §Bloco A; **Achado F3** |
 | JORN-63 *(proposto)* | Limpeza dos dados de teste por conta, status-agnóstica, com trava de RH e portão destrutivo; destino da vaga `629a5f31` (D-30, D-32) | §Bloco D; Achados F9, F10, F11, F18 |
 </phase_requirements>
 
@@ -387,7 +387,7 @@ exclui; contagens fixas 41/33), o Storage só sai pela Storage API (trigger `pro
 `publish_vaga` (Achado F18).
 
 **Primary recommendation:** planejar em ondas A → B → C → UAT → D; mover «motivo/justificativa
-`humana_triagem`» e «nomes RH2/RH3» para planos com artefato de banco; corrigir a lista da D-24 (prova
+`humana_triagem`» e «nomes do cadastro de RH» (por papel — emenda da D-39) para planos com artefato de banco; corrigir a lista da D-24 (prova
 cognitiva com confirmação) e a ordem das alternativas do SJT no RH **como decisões levadas ao operador**
 no primeiro checkpoint, antes de escrever código que as consuma.
 
@@ -522,7 +522,7 @@ src/features/avaliacao/
 ├── lib/          bigFiveRotulos.ts (DIM_LABEL/DIM_ORDER/BANDA_LABEL/BANDA_ORDER/BandaSegments/analogia extraídos da devolutiva)
 └── services/     avaliacoesRhService.ts (RPCs ler_sjt_mc_rh, ler_devolutiva_bigfive_rh)
 supabase/functions/ler-cadastro-candidato-rh/  index.ts + index.test.ts (clone de get-curriculo-url)
-supabase/migrations/2026101?00000N_p52_*.sql   (B: leituras RH; C: banco SJT v2; D: limpeza; nomes RH2/RH3)
+supabase/migrations/2026101?00000N_p52_*.sql   (B: leituras RH; C: banco SJT v2; D: limpeza; nomes por papel do cadastro de RH — emenda da D-39)
 supabase/tests/p52_*.sql                        (smokes de acesso, banco, população)
 scripts/p52_ensaio.cjs, scripts/geradores/gen-sjt-v2.py, scripts/geradores/tabela-comprimento-sjt.py
 ```
@@ -615,7 +615,7 @@ bateria dobrada **e** caso aberto ambíguo. Retirar = `status` ≠ `'active'` (n
 | «Meu painel» | `src/components/layouts/CandidatoNavbar.tsx` (131 linhas) | sem volta | Fora das raízes da guarda de rótulos (`SCAN_ROOTS = ['src/features/avaliacao', 'src/features/avaliacao-cognitiva']`, `rotulos-navegacao-candidato.grep.test.ts:38`) |
 | «Agradecemos» | `FormularioCandidaturaPage.tsx:537-546` (`text-gray-900/700/500`) | ilegível no vidro | `DashboardCandidatoPage.tsx:428-430` já é `text-white/60` — não mexer |
 | `SelectItem` | `src/components/ui/select.tsx:130-136` | força `text-white` em hover/foco | UI-SPEC D-52-U21; provar nos dois fundos |
-| RH2/RH3 | `usuarios_rh`: linha `88b16cda` (user `66412f96`, `administrador`) = «RH2»; `6e859f63` (user `af4ebf97`, `recrutador`) = «RH3» `[VERIFIED: PROD]` | — | **Dado**, sem tela de edição de nome (`gerenciar-usuario-rh` só tem `criar`, `resetar_senha`, `desativar`, `mudar_papel`). Recomendo **migration minúscula** com pré-portão nos valores atuais (artefato no ledger), não UPDATE avulso. A direção da troca é `[ASSUMED]` (O6) |
+| RH2/RH3 | `usuarios_rh`: linha `88b16cda` (user `66412f96`, `administrador`) = «RH2»; `6e859f63` (user `af4ebf97`, `recrutador`) = «RH3» `[VERIFIED: PROD]` | — | **Dado**, sem tela de edição de nome (`gerenciar-usuario-rh` só tem `criar`, `resetar_senha`, `desativar`, `mudar_papel`). Recomendo **migration minúscula** com pré-portão nos valores atuais (artefato no ledger), não UPDATE avulso. A direção da troca era `[ASSUMED]` (O6) — **emendado (D-39, operador, 2026-10-10):** não há troca; os dois cadastros passam a nomes por papel, `af4ebf97` → «Recrutador (teste)», `66412f96` → «Admin (teste)» |
 | Motivo/justificativa `humana_triagem` | `ResponderRevisaoDialog.tsx:321-348` (bloco de contexto), `:350` (`ContextoKnockoutRevisao` só no knockout) | — | **Bloco B** (F3). Motivo: `candidaturas.motivo_rejeicao` (pode ser reescrito numa re-rejeição posterior — A5); rótulo por `MOTIVO_OPTIONS` (`RejeitarCandidaturaDialog.tsx:56-63`) exportado |
 
 ## Bloco B — fontes de cada dado e o caminho de leitura
@@ -893,7 +893,7 @@ SELECT jsonb_agg(jsonb_build_object('opcao_id', o.opcao_id, 'texto', o.opcao_tex
 
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
-| Big Five no hub só «Concluído/Não fez» (D-32/51, D-31/49) | faixas da devolutiva + texto recolhível, sem percentil (D-01, D-04) | 2026-10-10 | testes que travavam «sem resultado» são **substituídos** (`ScorecardAvaliacao.test.tsx`, `hubVerRespostas.test.tsx`, `estadosAvaliacao.test.ts` segue — é a lista) |
+| Big Five no hub só «Concluído/Não fez» (D-32/51, D-31/49) | faixas da devolutiva + texto recolhível, sem percentil (D-01, D-04) | 2026-10-10 | o teste que travava «sem resultado» é **substituído** (`ScorecardAvaliacao.test.tsx`, o `describe` da D-32; `estadosAvaliacao.test.ts` segue — é a lista). *Corrigido em 2026-10-10:* `hubVerRespostas.test.tsx` não trava a D-32 — é substituído pelo D-52-U03 («Ver respostas» sai) |
 | SJT MC «Item N · tag · peso» | cenário + alternativas + escolhida | 2026-10-10 | etiqueta crua sai da tela |
 | Apply por SQL Editor/MCP | `p46apply.cjs` + ensaio que aborta | Phase 46 | — |
 | Teardown com contagem fixa (p47) | md5 da população aprovada + comando encadeado (51-23) | Phase 51 | usar o 51-23 como portão, o p47 como corpo |
@@ -909,7 +909,7 @@ SELECT jsonb_agg(jsonb_build_object('opcao_id', o.opcao_id, 'texto', o.opcao_tex
 | A3 | Incluir `rh_user_id` na linha de log | Pattern 2 | Baixo — ainda «só ids e papel»; se recusado, volta ao formato do currículo |
 | A4 | Captura de `RAISE LOG` pelo Logs Explorer do Supabase | Alternatives | Só importa se o planejador escolher RPC para o log |
 | A5 | `candidaturas.motivo_rejeicao` como fonte do motivo no diálogo `humana_triagem` | Bloco A/B | Médio — pode ter sido reescrito por re-rejeição posterior; no pedido pendente é o certo |
-| A6 | Direção da troca RH2/RH3 (recrutador `af4ebf97` → «RH2», admin `66412f96` → «RH3») | Bloco A | Baixo — confirmar com o operador antes do apply |
+| A6 | ~~Direção da troca RH2/RH3 (recrutador `af4ebf97` → «RH2», admin `66412f96` → «RH3»)~~ — **superada pela emenda da D-39** (nomes por papel: «Recrutador (teste)», «Admin (teste)») | Bloco A | Resolvida pelo operador |
 | A7 | Via de `service_role` para a remoção de Storage (EF de uso único vs. chave obtida pela Management API em memória) | Bloco D | Médio — segurança operacional |
 | A8 | Retenção dos logs de EF (dias, não auditoria) | Security | Baixo — D-11 já aceitou «linha de log», não trilha |
 
@@ -924,7 +924,7 @@ SELECT jsonb_agg(jsonb_build_object('opcao_id', o.opcao_id, 'texto', o.opcao_tex
 3. **O3 — Motivo/justificativa `humana_triagem` com migration.** Recomendação: sim, na migration do bloco B, com review bloqueante; a decisão anterior do operador (51-17: «NÃO consertar agora… fica no backlog») foi substituída pela G-51-OP1/escopo da 52 — confirmar. — **RESOLVED (D-38):** entra na migration do bloco B como `ler_contexto_rejeicao_triagem_revisao` (52-08), cliente no 52-13, review bloqueante no 52-14.
 4. **O4 — Via da remoção de Storage.** Recomendação: script local que lê a chave pela Management API só em memória e chama a Storage API com a lista aprovada; alternativa: EF admin de uso único. Exige OK explícito. — **RESOLVED (portão planejado):** o operador escolhe `storage_via` no 52-19 Task 2 (`script_local` | `nao_remover`; a EF de uso único devolve ao planejamento); o removedor é do 52-20 e a remoção roda no 52-21 Task 3, sob o OK destrutivo da Task 2 do 52-21.
 5. **O5 — Tirar `metadata.dimensoes[].percentil` do payload de `getScores`?** Não exigido por UX-07 (tela). Recomendação: deixar para depois, declarar no SECURITY. — **RESOLVED (recomendação adotada, CONTEXT «O5»):** fica no payload nesta fase; a Invariante 1 vale no tipo do componente (52-11); residual declarado no SUMMARY/`52-SECURITY.md` (52-22).
-6. **O6 — Direção da troca RH2/RH3** (A6). — **RESOLVED (D-39):** `af4ebf97` → «RH2», `66412f96` → «RH3»; migration `20261011000002` (52-08), aplicada no 52-15.
+6. **O6 — Direção da troca RH2/RH3** (A6). — **RESOLVED (D-39), depois EMENDADA (operador, 2026-10-10):** não há troca — `af4ebf97` → «Recrutador (teste)», `66412f96` → «Admin (teste)»; migration `20261011000002_p52_nomes_rh_por_papel` (52-08), aplicada no 52-15.
 7. **O7 — Destino das vagas de teste:** para cada uma, `deleted_at` / remoção / manter; colisões `53f75c81` e `53b73af6` (candidaturas da conta excluída — remover a vaga **apaga por CASCADE**); `629a5f31` depois de limpar `d31c78bb` (F18). E as 16 contas sem candidatura e os 3 `auth.users` órfãos: entram? — **RESOLVED (portão planejado):** decididos pelo operador no 52-19 Task 2 (`vaga_<id8>`, `contas_sem_candidatura`, `auth_orfaos`; colisão marcada `remover` é recusada pelo `<verify>`), executados pelo 52-20/52-21.
 
 ## Environment Availability
@@ -987,7 +987,7 @@ Manual-only (justificado): a sessão real do operador no hub com conta de recrut
 - [ ] `scripts/p52_mutacoes.cjs` — mutações: guard sem helper, RPC que projeta `percentil`/`tag` das outras, item antigo ativo, `NOT IN` no lugar de `NOT EXISTS`
 - [ ] `supabase/functions/ler-cadastro-candidato-rh/index.test.ts`
 - [ ] `scripts/geradores/tabela-comprimento-sjt.py` (+ `--auto-teste`) e `scripts/geradores/gen-sjt-v2.py`
-- [ ] Testes que travavam D-32 **substituídos** (não apagados): `ScorecardAvaliacao.test.tsx`, `hubVerRespostas.test.tsx`
+- [ ] Teste que travava D-32 **substituído** (não apagado): `ScorecardAvaliacao.test.tsx` (*corrigido em 2026-10-10:* `hubVerRespostas.test.tsx` não tem trava da D-32; é substituído pelo 52-25 por causa do D-52-U03)
 
 ## Security Domain
 

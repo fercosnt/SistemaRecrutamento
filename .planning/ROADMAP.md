@@ -749,7 +749,7 @@ Plans:
 **Success Criteria** (o que precisa ser VERDADE ao fim da fase):
   1. Um recrutador ATIVO ou um admin abre `/rh/candidatos/:id` e vê, em quatro abas (Resumo · Cadastro e inscrição · Avaliações · Histórico, a aba na URL), o cadastro completo com nascimento e idade, a disponibilidade, as respostas da inscrição na ordem do formulário (eliminatória com selo, sem veredito), o Big Five nas cinco faixas da devolutiva com o texto recolhível e sem percentil, o SJT de múltipla escolha com as alternativas em ordem neutra e a escolhida destacada, e o caso aberto legível com as citações marcadas; recrutador inativo, candidato e `anon` não leem nada disso, e cada leitura dos dados pessoais deixa uma linha de log só com ids e papel
   2. No cabeçalho do hub, «Enviar e-mail» (assunto pronto) e «Chamar no WhatsApp» (mensagem pronta e editável) abrem com um clique sempre que o dado existe e é válido; com número fora do formato o botão do WhatsApp some e a tela diz por quê; candidato anonimizado ou fictício (`@invalido.local`) fica sem contato — nenhum link, nenhuma mensagem pronta — e a tela não diz a causa (JORN-53)
-  3. Os defeitos (a)–(c), as pendências do UAT da 51 e os achados do 51-17 deixam de existir na tela: saída durante toda prova (confirmação de perda onde não há rascunho), «Tempo decorrido», devolutiva reabrível, Raven na shell da marca com instruções, painel «Avaliações concluídas — aguardando a equipe», notas da entrevista vazias e obrigatórias sem jargão, proveniência sem «modelo modelo», contagem uma vez, login com sessão aberta, «Meu painel», textos legíveis, nomes RH2/RH3 corretos e motivo/justificativa na revisão `humana_triagem`
+  3. Os defeitos (a)–(c), as pendências do UAT da 51 e os achados do 51-17 deixam de existir na tela: saída durante toda prova (confirmação de perda onde não há rascunho), «Tempo decorrido», devolutiva reabrível, Raven na shell da marca com instruções, painel «Avaliações concluídas — aguardando a equipe», notas da entrevista vazias e obrigatórias sem jargão, proveniência sem «modelo modelo», contagem uma vez, login com sessão aberta, «Meu painel», textos legíveis, os dois cadastros de RH de teste nomeados por papel («Recrutador (teste)», «Admin (teste)» — emenda da D-39) e motivo/justificativa na revisão `humana_triagem`
   4. A vaga ativa de pré-vendas responde 6 itens `mc` + 1 `caso_aberto` e os 3 cargos de marketing têm versão nova sem a pista do comprimento — texto aprovado pelo operador com a tabela de caracteres, itens antigos retirados no mesmo apply, nenhum cargo com bateria dobrada, casos abertos de marketing mantidos conferidos por máquina
   5. Depois da UAT da 52 (conferida por máquina), nenhuma conta, candidatura, fictício ou currículo de teste resta em PROD — população por conta medida, aprovada pelo operador e re-medida no mesmo comando, nenhuma conta de RH/admin tocada, prova pós com resíduo 0 —, e `git log --oneline origin/main..HEAD` sai vazio com os marcadores no chunk certo
 **Guardrails**: os do Bloco 3 — migrations pelo `p46apply.cjs` (md5 do ledger), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado e `git log origin/main..HEAD` vazio com o marcador no chunk certo. Alarga leitura de dado pessoal: review bloqueante antes do apply
@@ -765,7 +765,7 @@ Plans:
 - [ ] 52-05-PLAN.md — Proveniência sem «modelo modelo» (D-23, data só quando verdadeira); menu «Candidatos» aceso nos workspaces
 - [ ] 52-06-PLAN.md — Achados do 51-17: login com sessão aberta, «Meu painel», «Agradecemos» legível, `SelectItem`
 - [ ] 52-07-PLAN.md — Entrevista: notas 1–5 vazias e obrigatórias, sem jargão (D-25)
-- [ ] 52-08-PLAN.md — Migrations do bloco B (ensaio): `ler_devolutiva_bigfive_rh`, `ler_sjt_mc_rh` (ordem neutra), `ler_contexto_rejeicao_triagem_revisao`; nomes RH2/RH3 (D-39); smoke por papel; mutações
+- [ ] 52-08-PLAN.md — Migrations do bloco B (ensaio): `ler_devolutiva_bigfive_rh`, `ler_sjt_mc_rh` (ordem neutra), `ler_contexto_rejeicao_triagem_revisao`; nomes por papel do cadastro de RH (D-39, emenda); smoke por papel; mutações
 - [ ] 52-09-PLAN.md — EF `ler-cadastro-candidato-rh` com log redigido (D-10/D-11), contrato inteiro (contato, cadastro, disponibilidade, inscrição); serviço e hook
 - [ ] 52-11-PLAN.md — Big Five no hub (faixas da devolutiva, aviso fixo, recolhível, sem percentil) e SJT MC (situação, alternativas, escolhida)
 - [ ] 52-13-PLAN.md — Motivo e justificativa no diálogo de revisão `humana_triagem` (D-38)
@@ -799,8 +799,8 @@ Plans:
 **Wave 11** *(checkpoint)*
 - [ ] 52-18-PLAN.md — Review do bloco C, apply do banco SJT v2, push — depois: **UAT da Phase 52**
 
-**Wave 12** *(checkpoint; só depois da UAT da 52 — conferida por máquina)*
-- [ ] 52-19-PLAN.md — Varredura da população de teste por conta (trava do RH) e decisão do escopo da limpeza (só opções executáveis)
+**Wave 12** *(checkpoint; só com PITR ligado — D-41 — e depois da UAT da 52, os dois conferidos por máquina)*
+- [ ] 52-19-PLAN.md — PITR ligado conferido pela Management API (D-41); varredura da população de teste por conta (trava do RH) e decisão do escopo da limpeza (só opções executáveis)
 
 **Wave 13**
 - [ ] 52-20-PLAN.md — Migration destrutiva do escopo decidido (ensaio), prova pós, mutações, removedor de Storage
