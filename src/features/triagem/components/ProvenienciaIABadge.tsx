@@ -22,10 +22,20 @@
  * muda AQUI**, e em nenhum outro lugar: é por isso que o discriminante é uma linha só,
  * nomeada, neste arquivo, em vez de um `if` repetido em cada tela.
  *
- * ⚠ **`modelo_ia === null` ⇒ «modelo não registrado», NUNCA silêncio (D-30).** As linhas
+ * ⚠ **`modelo_ia === null` ⇒ «Modelo não registrado», NUNCA silêncio (D-30).** As linhas
  * anteriores à Phase 49 não têm o modelo gravado, e a causa real não é recuperável do log.
  * Dizer «não sei» é a única afirmação verdadeira disponível; omitir o selo faria a tela
  * parecer idêntica à de um resultado cuja proveniência está confirmada.
+ *
+ * ⚠ **Modelo nulo é uma frase INTEIRA, nunca uma substituição (52-05 / D-23).** Até a Phase
+ * 52 o nome que faltava era trocado por um fragmento dentro de «Gerado pelo modelo {modelo}»,
+ * e a palavra «modelo» saía repetida na tela e no PDF — com os testes verdes, porque eles
+ * conferiam só o fragmento. Agora cada caso de modelo nulo tem a sua frase na cópia.
+ *
+ * ⚠ **A data só quando ela é verdadeira (D-52-U17).** «(análise anterior a 22/09/2026)» só
+ * aparece quando a data da análise, no dia de São Paulo, é ≤ 22/09/2026. Uma linha nula
+ * POSTERIOR (regressão) ou sem data diz só «Modelo não registrado»: uma razão datada falsa
+ * é pior que nenhuma. As análises antigas NÃO são preenchidas nem reprocessadas (D-23).
  *
  * ─── QUEM CONSOME ────────────────────────────────────────────────────────────────────
  *
@@ -54,16 +64,15 @@ import { CAUSA_FALLBACK_ROTULO } from '../../../../supabase/functions/_shared/ai
 /**
  * Cópia canônica da proveniência — a MESMA na tela e no PDF.
  *
- * `{modelo}` é o único ponto de substituição. Não alterar sem alterar os testes que a
- * pinam: é texto que o RH lê para decidir se confia no resultado.
+ * `{modelo}` é o único ponto de substituição, e só existe quando HÁ modelo: para modelo
+ * nulo cada caso tem a sua frase inteira (52-05 / D-23). Não alterar sem alterar os testes
+ * que a pinam: é texto que o RH lê para decidir se confia no resultado.
  */
 export const PROVENIENCIA_IA_COPY = {
   /** Resultado do modelo configurado. */
   primario: 'Gerado pelo modelo {modelo}',
   /** Resultado do modelo de contingência — o aviso que faltava até este plano. */
   contingencia: 'Gerado pelo modelo de contingência {modelo}',
-  /** D-30: `modelo_ia` NULL. Ocupa o lugar de `{modelo}`. */
-  modeloDesconhecido: 'modelo não registrado',
   /** 52-05 (D-23): `modelo_ia` NULL, sem data que confirme a época — frase INTEIRA. */
   semModelo: 'Modelo não registrado',
   /** 52-05 (D-52-U17): `modelo_ia` NULL e análise de até 22/09/2026 (São Paulo) — frase INTEIRA. */
@@ -78,7 +87,7 @@ export const PROVENIENCIA_IA_COPY = {
 export interface ProvenienciaIABadgeProps {
   /** `'anthropic'` | `'openai'` | `null`. `'openai'` É o discriminante de fallback. */
   provedorIa: string | null | undefined
-  /** O modelo que DE FATO respondeu. `null` ⇒ «modelo não registrado» (D-30). */
+  /** O modelo que DE FATO respondeu. `null` ⇒ «Modelo não registrado» (D-30, D-23). */
   modeloIa: string | null | undefined
   /** Causa crua do fallback (`anthropic_max_tokens`, …) ou `null`. */
   fallbackCause?: string | null
@@ -102,6 +111,31 @@ export function ehResultadoDeContingencia(provedorIa: string | null | undefined)
   return provedorIa === 'openai'
 }
 
+/**
+ * Último dia (em São Paulo, `AAAA-MM-DD`) em que a ausência de modelo é explicada pela época:
+ * as análises até ele foram gravadas antes de o modelo passar a ser registrado (D-23, medido).
+ */
+const ULTIMO_DIA_SEM_REGISTRO_DE_MODELO = '2026-09-22'
+
+/** `en-CA` formata como `AAAA-MM-DD`, comparável como texto. */
+const DIA_EM_SAO_PAULO = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Sao_Paulo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/**
+ * `true` só quando a data existe, é legível e cai, no dia de São Paulo, até 22/09/2026
+ * (inclusive). Data ausente ou ilegível ⇒ `false`: sem data não se afirma a razão (D-52-U17).
+ */
+function analiseAnteriorAoRegistroDoModelo(geradoEm: string | null | undefined): boolean {
+  if (!geradoEm) return false
+  const instante = new Date(geradoEm)
+  if (Number.isNaN(instante.getTime())) return false
+  return DIA_EM_SAO_PAULO.format(instante) <= ULTIMO_DIA_SEM_REGISTRO_DE_MODELO
+}
+
 /** Rótulo pt-BR de uma causa de fallback, degradando para o próprio código se desconhecida. */
 function rotuloDaCausaFallback(causa: string | null | undefined): string | null {
   if (!causa) return null
@@ -111,11 +145,15 @@ function rotuloDaCausaFallback(causa: string | null | undefined): string | null 
 /**
  * Monta a frase de proveniência — a MESMA usada pela tela e pelo PDF.
  *
- * Nunca devolve string vazia: sem modelo, diz «modelo não registrado» (D-30). Um retorno
+ * Nunca devolve string vazia: sem modelo, diz «Modelo não registrado» (D-30). Um retorno
  * vazio aqui apagaria o selo inteiro, e o resultado sem proveniência voltaria a parecer um
  * resultado com proveniência confirmada.
  *
- * @param opts proveniência vinda da EF; `comCausa` = anexar «motivo: …» (default `true`).
+ * Modelo nulo (ou vazio) ⇒ a frase INTEIRA do ramo, nunca uma substituição em `{modelo}`
+ * (52-05 / D-23); o parêntese de data só com `geradoEm` ≤ 22/09/2026 em São Paulo (D-52-U17).
+ *
+ * @param opts proveniência vinda da EF; `comCausa` = anexar «motivo: …» (default `true`);
+ *   `geradoEm` = data da análise (opcional — sem ela, nenhuma data é afirmada).
  */
 export function textoProveniencia(opts: {
   provedorIa: string | null | undefined
@@ -124,12 +162,22 @@ export function textoProveniencia(opts: {
   comCausa?: boolean
   geradoEm?: string | null
 }): string {
-  const { provedorIa, modeloIa, fallbackCause, comCausa = true } = opts
-  const modelo = modeloIa ?? PROVENIENCIA_IA_COPY.modeloDesconhecido
+  const { provedorIa, modeloIa, fallbackCause, comCausa = true, geradoEm } = opts
   const contingencia = ehResultadoDeContingencia(provedorIa)
-  const base = (
-    contingencia ? PROVENIENCIA_IA_COPY.contingencia : PROVENIENCIA_IA_COPY.primario
-  ).replace('{modelo}', modelo)
+  const semModelo = !modeloIa || modeloIa.trim() === ''
+
+  let base: string
+  if (!semModelo) {
+    base = (
+      contingencia ? PROVENIENCIA_IA_COPY.contingencia : PROVENIENCIA_IA_COPY.primario
+    ).replace('{modelo}', modeloIa)
+  } else if (contingencia) {
+    base = PROVENIENCIA_IA_COPY.contingenciaSemModelo
+  } else {
+    base = analiseAnteriorAoRegistroDoModelo(geradoEm)
+      ? PROVENIENCIA_IA_COPY.semModeloAntigo
+      : PROVENIENCIA_IA_COPY.semModelo
+  }
 
   // A causa só acompanha o aviso de contingência: uma causa de falha do primário ao lado
   // de «gerado pelo modelo <primário>» descreveria uma falha que não houve.
@@ -148,6 +196,7 @@ export function ProvenienciaIABadge({
   provedorIa,
   modeloIa,
   fallbackCause,
+  geradoEm,
   variant = 'full',
   className,
 }: ProvenienciaIABadgeProps) {
@@ -157,6 +206,7 @@ export function ProvenienciaIABadge({
     modeloIa,
     fallbackCause,
     comCausa: variant === 'full',
+    geradoEm,
   })
   const Icone = contingencia ? CircuitBoard : Cpu
 

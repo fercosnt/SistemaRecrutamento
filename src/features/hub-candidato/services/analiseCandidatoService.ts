@@ -37,11 +37,13 @@ export class AnaliseCandidatoServiceError extends Error {
  * The EXPLICIT column allowlist for the hub IA-analysis read. NEVER `'*'`
  * ([[reference_select_star_leaks_pii]]). Names ONLY what the hub renders:
  * `score_match` (0-100 nullable), `pontos_fortes[]`, `gaps[]`, `flags[]`, `status`
- * (mapped to `analise_status` on the row). Deliberately EXCLUDES `resumo_cv`,
- * `resumo_respostas`, and `erro` — the raw AI internals the surface does not need.
+ * (mapped to `analise_status` on the row), a proveniência (`provedor_ia`, `modelo_ia`) e
+ * `created_at` (mapped to `gerado_em` — data da análise, só para a frase de proveniência,
+ * D-52-U17). Deliberately EXCLUDES `resumo_cv`, `resumo_respostas`, and `erro` — the raw AI
+ * internals the surface does not need.
  */
 export const ANALISE_HUB_ALLOWLIST =
-  'score_match, pontos_fortes, gaps, flags, status, provedor_ia, modelo_ia'
+  'score_match, pontos_fortes, gaps, flags, status, provedor_ia, modelo_ia, created_at'
 
 /** The allowlist-projected IA-analysis row the hub consumes. */
 export interface AnaliseHubRow {
@@ -57,7 +59,7 @@ export interface AnaliseHubRow {
    * modelo de CONTINGÊNCIA — o aviso que faltava quando, em 2026-09-20, um resultado de
    * fallback chegou à tela registrado como sucesso e sem marca nenhuma. NULL ⇒
    * desconhecida (as 25 linhas vivas medidas em 2026-09-23), e NULL nunca é silêncio na
-   * tela: é «modelo não registrado» (D-30).
+   * tela: é «Modelo não registrado» (D-30).
    */
   provedor_ia: string | null
   modelo_ia: string | null
@@ -99,6 +101,7 @@ export async function getAnalise(candidaturaId: string): Promise<AnaliseHubRow |
     status: string | null
     provedor_ia?: string | null
     modelo_ia?: string | null
+    created_at?: string | null
   }
   return {
     score_match: raw.score_match ?? null,
@@ -107,11 +110,13 @@ export async function getAnalise(candidaturaId: string): Promise<AnaliseHubRow |
     flags: raw.flags ?? [],
     analise_status: raw.status ?? null,
     // `?? null` e não `?? undefined`: «não sei qual modelo» é um VALOR que a tela
-    // renderiza («modelo não registrado»), não a ausência de um campo. Um `undefined`
+    // renderiza («Modelo não registrado»), não a ausência de um campo. Um `undefined`
     // aqui faria o selo desaparecer em vez de dizer que a proveniência é desconhecida —
     // e um resultado sem proveniência ficaria idêntico a um com proveniência confirmada.
     provedor_ia: raw.provedor_ia ?? null,
     modelo_ia: raw.modelo_ia ?? null,
-    gerado_em: null,
+    // Data da análise, só para a frase de proveniência — D-52-U17. `null` (e não
+    // `undefined`) pelo mesmo motivo: sem data, a frase diz só «Modelo não registrado».
+    gerado_em: raw.created_at ?? null,
   }
 }

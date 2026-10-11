@@ -116,6 +116,7 @@ export function AnaliseIABlock({ analise, isLoading, isError }: AnaliseIABlockPr
             <ProvenienciaIABadge
               provedorIa={analise.provedor_ia}
               modeloIa={analise.modelo_ia}
+              geradoEm={analise.gerado_em}
               variant="compact"
             />
           </div>
@@ -131,6 +132,7 @@ export function AnaliseIABlock({ analise, isLoading, isError }: AnaliseIABlockPr
             <ProvenienciaIABadge
               provedorIa={analise.provedor_ia}
               modeloIa={analise.modelo_ia}
+              geradoEm={analise.gerado_em}
               variant="compact"
             />
           </div>
