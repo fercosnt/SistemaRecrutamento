@@ -807,7 +807,7 @@ Plans:
 
 **Wave 14**
 - [ ] 52-20-PLAN.md — Migration destrutiva do escopo decidido (ensaio), prova pós, mutações, removedor de Storage
-- [ ] 52-27-PLAN.md — Exportador da população (D-41 emendada, condição 2): fecho de FK lido na execução, linhas e currículos fora do git, `--conferir --vivo`; nenhum export real (gap_closure)
+- [ ] 52-27-PLAN.md — Exportador da população (D-41 emendada, condição 2): fecho de FK lido na execução, linhas e currículos fora do git, `--conferir --vivo`; nenhum export real (separado do 52-20 na checagem; paralelo a ele, contrato do `STORAGE.json` fixado nos dois)
 
 **Wave 15** *(checkpoint destrutivo)*
 - [ ] 52-21-PLAN.md — Portão destrutivo: medição fresca, export prévio feito uma vez e conferido, review bloqueante, OK sobre os números (escopo do export vetável), apply amarrado — backup no modo apply e export contra o vivo como os dois elos imediatamente antes do `migrate`, na manhã seguinte a um backup diário; currículos pela Storage API (lista aprovada, pin, ledger) sob a mesma porta
