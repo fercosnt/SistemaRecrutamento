@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-08-PLAN.md (2026-10-11): bloco B em arquivo, NADA aplicado — 20261011000001 (ler_devolutiva_bigfive_rh, ler_sjt_mc_rh em ordem neutra md5, ler_contexto_rejeicao_triagem_revisao) e 20261011000002 (nomes por papel: «Recrutador (teste)»/«Admin (teste)»); ensaio das duas + smoke52l VERDE 20/20, vistas=igual; p52_mutacoes 8/8 mordem, nada persistiu. Apply no 52-15, depois do review 52-14."
-last_updated: "2026-10-11T03:22:31.000Z"
+stopped_at: "Completed 52-09-PLAN.md (2026-10-11): EF ler-cadastro-candidato-rh em CÓDIGO, nada publicado — contato/cadastro (19)/disponibilidade/inscrição, log só { candidatura_id, rh_user_id, role }, todo @invalido.local → contato null (tombstone também cadastro/disponibilidade null); deno 40/40 (13 mutações mordem), vitest 60/60, tsc 89 ≤ 90; serviço + useCadastroCandidatoRh; slug no efdeploy. Deploy no 52-15, depois do review 52-14."
+last_updated: "2026-10-11T03:36:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 173
-  percent: 88
+  completed_plans: 174
+  percent: 89
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."
