@@ -1,0 +1,99 @@
+
+DECLARE
+  v_role       text;
+  v_analise_id uuid;
+  v_superada   timestamptz;
+  v_status     text;
+  v_comp       jsonb;
+  v_media      numeric;
+  v_n          integer;
+BEGIN
+  -- A análise a revisar é a que o CLIENTE nomeia — a que a tela mostra (D-39). A condição
+  -- de candidatura fecha o IDOR: SECURITY DEFINER ignora RLS, e sem ela um RH dono da vaga
+  -- de A gravaria nota numa análise de B. O estado entra no MESMO SELECT (e sob lock) para
+  -- não abrir janela entre «é vigente» e o UPDATE.
+  SELECT ea.id, ea.superada_em, ea.status_analise, ea.competencias
+    INTO v_analise_id, v_superada, v_status, v_comp
+    FROM public.entrevista_analises ea
+    JOIN public.candidaturas c ON c.id = ea.candidatura_id
+    JOIN public.vagas v        ON v.id = c.vaga_id
+   WHERE ea.id = p_analise_id
+     AND ea.candidatura_id = p_candidatura_id
+     FOR UPDATE OF ea;
+
+  IF v_analise_id IS NULL THEN
+    RAISE EXCEPTION 'analise de entrevista % nao encontrada na candidatura %', p_analise_id, p_candidatura_id
+      USING ERRCODE = 'no_data_found';
+  END IF;
+
+  v_role := (select auth.jwt() #>> '{app_metadata,role}');
+
+  -- Fail-closed: sem papel nenhum, RECUSA (a comparação direta sobre um v_role nulo
+  -- devolve NULL e o IF não dispara).
+  IF coalesce(v_role, '') NOT IN ('rh', 'administrador') THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  -- P50 / D-01, D-02: rh ATIVO (helper vivo public.is_active_rh_user) em qualquer vaga, sem
+  -- posse; token de recrutador desativado (o JWT vale ate 1 h) -> 42501. administrador passa.
+  IF v_role = 'rh' AND NOT public.is_active_rh_user() THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  -- A nota humana só vale na análise VIGENTE (predicado único do 49-01): numa SUPERADA ela
+  -- revisaria um texto que não vale mais; numa FALHA não há competências para pontuar.
+  IF NOT public.entrevista_analise_vigente(v_superada, v_status, v_comp) THEN
+    RAISE EXCEPTION 'analise superada ou sem resultado: a avaliacao so pode ser registrada na analise vigente (analise %, superada_em %, status %)',
+      p_analise_id, v_superada, v_status
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF p_notas IS NULL OR length(btrim(p_notas)) = 0 THEN
+    RAISE EXCEPTION 'notas_humanas obrigatorias' USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Média das notas humanas (BARS 1–5). Só valores numéricos contam; um objeto sem
+  -- nenhuma nota numérica é erro de contrato do cliente, não um score zero.
+  SELECT avg(kv.v::numeric), count(*)
+    INTO v_media, v_n
+    FROM jsonb_each_text(coalesce(p_scores_humanos, '{}'::jsonb)) AS kv(k, v)
+   WHERE kv.v ~ '^[0-9]+(\.[0-9]+)?$'
+     AND kv.v::numeric BETWEEN 1 AND 5;
+
+  IF coalesce(v_n, 0) = 0 THEN
+    RAISE EXCEPTION 'scores_humanos sem notas numericas entre 1 e 5' USING ERRCODE = 'check_violation';
+  END IF;
+
+  UPDATE public.entrevista_analises
+     SET scores_humanos        = p_scores_humanos,
+         notas_humanas         = p_notas,
+         revisao_confirmada_em = now(),
+         revisada_por          = (select auth.uid()),
+         status_analise        = 'concluida'
+   WHERE id = v_analise_id;
+
+  -- A linha que o consolidador pondera. status='sucesso' SÓ nasce aqui, pela mão humana
+  -- (RNF-07a): a EF de IA deixa pendente_humano e score NULL.
+  INSERT INTO public.scores_candidato
+    (candidatura_id, tipo, subtipo, pergunta_id, score, score_max, status, metadata)
+  VALUES
+    (p_candidatura_id, 'entrevista', NULL, NULL, round(v_media, 2), 5, 'sucesso',
+     jsonb_build_object(
+       'scores_humanos', p_scores_humanos,
+       'analise_id', v_analise_id,
+       'confirmado_por', (select auth.uid()),
+       'fonte', 'salvar_avaliacao_entrevista'))
+  ON CONFLICT (candidatura_id, tipo, subtipo, pergunta_id) DO UPDATE
+    SET score      = EXCLUDED.score,
+        score_max  = EXCLUDED.score_max,
+        status     = 'sucesso',
+        metadata   = public.scores_candidato.metadata || EXCLUDED.metadata,
+        updated_at = now();
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'analise_id', v_analise_id,
+    'candidatura_id', p_candidatura_id,
+    'score_entrevista', round(v_media, 2),
+    'score_max', 5);
+END;
