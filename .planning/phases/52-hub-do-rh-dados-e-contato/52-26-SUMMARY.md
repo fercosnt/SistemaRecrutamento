@@ -4,7 +4,7 @@ plan: 26
 subsystem: database
 tags: [postgres, plpgsql, supabase, pontuar_sjt, salvar_avaliacao_entrevista, migration-gerada, smoke, mutacoes, vitest]
 status: halted
-halted_reason: "Sessão A (Tasks 1–2) concluída; parada DESENHADA no checkpoint da Task 3 (checkpoint:decision, gate=blocking-human): review adversarial 52-REVIEW-GAP-1 pelo orquestrador + confirmação escrita de janela única pelo operador. Tasks 3–4 (decisão, apply, provas em PROD, push) ficam para a sessão B."
+halted_reason: "Sessão B: Task 3 concluída (87cfe0ea); Task 4 Passos 0–2 VERDES — a 0005 está em PROD (ledger BATE, md5 vivos = _novo, smoke52g 14/14 contra o vivo, MUTACOES 9/9 em --pos-apply, instante 2026-10-11T22:51:48Z registrado em ef5d9b07). PARADA na Passo 3: a enumeração do comando de push saiu `COMMIT ALHEIO: PARAR` — 8f625cde e 5f091c8d (rodada WR-01, revisados no 52-REVIEW-GAP-2, ancestrais do pin) tocam caminhos fora do `--caminhos` literal do plano. NADA foi empurrado (origin/main = c3e04a71). Decisão do operador pedida."
 
 requires:
   - phase: 52-18
@@ -91,10 +91,27 @@ coverage:
         status: pass
     human_judgment: false
   - id: D4
-    description: "A 0005 em PROD, provada contra o vivo, e o push — Tasks 3–4 (sessão B), atrás do review e da janela única"
-    verification: []
+    description: "A 0005 em PROD, provada contra o vivo (sessão B, Task 4 Passos 0–2)"
+    requirement: JORN-52
+    verification:
+      - kind: integration
+        ref: "p52_portao --modo apply && p46apply migrate <0005> → md5 do ledger BATE (036d9d45…, 30946 octetos); registro: 20261011000005 aplicado_ate 2026-10-11T22:51:48Z"
+        status: pass
+      - kind: integration
+        ref: "verify 1 da Task 4 → gap em PROD: ledger = arquivo; pontuar_sjt=a63375bd salvar4=d2d3bc1d salvar3 intocada; ACL de anon igual; registro cobre 4 versoes p52"
+        status: pass
+      - kind: integration
+        ref: "verify 2 da Task 4 → ENSAIO VERDE --sem-migracoes prefixadas=[] smokes=[52g=14/14]; MUTACOES: 9/9 mordem (pos-apply)"
+        status: pass
+    human_judgment: false
+  - id: D5
+    description: "Push por sha que leva o gap e os commits só-.planning do 52-18 (Task 4 Passos 3–4)"
+    verification:
+      - kind: other
+        ref: "comando de push do <context> → p50_enumera: COMMIT ALHEIO: PARAR (8f625cde, 5f091c8d fora do --caminhos literal)"
+        status: fail
     human_judgment: true
-    rationale: "Não executado nesta sessão por desenho: checkpoint blocking-human (review adversarial + confirmação escrita do operador) antes de qualquer escrita em PROD"
+    rationale: "Parada do plano (ALHEIO = PARAR); a lista --caminhos do comando de push é texto do plano sob o portão (6) — mudá-la é decisão do operador"
 
 duration: 23min
 completed: 2026-10-11
@@ -321,7 +338,15 @@ Nenhum.
 
 ## Threat Flags
 
-Nenhum: nenhum endpoint, caminho de auth ou ACL novo; as duas funções mantêm assinatura, propriedades, ACL e comentário (conferidos no POS). As mitigações T-52-82..T-52-88 do registro do plano estão implementadas no texto e provadas no ensaio; as provas em PROD são da Task 4.
+Nenhuma superfície nova: nenhum endpoint, caminho de auth ou ACL novo; as duas funções mantêm assinatura, propriedades, ACL e comentário (conferidos no POS e de novo, só leitura, no verify 1 da Task 4: `anon` EXECUTE em `pontuar_sjt` = true, em `salvar4` = false, como antes). As mitigações T-52-82..T-52-88 do registro do plano estão implementadas e provadas em PROD (Task 4, Passos 1–2).
+
+**Residuais para o futuro `52-SECURITY.md`** (IN-05 dos reviews 52-REVIEW-GAP-1/-2; IDs de ameaça: os antigos T-52-77/78 do 52-18 são hoje T-52-93/94, commit `d1c06bca`; o maior ID em uso é **T-52-94**. Um ID novo para estes residuais, se o `52-SECURITY.md` os registrar como ameaça, começa em T-52-95):
+
+| Flag | File | Description | Dono |
+|------|------|-------------|------|
+| residual: impressão digital constante | `supabase/tests/p50_desfazer_expansao.sql` (:50 e :1553, constantes `c_fp`) | Fixa `fn:public.salvar_avaliacao_entrevista(uuid,jsonb,text)` = `ce0641415cb7746f1906d20717828901` e `fn:public.salvar_avaliacao_entrevista(uuid,uuid,jsonb,text)` = `83aa5e19d933daa802b1d4b348df7be7`. Depois da 0005 (no ar desde 2026-10-11T22:51:48Z) o desfazer da Phase 50 RECUSA (falha fechado), e o corpo que ele recriaria é anterior ao F13. **Rodar o `p50_desfazer_expansao.sql` depois da 52 exige reescrever a impressão e reaplicar o F13.** | operador |
+| residual aceito (52-REVIEW-GAP-2 WR-01, `52-26-DECISAO.md`) | `src/features/entrevista/services/entrevistaService.ts` (`normalizeCompetencia`), `src/features/entrevista/components/EntrevistaScorecardInline.tsx` (`competenciasDoScorecard`), `supabase/migrations/20261011000005_p52_sjt_uuid_e_nota_completa.sql` (CASE do F13) | A guarda cliente × servidor da normalização fixa os ramos de tipo, vazio e precedência, mas não o tratamento de espaços (um `trim` de um lado só passa verde). Regra: **«mudar `normalizeCompetencia`/`competenciasDoScorecard` ou o CASE da 0005 exige mudar os dois e regenerar»** (o servidor por migration NOVA, pelo gerador). | operador (Fernando) |
+| residual (backlog) | `supabase/tests/p50_acesso_recrutador_smoke.sql` | Vermelho por motivo anterior (`P50C FAIL (i)`, as 3 RPCs do bloco B sem sonda); fora deste portão. | backlog |
 
 ## Estado ao parar (para a sessão B)
 
@@ -407,6 +432,91 @@ mudou**: `GERADO = ARQUIVO: 036d9d454c91042d51313c3184e73019` (o mesmo md5 de an
 - Não houve push (`origin/main` = `c3e04a71`), nem apply, nem deploy. `STATE.md`/`ROADMAP.md` não foram tocados.
 - Próximo: o orquestrador roda o review `52-REVIEW-GAP-2`; depois, a Task 3 de novo e a Task 4.
 
+## Sessão B — Task 3 e Task 4 (apply feito; PARADA no push)
+
+### Task 3 (re-medida no início da sessão B, 2026-10-11T22:51:20Z)
+
+```
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-GAP-2.md reviewed_head=c1daf9b8b9430539e55d239b92bce15f9d1346ae pin=- modo=revisao
+decisao do gap: aplicar sobre 52-REVIEW-GAP-2.md (warnings=1)
+```
+Caminho que valeu para o conteúdo: a autorização de 2026-10-11 mais a resposta do operador a cada WR (`52-26-DECISAO.md`, `87cfe0ea`): GAP-1 WR-01 «Consertar agora»; GAP-2 WR-01 «Aceitar como residual» (em «Threat Flags»). Janela única: «Janela única: confirmo». INFOs IN-01..IN-08 do -2 registradas no review, sem disposição exigida. **IN-08:** as linhas 255, 265 e 449 do `52-26-PLAN.md` (o `fails_when` e o critério da Task 2, a tabela de artefatos: «(a)–(m)», «G1 … G7») ficaram como texto HISTÓRICO, como as já listadas no «Desvio» da rodada WR-01. Nenhum `<automated>` as lê, e o plano não foi tocado (portão (6)).
+
+Pré-condições (só leitura): `git status --porcelain -- supabase src scripts e2e docs/compliance p46apply.cjs efdeploy.cjs database.types.ts` vazio; ledger p52 = `[0001, 0002, 0003]` (sem a 0005); md5 vivos = `ANTES_*` (`66fe507f…`, `070e0f1b…`, `924dfb99…`).
+
+### Passo 0 — pin
+
+`refs/gsd/52-26/sha` = `87cfe0ea503f5b7e3c16f91ff53cff5c5f680342` (= HEAD no instante). Nenhum commit entre o pin e o apply.
+
+### Passo 0b — re-medição (22:51:33Z → 22:51:35Z)
+
+```
+GERADO = ARQUIVO: 036d9d454c91042d51313c3184e73019
+ENSAIO VERDE: supabase/tests/p52_gap_servidor_smoke.sql · prefixadas=[20261011000005] · aplicadas=[20261011000001,20261011000002,20261011000003] · ausentes=[20261011000004] · smokes=[52g=14/14] · evidencia=gap:pontuar_sjt=a63375bdb58b0bd01343081562b43a85,salvar4=d2d3bc1ddebf59b7896de59608daf45a,salvar3=igual 52g.escopo=cargo:editor-video,bateria:6 52g.a=22023:dup 52g.b=11/24 52g.c=23514:incompleto 52g.d=4.00 52g.e=22023:malformada 52g.f=22023:malformada 52g.g=22023:malformadax3 52g.h=maiusculas:11/24 52g.i=23514:fora 52g.j=23514:incompletox3 52g.k=23514:objetox2 52g.l=salvar3:23514+4.00 52g.m=padrao:23514+4.00 52g.n=normalizacao:23514(1/4)+4.00 · 560 ms
+```
+
+### Passo 1 — apply e o instante, um comando só (22:51:45Z → 22:51:47Z no relógio local, rc 0)
+
+```
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-GAP-2.md reviewed_head=c1daf9b8b9430539e55d239b92bce15f9d1346ae pin=87cfe0ea503f5b7e3c16f91ff53cff5c5f680342 modo=apply
+registro: 20261011000005 aplicado_ate 2026-10-11T22:51:48Z
+
+── 20261011000005_p52_sjt_uuid_e_nota_completa.sql
+   version : 20261011000005
+   name    : p52_sjt_uuid_e_nota_completa
+   octetos : 30946
+   md5     : 036d9d454c91042d51313c3184e73019
+   ✅ aplicada e escriturada — md5 do ledger BATE (30946 octetos)
+```
+O `aplicado_ate` (22:51:48Z, o `now()` do servidor arredondado para cima) fica 1 s depois do fim do comando no relógio local (22:51:47Z). A diferença é o arredondamento e o relógio, e fica do lado seguro, posterior ao COMMIT (IN-07, as duas fontes de relógio). Registro commitado: `ef5d9b07` `docs(52-26): instante do apply da 20261011000005 (D-41 emendada, condicao 1)`.
+
+### Passo 2 — provas em PROD
+
+Verify 1 (só leitura), rc 0:
+```
+gap em PROD: ledger = arquivo; pontuar_sjt=a63375bd salvar4=d2d3bc1d salvar3 intocada; ACL de anon igual; registro cobre 4 versoes p52
+```
+Verify 2 (ensaio que aborta, contra o VIVO), rc 0:
+```
+ENSAIO VERDE: supabase/tests/p52_gap_servidor_smoke.sql · prefixadas=[] · aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005] · ausentes=[20261011000004] · smokes=[52g=14/14] · evidencia=52g.escopo=cargo:editor-video,bateria:6 52g.a=22023:dup 52g.b=11/24 52g.c=23514:incompleto 52g.d=4.00 52g.e=22023:malformada 52g.f=22023:malformada 52g.g=22023:malformadax3 52g.h=maiusculas:11/24 52g.i=23514:fora 52g.j=23514:incompletox3 52g.k=23514:objetox2 52g.l=salvar3:23514+4.00 52g.m=padrao:23514+4.00 52g.n=normalizacao:23514(1/4)+4.00 · 767 ms
+APOSENTADA: B1 … B6 — supabase/tests/p52_banco_sjt_smoke.sql so roda com 20261011000003 prefixada, e 20261011000003 esta no ledger desde o apply
+modo: pos-apply (sem migracoes) prefixadas=[]
+CONTROLE verde (supabase/tests/p52_gap_servidor_smoke.sql): par 52g=14/14 (1185 ms)
+G1 morde … -> P52G FAIL (a) · G2 morde … (a) · G3 morde … (e) · G4 morde … (c) · G5 morde … (i) · G6 morde … (m) · G7 morde … (d) · G8 morde … (n) · G9 morde … (n)
+leitura so-leitura igual a baseline: ledger=["20261011000001","20261011000002","20261011000003","20261011000005"] funcoes=7 mutacoes_p52=0 fixtures_p52={"users":0,"candidatos":0}
+MUTACOES: 9/9 mordem; controle verde; nada persistiu (so=G1,G2,G3,G4,G5,G6,G7,G8,G9) (pos-apply) (aposentadas: B1,B2,B3,B4,B5,B6)
+```
+Antes do apply, o smoke contra o vivo saía `P52G FAIL (a)` (sessão A). Agora sai 14/14 com `prefixadas=[]`, e essa virada é a prova de que o vivo é o corpo novo.
+
+### Passo 3 — PARADA: `COMMIT ALHEIO: PARAR` (22:52:44Z → 22:52:49Z, rc 1, NADA empurrado)
+
+`S=ef5d9b07d0e2febf29abfbddcccd76ce15f17811` · `R=c3e04a717c9338387160a7dc03d2e74e2f4133c7`. O `p52_portao --modo push` saiu `PORTAO OK: … pin=87cfe0ea… modo=push ledger=[20261011000001,20261011000002,20261011000003,20261011000005]`, e `R = origin/main` e `R` é ancestral de `S`. A enumeração deu 30 commits: 8fa8193a, e9dfc369 e todos os só-`.planning/` como `planning`, e os código 170f7da4…7de0b61f, 0187b7af e 23161ca0 como `codigo`. Dois saíram ALHEIO:
+
+```
+8f625cdefb9854b4d164655a25b6dacc8643d61d ALHEIO[fora da lista: src/features/entrevista/__tests__/competencias-normalizacao-servidor.test.ts] test(52-26): guarda da normalizacao das competencias cliente x servidor — mesmo fixture, mesmo conjunto {A, B, C, ''} (RED, WR-01)
+5f091c8df6c3659f4fe448e3783cbdd7f033f2c0 ALHEIO[fora da lista: src/features/entrevista/services/entrevistaService.ts] feat(52-26): normalizeCompetencia exportado e o filtro do scorecard em competenciasDoScorecard, com o aviso do espelho no servidor (GREEN, WR-01)
+COMMIT ALHEIO: PARAR
+```
+Depois da parada: `git ls-remote origin refs/heads/main` = `c3e04a71`; local à frente por 30.
+
+**Causa (medida, sem nenhuma sonda reescrita):** o `--caminhos` do «Comando de push» é uma lista LITERAL escrita no planejamento, antes da rodada WR-01. Os dois caminhos nasceram nessa rodada, decidida pelo operador («consertar agora»). Os dois estão no `files_reviewed_list` do `52-REVIEW-GAP-2`, e os dois commits são ancestrais do pin `87cfe0ea` e posteriores à base `c3e04a71`. O `1b839a73` atualizou as contagens (14/14, G1–G9), mas não essa lista, e o review -2 (ponto 10) não pegou isso. É a forma «iteração sobre lista literal» do CLAUDE.md. Aqui ela falha FECHADA: recusa, em vez de deixar passar.
+
+**PROD × front:** não há sintoma de dois canais. O código de produção que falta subir é neutro de comportamento: o `export` de `normalizeCompetencia` e de `DEFAULT_COMPETENCIAS`, comentários, e o filtro do `useMemo` extraído para `competenciasDoScorecard` com a mesma regra. Por isso o front no ar (`c3e04a71`) já renderiza e exige notado exatamente o conjunto que a 0005 exige. Sem `db:types`, sem EF, sem marcador de tela.
+
+**Passo 4 (terceiro verify) NÃO rodado**, porque depende do push.
+
+### Para a UAT da 52 (vale assim que o push sair; a UAT testa a `pontuar_sjt` FINAL, já no ar)
+
+1. Antes de começar, a conferência só leitura `node p46apply.cjs sql "set transaction read only; select md5(prosrc) from pg_proc where oid = to_regprocedure('public.pontuar_sjt(uuid,jsonb)')"` tem de dar `a63375bdb58b0bd01343081562b43a85` (`pontuar_sjt_prosrc_md5_novo` do cabeçalho da 0005).
+2. A conta de teste conclui o SJT de múltipla escolha na Consultor `fdbe1a4a` (pré-vendas, 6 itens) e na Social Media `e897f709`, até «Tudo concluído». O hub do RH mostra a situação, as alternativas em ordem neutra e a escolhida (JORN-57).
+3. Na avaliação da entrevista, «Salvar avaliação» só habilita com todas as competências notadas, e salva («Avaliação salva.»).
+4. O que a UAT NÃO precisa provar: o payload forjado (duplicata em outra caixa, uuid malformado) e o scorecard incompleto por RPC à mão. Isso está provado pelo smoke52g contra o vivo e pelas mutações G1–G9 em `--pos-apply` (acima).
+5. O item herdado do 52-18 («SJT aberto durante um apply → recarregar a página») não se aplica a esta 0005, que não muda ids.
+
+Próximo passo, depois do push: UAT da Phase 52 (`/gsd-verify-work 52`). Depois vem o 52-19, que só começa com um backup diário COMPLETED posterior a **2026-10-11T22:51:48Z** (D-41 emendada, condição 1). Na prática, o backup da manhã seguinte.
+
+O commit deste SUMMARY é só `.planning/`. Ele entra no intervalo `origin/main..HEAD` e sobe no mesmo push quando a parada for resolvida (a enumeração o classifica como `planning`).
+
 ---
 *Phase: 52-hub-do-rh-dados-e-contato*
-*Sessão A concluída: 2026-10-11*
+*Sessão A concluída: 2026-10-11 · Sessão B: apply 2026-10-11T22:51:48Z; parada no push*
