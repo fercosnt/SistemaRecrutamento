@@ -90,7 +90,7 @@ export function HubSection({ titulo, estado, isLoading, isError, children }: Hub
 
   return (
     <Glass variant="dark" blur="lg" className="rounded-xl p-6">
-      <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">{titulo}</h2>
+      <h2 className="mb-4 text-2xl font-semibold text-white">{titulo}</h2>
 
       {/* Delegate loading/error/empty rendering to the shared <AsyncState> (no drift).
           glass={false} — HubSection already owns the dark-glass surface + title above.

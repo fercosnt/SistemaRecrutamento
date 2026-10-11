@@ -41,7 +41,10 @@ import {
 } from '@/features/triagem/services/triagemService'
 import { useEntrevistaContexto, useEntrevistaScorecard } from '@/features/entrevista/hooks/useEntrevistaScorecard'
 import { useScorecardCandidato } from '@/features/avaliacao/hooks/useScorecardCandidato'
-import { linhasDeAvaliacao } from '@/features/avaliacao/components/ScorecardAvaliacao'
+import {
+  ScorecardAvaliacao,
+  linhasDeAvaliacao,
+} from '@/features/avaliacao/components/ScorecardAvaliacao'
 import { useRedacaoRevisao } from '@/features/triagem/hooks/useRedacaoRevisao'
 import { useConsolidacao } from '@/features/decisao/hooks/useConsolidacao'
 import { useUpdateCandidaturaEtapa } from '@/features/vagas/hooks/useCandidaturas'
@@ -57,10 +60,7 @@ import { HistoricoBlock } from './HistoricoBlock'
 import { ContatoCandidatoHeader } from './ContatoCandidatoHeader'
 import { DadosCadastroBloco, COPY_DADOS_CADASTRO } from './DadosCadastroBloco'
 import { RespostasInscricaoBloco, COPY_RESPOSTAS_INSCRICAO } from './RespostasInscricaoBloco'
-import {
-  AvaliacoesRespondidasBloco,
-  COPY_AVALIACOES_RESPONDIDAS,
-} from './AvaliacoesRespondidasBloco'
+import { COPY_AVALIACOES_RESPONDIDAS } from './AvaliacoesRespondidasBloco'
 import { AgendamentoBlock } from '@/features/agendamento/components/AgendamentoBlock'
 import { LiberacaoCognitivoBlock } from '@/features/avaliacao-cognitiva/components/LiberacaoCognitivoBlock'
 import { instrumentosDaVaga, type Aplicabilidade } from '../lib/instrumentosDaVaga'
@@ -182,6 +182,25 @@ function estadoDoInstrumento(
   return estadoDaSecao(secaoEtapa, etapaAtual, temDados)
 }
 
+/**
+ * 52-25 / D-52-U03 — o estado da seção «Avaliação assíncrona»: o DADO VENCE A ETAPA.
+ *
+ * Havendo linha `sjt`/`big_five`, a seção é `com_dados` em QUALQUER etapa (inclusive anterior,
+ * como `triagem`, ou etapa desconhecida) — assim como o 51-03/D-16 já faz o dado vencer a
+ * configuração. É o que preserva o motivo do antigo bloco irmão «Ver respostas» (51-02, D-17:
+ * caminho em qualquer etapa), agora que o detalhe mora DENTRO da seção (D-18, tudo aberto).
+ * Sem linha, é o `estadoDoInstrumento` de hoje — `nao_se_aplica` intacto.
+ * A etapa era apresentação, não controle de acesso (T-52-73): quem lê é o RLS/RPC do RH.
+ */
+function estadoDaAssincrona(
+  aplicabilidade: Aplicabilidade,
+  etapaAtual: EtapaFunilM2 | null,
+  temDados: boolean,
+): HubSectionEstado {
+  if (temDados) return 'com_dados'
+  return estadoDoInstrumento(aplicabilidade, 'avaliacao_assincrona', etapaAtual, false)
+}
+
 export function HubCandidatoRH() {
   const { id } = useParams<{ id: string }>()
   const candidaturaId = id ?? '' // ⚠ candidaturaId, NOT candidato.id (Pitfall 1)
@@ -207,14 +226,14 @@ export function HubCandidatoRH() {
   const etapaAtual = (contexto?.etapa_atual as EtapaFunilM2 | undefined) ?? null
 
   // Pipeline section reads — each a real, RLS-correct, allowlist-projected hook.
-  const triagemQuery = useScorecardCandidato(candidaturaId) // Avaliação Assíncrona (SJT/Work-Sample + Big Five)
+  const triagemQuery = useScorecardCandidato(candidaturaId) // Avaliação assíncrona (SJT/Work-Sample + Big Five)
   const entrevistaQuery = useEntrevistaScorecard(candidaturaId, { vagaId }) // Entrevista + Cognitiva (split by tipo)
   const redacaoQuery = useRedacaoRevisao(vagaId) // Redação (vaga-level queue)
   const decisaoQuery = useConsolidacao(candidaturaId, vagaId) // Decisão Final
   const analiseQuery = useAnaliseCandidato(candidaturaId) // Análise da IA (VISRH-02 — RH-only)
   const historicoQuery = useHistoricoCandidatura(candidaturaId) // Histórico read-only (VISRH-03)
 
-  // 51-02 / C-8: o N da «Avaliação Assíncrona» conta só `sjt` + `big_five` — a MESMA função que
+  // 51-02 / C-8: o N da «Avaliação assíncrona» conta só `sjt` + `big_five` — a MESMA função que
   // decide o que o detalhe mostra. `getScores` lê também entrevista e redação.
   const avaliacoesRespondidas = linhasDeAvaliacao(triagemQuery.data ?? []).length
   const cognitivoScores = (entrevistaQuery.data ?? []).filter((s) => s.tipo === 'cognitivo')
@@ -233,18 +252,12 @@ export function HubCandidatoRH() {
     aplica_cognitivo: contexto?.aplica_cognitivo,
     testes_aplicaveis: contexto?.testes_aplicaveis,
   })
-  // Calculado UMA vez: o mesmo valor desenha a seção e decide se o «Ver respostas» monta.
-  const estadoAssincrona = estadoDoInstrumento(
+  // 52-25 / D-52-U03: o dado vence a etapa (e a configuração) — ver `estadoDaAssincrona`.
+  const estadoAssincrona = estadoDaAssincrona(
     aplic.assincrona,
-    'avaliacao_assincrona',
     etapaAtual,
     avaliacoesRespondidas > 0,
   )
-  // O bloco «Ver respostas» (51-02) só deixa de montar quando a seção MOSTRA «Não se aplica»:
-  // carregando ou com erro, o HubSection mostra skeleton/erro (precedência do AsyncState), e
-  // aí não sabemos se há linha — o caminho até elas não some por uma leitura que falhou.
-  const assincronaNaoSeAplica =
-    estadoAssincrona === 'nao_se_aplica' && !triagemQuery.isLoading && !triagemQuery.isError
 
   const nomeCandidato = contexto?.candidato_nome ?? 'Candidato'
   const etapaLabel = etapaAtual ? ETAPA_M2_LABELS[etapaAtual] : '—'
@@ -292,8 +305,8 @@ export function HubCandidatoRH() {
             blur="lg"
             className="w-full max-w-lg mx-auto text-center px-8 py-12 space-y-4"
           >
-            {/* Heading — 20px / 600 (UI-SPEC §3 Typography) */}
-            <h1 className="text-xl font-semibold text-white drop-shadow-md">
+            {/* Heading — 24px / 600 (52-UI-SPEC §Typography, D-52-U22: um tamanho só) */}
+            <h1 className="text-2xl font-semibold text-white drop-shadow-md">
               Candidatura não encontrada
             </h1>
             {/* Body — 16px / 400 */}
@@ -477,7 +490,7 @@ export function HubCandidatoRH() {
 
             {/* Timeline — all 8 stages always visible; current = accent, others reachable/locked */}
             <Glass variant="dark" blur="lg" className="rounded-xl p-6">
-              <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">Linha do funil</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-white">Linha do funil</h2>
               <ol className="flex flex-wrap gap-2">
                 {TIMELINE.map((etapa) => {
                   const isAtual = etapa === etapaAtual
@@ -516,7 +529,7 @@ export function HubCandidatoRH() {
                 60s TTL); the URL is never cached nor logged (Pitfall 7). High-value cluster
                 right after the funnel timeline. */}
             <Glass variant="dark" blur="lg" className="rounded-xl p-6">
-              <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">Currículo</h2>
+              <h2 className="mb-4 text-2xl font-semibold text-white">Currículo</h2>
               <CvButton candidaturaId={candidaturaId} />
             </Glass>
 
@@ -556,28 +569,23 @@ export function HubCandidatoRH() {
           </TabsContent>
 
           <TabsContent value="avaliacoes" className="space-y-6 pt-2">
-            {/* Avaliação Assíncrona — Work-Sample/SJT + Big Five (comportamental, contextual) */}
+            {/* Avaliação assíncrona — SJT (múltipla escolha + caso aberto) + Big Five (comportamental,
+                contextual). 52-25 / D-18, D-52-U03: tudo ABERTO dentro da seção — a contagem UMA vez
+                (o bloco irmão «Ver respostas» repetia a frase: defeito (c) do UAT da 51) e, logo
+                abaixo, o scorecard. O antigo motivo de o bloco ser irmão (caminho em qualquer
+                etapa) vive agora no `estadoDaAssincrona`: havendo linha, a seção é `com_dados`. */}
             <HubSection
-              titulo="Avaliação Assíncrona"
+              titulo="Avaliação assíncrona"
               isLoading={triagemQuery.isLoading}
               isError={triagemQuery.isError}
               estado={estadoAssincrona}
             >
-              {/* D-18: a frase não promete mais uma revisão sem caminho («disponíveis para revisão»). */}
+              {/* D-18 (51): a frase não promete uma revisão sem caminho («disponíveis para revisão»). */}
               <p className="text-sm text-white/80">
                 {COPY_AVALIACOES_RESPONDIDAS.contagem(avaliacoesRespondidas)}
               </p>
+              <ScorecardAvaliacao candidaturaId={candidaturaId} className="mt-4" />
             </HubSection>
-
-            {/* 51-02 / JORN-45 (D-17) — «Ver respostas» abre o detalhe AQUI MESMO. Irmão do
-                HubSection, não filho, pelo mesmo motivo do botão IN-04 da Redação: o HubSection só
-                renderiza filhos em `com_dados`, e o caminho tem de existir em qualquer etapa.
-                51-03 / D-16: a ÚNICA exceção é a seção acima dizer «Não se aplica a esta vaga» —
-                não há o que ver, e «Nenhuma avaliação respondida ainda.» logo abaixo de «Não se
-                aplica» se contradiria. */}
-            {candidaturaId && !assincronaNaoSeAplica ? (
-              <AvaliacoesRespondidasBloco candidaturaId={candidaturaId} />
-            ) : null}
 
             {/* Prova cognitiva — o instrumento TEXTUAL liberado pela vaga (`aplica_cognitivo`),
                 banda contextual `tipo='cognitivo'`. 51-03 / D-15: até aqui o título era «Avaliação

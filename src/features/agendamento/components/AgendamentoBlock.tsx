@@ -96,7 +96,7 @@ export interface AgendamentoBlockProps {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <Glass variant="dark" blur="lg" className="rounded-xl p-6">
-      <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">
+      <h2 className="mb-4 text-2xl font-semibold text-white">
         Agendamento de entrevista
       </h2>
       {children}
