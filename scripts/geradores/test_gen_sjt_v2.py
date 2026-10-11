@@ -171,6 +171,71 @@ class Gerador(Base):
         self.assertLess(codigo.index("SET status = 'retired'"), codigo.index('DO $pos$'))
 
 
+def modulo_gerador():
+    """O gerador tem hífen no nome: carregado por caminho, para ler as expressões que ele emite."""
+    import importlib.util
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location('gen_sjt_v2', GERADOR)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+SMOKE = os.path.join(AQUI, '..', '..', 'supabase', 'tests', 'p52_banco_sjt_smoke.sql')
+
+
+class Remapeamento(Base):
+    """WR-03 do 52-REVIEW-PORTAO-1: `opcao_id` artesanal (sufixo = ordem) remapeado no mesmo apply."""
+
+    def sql(self):
+        rc, out, err, sql = self.gerar(self.escrever(texto_cargo()))
+        self.assertEqual(rc, 0, err)
+        return sql
+
+    def test_bloco_remap_depois_da_retirada_e_antes_do_pos(self):
+        sql = self.sql()
+        self.assertLess(sql.index('DO $retira$'), sql.index('DO $remap$'))
+        self.assertLess(sql.index('DO $remap$'), sql.index('DO $pos$'))
+
+    def test_nenhum_uuid_literal_no_sql(self):
+        # escopo por forma: nenhum id, velho ou novo, vai para o arquivo (nem para o ledger)
+        self.assertNotRegex(self.sql(), r'(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+
+    def test_remap_troca_so_o_opcao_id_e_as_respostas(self):
+        sql = self.sql()
+        bloco = sql[sql.index('DO $remap$'):sql.index('$remap$;')]
+        sets = [l.strip() for l in bloco.split('\n') if ' SET ' in l]
+        self.assertEqual(len(sets), 2, sets)
+        self.assertIn("UPDATE public.perguntas_opcao_sjt o SET opcao_id = (m ->> 'novo')::uuid", sets[0])
+        self.assertIn("SET metadata = jsonb_set(s.metadata, '{respostas}'", sets[1])
+        self.assertIn('gen_random_uuid()', bloco)
+
+    def test_impressoes_iguais_no_pre_no_pos_e_no_smoke(self):
+        g = modulo_gerador()
+        sql = self.sql()
+        pre = sql[sql.index('DO $pre$'):sql.index('$pre$;')]
+        pos = sql[sql.index('DO $pos$'):sql.index('$pos$;')]
+        with open(SMOKE, encoding='utf-8') as f:
+            smoke = f.read()
+        for nome in ('FP_RESPOSTAS', 'FP_SCORES', 'FP_ESCOPO', 'RE_V4'):
+            expr = getattr(g, nome)
+            self.assertIn(expr, pre, nome + ' fora do PRE')
+            self.assertIn(expr, pos, nome + ' fora do POS')
+            self.assertIn(expr, smoke, nome + ' fora do smoke (ou divergente do gerador)')
+
+    def test_pre_recusa_id_velho_fora_do_alcance(self):
+        sql = self.sql()
+        pre = sql[sql.index('DO $pre$'):sql.index('$pre$;')]
+        self.assertIn('P52B PRE-PORTAO (remap fora do alcance)', pre)
+        self.assertIn("'supabase_migrations.schema_migrations'::regclass", pre)
+
+    def test_cabecalho_avisa_escrita_destrutiva_e_evidencia_publica_contagens(self):
+        sql = self.sql()
+        self.assertIn('ATUALIZA RESPOSTA GRAVADA DE CANDIDATO', sql[:sql.index('SET LOCAL')])
+        self.assertIn("';remap=' ||", sql)
+        self.assertIn("',em_curso=' ||", sql)
+
+
 class OrdemPermutada(Base):
     def test_anti_escada_e_deterministica(self):
         sys.dont_write_bytecode = True

@@ -32,6 +32,25 @@
 --       `caso_aberto` ativo do cargo é AQUELE id — não reinserido, não retirado. Com a GUC vazia
 --       publica `mantidos=0` e não reprova: a intenção «ficar» mora no texto e é conferida pelo
 --       gerador, pelo PRE e pelo POS.
+--   (j)–(l) WR-03 do 52-REVIEW-PORTAO-1 — o remapeamento dos `opcao_id` artesanais (o banco semeado
+--       gravou ids cujo sufixo é a `ordem`, e a ordem 1 era a certa; `get_opcoes_sjt` entrega o id
+--       ao candidato). Escopo e baselines lidos das GUCs `p52.banco_remap_*`, `p52.banco_*_fp` que o
+--       PRE grava NESTA transação — nunca lista literal de ids nem contagem fixa. Com escopo vazio
+--       (estado já limpo) as três publicam `remap=0` e não reprovam.
+--   (j) nenhuma alternativa de item SJT ATIVO (de qualquer cargo) com `opcao_id` fora da forma uuid
+--       v4; nenhum id velho sobrou; das alternativas do escopo só o id mudou (texto, etiqueta, peso,
+--       `ordem`, pergunta — impressão digital do PRE); e, como o candidato da (d), `get_opcoes_sjt`
+--       de cada item remapeado devolve 4 ids v4, nenhum velho.
+--   (k) toda resposta SJT gravada (`scores_candidato.metadata.respostas[]`) resolve pelo par
+--       (pergunta_id, opcao_id) para a MESMA alternativa de antes — ordem, etiqueta, peso; as do
+--       escopo apontam os ids novos (contagem = a do PRE); e o id velho não sobrou em NENHUMA tabela
+--       do banco (varredura por forma, `to_jsonb` de cada linha) fora do ledger, que guarda o texto
+--       da migration semeadora como história.
+--   (l) em toda linha de score SJT, o score gravado e o recomputado pela junção do `pontuar_sjt`
+--       (pergunta_id + opcao_id → peso) são os de antes do remapeamento.
+--   As expressões das impressões digitais de (j)–(l) são as MESMAS que o gerador emite no PRE e no
+--   POS (`FP_ESCOPO`, `FP_RESPOSTAS`, `FP_SCORES`, `RE_V4` em `scripts/geradores/gen-sjt-v2.py`),
+--   byte a byte — o `test_gen_sjt_v2.py` reprova se divergirem.
 --
 -- NÃO ESCREVE NADA: só lê, e troca de papel dentro de funções `pg_temp` cujo bloco de exceção
 -- desfaz o `SET LOCAL ROLE`. Mesmo assim só roda dentro do ensaio que ABORTA (bloco
@@ -42,7 +61,7 @@
 -- ⚠ PROIBIDO: `node p46apply.cjs run` deste arquivo.
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
--- deliberado), num ÚNICO literal (`smoke52b.esperado`, abaixo). Hoje: 9 — a … i.
+-- deliberado), num ÚNICO literal (`smoke52b.esperado`, abaixo). Hoje: 12 — a … l.
 -- Reprovação: `P52B FAIL (<letra>): …` — só contagens, ids e hashes; nenhum texto de item.
 -- =============================================================================
 
@@ -65,7 +84,7 @@ $p52_so_ensaio$;
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);
 SELECT set_config('smoke52b.pass', '0', false);
-SELECT set_config('smoke52b.esperado', '9', false);
+SELECT set_config('smoke52b.esperado', '12', false);
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -392,3 +411,130 @@ BEGIN
   PERFORM set_config('smoke52b.pass', (current_setting('smoke52b.pass')::int + 1)::text, false);
 END
 $i$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (j) remapeamento (WR-03) — as alternativas: nenhum item SJT ativo com opcao_id fora da forma
+--     uuid v4, nenhum id velho sobrou, só o id mudou, e o CANDIDATO recebe os ids novos
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $j$
+DECLARE
+  v_n      text   := nullif(current_setting('p52.banco_remap_n', true), '');
+  v_velhos text[] := coalesce(string_to_array(nullif(current_setting('p52.banco_remap_velhos', true), ''), ','), ARRAY[]::text[]);
+  v_ids    text[] := coalesce(string_to_array(nullif(current_setting('p52.banco_remap_ids', true), ''), ','), ARRAY[]::text[]);
+  v_sub    uuid   := current_setting('smoke52b.cand')::uuid;
+  v_fora   bigint;
+  v_sobra  bigint;
+  v_rot    text[] := ARRAY[]::text[];
+  r        record;
+  v_o      jsonb;
+BEGIN
+  IF v_n IS NULL THEN
+    RAISE EXCEPTION 'P52B FAIL (j): p52.banco_remap_n vazio — o PRE do banco v2 nao mediu o escopo do remapeamento nesta transacao';
+  END IF;
+  IF cardinality(v_ids) <> v_n::bigint OR cardinality(v_velhos) <> v_n::bigint THEN
+    RAISE EXCEPTION 'P52B FAIL (j): baseline do remapeamento incoerente (n=%, ids=%, velhos=%)', v_n, cardinality(v_ids), cardinality(v_velhos);
+  END IF;
+  SELECT count(*) INTO v_fora
+    FROM public.perguntas_opcao_sjt o JOIN public.perguntas p ON p.id = o.pergunta_id
+   WHERE p.tipo = 'sjt' AND p.status = 'active' AND o.opcao_id::text !~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
+  SELECT count(*) INTO v_sobra FROM public.perguntas_opcao_sjt o WHERE lower(o.opcao_id::text) = ANY (v_velhos);
+  IF v_fora <> 0 OR v_sobra <> 0 THEN
+    RAISE EXCEPTION 'P52B FAIL (j): % alternativa(s) de item SJT ativo fora da forma uuid v4 e % ainda com id velho — o gabarito segue no opcao_id', v_fora, v_sobra;
+  END IF;
+  IF (SELECT md5(coalesce(string_agg(o.id::text || '|' || o.pergunta_id::text || '|' || o.tag::text || '|' || o.peso::text || '|' || o.ordem::text || '|' || md5(o.opcao_texto), E'\n' ORDER BY o.id::text COLLATE "C"), '')) FROM public.perguntas_opcao_sjt o WHERE o.id::text = ANY (string_to_array(nullif(current_setting('p52.banco_remap_ids', true), ''), ','))) IS DISTINCT FROM current_setting('p52.banco_escopo_fp', true) THEN
+    RAISE EXCEPTION 'P52B FAIL (j): uma alternativa do escopo mudou alem do opcao_id (texto, etiqueta, peso, ordem ou pergunta)';
+  END IF;
+  -- o que o candidato recebe de cada item remapeado: 4 ids, todos v4, nenhum velho
+  FOR r IN SELECT DISTINCT o.pergunta_id FROM public.perguntas_opcao_sjt o WHERE o.id::text = ANY (v_ids) ORDER BY 1 LOOP
+    v_o := pg_temp.p52b_opcoes(r.pergunta_id, v_sub);
+    IF v_o ? 'err' OR jsonb_array_length(v_o -> 'ok') <> 4
+       OR EXISTS (SELECT 1 FROM jsonb_array_elements(v_o -> 'ok') x
+                   WHERE x ->> 'opcao_id' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' OR lower(x ->> 'opcao_id') = ANY (v_velhos)) THEN
+      v_rot := v_rot || (r.pergunta_id::text || ':' || coalesce(left(v_o ->> 'err', 60), 'id fora da forma'));
+    END IF;
+  END LOOP;
+  IF cardinality(v_rot) > 0 THEN
+    RAISE EXCEPTION 'P52B FAIL (j): [%] — get_opcoes_sjt entrega ao candidato id que nao e uuid v4 novo', array_to_string(v_rot, ',');
+  END IF;
+  PERFORM set_config('p52.evidencia', btrim(coalesce(current_setting('p52.evidencia', true), '') || ' 52b.remap=' || v_n), false);
+  PERFORM set_config('smoke52b.pass', (current_setting('smoke52b.pass')::int + 1)::text, false);
+END
+$j$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (k) remapeamento (WR-03) — as respostas gravadas: cada uma resolve para a MESMA alternativa de
+--     antes (ordem, etiqueta, peso), as do escopo apontam os ids novos, e o id velho não sobrou em
+--     NENHUMA tabela do banco (varredura por forma) fora do ledger, que guarda o texto da semeadora
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $k$
+DECLARE
+  v_velhos text[] := coalesce(string_to_array(nullif(current_setting('p52.banco_remap_velhos', true), ''), ','), ARRAY[]::text[]);
+  v_ids    text[] := coalesce(string_to_array(nullif(current_setting('p52.banco_remap_ids', true), ''), ','), ARRAY[]::text[]);
+  v_refs   bigint;
+  v_re     text;
+  v_occ    bigint;
+  v_fora   text[] := ARRAY[]::text[];
+  v_tab    record;
+BEGIN
+  IF current_setting('p52.banco_respostas_fp', true) IS NULL OR current_setting('p52.banco_respostas_fp', true) = '' THEN
+    RAISE EXCEPTION 'P52B FAIL (k): p52.banco_respostas_fp vazio — o PRE nao mediu as respostas gravadas';
+  END IF;
+  IF (SELECT md5(coalesce(string_agg(q.x, E'\n' ORDER BY q.x COLLATE "C"), '')) FROM (SELECT s.id::text || '#' || r.ord::text || '|' || coalesce(r.e ->> 'pergunta_id', '-') || '|' || coalesce(r.e ->> 'tag', '-') || '|' || coalesce(r.e ->> 'peso', '-') || '|' || coalesce((SELECT string_agg(o.ordem::text || ':' || o.tag::text || ':' || o.peso::text, ';' ORDER BY o.id) FROM public.perguntas_opcao_sjt o WHERE o.pergunta_id::text = lower(r.e ->> 'pergunta_id') AND o.opcao_id::text = lower(r.e ->> 'opcao_id')), '-') AS x FROM public.scores_candidato s CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(s.metadata -> 'respostas') = 'array' THEN s.metadata -> 'respostas' ELSE '[]'::jsonb END) WITH ORDINALITY AS r(e, ord) WHERE s.tipo = 'sjt') q) IS DISTINCT FROM current_setting('p52.banco_respostas_fp', true) THEN
+    RAISE EXCEPTION 'P52B FAIL (k): uma resposta SJT gravada deixou de resolver para a mesma alternativa (ordem, etiqueta, peso) de antes do remapeamento';
+  END IF;
+  SELECT count(*) INTO v_refs
+    FROM public.scores_candidato s
+   CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(s.metadata -> 'respostas') = 'array'
+                                                THEN s.metadata -> 'respostas' ELSE '[]'::jsonb END) e
+    JOIN public.perguntas_opcao_sjt o ON o.id::text = ANY (v_ids)
+                                     AND o.pergunta_id::text = lower(e ->> 'pergunta_id')
+                                     AND o.opcao_id::text = lower(e ->> 'opcao_id')
+   WHERE s.tipo = 'sjt' AND jsonb_typeof(e) = 'object';
+  IF v_refs::text IS DISTINCT FROM current_setting('p52.banco_remap_refs', true) THEN
+    RAISE EXCEPTION 'P52B FAIL (k): % resposta(s) gravada(s) apontam as alternativas remapeadas, o PRE mediu %', v_refs, current_setting('p52.banco_remap_refs', true);
+  END IF;
+  IF cardinality(v_velhos) > 0 THEN
+    v_re := '(' || array_to_string(v_velhos, '|') || ')';
+    FOR v_tab IN SELECT format('%I.%I', n.nspname, c.relname) AS t
+                   FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                  WHERE c.relkind IN ('r', 'p')
+                    AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+                    AND n.nspname NOT LIKE 'pg\_temp%' AND n.nspname NOT LIKE 'pg\_toast\_temp%'
+                    AND c.oid <> 'supabase_migrations.schema_migrations'::regclass
+                  ORDER BY 1 LOOP
+      EXECUTE format('SELECT count(*) FROM %s x WHERE to_jsonb(x)::text ~* %L', v_tab.t, v_re) INTO v_occ;
+      IF v_occ > 0 THEN
+        v_fora := v_fora || (v_tab.t || '=' || v_occ);
+      END IF;
+    END LOOP;
+  END IF;
+  IF cardinality(v_fora) > 0 THEN
+    RAISE EXCEPTION 'P52B FAIL (k): id velho de alternativa ainda em [%] — o remapeamento nao alcancou todas as copias', array_to_string(v_fora, ', ');
+  END IF;
+  PERFORM set_config('p52.evidencia', btrim(coalesce(current_setting('p52.evidencia', true), '') || ' 52b.refs_remap=' || v_refs::text), false);
+  PERFORM set_config('smoke52b.pass', (current_setting('smoke52b.pass')::int + 1)::text, false);
+END
+$k$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (l) remapeamento (WR-03) — a pontuação: em toda linha de score SJT, o score gravado e o score
+--     recomputado pela junção do `pontuar_sjt` (pergunta_id + opcao_id → peso) são os de antes
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $l$
+DECLARE
+  v_n bigint;
+BEGIN
+  IF current_setting('p52.banco_scores_fp', true) IS NULL OR current_setting('p52.banco_scores_fp', true) = '' THEN
+    RAISE EXCEPTION 'P52B FAIL (l): p52.banco_scores_fp vazio — o PRE nao mediu os scores';
+  END IF;
+  IF (SELECT md5(coalesce(string_agg(q.x, E'\n' ORDER BY q.x COLLATE "C"), '')) FROM (SELECT s.id::text || '|' || coalesce(s.score::text, '-') || '|' || coalesce(s.score_max::text, '-') || '|' || s.status::text || '|' || coalesce((SELECT sum(o.peso)::text FROM jsonb_array_elements(CASE WHEN jsonb_typeof(s.metadata -> 'respostas') = 'array' THEN s.metadata -> 'respostas' ELSE '[]'::jsonb END) e JOIN public.perguntas_opcao_sjt o ON o.pergunta_id::text = lower(e ->> 'pergunta_id') AND o.opcao_id::text = lower(e ->> 'opcao_id')), '-') AS x FROM public.scores_candidato s WHERE s.tipo = 'sjt') q) IS DISTINCT FROM current_setting('p52.banco_scores_fp', true) THEN
+    RAISE EXCEPTION 'P52B FAIL (l): o score de uma linha SJT (gravado ou recomputado pelo par pergunta+opcao) mudou com o remapeamento';
+  END IF;
+  SELECT count(*) INTO v_n FROM public.scores_candidato s WHERE s.tipo = 'sjt';
+  PERFORM set_config('p52.evidencia', btrim(coalesce(current_setting('p52.evidencia', true), '') || ' 52b.scores_sjt=' || v_n::text), false);
+  PERFORM set_config('smoke52b.pass', (current_setting('smoke52b.pass')::int + 1)::text, false);
+END
+$l$;
