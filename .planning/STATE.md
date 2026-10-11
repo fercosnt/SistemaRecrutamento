@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: ready_to_plan
-stopped_at: "Phase 52 UI-SPEC approved (2026-10-10): 52-UI-SPEC.md aprovado pelo gsd-ui-checker na rev. 1 (rev. 0 BLOCK na Dim. 4 resolvido: contrato tipografico {14,16,24,48}); D-52-U18 decidida pelo operador — Disponibilidade entra no hub (leitura pelo caminho de servidor com log D-10/D-11). Proximo: /gsd-plan-phase 52. D-52-U12 (botoes 1-5 vazios no lugar do slider) e D-52-U14 (Raven: «Ir ao painel») aceitas pelo operador e registradas no 52-CONTEXT como emendas da D-25 e da D-24. Abertos: ratificar o comando destrutivo do 51-23; T-51-47 (medium)."
-last_updated: "2026-10-10T20:52:00.000Z"
+status: executing
+stopped_at: "Phase 52 planned (2026-10-10): 25 planos em 15 ondas (blocos A/B/C → UAT da 52 → D); plan-checker sem blocker nem warning (4 info). Operador decidiu no plan-phase D-36..D-40 (cognitiva com confirmação de perda; ordem neutra das alternativas SJT no hub; motivo humana_triagem na migration do bloco B; RH2/RH3 af4ebf97→RH2, 66412f96→RH3; fictício/anonimizado sem ação de contato). JORN-53..63 registrados. Próximo: /gsd-execute-phase 52."
+last_updated: "2026-10-11T01:46:15.117Z"
 last_activity: 2026-10-10
-state_head: b6223730
+state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
-  total_plans: 171
+  total_plans: 196
   completed_plans: 171
-  percent: 91
+  percent: 87
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
-last_activity_desc: "/gsd-discuss-phase 52: 8 areas discutidas, 52-CONTEXT.md e 52-DISCUSSION-LOG.md escritos; todo 49-producoes-do-candidato-sem-leitor-de-rh (Parte A) incorporado."
+last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."
 ---
 
 # Project State
