@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 52 planned (2026-10-10): 25 planos em 15 ondas (blocos A/B/C → UAT da 52 → D); plan-checker sem blocker nem warning (4 info). Operador decidiu no plan-phase D-36..D-40 (cognitiva com confirmação de perda; ordem neutra das alternativas SJT no hub; motivo humana_triagem na migration do bloco B; nomes por papel — af4ebf97 «Recrutador (teste)», 66412f96 «Admin (teste)», emenda da D-39; fictício/anonimizado sem ação de contato) e D-41 (bloco D exige pitr_enabled=true, conferido no 52-19; hoje false — ligar PITR no painel é ação do operador antes do bloco D). JORN-53..63 registrados. Próximo: /gsd-execute-phase 52."
-last_updated: "2026-10-11T01:46:15.117Z"
-last_activity: 2026-10-10
+stopped_at: "Completed 52-01-PLAN.md (2026-10-11): arnês da Wave 0 — p52_ensaio (tracer VERDE contra PROD, vistas=vacua, nada persistiu), p52_portao (68/68), p52_tipografia (16/16), p52_vitest_delta (9/9; uso normal pre-existentes=2 · alteradas=0 · novas=0 · mordida=ok); refs/gsd/52/base = 0d70ac7d. Próximo: Wave 2 da Phase 52."
+last_updated: "2026-10-11T02:57:39.000Z"
+last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 171
-  percent: 87
+  completed_plans: 172
+  percent: 88
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."
