@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Phase 52 replanejada (2026-10-11, /gsd-plan-phase 52 --gaps): 52-26 (gap — WR-04 pontuar_sjt por uuid + F13 completude no servidor, migration 20261011000005; o push leva 8fa8193a/e9dfc369) e 52-27 (exportador do bloco D, separado do 52-20); D-41 emendada — PITR RECUSADO pelo operador; bloco D exige backup diario COMPLETED pos-ultimo apply (walg), export previo local fora do git com md5 no SUMMARY e apply do 52-21 na manha seguinte a um backup. Checker: 3 rodadas, sem blocker/warning. Proximo: /gsd-execute-phase 52 (52-26), depois UAT da 52 (/gsd-verify-work 52), depois 52-19."
-last_updated: "2026-10-11T20:43:52.000Z"
+stopped_at: "Completed 52-26-PLAN.md (2026-10-11): gap de servidor no ar — 20261011000005 aplicada pelo portao 22:51:48Z (ledger BATE; pontuar_sjt a63375bd, salvar4 d2d3bc1d, salvar3 intocada; smoke52g 14/14 contra o vivo; G1-G9 9/9 pos-apply); reviews 52-REVIEW-GAP-1 (WR-01 consertado: clausula (n), G8/G9, guarda do cliente) e -2 (WR-01 aceito como residual); push c3e04a71..29f34756 por sha com os dois caminhos do WR-01 na linha de comando (52-26-DECISAO-PUSH.md, opcao B do operador); 8fa8193a/e9dfc369 no remoto. Proximo: UAT da 52 (/gsd-verify-work 52), depois 52-19 com backup diario COMPLETED posterior a 2026-10-11T22:51:48Z."
+last_updated: "2026-10-11T23:20:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 198
-  completed_plans: 192
+  completed_plans: 193
   percent: 97
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
-last_activity_desc: "/gsd-plan-phase 52 --gaps: 52-26 (WR-04 + F13) e 52-27 (exportador); 52-19/20/21/22 revisados pela emenda da D-41 (PITR recusado); 3 rodadas do checker, aprovadas."
+last_activity_desc: "/gsd-execute-phase 52 --gaps-only: 52-26 concluido (0005 em PROD, provada; push 29f34756); threat-IDs do 52-18 renumerados T-52-93/94 (portao #4683)."
 ---
 
 # Project State

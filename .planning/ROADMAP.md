@@ -800,7 +800,7 @@ Plans:
 - [x] 52-18-PLAN.md — Review do bloco C, apply do banco SJT v2, push — depois: **UAT da Phase 52** (concluído 2026-10-11: 0003 no ar, push bc0d2720..c3e04a71)
 
 **Wave 12** *(gap_closure — antes da UAT da 52; checkpoint de review e de janela única)*
-- [ ] 52-26-PLAN.md — WR-04 (`pontuar_sjt` compara `pergunta_id` como uuid na duplicata e na completude; payload malformado → `22023`) + F13 (`salvar_avaliacao_entrevista` exige nota 1–5 em todas as competências da análise), migration `20261011000005` gerada dos corpos vivos, review, apply, instante registrado (`52-APLICACOES.json`, D-41 emendada) e push que leva os commits só-`.planning/` do 52-18 (operador, 2026-10-11)
+- [x] 52-26-PLAN.md — WR-04 (`pontuar_sjt` compara `pergunta_id` como uuid na duplicata e na completude; payload malformado → `22023`) + F13 (`salvar_avaliacao_entrevista` exige nota 1–5 em todas as competências da análise), migration `20261011000005` gerada dos corpos vivos, review, apply, instante registrado (`52-APLICACOES.json`, D-41 emendada) e push que leva os commits só-`.planning/` do 52-18 (operador, 2026-10-11) (concluído 2026-10-11: 0005 no ar 22:51:48Z, push c3e04a71..29f34756)
 
 **Wave 13** *(checkpoint; só depois da UAT da 52 e com backup diário COMPLETED posterior ao último apply da fase — D-41 emendada em 2026-10-11, PITR recusado —, os dois conferidos por máquina)*
 - [ ] 52-19-PLAN.md — Backup diário posterior ao último apply conferido pela Management API (D-41 emendada, condição 1); varredura da população de teste por conta (lista da D-30 inteira, `3a9254c3` na população, trava do RH) e decisão do escopo da limpeza (só opções executáveis)
@@ -837,7 +837,7 @@ Plans:
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
 | 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | Complete | 2026-10-10 |
-| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 21/27 | In Progress | - |
+| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 22/27 | In Progress | - |
 
 ---
 

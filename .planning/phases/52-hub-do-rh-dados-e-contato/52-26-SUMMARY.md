@@ -3,8 +3,9 @@ phase: 52-hub-do-rh-dados-e-contato
 plan: 26
 subsystem: database
 tags: [postgres, plpgsql, supabase, pontuar_sjt, salvar_avaliacao_entrevista, migration-gerada, smoke, mutacoes, vitest]
-status: halted
-halted_reason: "Sessão B: Task 3 concluída (87cfe0ea); Task 4 Passos 0–2 VERDES — a 0005 está em PROD (ledger BATE, md5 vivos = _novo, smoke52g 14/14 contra o vivo, MUTACOES 9/9 em --pos-apply, instante 2026-10-11T22:51:48Z registrado em ef5d9b07). PARADA na Passo 3: a enumeração do comando de push saiu `COMMIT ALHEIO: PARAR` — 8f625cde e 5f091c8d (rodada WR-01, revisados no 52-REVIEW-GAP-2, ancestrais do pin) tocam caminhos fora do `--caminhos` literal do plano. NADA foi empurrado (origin/main = c3e04a71). Decisão do operador pedida."
+status: complete
+completed_note: "Sessão B: a parada da Passo 3 (COMMIT ALHEIO — lista literal do --caminhos sem os dois arquivos da rodada WR-01) foi resolvida pelo operador (52-26-DECISAO-PUSH.md, opção B): o comando do plano rodou UMA vez com os dois caminhos acrescentados só na linha de comando. Push c3e04a71..29f34756; origin/main = HEAD; 8fa8193a e e9dfc369 no remoto."
+halted_reason_historico: "Sessão B: Task 3 concluída (87cfe0ea); Task 4 Passos 0–2 VERDES — a 0005 está em PROD (ledger BATE, md5 vivos = _novo, smoke52g 14/14 contra o vivo, MUTACOES 9/9 em --pos-apply, instante 2026-10-11T22:51:48Z registrado em ef5d9b07). PARADA na Passo 3: a enumeração do comando de push saiu `COMMIT ALHEIO: PARAR` — 8f625cde e 5f091c8d (rodada WR-01, revisados no 52-REVIEW-GAP-2, ancestrais do pin) tocam caminhos fora do `--caminhos` literal do plano. NADA foi empurrado (origin/main = c3e04a71). Decisão do operador pedida."
 
 requires:
   - phase: 52-18
@@ -505,6 +506,36 @@ Depois da parada: `git ls-remote origin refs/heads/main` = `c3e04a71`; local à 
 
 **Passo 4 (terceiro verify) NÃO rodado**, porque depende do push.
 
+### Passo 3 — retomado pelo orquestrador (decisão do operador, `52-26-DECISAO-PUSH.md`, commit 29f34756)
+
+Opção «A — corrigir o plano + review -3» escolhida primeiro e RETIRADA antes de qualquer commit: o portão no modo
+push exige `reviewed_head` ancestral do pin (regra 5) e o plano igual entre o `reviewed_head` e o HEAD (regra 6);
+plano editado depois do pin não passa nas duas sem mover o pin. Escolhida então a «B — rodar uma vez com
+autorização escrita»: o comando do plano byte a byte, com o regex de `--caminhos` acrescido de
+`competencias-normalizacao-servidor` (no grupo dos testes de entrevista) e de
+`src/features/entrevista/services/entrevistaService\.ts$`; o plano NÃO mudou. O comando exato está no
+`52-26-DECISAO-PUSH.md`.
+
+`S=29f34756903cd61eb6579086c724b47ca8a8843b` · `R=c3e04a717c9338387160a7dc03d2e74e2f4133c7` · rc 0:
+
+```
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-GAP-2.md reviewed_head=c1daf9b8b9430539e55d239b92bce15f9d1346ae pin=87cfe0ea503f5b7e3c16f91ff53cff5c5f680342 modo=push ledger=[20261011000001,20261011000002,20261011000003,20261011000005]
+enumeracao ok: 32 commit(s) em c3e04a71..29f34756 · codigo coberto por 52-REVIEW-GAP-2.md (reviewed_head c1daf9b8) · codigo contido no apply 87cfe0ea
+   c3e04a71..29f34756  29f34756903cd61eb6579086c724b47ca8a8843b -> main
+```
+
+Na enumeração: `8fa8193a` e `e9dfc369` = `planning`; `8f625cde` e `5f091c8d` = `codigo`; 0 commit `ALHEIO[` (a
+única ocorrência da palavra é o assunto do commit 2a0e66b2).
+
+### Passo 4 — terceiro verify
+
+```
+origin/main = HEAD; 8fa8193a e e9dfc369 no remoto; nada local
+```
+
+O commit deste trecho do SUMMARY (e o do STATE/ROADMAP) é só `.planning/` e reabre `origin/main..HEAD`; sobe no
+próximo push, como o plano prevê.
+
 ### Para a UAT da 52 (vale assim que o push sair; a UAT testa a `pontuar_sjt` FINAL, já no ar)
 
 1. Antes de começar, a conferência só leitura `node p46apply.cjs sql "set transaction read only; select md5(prosrc) from pg_proc where oid = to_regprocedure('public.pontuar_sjt(uuid,jsonb)')"` tem de dar `a63375bdb58b0bd01343081562b43a85` (`pontuar_sjt_prosrc_md5_novo` do cabeçalho da 0005).
@@ -513,10 +544,10 @@ Depois da parada: `git ls-remote origin refs/heads/main` = `c3e04a71`; local à 
 4. O que a UAT NÃO precisa provar: o payload forjado (duplicata em outra caixa, uuid malformado) e o scorecard incompleto por RPC à mão. Isso está provado pelo smoke52g contra o vivo e pelas mutações G1–G9 em `--pos-apply` (acima).
 5. O item herdado do 52-18 («SJT aberto durante um apply → recarregar a página») não se aplica a esta 0005, que não muda ids.
 
-Próximo passo, depois do push: UAT da Phase 52 (`/gsd-verify-work 52`). Depois vem o 52-19, que só começa com um backup diário COMPLETED posterior a **2026-10-11T22:51:48Z** (D-41 emendada, condição 1). Na prática, o backup da manhã seguinte.
+Próximo passo: UAT da Phase 52 (`/gsd-verify-work 52`). Depois vem o 52-19, que só começa com um backup diário COMPLETED posterior a **2026-10-11T22:51:48Z** (D-41 emendada, condição 1). Na prática, o backup da manhã seguinte.
 
 O commit deste SUMMARY é só `.planning/`. Ele entra no intervalo `origin/main..HEAD` e sobe no mesmo push quando a parada for resolvida (a enumeração o classifica como `planning`).
 
 ---
 *Phase: 52-hub-do-rh-dados-e-contato*
-*Sessão A concluída: 2026-10-11 · Sessão B: apply 2026-10-11T22:51:48Z; parada no push*
+*Sessão A concluída: 2026-10-11 · Sessão B: apply 2026-10-11T22:51:48Z; push 29f34756 (decisão do operador, opção B)*
