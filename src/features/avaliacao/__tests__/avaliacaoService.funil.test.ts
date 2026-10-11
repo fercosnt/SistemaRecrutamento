@@ -193,6 +193,31 @@ describe('avaliacaoService.pontuarSjt — FUNIL-01 neutral error mapping', () =>
     expect(['DATABASE_ERROR', 'LOCKED']).toContain(e.code)
     expect(e.message).not.toMatch(SCORE_LEAK)
   })
+
+  // 52-26 (WR-04): o `pontuar_sjt` passa a recusar com 22023 a pergunta repetida em outra caixa
+  // ('resposta duplicada', comparada como uuid) e o payload malformado ('resposta malformada',
+  // antes de todo `::uuid` — nunca o 22P02, que cairia no ramo que interpola error.message).
+  // Guarda do contrato de que as recusas novas dependem: a mensagem do servidor não chega ao
+  // candidato, nem dígito nenhum.
+  it.each([
+    ['resposta duplicada'],
+    ['resposta malformada'],
+  ])('maps the 52-26 refusal 22023 %j to a neutral message (no server text, no digit)', async (msg) => {
+    state.rpcError = { code: '22023', message: msg }
+
+    let caught: unknown
+    try {
+      await pontuarSjt(CID, [])
+    } catch (err) {
+      caught = err
+    }
+
+    expect(caught).toBeInstanceOf(AvaliacaoServiceError)
+    const e = caught as AvaliacaoServiceError
+    expect(e.code).toBe('DATABASE_ERROR')
+    expect(e.message).not.toContain(msg)
+    expect(e.message).not.toMatch(SCORE_LEAK)
+  })
 })
 
 describe('avaliacaoService.getAvaliacaoStatus — FUNIL-12 neutral card status', () => {

@@ -300,4 +300,22 @@ describe('salvarAvaliacao write-path contract (JORN-12 / CR-03)', () => {
       code: 'FORBIDDEN',
     })
   })
+
+  // 52-26 (F13): o servidor passa a recusar (23514) a avaliação sem nota 1–5 em todas as
+  // competências da análise. A mensagem traz contagens — o RH vê a frase neutra de validação,
+  // sem eco do texto do servidor.
+  it('maps the 52-26 refusal 23514 "scores_humanos incompleto" → INVALID_INPUT with the neutral copy (no echo)', async () => {
+    const msg = 'scores_humanos incompleto: 1 de 3 competencia(s) da analise sem nota de 1 a 5'
+    supaMocks.rpc.mockResolvedValue({ data: null, error: { code: '23514', message: msg } })
+    const err = await salvarAvaliacao('cand-1', args).then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(err).toMatchObject({
+      name: 'EntrevistaServiceError',
+      code: 'INVALID_INPUT',
+      message: 'Dados inválidos. Verifique os campos.',
+    })
+    expect((err as Error).message).not.toContain('scores_humanos')
+  })
 })
