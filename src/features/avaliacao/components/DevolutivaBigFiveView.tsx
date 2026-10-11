@@ -30,59 +30,15 @@ import {
   type DevolutivaDashboardRow,
   type DevolutivaPagina,
 } from '@/features/avaliacao/services/bigfiveService'
-
-/**
- * Candidate-facing dimension labels. "N" → "Sensibilidade Emocional" (NEVER the
- * clinical pathological term — LGPD-04). Display order: O, C, E, A, N.
- */
-const DIM_LABEL: Record<DevolutivaDashboardRow['dim'], string> = {
-  O: 'Abertura à Experiência',
-  C: 'Conscienciosidade',
-  E: 'Extroversão',
-  A: 'Amabilidade',
-  N: 'Sensibilidade Emocional',
-}
-
-const DIM_ORDER: DevolutivaDashboardRow['dim'][] = ['O', 'C', 'E', 'A', 'N']
-
-/** Neutral band labels — never pass/fail framing. */
-const BANDA_LABEL: Record<DevolutivaDashboardRow['banda'], string> = {
-  muito_baixo: 'Muito baixo',
-  mod_baixo: 'Moderadamente baixo',
-  medio: 'Médio',
-  mod_alto: 'Moderadamente alto',
-  muito_alto: 'Muito alto',
-}
-
-/** The 5 neutral bands in ascending order — drives the non-quantitative position indicator. */
-const BANDA_ORDER: DevolutivaDashboardRow['banda'][] = [
-  'muito_baixo',
-  'mod_baixo',
-  'medio',
-  'mod_alto',
-  'muito_alto',
-]
-
-/**
- * A non-quantitative 5-segment indicator that highlights the band's POSITION on the
- * neutral scale — NEVER a `Progress value={percentil}` proportional bar (UX-07). It
- * conveys "where on the muito-baixo…muito-alto scale" without exposing a raw digit.
- */
-function BandaSegments({ banda }: { banda: DevolutivaDashboardRow['banda'] }) {
-  const activeIndex = BANDA_ORDER.indexOf(banda)
-  return (
-    <div className="flex gap-1" aria-hidden="true">
-      {BANDA_ORDER.map((b, i) => (
-        <div
-          key={b}
-          className={`h-2 flex-1 rounded-full ${
-            i === activeIndex ? 'bg-white/80' : 'bg-white/15'
-          }`}
-        />
-      ))}
-    </div>
-  )
-}
+// 52-11 (D-04, UI-SPEC): rótulos, ordens, faixas e a frase por faixa têm UMA cópia, compartilhada
+// com o hub do RH (`BigFiveResultadoHub`) — o mesmo desenho nas duas telas.
+import {
+  DIM_LABEL,
+  DIM_ORDER,
+  BANDA_LABEL,
+  BandaSegments,
+  analogia,
+} from '@/features/avaliacao/lib/bigFiveRotulos'
 
 /**
  * Fixed LGPD/CFP footer disclaimer (templates-devolutiva.md L44) — fallback when
@@ -116,19 +72,6 @@ function ViewShell({ children }: { children: React.ReactNode }) {
       </BackgroundImage>
     </div>
   )
-}
-
-/**
- * A neutral, self-descriptive phrase keyed on the BAND (never a percentil digit,
- * never a "grupo de 100"/ranking framing — UX-07). Big Five is non-evaluative, so the
- * phrase describes the self-reported trait level, never "acima/abaixo do esperado".
- */
-function analogia(
-  dim: DevolutivaDashboardRow['dim'],
-  banda: DevolutivaDashboardRow['banda'],
-): string {
-  const label = DIM_LABEL[dim].toLowerCase()
-  return `Você se descreveu com um nível ${BANDA_LABEL[banda].toLowerCase()} de ${label}.`
 }
 
 /**
