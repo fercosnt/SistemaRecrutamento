@@ -221,11 +221,12 @@ describe('EntrevistaScorecardInline — notas do gestor obrigatórias, espelho d
     expect(onSalvar).not.toHaveBeenCalled()
   })
 
-  it('o campo se chama «Notas do gestor», é obrigatório e o placeholder não diz «opcional»', () => {
+  it('o campo se chama «Notas do gestor (obrigatório)», é obrigatório e o placeholder não diz «opcional»', () => {
     renderComVigente()
     const campo = screen.getByRole('textbox')
-    expect(screen.getByText('Notas do gestor', { selector: 'label' })).toBeInTheDocument()
-    expect(campo).toHaveAccessibleName('Notas do gestor')
+    // 52-07 (UI-SPEC §Copy): o rótulo ganhou o sufixo «(obrigatório)» — padrão do
+    // RejeitarCandidaturaDialog. O nome acessível segue o texto inteiro do rótulo.
+    expect(campo).toHaveAccessibleName('Notas do gestor (obrigatório)')
     expect(campo).toBeRequired()
     expect(campo).toHaveAttribute('aria-required', 'true')
     expect(campo.getAttribute('placeholder') ?? '').not.toMatch(/opcional/i)
@@ -349,5 +350,29 @@ describe('EntrevistaScorecardInline — notas 1–5 vazias e obrigatórias (52-0
     for (const r of within(screen.getByRole('radiogroup', { name: 'Inovação' })).getAllByRole('radio')) {
       expect(r).toBeDisabled()
     }
+  })
+})
+
+describe('EntrevistaScorecardInline — a tela fala com o entrevistador, não com o banco (52-07 / D-52-U13)', () => {
+  it('o subtítulo é «Escolha uma nota de 1 a 5 para cada competência. A decisão é sempre humana.» e o jargão sumiu', () => {
+    renderQuatro()
+    expect(
+      screen.getByText(
+        'Escolha uma nota de 1 a 5 para cada competência. A decisão é sempre humana.',
+      ),
+    ).toBeInTheDocument()
+    const texto = document.body.textContent ?? ''
+    expect(texto).not.toMatch(/BARS\s+sliders/i)
+    expect(texto).not.toMatch(/notas_humanas/)
+  })
+
+  it('o rótulo das notas escritas é «Notas do gestor» + «(obrigatório)» em font-normal text-white/70', () => {
+    renderQuatro()
+    const rotulo = document.querySelector('label[for="entrevista-notas"]')
+    expect(rotulo).not.toBeNull()
+    expect(rotulo?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Notas do gestor (obrigatório)')
+    const sufixo = within(rotulo as HTMLElement).getByText('(obrigatório)')
+    expect(sufixo.tagName).toBe('SPAN')
+    expect(sufixo).toHaveClass('font-normal', 'text-white/70')
   })
 })
