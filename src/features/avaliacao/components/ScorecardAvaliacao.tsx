@@ -11,14 +11,15 @@
  * never changes etapa by score. The candidate never reaches this surface (RLS +
  * allowlist deny in `scoresRhService`).
  *
- * MONTADO desde 51-02 / JORN-45 (D-17..D-20, D-32, C-7): o hub do RH o abre no lugar, pelo
+ * MONTADO desde 51-02 / JORN-45 (D-17..D-20, C-7): o hub do RH o abre no lugar, pelo
  * «Ver respostas» de `features/hub-candidato/components/AvaliacoesRespondidasBloco.tsx` — a
  * PRIMEIRA e única montagem. Até então (49-REVIEW-GAPS-3 CR-02, 2026-09-30) nenhuma rota o
  * renderizava e o build o descartava. O que ele mostra a partir daqui:
  *  - só as linhas `sjt` + `big_five` (`linhasDeAvaliacao`, C-8) — a mesma função conta o «N» do hub;
- *  - Big Five como «Concluído» / «Não fez», pela regra de `estadoBigFive` — sem faixa, sem
- *    número, sem cor de nota e sem o resumo da IA (D-19, D-32; a frase «as faixas seguem no hub»
- *    da D-31 da 49 está revogada para o hub);
+ *  - Big Five (52-11 / JORN-56, D-01: a D-32 da 51 está REVOGADA no hub): com linha `big_five`,
+ *    `BigFiveResultadoHub` — as faixas que o candidato viu na devolutiva, o aviso fixo e o texto
+ *    recolhível, sem número da escala e sem o resumo da IA; sem linha, «Big Five — Não fez». O card
+ *    da LISTA do RH segue «Concluído / Não fez» (D-05);
  *  - no caso aberto, o TEXTO INTEGRAL do candidato ao lado das citações recortadas pela IA (D-20),
  *    lido pela RPC `ler_resposta_caso_aberto_sjt` via `RespostaCasoAbertoConteudo` — nó de texto
  *    React, nunca HTML. Nenhuma leitura nova de banco (D-38/C-6).
@@ -44,6 +45,7 @@ import { SugestaoIABadge } from '@/features/triagem/components/SugestaoIABadge'
 import { RespostaCasoAbertoConteudo } from '@/features/decisao/components/RespostaCasoAbertoSjt'
 import { estadoBigFive, type EstadoBigFive } from '@/features/vagas/types/vagasTypes'
 import { useScorecardCandidato } from '../hooks/useScorecardCandidato'
+import { BigFiveResultadoHub, COPY_BIG_FIVE_HUB } from './BigFiveResultadoHub'
 import {
   isBigFiveRow,
   type ScoreRow,
@@ -70,8 +72,8 @@ const REQUER_REVISAO_COPY = 'Requer revisão humana'
 /** Neutral marker shown when a score row is `pendente_humano`. */
 function RevisaoHumanaMarker() {
   return (
-    <Badge className="gap-1 border-white/20 bg-white/5 text-white/80 text-xs font-semibold">
-      <CircleDashed className="h-3 w-3" aria-hidden="true" />
+    <Badge className="gap-1 border-white/20 bg-white/5 text-white/80 text-sm font-semibold [&>svg]:size-4">
+      <CircleDashed className="h-4 w-4" aria-hidden="true" />
       {REQUER_REVISAO_COPY}
     </Badge>
   )
@@ -272,18 +274,20 @@ function CasoAbertoBreakdown({ row, candidaturaId }: { row: ScoreRow; candidatur
   )
 }
 
-/** D-19 / D-32: as duas únicas coisas que o detalhe diz do Big Five. */
+/**
+ * D-19: os dois estados do Big Five pela regra de `estadoBigFive`. No hub, desde o 52-11 (D-01),
+ * só o «Não fez» é título de card aqui — com linha `big_five` o card é o `BigFiveResultadoHub`.
+ * O «Não fez» tem UMA fonte, a do card do hub.
+ */
 export const COPY_BIG_FIVE_ESTADO: Record<EstadoBigFive, string> = {
   concluido: 'Big Five — Concluído',
-  nao_fez: 'Big Five — Não fez',
+  nao_fez: COPY_BIG_FIVE_HUB.naoFez,
 }
 
 /**
- * Big Five no detalhe do hub (D-19, D-32): UMA linha, «Concluído» quando existe linha
- * `tipo='big_five'` e «Não fez» quando não existe — a regra de `estadoBigFive`, a mesma do card
- * da lista. Sem faixa, sem número, sem cor de nota e sem o resumo da IA: o Big Five é avaliação
- * comportamental NÃO avaliativa (RNF-07a, UX-07). Substitui o antigo `BigFiveBreakdown`, que
- * mostrava faixa por dimensão e o resumo executivo.
+ * Big Five no detalhe do hub quando NÃO há linha `tipo='big_five'`: «Big Five — Não fez» e o selo,
+ * nada mais (UI-SPEC §Aba «Avaliações»). Com linha, quem desenha é o `BigFiveResultadoHub`
+ * (52-11 / D-01 — a D-32 da 51, que reduzia o hub a «Concluído», está revogada no hub).
  */
 function BigFiveEstado({ estado }: { estado: EstadoBigFive }) {
   return (
@@ -293,7 +297,7 @@ function BigFiveEstado({ estado }: { estado: EstadoBigFive }) {
           <CardTitle data-testid="scorecard-bigfive-estado" className="text-white">
             {COPY_BIG_FIVE_ESTADO[estado]}
           </CardTitle>
-          <Badge className="border-white/15 bg-white/5 text-white/70 text-xs font-semibold">
+          <Badge className="border-white/20 bg-white/5 text-white/80 text-sm font-semibold">
             Contextual · não-eliminatório
           </Badge>
         </div>
@@ -362,8 +366,12 @@ export function ScorecardAvaliacao({
             <CasoAbertoBreakdown key={row.id} row={row} candidaturaId={candidaturaId} />
           ),
         )}
-      {/* D-19/D-32: o Big Five é UMA linha, com ou sem linha `big_five` («Não fez»). */}
-      <BigFiveEstado estado={estadoBigFive(rows)} />
+      {/* 52-11 / D-01: com linha `big_five`, as faixas da devolutiva; sem, «Não fez». */}
+      {estadoBigFive(rows) === 'concluido' ? (
+        <BigFiveResultadoHub candidaturaId={candidaturaId} temLinhaBigFive />
+      ) : (
+        <BigFiveEstado estado="nao_fez" />
+      )}
     </div>
   )
 }

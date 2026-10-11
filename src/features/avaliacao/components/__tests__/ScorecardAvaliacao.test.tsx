@@ -4,11 +4,12 @@
  * The Big Five rows are CONTEXTUAL / non-evaluative (RNF-07a): NEVER the raw percentil
  * digit (Phase 23) and NEVER an "abaixo/dentro/acima do esperado" evaluative frame.
  *
- * ⚠ 51-02 / JORN-45 (D-19, D-32 — D-56): até aqui este arquivo FIXAVA as faixas («Muito alto» /
- * «Muito baixo») como contrato — a D-31 da 49 dizia «as faixas seguem no hub». A D-32 da 51 a
- * revoga para o hub: o detalhe que o RH abre diz SÓ «Concluído» ou «Não fez». O caso das faixas
- * virou o caso «Concluído» com as ausências (faixa, percentil, dígito, resumo da IA) — e a mordida
- * foi provada contra `refs/gsd/51-02/base`, onde as faixas ainda renderizam.
+ * ⚠ 52-11 / JORN-56 (D-01): a D-32 da 51 («no hub, Big Five só "Concluído" / "Não fez"») está
+ * REVOGADA no hub. O detalhe que o RH abre mostra, com linha `big_five`, as FAIXAS que o candidato
+ * viu na devolutiva — lidas de `ler_devolutiva_bigfive_rh` (mockada aqui), nunca de
+ * `metadata.dimensoes` — e continua sem número da escala, sem dígito e sem o resumo da IA. O
+ * `describe` da D-32 foi SUBSTITUÍDO (não apagado) pelo da D-01: «faixa sim, percentil não»; o
+ * «Não fez» foi levado como estava. O card da LISTA do RH segue «Concluído / Não fez» (D-05).
  *
  * D-20: o card do caso aberto mostra o TEXTO INTEGRAL do candidato ao lado das citações da IA,
  * lido por `getRespostaCasoAbertoSjt` (mockado aqui), sempre como nó de texto React.
@@ -20,6 +21,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render as rtlRender, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
+
+// 52-11: as leituras do hub (Big Five e SJT MC) vão por `avaliacoesRhService` — mockadas no
+// mesmo idioma lazy do `getRespostaMock`, com reset e padrão num `beforeEach` próprio.
+const lerDevolutivaMock = vi.fn()
+vi.mock('../../services/avaliacoesRhService', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../services/avaliacoesRhService')>()
+  return { ...actual, lerDevolutivaBigFiveRh: (...a: unknown[]) => lerDevolutivaMock(...a) }
+})
+beforeEach(() => {
+  lerDevolutivaMock.mockReset()
+  lerDevolutivaMock.mockResolvedValue({
+    situacao: 'sem_devolutiva',
+    dimensoes: [],
+    disclaimer_emocional: null,
+    disclaimer_lgpd_crp: null,
+  })
+})
 
 // Sem `.env.local` (worktree da prova de mordida, CI) o client real lança ao carregar.
 vi.mock('@/lib/supabase/client', () => ({ supabase: {} }))
@@ -101,18 +119,37 @@ describe('ScorecardAvaliacao — UX-07 Big Five banda neutra (sem percentil cru)
   })
 })
 
-describe('ScorecardAvaliacao — Big Five «Concluído» / «Não fez», sem nota (51-02 / D-19, D-32)', () => {
-  it('com linha big_five: diz «Concluído» e nada que leia como nota (faixa, dígito, resumo da IA)', () => {
+describe('ScorecardAvaliacao — Big Five: faixa sim, percentil não (52-11 / D-01, substitui a D-32)', () => {
+  it('com linha big_five: as faixas da devolutiva aparecem, e nenhum número da escala no DOM', async () => {
+    // Dimensões com um número extra (cast), como se a rede o trouxesse — e o `BIGFIVE_ROW` carrega
+    // 88 e 12 em `metadata.dimensoes`, que o hub NÃO lê (Invariante 2).
+    lerDevolutivaMock.mockResolvedValue({
+      situacao: 'disponivel',
+      dimensoes: [
+        { dim: 'O', banda: 'mod_alto', texto_interpretativo: 'Texto O.', percentil: 87 },
+        { dim: 'N', banda: 'medio', texto_interpretativo: 'Texto N.', percentil: 87 },
+      ],
+      disclaimer_emocional: null,
+      disclaimer_lgpd_crp: null,
+    })
     mockRows([BIGFIVE_ROW])
     const { container } = render(<ScorecardAvaliacao candidaturaId="cand-1" />)
-    expect(container.textContent).toContain('Big Five — Concluído')
-    expect(screen.getByText('Big Five — Concluído')).toBeInTheDocument()
+    expect(await screen.findByText('Moderadamente alto')).toBeInTheDocument()
+    expect(screen.getByText('Abertura à Experiência')).toBeInTheDocument()
+    expect(screen.getByText('Sensibilidade Emocional')).toBeInTheDocument()
+    expect(screen.getByText('Médio')).toBeInTheDocument()
+    expect(screen.getByTestId('hub-bigfive-resultado')).toBeInTheDocument()
+    expect(lerDevolutivaMock).toHaveBeenCalledWith('cand-1')
+    // A faixa vem da devolutiva, não de `metadata.dimensoes` («Muito alto»/«Muito baixo» lá).
     expect(screen.queryByText('Muito alto')).toBeNull()
     expect(screen.queryByText('Muito baixo')).toBeNull()
-    expect(screen.queryByText(/esperado/i)).toBeNull()
-    expect(screen.queryByText('Abertura à Experiência')).toBeNull()
-    expect(container.textContent).not.toContain('Resumo executivo AI.')
+    expect(container.textContent).not.toContain('87')
+    expect(container.textContent).not.toContain('88')
+    expect(container.textContent).not.toContain('12')
     expect(container.textContent).not.toMatch(/\d/)
+    expect(container.textContent).not.toContain('Resumo executivo AI.')
+    expect(screen.queryByText(/esperado/i)).toBeNull()
+    expect(screen.queryByText('Big Five — Concluído')).toBeNull()
   })
 
   it('sem linha big_five: a linha do Big Five diz «Não fez»', () => {
