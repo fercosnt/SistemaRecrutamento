@@ -22,7 +22,7 @@
  * needing real Supabase env wired up at test time.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -63,9 +63,18 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => routerMocks.navigateMock }
 })
 
-import { resolveRedirect, LoginCandidatoPage } from '../LoginCandidatoPage'
+import { resolveRedirect, LoginCandidatoPage, COPY_LOGIN_SESSAO } from '../LoginCandidatoPage'
 import { LoginRHPage } from '../LoginRHPage'
 import { signIn } from '@/features/auth/services'
+import { useAuthStore } from '@/store/authStore'
+
+// 52-06 (51-17): a página agora LÊ o `authStore` — enquanto `isLoading` é `true` (o estado
+// inicial real do store) ela mostra «Verificando sua sessão…» no lugar do formulário. Os
+// testes de formulário abaixo descrevem o visitante SEM sessão e com o store já hidratado,
+// então cada teste começa nesse estado; os casos de sessão aberta sobrescrevem.
+beforeEach(() => {
+  useAuthStore.setState({ isLoading: false, isAuthenticated: false, role: null })
+})
 
 describe('LoginCandidatoPage › resolveRedirect (VAGA-03)', () => {
   // ============================================================
@@ -268,5 +277,142 @@ describe('login-success ?redirect propagation + orphan cleanup (UX-05)', () => {
       )
     )
     expect(localStorage.getItem('candidatura_vaga_id')).toBeNull()
+  })
+})
+
+/**
+ * 52-06 (JORN-62 · achado do aceite 51-17) — o login respeita a sessão ABERTA do candidato.
+ *
+ * O defeito: o candidato já logado clicava no link do e-mail (`/auth/login?redirect=/candidato/…`)
+ * e caía no formulário de login, como se não tivesse sessão. Agora, com o store hidratado e
+ * `role='candidato'`, a página vai direto ao destino — validado pelo MESMO `resolveRedirect`
+ * (anti-open-redirect) e restrito a `/candidato/`, senão o painel.
+ */
+describe('sessão aberta do candidato (52-06 · 51-17)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  function renderLogin(url: string) {
+    return render(
+      <MemoryRouter initialEntries={[url]}>
+        <LoginCandidatoPage />
+      </MemoryRouter>,
+    )
+  }
+
+  it('(a) candidato hidratado + ?redirect=/candidato/avaliacao/x → vai direto ao destino, sem formulário', async () => {
+    useAuthStore.setState({ isLoading: false, isAuthenticated: true, role: 'candidato' })
+    renderLogin('/auth/login?redirect=%2Fcandidato%2Favaliacao%2Fx')
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith('/candidato/avaliacao/x', {
+        replace: true,
+      }),
+    )
+    expect(screen.queryByRole('form', { name: /Formulário de login/i })).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('seu@email.com')).not.toBeInTheDocument()
+  })
+
+  it('(b) ⊖ open redirect: ?redirect=//evil.com → /candidato/dashboard', async () => {
+    useAuthStore.setState({ isLoading: false, isAuthenticated: true, role: 'candidato' })
+    renderLogin('/auth/login?redirect=%2F%2Fevil.com')
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith('/candidato/dashboard', {
+        replace: true,
+      }),
+    )
+    expect(routerMocks.navigateMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('(c) ⊖ fora da área do candidato: ?redirect=/rh/dashboard → /candidato/dashboard', async () => {
+    useAuthStore.setState({ isLoading: false, isAuthenticated: true, role: 'candidato' })
+    renderLogin('/auth/login?redirect=%2Frh%2Fdashboard')
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith('/candidato/dashboard', {
+        replace: true,
+      }),
+    )
+    expect(routerMocks.navigateMock).not.toHaveBeenCalledWith('/rh/dashboard', expect.anything())
+  })
+
+  it('(c2) ?redirect vazio → o painel (fallback do resolveRedirect)', async () => {
+    useAuthStore.setState({ isLoading: false, isAuthenticated: true, role: 'candidato' })
+    renderLogin('/auth/login?redirect=')
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith('/candidato/dashboard', {
+        replace: true,
+      }),
+    )
+  })
+
+  it('(d) enquanto o store hidrata → «Verificando sua sessão…» e nenhum campo do formulário', () => {
+    useAuthStore.setState({ isLoading: true, isAuthenticated: false, role: null })
+    renderLogin('/auth/login')
+
+    expect(screen.getByText('Verificando sua sessão…')).toBeInTheDocument()
+    expect(COPY_LOGIN_SESSAO?.verificando).toBe('Verificando sua sessão…')
+    expect(screen.queryByPlaceholderText('seu@email.com')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Digite sua senha')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /entrar/i })).not.toBeInTheDocument()
+    expect(routerMocks.navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('(d2) a sessão que hidrata DEPOIS do primeiro render dispara a ida ao destino', async () => {
+    useAuthStore.setState({ isLoading: true, isAuthenticated: false, role: null })
+    renderLogin('/auth/login?redirect=%2Fcandidato%2Fperfil')
+    expect(routerMocks.navigateMock).not.toHaveBeenCalled()
+
+    act(() => {
+      useAuthStore.setState({ isLoading: false, isAuthenticated: true, role: 'candidato' })
+    })
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith('/candidato/perfil', {
+        replace: true,
+      }),
+    )
+  })
+
+  it('(e) ⊖ sessão de RH hidratada → o formulário de hoje, sem navegação', () => {
+    useAuthStore.setState({ isLoading: false, isAuthenticated: true, role: 'rh' })
+    renderLogin('/auth/login?redirect=%2Fcandidato%2Fperfil')
+
+    expect(screen.getByPlaceholderText('seu@email.com')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+    expect(routerMocks.navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('(f) ⊖ sem sessão → o formulário de hoje, sem navegação', () => {
+    useAuthStore.setState({ isLoading: false, isAuthenticated: false, role: null })
+    renderLogin('/auth/login?redirect=%2Fcandidato%2Fperfil')
+
+    expect(screen.getByPlaceholderText('seu@email.com')).toBeInTheDocument()
+    expect(screen.queryByText('Verificando sua sessão…')).not.toBeInTheDocument()
+    expect(routerMocks.navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('(g) ⊖ a sessão que nasce DO PRÓPRIO envio não sequestra o destino do login (?redirect=/vagas/123)', async () => {
+    // Em PROD o listener do App hidrata o store durante o `signIn`. O efeito de sessão aberta
+    // não pode correr na frente do `onSubmit` e mandar ao painel quem pediu `/vagas/123`.
+    vi.mocked(signIn).mockImplementation(async () => {
+      useAuthStore.setState({ isLoading: false, isAuthenticated: true, role: 'candidato' })
+    })
+    const user = userEvent.setup()
+    renderLogin('/auth/login?redirect=%2Fvagas%2F123')
+    await user.type(screen.getByPlaceholderText('seu@email.com'), 'ana@teste.com')
+    await user.type(screen.getByPlaceholderText('Digite sua senha'), 'Senha@123')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith('/vagas/123', { replace: true }),
+    )
+    expect(routerMocks.navigateMock).not.toHaveBeenCalledWith(
+      '/candidato/dashboard',
+      expect.anything(),
+    )
   })
 })
