@@ -336,6 +336,77 @@ Nenhum: nenhum endpoint, caminho de auth ou ACL novo; as duas funções mantêm 
 - Sem push: `origin/main` = `c3e04a71`; local à frente por 18 commits (os só-`.planning/` do 52-18 e da replanificação + os desta sessão — sobem no push da Task 4).
 - `STATE.md`/`ROADMAP.md`: 0 alterações desde `d1c06bca`.
 
+## Rodada de conserto — WR-01 (52-REVIEW-GAP-1)
+
+Decisão: `52-26-DECISAO-RODADA-1.md` (`9492b661`), «consertar agora». O defeito: a regra de
+`normalizeCompetencia` (cliente) estava copiada no CASE da 0005 (servidor) sem guarda em nenhum dos
+lados, e a mutação do revisor em dois ramos do CASE deixava o smoke52g 13/13. **O corpo da 0005 não
+mudou**: `GERADO = ARQUIVO: 036d9d454c91042d51313c3184e73019` (o mesmo md5 de antes).
+
+**Contagem nova: smoke52g = 14 cláusulas (a)–(n), `esperado` 14 num único literal; mutações G1–G9.**
+
+### Commits (medido: `git rev-list --count 9492b661..1b839a73` = 5, mais o deste SUMMARY)
+
+| Commit | O quê |
+|---|---|
+| `0187b7af` | `test(52-26)`: cláusula (n) do smoke52g. Fixture `[{"competencia":"","competency":"A"},{"competencia":7,"competency":"B"},{"competencia":"C","competency":"X"},{"competency":9},{}]`, conjunto esperado `{A, B, C, ''}`. Sem a chave `''` a recusa é `23514` com o rótulo `scores_humanos incompleto: 1 de 4 competencia(s)`; o SQLSTATE, o rótulo E a cardinalidade são conferidos. `{"A":4,"B":4,"C":4,"":4}` grava 4.00, `concluida`, linha `entrevista` 4.00. Mesma disciplina de fixture: subtransação revertida por `P52G1`, `p52g_reverteu('n')`, nenhum uuid literal, a candidatura fica onde está. Também `esperado` 13 → 14 e o cabeçalho (lista de cláusulas, «Hoje: 14 — a … n», «G8/G9 → (n)») |
+| `23161ca0` | `test(52-26)`: as mutações G8 (`AND length(e->>'competencia') > 0` retirado) e G9 (`WHEN jsonb_typeof(e->'competency') = 'string'` → `WHEN e ? 'competency'`). São duas entradas, para cada ramo provar a mordida sozinho. As duas usam a letra `n` e trocam um alvo literal único no texto GERADO |
+| `8f625cde` | `test(52-26)` (RED): `src/features/entrevista/__tests__/competencias-normalizacao-servidor.test.ts`. Mesmo fixture, mesmo conjunto `{A, B, C, ''}`, passando por `normalizeCompetencia` e pelo filtro do scorecard. Confere que o smoke52g traz o MESMO fixture e a MESMA avaliação completa, uma vez cada. Mordida: os ramos G8/G9, mutados no cliente, mudam o conjunto |
+| `5f091c8d` | `feat(52-26)` (GREEN): `normalizeCompetencia` exportado, sem mudar comportamento, com o aviso do espelho. O filtro do `useMemo` do scorecard foi extraído para `competenciasDoScorecard`, com a mesma regra, e o `useMemo` passou a chamá-lo |
+| `1b839a73` | `docs(52-26)`: o contrato vivo do `52-26-PLAN.md` acompanha a contagem (ver «Desvio» abaixo) |
+
+### TDD
+
+- **RED** (`8f625cde`): `NO_COLOR=1 npx vitest run src/features/entrevista/__tests__/competencias-normalizacao-servidor.test.ts --reporter=tap-flat`, exit 1, `1..4`, 3 `not ok` e 1 `ok`. O teste-alvo («o fixture da cláusula (n) vira exatamente o conjunto {A, B, C, ''}») falha na ASSERÇÃO `normalizeCompetencia exportado pelo service: expected undefined to be type of 'function'`. O classificador `check tdd-red-evidence` deu `RED_EVIDENCE_OK` (`target_test_failed`, tests 4, pass 1, fail 3). Avaliação semântica: o alvo rodou e falhou pelo motivo planejado, a regra não exportada. Não foi erro de import nem de coleta. O teste que passou no RED é o de amarração ao smoke, que já trazia o fixture desde `0187b7af`.
+- **GREEN** (`5f091c8d`): o arquivo novo passa 4/4; `src/features/entrevista` + funil dão `Test Files 14 passed (14) · Tests 158 passed (158)`.
+
+### Evidência (linhas inteiras)
+
+- `node scripts/geradores/gen-p52-gap.cjs --conferir` → `GERADO = ARQUIVO: 036d9d454c91042d51313c3184e73019` (rc 0)
+- `node scripts/geradores/gen-p52-gap.cjs --auto-teste` → `GEN-P52-GAP AUTO-TESTE OK: 11/11` (rc 0)
+- Ensaio com a 0005 prefixada (verify da Task 2, já com 14/14), rc 0:
+  `ENSAIO VERDE: supabase/tests/p52_gap_servidor_smoke.sql · prefixadas=[20261011000005] · aplicadas=[20261011000001,20261011000002,20261011000003] · ausentes=[20261011000004] · smokes=[52g=14/14] · evidencia=gap:pontuar_sjt=a63375bdb58b0bd01343081562b43a85,salvar4=d2d3bc1ddebf59b7896de59608daf45a,salvar3=igual 52g.escopo=cargo:editor-video,bateria:6 52g.a=22023:dup 52g.b=11/24 52g.c=23514:incompleto 52g.d=4.00 52g.e=22023:malformada 52g.f=22023:malformada 52g.g=22023:malformadax3 52g.h=maiusculas:11/24 52g.i=23514:fora 52g.j=23514:incompletox3 52g.k=23514:objetox2 52g.l=salvar3:23514+4.00 52g.m=padrao:23514+4.00 52g.n=normalizacao:23514(1/4)+4.00 · 916 ms`
+- Smoke contra o vivo SEM a 0005. Continua mordendo o WR-04 na (a), como antes (rc 1):
+  `ENSAIO VERMELHO: P52G FAIL (a): a mesma pergunta em caixa diferente devolveu [ACEITO] e gravou 1 linha(s) SJT mc — esperado 22023 resposta duplicada e nada gravado (882 ms)`
+- A mutação do revisor (`…/scratchpad/rev/mut_norm.sql`, via `--mutacao=`), que antes saía `52g=13/13` VERDE, agora sai VERMELHA (rc 1):
+  `ENSAIO VERMELHO: P52G FAIL (n): o conjunto {A, B, C, vazio} sem a chave vazia devolveu [23514:scores_humanos incompleto: 2 de 4 competencia(s) da analise sem nota de 1 a 5] e com as 4 chaves [23514:scores_humanos incompleto: 1 de 4 competencia(s) da analise sem nota de 1 a 5] (status pendente_humano, score nenhum) — esperado 23514 scores_humanos incompleto: 1 de 4, depois 4.00 concluida (553 ms)`
+- `node scripts/p52_mutacoes.cjs` (rodada completa, rc 0). Saem impressas `APOSENTADA: B1` … `APOSENTADA: B6` (`… so roda com 20261011000003 prefixada, e 20261011000003 esta no ledger desde o apply`); `CONTROLE verde (…p52_leituras_rh_smoke.sql): par 52l=20/20`; `CONTROLE verde (…p52_gap_servidor_smoke.sql): par 52g=14/14`; L1–L8 e G1–G7 mordem nas mesmas letras de antes. As linhas novas:
+  `G8 morde: salvar_avaliacao_entrevista: a normalizacao aceita competencia string vazia (sem o length > 0) -> P52G FAIL (n) (607 ms)`
+  `G9 morde: salvar_avaliacao_entrevista: a normalizacao aceita competency de qualquer tipo (e ? 'competency') -> P52G FAIL (n) (856 ms)`
+  `leitura so-leitura igual a baseline: ledger=["20261011000001","20261011000002","20261011000003"] funcoes=7 mutacoes_p52=0 fixtures_p52={"users":0,"candidatos":0}`
+  `MUTACOES: 17/17 mordem; controle verde; nada persistiu (aposentadas: B1,B2,B3,B4,B5,B6)`
+  O verify da Task 2, com o laço `G1 … G9`, saiu rc 0.
+- Regressões p49, com e sem a 0005 (verify da Task 2), rc 0:
+  `p49_revisao_por_analise_smoke controle rc=0: ENSAIO VERDE: … prefixadas=[] · aplicadas=[20261011000001,20261011000002,20261011000003] · ausentes=[20261011000005,20261011000004] · smokes=[] · evidencia=- · 560 ms`
+  `p49_revisao_por_analise_smoke tratamento rc=0: ENSAIO VERDE: … prefixadas=[20261011000005] · …`
+  `p49_analise_vigente_smoke controle rc=0: ENSAIO VERDE: … prefixadas=[] · … · 926 ms`
+  `p49_analise_vigente_smoke tratamento rc=0: ENSAIO VERDE: … prefixadas=[20261011000005] · …`
+- `node scripts/p52_vitest_delta.cjs` (rc 0; o regex do verify da Task 2 casa):
+  `vitest delta: base=0d70ac7 2725/2 · head=1b839a7 3104/2 · pre-existentes=2 · corrigidas=0 · alteradas=0 · novas=0 · mordida=ok`
+  O HEAD foi de 3100 (sessão A, `7de0b61`) para **3104 testes**. Os +4 são os testes de `competencias-normalizacao-servidor.test.ts`:
+  - «o fixture da cláusula (n) vira exatamente o conjunto {A, B, C, ''}»;
+  - «a avaliação completa da cláusula (n) tem exatamente as chaves do conjunto»;
+  - «o smoke52g traz o MESMO fixture e a MESMA avaliação completa (uma vez cada)»;
+  - «a guarda morde: …».
+
+  `novas=0` conta falhas novas, não testes novos. As 2 pré-existentes são as mesmas da sessão A (`promessasComExecutor.test.ts`).
+- `lint exit=2 tsc errors=89` (≤ 89) · `TIPOGRAFIA OK (129 linhas acrescentadas varridas)` (scorecard) · `npm run build` verde → `lint, tipografia e build verdes`. A tipografia do service e do teste novo também saiu OK (8 linhas).
+
+### Desvio
+
+**1. [Escopo dirigido pelo orquestrador] O contrato vivo do `52-26-PLAN.md` passou para 14/14 e G1–G9** (`1b839a73`)
+- **Motivo:** o despacho manda atualizar a contagem «everywhere it is declared/checked». Sem isso, o verify pós-apply da Task 4 (`grep 'smokes=\[52g=13/13\]'`, `--so=G1..G7`, `MUTACOES: 7/7`) reprovaria trabalho correto depois da escrita em PROD. É a forma «contagem contra constante» do CLAUDE.md.
+- **O que mudou:** as truths das linhas 38 e 40, o `provides` da linha 51, os verify das Tasks 2 e 4, o `fails_when`, os critérios, a Passo 0b, os itens da UAT, a lista de saída e o resumo das linhas 428 e 430.
+- **O que ficou como está:** os nomes de commit, a descrição histórica da Task 2 (o `<name>`, o «Runner … G1–G7», a linha 99, a 296 e a 451) e o frontmatter deste SUMMARY. Registram o que a sessão A fez.
+- O plano está sob o portão (6) do `p52_portao.cjs`, que exige que ele não mude depois do `reviewed_head`. O review novo `52-REVIEW-GAP-2` cobre esta mudança.
+- **Varredura pela forma:** `grep -rnE "52g=13|13/13|G1[–-]G7|G1,G2,…,G7|7/7 mordem|13 cl[aá]usula|Hoje: 13|'13'"` em `scripts`, `supabase/tests`, `src` e no plano. O `p52_ensaio.cjs` não fixa contagem, porque lê `smoke52g.esperado` na execução. Os `13` de `p50_acesso_recrutador_smoke.sql` e `p49_trilha_smoke.sql` são de outros smokes. Nada mais fixava 13 nem G1–G7.
+
+### Estado
+
+- PROD intocado. A leitura só-leitura do runner, depois do laço, deu ledger p52 = `0001..0003` e `mutacoes_p52=0`.
+- Não houve push (`origin/main` = `c3e04a71`), nem apply, nem deploy. `STATE.md`/`ROADMAP.md` não foram tocados.
+- Próximo: o orquestrador roda o review `52-REVIEW-GAP-2`; depois, a Task 3 de novo e a Task 4.
+
 ---
 *Phase: 52-hub-do-rh-dados-e-contato*
 *Sessão A concluída: 2026-10-11*
