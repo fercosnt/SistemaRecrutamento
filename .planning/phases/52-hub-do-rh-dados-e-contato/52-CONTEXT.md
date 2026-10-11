@@ -163,7 +163,7 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   contas **+claude1..+claude7** e a conta **+cand1** (as duas candidaturas dela — ver achado 1). O **método** (exclusão
   Art. 18 pelo próprio motor, ou teardown) é **decisão do planejamento**, **sempre com portão
   destrutivo** (dry-run pela mesma query, população medida e aprovada, review bloqueante, prova pós).
-  — **Reversibility:** one-way — apagar dado em PROD; PITR desligado e Storage sem backup. ⚠ *[superado pela D-41 (2026-10-10): o 52-19 exige `pitr_enabled=true` — o «PITR desligado» é a medição de 2026-10-10, não o estado de que o bloco D parte]* *(anotação do planejador; o texto da D-30 fica como o operador o escreveu)*
+  — **Reversibility:** one-way — apagar dado em PROD; PITR desligado e Storage sem backup. ⚠ *[2026-10-11: o PITR foi RECUSADO pelo operador e segue desligado — o «PITR desligado» acima volta a ser o estado de que o bloco D parte. A rede do bloco D passa a ser a da D-41 EMENDADA: backup diário COMPLETED posterior ao último apply da fase, export prévio local fora do git das linhas e dos currículos da população aprovada (restauração cirúrgica — inclusive dos currículos, que o Storage sozinho não recupera), e o apply do 52-21 na manhã seguinte a um backup diário. Até 2026-10-11 esta anotação dizia «superado pela D-41 (2026-10-10): o 52-19 exige `pitr_enabled=true`»]* *(anotação do planejador; o texto da D-30 fica como o operador o escreveu)*
   Medido em PROD (2026-10-10, só leitura), por vaga ativa:
   | Vaga ativa | +claudeN | cand1 | outras |
   |---|---|---|---|
@@ -323,6 +323,32 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   operador no painel**, antes do bloco D; ela executa a decisão de ligar já registrada no M8 (STATE.md, §PITR:
   «operador decidiu ligar; confirmar `pitr_enabled=true` pela Management API»). Sem `pitr_enabled = true`, o
   52-19 recusa e não mede nada.
+  - **Emenda (operador, 2026-10-11, depois do bloco C — `52-DECISAO-2026-10-11-gaps-e-pitr.md`, verbatim lá) — substitui
+    «`pitr_enabled = true`» em toda a D-41 acima:** «NÃO vou ligar o PITR (custo ~US$100/mês). Emende a D-41 no
+    52-CONTEXT.md e nos planos 52-19/52-21, trocando «pitr_enabled = true» por: (1) backup diário COMPLETED posterior ao
+    último apply da fase, conferido pela Management API (walg_enabled = true; 8 backups físicos diários por volta de 06:28
+    UTC); (2) export prévio, em arquivo local fora do git, exatamente das linhas e objetos de Storage da população
+    aprovada, com md5 registrado no SUMMARY, para restauração cirúrgica; (3) o apply do 52-21 roda na manhã seguinte a
+    um backup diário.» O PITR **recusado** está no checklist de fecho do M8 (STATE.md). Como o planejamento
+    (`/gsd-plan-phase 52 --gaps`, 2026-10-11) conferiu cada condição POR MÁQUINA:
+    1. `scripts/p52_backup.cjs` (criado no 52-19): GET só leitura em `/v1/projects/isljnozzlvckrgjjbjwp/database/backups`;
+       exige `walg_enabled === true` e um backup `status = COMPLETED`, `is_physical_backup = true`, cujo maior
+       `inserted_at` é ESTRITAMENTE posterior ao maior instante registrado em `52-APLICACOES.json` — o registro por forma
+       (criado no 52-26) em que toda versão `p52_%` do ledger de PROD tem um instante ≥ o commit do seu apply (o ledger não
+       tem coluna de tempo e `track_commit_timestamp` é `off`, medido); versão do ledger sem registro recusa. Abre o 52-19 e
+       o 52-21 (Task 1). Medido em 2026-10-11: recusa hoje (backup 06:26Z anterior ao apply da 0003 às 18:59Z), como deve.
+    2. `scripts/p52_export_limpeza.cjs` (criado no 52-20, rodado no 52-21): exporta para
+       `$HOME/p52-export-limpeza/<instante UTC>/` — fora do repositório e de qualquer árvore git, 0700/0600 — as linhas que a
+       migration da limpeza apaga ou altera (fecho de FK lido na execução, pais antes de filhos, restaurável por
+       `jsonb_populate_record`; do `auth`, só `users`/`identities` — credenciais vivas ficam fora por desenho) e os
+       currículos aprovados, com `MANIFESTO.json` cujo md5 é o `export_md5` registrado no SUMMARY e aprovado no
+       `52-21-DECISAO.md`; `--conferir --vivo` é a prontidão para restaurar (relê, confere contra a população, o Storage
+       capturado, a decisão e o banco de agora).
+    3. A manhã seguinte: `p52_backup.cjs --apply --decisao 52-21-DECISAO.md` exige ainda o último backup COMPLETED posterior
+       ao `export_em_aprovado` e o instante de agora (o `Date` do servidor) no mesmo dia de America/Sao_Paulo que esse
+       backup e antes de 12:00. As condições (1)+(3) e (2) são os DOIS elos imediatamente anteriores ao `migrate` no
+       `52-21-COMANDO-APPLY.sh`, posição conferida por tokenização com auto-teste de mutações.
+    Sem as três, o bloco D não apaga nada. O texto acima fica como registro histórico.
 - **D-40 (operador, 2026-10-10, no plan-phase — refina a D-16):** registro **fictício ou anonimizado**
   (e-mail em `@invalido.local`: o tombstone e os 6 fictícios das migrations `20260830000005`/`20260905000002`)
   **não tem ação de contato nenhuma** — nem «Enviar e-mail», nem «Chamar no WhatsApp», nem mensagem pronta —

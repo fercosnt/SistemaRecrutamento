@@ -799,6 +799,9 @@ Plans:
 **Wave 11** *(checkpoint)*
 - [x] 52-18-PLAN.md — Review do bloco C, apply do banco SJT v2, push — depois: **UAT da Phase 52** (concluído 2026-10-11: 0003 no ar, push bc0d2720..c3e04a71)
 
+**Gap antes da UAT da 52** *(gap_closure; onda 12 no frontmatter — os planos abaixo descem uma onda; checkpoint de review)*
+- [ ] 52-26-PLAN.md — WR-04 (`pontuar_sjt` compara `pergunta_id` como uuid na duplicata e na completude; payload malformado → `22023`) + F13 (`salvar_avaliacao_entrevista` exige nota 1–5 em todas as competências da análise), migration `20261011000005` gerada dos corpos vivos, review, apply, instante registrado (`52-APLICACOES.json`, D-41 emendada) e push que leva os commits só-`.planning/` do 52-18 (operador, 2026-10-11)
+
 **Wave 12** *(checkpoint; só com PITR ligado — D-41 — e depois da UAT da 52, os dois conferidos por máquina)*
 - [ ] 52-19-PLAN.md — PITR ligado conferido pela Management API (D-41); varredura da população de teste por conta (trava do RH) e decisão do escopo da limpeza (só opções executáveis)
 
