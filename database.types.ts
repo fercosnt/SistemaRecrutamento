@@ -5952,12 +5952,21 @@ export type Database = {
         Args: { p_pedido_id: string }
         Returns: Json
       }
+      ler_contexto_rejeicao_triagem_revisao: {
+        Args: { p_pedido_id: string }
+        Returns: Json
+      }
+      ler_devolutiva_bigfive_rh: {
+        Args: { p_candidatura_id: string }
+        Returns: Json
+      }
       ler_resend_api_key: { Args: never; Returns: string }
       ler_resend_webhook_secret: { Args: never; Returns: string }
       ler_resposta_caso_aberto_sjt: {
         Args: { p_candidatura_id: string }
         Returns: Json
       }
+      ler_sjt_mc_rh: { Args: { p_candidatura_id: string }; Returns: Json }
       liberar_cognitivo: {
         Args: { p_candidatura_id: string; p_motivo?: string }
         Returns: Json
