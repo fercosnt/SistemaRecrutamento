@@ -300,6 +300,16 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   bloqueante antes do apply e mesma prova por papel das outras RPCs do bloco B (achado F3).
 - **D-39 (O6):** direção da troca dos nomes: recrutador **`af4ebf97` → «RH2»**, admin **`66412f96` → «RH3»**.
   É escrita de dado, controlada, com leitura antes e depois.
+  - **Emenda da D-39 (operador, 2026-10-10, depois do plan-phase) — substitui a troca RH2↔RH3:** os dois
+    cadastros passam a ser **nomeados por papel**: **`af4ebf97` → «Recrutador (teste)»** e **`66412f96` →
+    «Admin (teste)»**. Isso elimina o descasamento entre nome e alias, em vez de só invertê-lo. Continua escrita de
+    dado controlada, com leitura antes e depois.
+- **D-41 (operador, 2026-10-10, depois do plan-phase) — PITR antes do bloco D:** o bloco D **não roda sem
+  PITR ligado**. Pré-condição **conferida por máquina** no início do 52-19: `pitr_enabled = true` num **GET só de
+  leitura** em `/v1/projects/isljnozzlvckrgjjbjwp/database/backups` (Management API). Ligar o PITR é **ação do
+  operador no painel**, antes do bloco D; ela executa a decisão de ligar já registrada no M8 (STATE.md, §PITR:
+  «operador decidiu ligar; confirmar `pitr_enabled=true` pela Management API»). Sem `pitr_enabled = true`, o
+  52-19 recusa e não mede nada.
 - **D-40 (operador, 2026-10-10, no plan-phase — refina a D-16):** registro **fictício ou anonimizado**
   (e-mail em `@invalido.local`: o tombstone e os 6 fictícios das migrations `20260830000005`/`20260905000002`)
   **não tem ação de contato nenhuma** — nem «Enviar e-mail», nem «Chamar no WhatsApp», nem mensagem pronta —
