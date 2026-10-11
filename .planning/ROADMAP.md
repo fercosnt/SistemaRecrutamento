@@ -760,7 +760,7 @@ Plans:
 - [x] 52-01-PLAN.md — Arnês da fase: `p52_ensaio.cjs` (ensaio que aborta), `p52_portao.cjs` (regra 8 sobre `_p52_`), `p52_tipografia.cjs`, `p52_vitest_delta.cjs` (suíte Vitest por delta contra a base, medida na mesma execução); base `refs/gsd/52/base`
 
 **Wave 2** *(blocked on 52-01)*
-- [ ] 52-02-PLAN.md — Saída durante as provas (SJT MC e Prova cognitiva com confirmação de perda — D-36; Big Five/Redação/Caso direto após o flush); «Tempo decorrido»
+- [x] 52-02-PLAN.md — Saída durante as provas (SJT MC e Prova cognitiva com confirmação de perda — D-36; Big Five/Redação/Caso direto após o flush); «Tempo decorrido»
 - [ ] 52-04-PLAN.md — Painel do candidato «Avaliações concluídas — aguardando a equipe» sem mudar o banco (D-27); «Ver devolutiva» reabrível
 - [ ] 52-05-PLAN.md — Proveniência sem «modelo modelo» (D-23, data só quando verdadeira); menu «Candidatos» aceso nos workspaces
 - [ ] 52-06-PLAN.md — Achados do 51-17: login com sessão aberta, «Meu painel», «Agradecemos» legível, `SelectItem`

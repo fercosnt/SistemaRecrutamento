@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-13-PLAN.md (2026-10-11): motivo (rótulo do MOTIVO_OPTIONS, exportado) e justificativa inteira no diálogo de revisão humana_triagem, dois pares sm:col-span-2 na grade de contexto, leitura sob demanda sem cache, em CÓDIGO; RPC ler_contexto_rejeicao_triagem_revisao do 52-08 ainda não aplicada (52-15) — não publicar o front antes; vitest revisão+triagem 23/419 verde, suíte 2812/2814 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89."
-last_updated: "2026-10-11T03:58:00.000Z"
+stopped_at: "Completed 52-02-PLAN.md (2026-10-11): SairDaProvaButton em cinco telas de prova do container — SJT MC e Prova cognitiva com confirmação «Sair da avaliação?» só com ≥1 resposta (D-24, D-36, D-52-U15); Big Five (introdução e páginas), Redação e Caso prático saem direto depois de await flushNow(); SJT MC diz «Tempo decorrido: mm:ss (sem limite de tempo)» com guarda p52-ban-tempo-sugerido; vitest avaliacao+cognitiva+guardas 47/373 verde, suíte 2834/2836 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89, marcador sair-da-prova no index-*; sem push."
+last_updated: "2026-10-11T04:09:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 176
+  completed_plans: 177
   percent: 90
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
