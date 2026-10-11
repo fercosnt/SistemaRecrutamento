@@ -11,6 +11,7 @@ provides:
   - "SairDaProvaButton + COPY_SAIR_DA_PROVA (src/features/avaliacao/components/SairDaProvaButton.tsx): saída durante a prova, com confirmação de perda (memória) ou direta depois do flush (rascunho); um componente para as 6 telas — o Raven (52-03) reusa com rotulo=\"irAoPainel\""
   - "SJT MC e Prova cognitiva com confirmação «Sair da avaliação?» quando ≥1 resposta marcada (D-24, D-36, D-52-U15)"
   - "Big Five (introdução e páginas), Redação e Caso prático com saída direta depois de `await flushNow()`"
+  - "[emenda 2026-10-11 (CR-01 do 52-REVIEW-PORTAO-1; decisão do operador em 52-14-DECISAO-RODADA-1.md P1, «Confirm like memory screens (Recommended)»; código aacef0a6 e 0b4d486b)] SUPERSEDE a linha anterior: Big Five e Caso prático confirmam a saída (memória → confirma) — Big Five com ≥1 resposta, Caso prático com texto não vazio; sem nada saem direto. Só a Redação sai direto, gravando antes só se houve edição (`flushSeEditou`)"
   - "Cronômetro do SJT MC: «Tempo decorrido: mm:ss (sem limite de tempo)» com tabular-nums (D-26, D-52-U20)"
   - "Guarda p52-ban-tempo-sugerido.grep (varredura recursiva de src/features/avaliacao, código e comentário, mordida provada)"
 affects: [52-03, 52-14, 52-15, 52-25]
@@ -50,6 +51,7 @@ key-decisions:
 
 patterns-established:
   - "Telas com rascunho: `antesDeSair={flushNow}` com ordem flush→navegar verificada por flush DIFERIDO no teste (o sentinela da rota não pode aparecer antes de o flush terminar)"
+  - "[emenda 2026-10-11 (CR-01 do 52-REVIEW-PORTAO-1; decisão do operador em 52-14-DECISAO-RODADA-1.md P1, «Confirm like memory screens (Recommended)»; código aacef0a6 e 0b4d486b)] «com rascunho» passou a ser só a Redação, e o `antesDeSair` dela é `flushSeEditou`, não `flushNow`"
 
 requirements-completed: []
 
@@ -81,6 +83,7 @@ coverage:
         ref: "src/features/avaliacao/components/__tests__/navegacao-provas.test.tsx#Telas com rascunho — saída direta depois do flush (52-02 / D-24, D-36)"
         status: pass
     human_judgment: false
+    amendment: "[emenda 2026-10-11 (CR-01 do 52-REVIEW-PORTAO-1; decisão do operador em 52-14-DECISAO-RODADA-1.md P1, «Confirm like memory screens (Recommended)»; código aacef0a6 e 0b4d486b)] o comportamento de D3 foi revogado para Big Five e Caso prático e o describe acima não existe mais (renomeado e dividido). A cobertura vigente é: navegacao-provas.test.tsx#Big Five e Caso prático — memória → confirma (52-02 rodada 1 / CR-01, D-36 emendada); navegacao-provas.test.tsx#Redação — a única tela que relê o rascunho: sai direto depois do flush (52-02 / D-24, D-36); RedacaoEditorScreen.saida-rascunho.test.tsx#Redação — sair não grava vazio por cima do rascunho (52-02 rodada 1 / WR-01). Medido em 2026-10-11: 3 arquivos, 29 testes verdes"
   - id: D4
     description: "Cronômetro do SJT MC diz «Tempo decorrido: mm:ss (sem limite de tempo)» com tabular-nums; a frase antiga não existe em src/features/avaliacao (código nem docblock)"
     requirement: JORN-60
@@ -110,6 +113,16 @@ status: complete
 # Phase 52 Plan 02: Saída durante as provas e «Tempo decorrido» Summary
 
 **`SairDaProvaButton` em cinco telas de prova do container. SJT MC e Prova cognitiva pedem confirmação de perda só com resposta marcada. Big Five, Redação e Caso prático saem direto depois de `await flushNow()`. O cronômetro do SJT MC diz «Tempo decorrido», e um guarda por forma impede a volta da frase antiga.**
+
+## Emenda (2026-10-11) — Big Five e Caso prático confirmam a saída
+
+Registro posterior ao fecho deste plano; o resto deste SUMMARY fica como estava (registro histórico do que o 52-02 entregou em 2026-10-11T04:07Z), inclusive o parágrafo de abertura acima. No portão do bloco B, o
+`52-REVIEW-PORTAO-1` (CR-01) mostrou que Big Five e Caso prático **gravam** o rascunho mas **não o releem**:
+sair sem aviso perdia as respostas. O operador decidiu (2026-10-11, `52-14-DECISAO-RODADA-1.md`, Pergunta 1,
+verbatim «Confirm like memory screens (Recommended)») tratá-las como telas de memória. Commits da rodada:
+`aacef0a6` (Big Five e Caso prático confirmam) e `0b4d486b` (Redação: sair ou blur antes da releitura não grava
+`{}` — WR-01 do -1, que fecha o primeiro item dos Known Risks abaixo). O D3 do `coverage:` e as linhas de
+`provides`/`patterns-established` levam a nota da emenda.
 
 ## Performance
 

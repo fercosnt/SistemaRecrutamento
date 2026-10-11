@@ -56,7 +56,7 @@
 | `SjtMultiplaEscolhaScreen.tsx` (modify — saída, «Tempo decorrido» :9 docblock + :225) | component (screen) | — | same file | exact |
 | `src/features/avaliacao-cognitiva/components/AvaliacaoRavenScreen.tsx` (modify — shell, instruções, saída, classes) | component (screen) | — | `SjtMultiplaEscolhaScreen.tsx:310-323` (`ScreenShell`) | exact |
 | `src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx` (modify — saída **com confirmação**, D-36) | component (screen) | — | `SairDaProvaButton` (memory branch) | exact |
-| `BigFiveQuestionnaireScreen.tsx`, `RedacaoEditorScreen.tsx`, `SjtCasoAbertoScreen.tsx` (modify — saída direta após `flushNow`) | component (screen) | — | `useAutosaveAvaliacao.ts:123-129` (`flushNow`) | exact |
+| `BigFiveQuestionnaireScreen.tsx`, `RedacaoEditorScreen.tsx`, `SjtCasoAbertoScreen.tsx` (modify — saída direta após `flushNow`; _emenda 2026-10-11, `52-14-DECISAO-RODADA-1.md` P1; CR-01 do `52-REVIEW-PORTAO-1`: Big Five e Caso aberto passaram ao ramo memória → confirma (`SairDaProvaButton` com `temRespostaNaoSalva`); só a Redação sai direto, com `flushSeEditou`_) | component (screen) | — | `useAutosaveAvaliacao.ts:123-129` (`flushNow`) | exact |
 | `src/features/avaliacao/components/AvaliacaoContainer.tsx` (modify — «Ver devolutiva»; export `deriveCards` + `avaliacoesConcluidas`) | component | — | same file :199-200 (`allDone`), :265-327 (cards/CTA), :410 (`deriveCards`), :474-486 (query keys) | exact |
 | `src/components/pages/DashboardCandidatoPage.tsx` (modify — D-27) | page | read-derive | same file :470-479 (neutral `span`) + container query keys | exact |
 | `src/components/layouts/CandidatoNavbar.tsx` (modify — «Meu painel») | component | — | same file :103-113 («Área do candidato» button) | exact |
@@ -634,6 +634,7 @@ const COPY_NAV = {
 P52: title «Sair da avaliação?», body «Se sair agora, as respostas desta prova não serão salvas.», Cancel «Continuar» (initial focus), Action «Sair» (`bg-[#EF4444] text-white hover:bg-[#EF4444]/90`). Dialog only when ≥1 answer (D-52-U15) — otherwise navigate directly.
 
 **Which screens confirm (D-36, measured):** memory-only state → `SjtMultiplaEscolhaScreen.tsx:143` (`respostas`), `AvaliacaoRavenScreen.tsx:88-94` (`respostas`, `escolha`), `ProvaCognitivaScreen.tsx:75-79` («FX-13: the prova has NO autosave»). Direct exit → the three with `useAutosaveAvaliacao(` (Big Five, Redação, Caso aberto) — **`await flushNow()` first**, because the unmount flush is fire-and-forget:
+> **Emenda 2026-10-11 (operador, `52-14-DECISAO-RODADA-1.md` P1; CR-01 do `52-REVIEW-PORTAO-1`):** calling `useAutosaveAvaliacao(` only WRITES the draft; Big Five and Caso aberto never re-read it, so for the candidate their answers are memory-only. Both now **confirm** (`temRespostaNaoSalva={answeredCount > 0}` / `{texto.trim() !== ''}`). Direct exit is **only the Redação**, with `antesDeSair={flushSeEditou}` (writes only if edited — WR-01 of the -1).
 ```ts
 // useAutosaveAvaliacao.ts:123-140
   const flushNow = useCallback(async () => {

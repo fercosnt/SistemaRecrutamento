@@ -122,6 +122,14 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
     avaliações» — o caminho de volta do Raven é o painel, e o guard `rotulos-navegacao-candidato`
     exige que o rótulo nomeie o destino. A confirmação de perda (Sair/Continuar) continua igual. Nas
     demais telas de prova, a D-24 vale como escrita.
+  - **Emenda (operador, 2026-10-11, no portão do bloco B — `52-14-DECISAO-RODADA-1.md`, Pergunta 1, CR-01 do
+    `52-REVIEW-PORTAO-1`) — substitui a lista da D-24 (e da D-36) neste ponto:** «têm rascunho automático» era
+    falso para **Big Five** e **Caso prático/aberto** — as duas telas GRAVAM pelo `useAutosaveAvaliacao`, mas
+    nunca releem o rascunho (nascem com `useState({})` / `useState('')`), então para o candidato as respostas
+    vivem só na memória. Elas passam ao ramo **«memória → confirma»**: diálogo «Sair da avaliação?» com ≥1
+    resposta marcada (Big Five) ou qualquer texto não vazio (Caso prático); sem nada, saem direto. A lista
+    «com rascunho → sai direto» passa a ser **só a Redação** (que relê o rascunho; sai depois do flush, e só
+    grava se houve edição — WR-01 do -1). A regra da D-24 continua; o texto acima fica como registro histórico.
 - **D-25:** Sliders BARS da entrevista começam **vazios e obrigatórios**: «Salvar avaliação» só libera
   com todas as dimensões escolhidas (mesma lógica do JORN-47 para as notas escritas). Some também o
   subtítulo com jargão («BARS sliders 1–5 — notas_humanas…»).
@@ -288,6 +296,11 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   achado F1). Ela entra no grupo da **confirmação de perda**, com o SJT MC e o Raven (mesmo `AlertDialog`,
   rótulo «Voltar às avaliações»). A regra da D-24 continua («rascunho → sai direto; memória → confirma»);
   só a lista estava errada. Só Big Five, Redação e Caso aberto saem direto.
+  - **Emenda da D-36 (operador, 2026-10-11, no portão do bloco B — `52-14-DECISAO-RODADA-1.md`, Pergunta 1,
+    resposta verbatim «Confirm like memory screens (Recommended)») — substitui a última frase acima:** a lista
+    também estava errada para **Big Five** e **Caso aberto** (gravam, mas não releem o rascunho — CR-01 do
+    `52-REVIEW-PORTAO-1`). Os dois entram na **confirmação de perda**, com SJT MC, Raven e prova cognitiva.
+    **Só a Redação sai direto.** Código: commit `aacef0a6` (52-02, rodada 1).
 - **D-37 (O2, emenda a UI-SPEC):** no hub, as alternativas do SJT MC aparecem em **ordem neutra estável,
   calculada no servidor** (a `ordem` do banco é o gabarito: `ordem 1 = fortemente_pontua` nos 21 itens `mc`
   de PROD, achado F2). A legenda da UI-SPEC «Alternativas na ordem do banco…» passa a ser **«Alternativas em

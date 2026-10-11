@@ -357,6 +357,8 @@ A fase tem quatro naturezas (D-33) e a pesquisa confirmou que a divisão em bloc
    — isso perderia as respostas em silêncio. Só **três** telas usam `useAutosaveAvaliacao` (Big Five,
    Redação, Caso aberto). A regra da D-24 («rascunho → sai direto; memória → confirmação») continua
    valendo; o que estava errado é a lista (Achado F1).
+   _Emenda 2026-10-11 (operador, `52-14-DECISAO-RODADA-1.md` P1; CR-01 do `52-REVIEW-PORTAO-1`): o achado também errou — **usar** `useAutosaveAvaliacao` só significa
+   GRAVAR. Big Five e Caso aberto nunca releem o rascunho; passaram à confirmação de perda. Só a Redação sai direto._
 2. **O motivo/justificativa do diálogo `humana_triagem` exige migration** — não é «tela sem banco».
    `revisao_rejeicao` tem RLS ligada, **0 policies** e nenhum SELECT para `authenticated`; e
    `candidaturas.etapa_justificativa` fica `NULL` depois da reversão, enquanto o texto sobrevive em
@@ -788,6 +790,7 @@ copiar uma **fotografia** junto com o padrão (contagens fixas, lista de FK, lis
 **What goes wrong:** botão «Voltar às avaliações» na prova cognitiva sai direto e apaga as respostas em memória.
 **Why:** a lista foi escrita de memória; o código diz o contrário (F1).
 **How to avoid:** derivar do código (`grep -rn "useAutosaveAvaliacao(" src`) e testar: com ≥1 resposta, as três telas sem rascunho abrem o diálogo.
+**Emenda 2026-10-11 (operador, `52-14-DECISAO-RODADA-1.md` P1; CR-01 do `52-REVIEW-PORTAO-1`):** o próprio «how to avoid» caiu na armadilha — chamar o hook não é ter rascunho; ter rascunho é **reler** (`loadResposta`/`load()`). Medido: só a Redação relê. Big Five e Caso aberto confirmam a saída.
 
 ### Pitfall 2: gabarito pela ordem
 **What goes wrong:** a alternativa certa sempre em primeiro no hub (F2).
@@ -967,7 +970,7 @@ ruído de `AsyncTaskManager.abortAll` do happy-dom no teardown é pré-existente
 | JORN-57 | Exatamente uma etiqueta (a da escolhida); ordem não denuncia a certa; `<mark>` sem `dangerouslySetInnerHTML` | componente + smoke | `npx vitest run src/features/avaliacao/components/__tests__/SjtMcDetalhe* TextoComCitacoes*` | ❌ Wave 0 |
 | JORN-58 | `?aba=` com `replace`; contagem 1×; proveniência sem «modelo modelo» (tela e PDF) | componente + guarda | `npx vitest run src/features/hub-candidato src/features/triagem/components/__tests__/ProvenienciaIABadge.test.tsx src/features/triagem/pdf` | ✅ parcial (substituir `hubVerRespostas.test.tsx`) |
 | JORN-59 | Todas concluídas → frase sem `<button>`; uma pendente → CTA; nenhuma escrita em `candidaturas` | componente | `npx vitest run src/components/pages/__tests__/DashboardCandidato*` | ❌ Wave 0 |
-| JORN-60 | Diálogo com ≥1 resposta (SJT MC, Raven, **cognitiva**); direto nas 3 com rascunho após `flushNow`; guarda de rótulos morde | componente + guarda + mutação | `npx vitest run src/features/avaliacao/components/__tests__/navegacao-provas.test.tsx src/__tests__/guards/rotulos-navegacao-candidato.grep.test.ts` | ✅ parcial |
+| JORN-60 | Diálogo com ≥1 resposta (SJT MC, Raven, **cognitiva**); direto nas 3 com rascunho após `flushNow` _(emenda 2026-10-11, `52-14-DECISAO-RODADA-1.md` P1; CR-01 do `52-REVIEW-PORTAO-1`: Big Five e Caso aberto também confirmam; direto só a Redação — ver `52-VALIDATION.md`)_; guarda de rótulos morde | componente + guarda + mutação | `npx vitest run src/features/avaliacao/components/__tests__/navegacao-provas.test.tsx src/__tests__/guards/rotulos-navegacao-candidato.grep.test.ts` | ✅ parcial |
 | JORN-61 | Nada marcado ao abrir (mesmo com `score: 4` da IA); 3 de 4 → desabilitado; `getActivePageFromPath` | componente + unit | `npx vitest run src/features/entrevista src/components/__tests__/RHSidebar*` | ❌ Wave 0 (sidebar) |
 | JORN-62 | `resolveRedirect` com sessão; `SelectItem` nos dois fundos; `humana_triagem` mostra motivo/justificativa (RPC + componente) | componente + smoke | `npx vitest run src/components/pages/__tests__/LoginCandidato* src/features/revisao` + smoke da RPC | ✅ parcial |
 | JORN-63 | População: duas entradas, trava (NOT EXISTS), colisões, fixtures, Storage; comando recusa população divergente; resíduo 0 | auto-teste node + ensaio + prova pós | `node scripts/p52_limpeza_portao.cjs --auto-teste` + `p52_ensaio.cjs supabase/tests/p52_populacao_limpeza.sql` | ❌ Wave 0 |
