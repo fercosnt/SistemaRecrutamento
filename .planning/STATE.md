@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-09-PLAN.md (2026-10-11): EF ler-cadastro-candidato-rh em CÓDIGO, nada publicado — contato/cadastro (19)/disponibilidade/inscrição, log só { candidatura_id, rh_user_id, role }, todo @invalido.local → contato null (tombstone também cadastro/disponibilidade null); deno 40/40 (13 mutações mordem), vitest 60/60, tsc 89 ≤ 90; serviço + useCadastroCandidatoRh; slug no efdeploy. Deploy no 52-15, depois do review 52-14."
-last_updated: "2026-10-11T03:36:00.000Z"
+stopped_at: "Completed 52-11-PLAN.md (2026-10-11): Big Five no hub (faixas da devolutiva, aviso fixo, recolhível, sem número da escala) e SJT MC (situação, alternativas em ordem neutra, etiqueta pt-BR só na escolhida) em CÓDIGO; RPCs do 52-08 ainda não aplicadas (52-15) — não publicar o front antes; vitest 79/672 verde, INTACTO ×3, tipografia OK, tsc 89 ≤ 90, hubVerRespostas intacto."
+last_updated: "2026-10-11T03:52:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 174
+  completed_plans: 175
   percent: 89
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52

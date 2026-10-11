@@ -767,7 +767,7 @@ Plans:
 - [ ] 52-07-PLAN.md — Entrevista: notas 1–5 vazias e obrigatórias, sem jargão (D-25)
 - [x] 52-08-PLAN.md — Migrations do bloco B (ensaio): `ler_devolutiva_bigfive_rh`, `ler_sjt_mc_rh` (ordem neutra), `ler_contexto_rejeicao_triagem_revisao`; nomes por papel do cadastro de RH (D-39, emenda); smoke por papel; mutações
 - [x] 52-09-PLAN.md — EF `ler-cadastro-candidato-rh` com log redigido (D-10/D-11), contrato inteiro (contato, cadastro, disponibilidade, inscrição); serviço e hook
-- [ ] 52-11-PLAN.md — Big Five no hub (faixas da devolutiva, aviso fixo, recolhível, sem percentil) e SJT MC (situação, alternativas, escolhida)
+- [x] 52-11-PLAN.md — Big Five no hub (faixas da devolutiva, aviso fixo, recolhível, sem percentil) e SJT MC (situação, alternativas, escolhida)
 - [ ] 52-13-PLAN.md — Motivo e justificativa no diálogo de revisão `humana_triagem` (D-38)
 - [ ] 52-16-PLAN.md — Banco SJT v2 em texto: pré-vendas 6+1 e versão nova de marketing; tabela de caracteres (D-34); gerador com ordem embaralhada (D-37); casos abertos mantidos conferidos por máquina; LGPD-04 antes do portão; ensaio
 
