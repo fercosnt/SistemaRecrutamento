@@ -16,7 +16,7 @@
  */
 import type { ReactElement } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
@@ -38,12 +38,23 @@ const state = vi.hoisted(() => ({
     status: string
   }>,
   opcoes: [] as Array<{ opcao_id: string; opcao_texto: string }>,
+  redacoes: [] as Array<{
+    id: string
+    codigo: string
+    texto: string
+    valor_primario: string | null
+    is_padrao: boolean
+  }>,
+  itensBigfive: [] as Array<{ item_id: number; texto: string; ordem: number }>,
+  // 52-02: um `flushNow` só, observável — os casos de saída com rascunho trocam por um
+  // diferido para provar a ORDEM (flush termina → só então navega).
+  flushNow: (() => Promise.resolve()) as () => Promise<void>,
 }))
 
 vi.mock('@/features/avaliacao/hooks/useAutosaveAvaliacao', () => ({
   useAutosaveAvaliacao: () => ({
     update: vi.fn(),
-    flushNow: vi.fn(() => Promise.resolve()),
+    flushNow: () => state.flushNow(),
     status: 'idle',
     locked: state.locked,
   }),
@@ -72,7 +83,7 @@ vi.mock('@/features/avaliacao/services/redacaoService', async (importOriginal) =
     await importOriginal<typeof import('@/features/avaliacao/services/redacaoService')>()
   return {
     ...actual,
-    getRedacaoContext: vi.fn(() => Promise.resolve([])),
+    getRedacaoContext: vi.fn(() => Promise.resolve(state.redacoes)),
     getMinhasRedacoes: vi.fn(() => Promise.resolve([])),
   }
 })
@@ -82,7 +93,7 @@ vi.mock('@/features/avaliacao/services/bigfiveService', async (importOriginal) =
     await importOriginal<typeof import('@/features/avaliacao/services/bigfiveService')>()
   return {
     ...actual,
-    getBigfiveItens: vi.fn(() => Promise.resolve([])),
+    getBigfiveItens: vi.fn(() => Promise.resolve(state.itensBigfive)),
     loadDevolutiva: vi.fn(() => Promise.reject(new Error('ainda não gerada'))),
   }
 })
@@ -124,6 +135,9 @@ describe('Telas de prova — rótulo diz o destino (51-01 / JORN-46)', () => {
     state.locked = false
     state.perguntas = []
     state.opcoes = []
+    state.redacoes = []
+    state.itensBigfive = []
+    state.flushNow = () => Promise.resolve()
   })
 
   it('Redação, «Sua etapa avançou» → «Ir ao painel» vai DIRETO ao painel', async () => {
@@ -230,6 +244,9 @@ describe('SJT múltipla escolha — saída durante a prova (52-02 / D-24, D-52-U
     state.locked = false
     state.perguntas = [PERGUNTA_MC]
     state.opcoes = OPCOES_MC
+    state.redacoes = []
+    state.itensBigfive = []
+    state.flushNow = () => Promise.resolve()
   })
 
   it('o botão de saída está na tela da prova e diz «Voltar às avaliações»', async () => {
@@ -275,5 +292,125 @@ describe('SJT múltipla escolha — saída durante a prova (52-02 / D-24, D-52-U
     const tempo = await screen.findByText(/^Tempo decorrido: \d{2}:\d{2} \(sem limite de tempo\)$/)
     expect(tempo).toHaveClass('tabular-nums')
     expect(document.body.textContent ?? '').not.toMatch(/Tempo sugerido/i)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// Phase 52 / Plan 52-02 (D-24, D-36): as três telas COM rascunho saem direto — nunca
+// abrem a confirmação de perda, com ou sem resposta — mas só DEPOIS que o `flushNow` do
+// `useAutosaveAvaliacao` termina (o flush de desmontagem é fogo-e-esquece).
+// ─────────────────────────────────────────────────────────────────────────────────────
+
+/** Troca o flushNow por um diferido e devolve o registro de ordem + o gatilho. */
+function flushDiferido() {
+  const ordem: string[] = []
+  let terminar: () => void = () => {}
+  const chamadas = { n: 0 }
+  state.flushNow = () =>
+    new Promise<void>((r) => {
+      chamadas.n += 1
+      ordem.push('flush:inicio')
+      terminar = () => {
+        ordem.push('flush:fim')
+        r()
+      }
+    })
+  return { ordem, chamadas, terminar: () => terminar() }
+}
+
+/** Clica «Voltar às avaliações», prova que espera o flush, solta o flush, chega à lista. */
+async function sairDepoisDoFlush() {
+  const flush = flushDiferido()
+  const btn = await screen.findByTestId('sair-da-prova')
+  expect(btn).toHaveAccessibleName(VOLTAR_AVALIACOES)
+  fireEvent.click(btn)
+  await waitFor(() => expect(flush.chamadas.n).toBe(1))
+  // Nunca a confirmação de perda; e, com o flush pendente, ainda na prova.
+  expect(screen.queryByRole('alertdialog')).toBeNull()
+  expect(screen.queryByText(TITULO_DIALOGO)).toBeNull()
+  expect(screen.queryByText('SENTINELA-LISTA')).toBeNull()
+  flush.terminar()
+  expect(await screen.findByText('SENTINELA-LISTA')).toBeInTheDocument()
+  expect(flush.ordem).toEqual(['flush:inicio', 'flush:fim'])
+}
+
+const PERGUNTA_CASO = {
+  id: 'P-CASO-1',
+  cargo: 'sdr',
+  cenario: 'Uma paciente desmarca pela terceira vez.',
+  formato: 'caso_aberto',
+  tempo_est_min: null,
+  status: 'ativo',
+}
+const REDACAO_1 = {
+  id: 'R1',
+  codigo: 'R1',
+  texto: 'Conte uma situação em que você colaborou com a equipe.',
+  valor_primario: null,
+  is_padrao: true,
+}
+const ITENS_BF = [
+  { item_id: 1, texto: 'Sou uma pessoa animada.', ordem: 1 },
+  { item_id: 2, texto: 'Gosto de ordem.', ordem: 2 },
+]
+
+describe('Telas com rascunho — saída direta depois do flush (52-02 / D-24, D-36)', () => {
+  beforeEach(() => {
+    state.locked = false
+    state.perguntas = [PERGUNTA_CASO]
+    state.opcoes = []
+    state.redacoes = [REDACAO_1]
+    state.itensBigfive = ITENS_BF
+    state.flushNow = () => Promise.resolve()
+  })
+
+  it('Caso prático, sem resposta → flush, depois a lista; sem diálogo', async () => {
+    renderAt(
+      '/candidato/avaliacao/CAND1/caso',
+      '/candidato/avaliacao/:candidaturaId/caso',
+      <SjtCasoAbertoScreen />,
+    )
+    await screen.findByRole('heading', { name: 'Caso prático' })
+    await sairDepoisDoFlush()
+  })
+
+  it('Caso prático, com texto escrito → flush, depois a lista; sem diálogo', async () => {
+    renderAt(
+      '/candidato/avaliacao/CAND1/caso',
+      '/candidato/avaliacao/:candidaturaId/caso',
+      <SjtCasoAbertoScreen />,
+    )
+    fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'Eu ligaria para ela.' } })
+    await sairDepoisDoFlush()
+  })
+
+  it('Redação, com texto escrito → flush, depois a lista; sem diálogo', async () => {
+    renderAt('/candidato/redacao/CAND1', '/candidato/redacao/:candidaturaId', <RedacaoEditorScreen />)
+    await screen.findByRole('heading', { name: 'Redação cultural' })
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Numa semana de mutirão…' } })
+    await sairDepoisDoFlush()
+  })
+
+  it('Big Five, na introdução → flush, depois a lista; sem diálogo', async () => {
+    renderAt(
+      '/candidato/avaliacao/CAND1/bigfive',
+      '/candidato/avaliacao/:candidaturaId/bigfive',
+      <BigFiveQuestionnaireScreen />,
+    )
+    await screen.findByRole('button', { name: 'Começar' })
+    await sairDepoisDoFlush()
+  })
+
+  it('Big Five, com 1 resposta marcada → flush, depois a lista; sem diálogo', async () => {
+    renderAt(
+      '/candidato/avaliacao/CAND1/bigfive',
+      '/candidato/avaliacao/:candidaturaId/bigfive',
+      <BigFiveQuestionnaireScreen />,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Começar' }))
+    const primeira = (await screen.findAllByRole('radio'))[0]
+    fireEvent.click(primeira)
+    expect(primeira).toHaveAttribute('aria-checked', 'true')
+    await sairDepoisDoFlush()
   })
 })

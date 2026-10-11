@@ -142,6 +142,47 @@ describe('ProvaCognitivaScreen — nome e destino (51-01 / D-15, D-37)', () => {
   })
 })
 
+// Phase 52 / Plan 52-02 (JORN-60 — D-36): a Prova cognitiva NÃO tem rascunho (as respostas
+// vivem só na memória da tela, FX-13) — entra no grupo da confirmação de perda, com o
+// mesmo diálogo do SJT MC e o rótulo «Voltar às avaliações».
+describe('ProvaCognitivaScreen — saída durante a prova (52-02 / D-36)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    m.listItens.mockResolvedValue(UM_ITEM)
+    m.getContexto.mockResolvedValue(CTX(true))
+  })
+
+  it('sem resposta → «Voltar às avaliações» vai DIRETO à lista, sem diálogo', async () => {
+    renderProva()
+    const btn = await screen.findByTestId('sair-da-prova')
+    expect(btn).toHaveAccessibleName(VOLTAR_AVALIACOES)
+    fireEvent.click(btn)
+    expect(await screen.findByText('SENTINELA-LISTA')).toBeInTheDocument()
+    expect(screen.queryByText('Sair da avaliação?')).toBeNull()
+  })
+
+  it('com 1 resposta → diálogo; «Continuar» mantém; «Sair» vai à lista', async () => {
+    renderProva()
+    const a = await screen.findByRole('radio', { name: 'A' })
+    fireEvent.click(a)
+    expect(a).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(screen.getByTestId('sair-da-prova'))
+    const dialogo = await screen.findByRole('alertdialog')
+    expect(dialogo).toHaveTextContent('Sair da avaliação?')
+    expect(dialogo).toHaveTextContent('Se sair agora, as respostas desta prova não serão salvas.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByText('SENTINELA-LISTA')).toBeNull()
+    expect(screen.getByRole('radio', { name: 'A' })).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(screen.getByTestId('sair-da-prova'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Sair' }))
+    expect(await screen.findByText('SENTINELA-LISTA')).toBeInTheDocument()
+  })
+})
+
 describe('AvaliacaoRavenScreen — nome e destino (51-01 / D-15, D-37)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
