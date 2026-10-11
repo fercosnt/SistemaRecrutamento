@@ -61,56 +61,14 @@ import {
   submitCandidaturaWithRespostas,
   CandidaturasServiceError,
 } from '@/features/vagas/services/candidaturasService'
+import { groupByBloco, rotuloDoBloco } from '@/features/vagas/lib/blocosFormulario'
 
 // ---- helpers ---------------------------------------------------------------
-
-const DEFAULT_BLOCO = 'Geral'
-
-/**
- * Rótulo humano para cada `bloco`.
- *
- * ⚠ Os valores de `perguntas_formulario.bloco` são um CHECK fechado — quatro
- * strings feitas para o BANCO: `curriculo`, `jornada`, `tecnologia`, `valores`.
- * Até 2026-08-26 elas apareciam CRUAS como título de seção no formulário, em
- * minúsculo e sem acento, para o candidato ler. Visto em produção durante o teste
- * E2E.
- *
- * Um valor sem rótulo aqui cai no próprio nome do bloco — degrada para o
- * comportamento antigo em vez de sumir com a seção, que seria pior: o candidato
- * perderia a separação entre grupos de perguntas.
- */
-const ROTULO_BLOCO: Record<string, string> = {
-  curriculo: 'Sobre sua experiência',
-  jornada: 'Disponibilidade',
-  tecnologia: 'Ferramentas e rotina',
-  valores: 'Motivação',
-}
-
-function rotuloDoBloco(bloco: string): string {
-  return ROTULO_BLOCO[bloco] ?? bloco
-}
 
 const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-}
-
-/**
- * D-13 — group perguntas by `bloco`. Empty/whitespace bloco falls back to 'Geral'.
- * Insertion order is preserved by Map semantics, which matches the SQL
- * `ORDER BY ordem ASC` from useVagaPerguntas.
- */
-function groupByBloco(
-  perguntas: PerguntaFormulario[]
-): Map<string, PerguntaFormulario[]> {
-  const groups = new Map<string, PerguntaFormulario[]>()
-  for (const p of perguntas) {
-    const key = p.bloco && p.bloco.trim() ? p.bloco : DEFAULT_BLOCO
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(p)
-  }
-  return groups
 }
 
 // ---- knockout card ---------------------------------------------------------
