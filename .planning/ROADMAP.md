@@ -754,7 +754,7 @@ Plans:
   5. Depois da UAT da 52 (conferida por máquina), nenhuma conta, candidatura, fictício ou currículo de teste resta em PROD — população por conta medida, aprovada pelo operador e re-medida no mesmo comando, nenhuma conta de RH/admin tocada, prova pós com resíduo 0 —, e `git log --oneline origin/main..HEAD` sai vazio com os marcadores no chunk certo
 **Guardrails**: os do Bloco 3 — migrations pelo `p46apply.cjs` (md5 do ledger), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado e `git log origin/main..HEAD` vazio com o marcador no chunk certo. Alarga leitura de dado pessoal: review bloqueante antes do apply
 **Requirements (planejamento, 2026-10-10)**: JORN-52..63 — quatro blocos em ondas (D-33): A (telas sem banco) e B (hub do RH) → portão B → C (banco SJT v2) → **UAT da 52** → D (limpeza destrutiva)
-**Plans**: 25 plans
+**Plans**: 27 plans
 
 **Wave 1**
 - [x] 52-01-PLAN.md — Arnês da fase: `p52_ensaio.cjs` (ensaio que aborta), `p52_portao.cjs` (regra 8 sobre `_p52_`), `p52_tipografia.cjs`, `p52_vitest_delta.cjs` (suíte Vitest por delta contra a base, medida na mesma execução); base `refs/gsd/52/base`
@@ -799,20 +799,21 @@ Plans:
 **Wave 11** *(checkpoint)*
 - [x] 52-18-PLAN.md — Review do bloco C, apply do banco SJT v2, push — depois: **UAT da Phase 52** (concluído 2026-10-11: 0003 no ar, push bc0d2720..c3e04a71)
 
-**Gap antes da UAT da 52** *(gap_closure; onda 12 no frontmatter — os planos abaixo descem uma onda; checkpoint de review)*
+**Wave 12** *(gap_closure — antes da UAT da 52; checkpoint de review e de janela única)*
 - [ ] 52-26-PLAN.md — WR-04 (`pontuar_sjt` compara `pergunta_id` como uuid na duplicata e na completude; payload malformado → `22023`) + F13 (`salvar_avaliacao_entrevista` exige nota 1–5 em todas as competências da análise), migration `20261011000005` gerada dos corpos vivos, review, apply, instante registrado (`52-APLICACOES.json`, D-41 emendada) e push que leva os commits só-`.planning/` do 52-18 (operador, 2026-10-11)
 
-**Wave 12** *(checkpoint; só com PITR ligado — D-41 — e depois da UAT da 52, os dois conferidos por máquina)*
-- [ ] 52-19-PLAN.md — PITR ligado conferido pela Management API (D-41); varredura da população de teste por conta (trava do RH) e decisão do escopo da limpeza (só opções executáveis)
+**Wave 13** *(checkpoint; só depois da UAT da 52 e com backup diário COMPLETED posterior ao último apply da fase — D-41 emendada em 2026-10-11, PITR recusado —, os dois conferidos por máquina)*
+- [ ] 52-19-PLAN.md — Backup diário posterior ao último apply conferido pela Management API (D-41 emendada, condição 1); varredura da população de teste por conta (lista da D-30 inteira, `3a9254c3` na população, trava do RH) e decisão do escopo da limpeza (só opções executáveis)
 
-**Wave 13**
+**Wave 14**
 - [ ] 52-20-PLAN.md — Migration destrutiva do escopo decidido (ensaio), prova pós, mutações, removedor de Storage
+- [ ] 52-27-PLAN.md — Exportador da população (D-41 emendada, condição 2): fecho de FK lido na execução, linhas e currículos fora do git, `--conferir --vivo`; nenhum export real (gap_closure)
 
-**Wave 14** *(checkpoint destrutivo)*
-- [ ] 52-21-PLAN.md — Portão destrutivo: medição fresca, review bloqueante, OK sobre os números, apply amarrado; currículos pela Storage API (lista aprovada, pin, ledger) sob a mesma porta
+**Wave 15** *(checkpoint destrutivo)*
+- [ ] 52-21-PLAN.md — Portão destrutivo: medição fresca, export prévio feito uma vez e conferido, review bloqueante, OK sobre os números (escopo do export vetável), apply amarrado — backup no modo apply e export contra o vivo como os dois elos imediatamente antes do `migrate`, na manhã seguinte a um backup diário; currículos pela Storage API (lista aprovada, pin, ledger) sob a mesma porta
 
-**Wave 15**
-- [ ] 52-22-PLAN.md — Push final da fase por sha; pendências do fecho do M8 nomeadas
+**Wave 16**
+- [ ] 52-22-PLAN.md — Push final da fase por sha; pendências do fecho do M8 nomeadas (PITR recusado, retenção do export local)
 
 ## Progress
 

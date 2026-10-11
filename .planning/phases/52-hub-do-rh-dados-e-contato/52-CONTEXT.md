@@ -337,16 +337,20 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
        (criado no 52-26) em que toda versão `p52_%` do ledger de PROD tem um instante ≥ o commit do seu apply (o ledger não
        tem coluna de tempo e `track_commit_timestamp` é `off`, medido); versão do ledger sem registro recusa. Abre o 52-19 e
        o 52-21 (Task 1). Medido em 2026-10-11: recusa hoje (backup 06:26Z anterior ao apply da 0003 às 18:59Z), como deve.
-    2. `scripts/p52_export_limpeza.cjs` (criado no 52-20, rodado no 52-21): exporta para
+    2. `scripts/p52_export_limpeza.cjs` (criado no 52-27, paralelo ao 52-20; rodado UMA vez na ação do 52-21 Task 1 e
+       registrado em `52-21-EXPORT.md`): exporta para
        `$HOME/p52-export-limpeza/<instante UTC>/` — fora do repositório e de qualquer árvore git, 0700/0600 — as linhas que a
        migration da limpeza apaga ou altera (fecho de FK lido na execução, pais antes de filhos, restaurável por
-       `jsonb_populate_record`; do `auth`, só `users`/`identities` — credenciais vivas ficam fora por desenho) e os
+       `jsonb_populate_record`; do `auth`, só `users`/`identities`: as tabelas de sessão e credencial só são contadas, e as
+       colunas de token de uso único de `auth.users` vão em branco; o hash da senha fica, para a conta restaurada entrar com
+       a senha de antes — escolha do planejador mostrada ao operador e VETÁVEL no 52-21, chave `export_escopo`) e os
        currículos aprovados, com `MANIFESTO.json` cujo md5 é o `export_md5` registrado no SUMMARY e aprovado no
        `52-21-DECISAO.md`; `--conferir --vivo` é a prontidão para restaurar (relê, confere contra a população, o Storage
-       capturado, a decisão e o banco de agora).
+       capturado, a decisão e o banco de agora). A retenção do export é do operador (pendência do fecho do M8, 52-22).
     3. A manhã seguinte: `p52_backup.cjs --apply --decisao 52-21-DECISAO.md` exige ainda o último backup COMPLETED posterior
        ao `export_em_aprovado` e o instante de agora (o `Date` do servidor) no mesmo dia de America/Sao_Paulo que esse
-       backup e antes de 12:00. As condições (1)+(3) e (2) são os DOIS elos imediatamente anteriores ao `migrate` no
+       backup e antes de 12:00 — com a premissa explícita de que o backup diário roda entre 03:00 e 15:00 UTC (medido:
+       06:25–06:31 UTC); fora dela o script recusa com motivo próprio e o bloco D volta ao planejador. As condições (1)+(3) e (2) são os DOIS elos imediatamente anteriores ao `migrate` no
        `52-21-COMANDO-APPLY.sh`, posição conferida por tokenização com auto-teste de mutações.
     Sem as três, o bloco D não apaga nada. O texto acima fica como registro histórico.
 - **D-40 (operador, 2026-10-10, no plan-phase — refina a D-16):** registro **fictício ou anonimizado**
