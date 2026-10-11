@@ -11,7 +11,8 @@
  * - Celular sempre como TEXTO PURO, para todo registro — inclusive o fictício/anonimizado, que o
  *   52-09 entrega com `email: null` e o celular gravado. A ação de contato é só do cabeçalho
  *   (52-23), que para esses registros não a oferece (D-40). Nenhum link nem botão aqui.
- * - LinkedIn/Instagram como texto neste plano; o link `http(s)` é do 52-24 (D-20).
+ * - LinkedIn/Instagram passam por `segmentosComLinks` (52-24, D-20): uma URL `http(s)` vira link em
+ *   aba nova (`TextoComLinks`); sem esquema (`www.…`, `@nome`) ou com outro esquema → texto.
  * - Todo valor é nó de texto React em `<dd>` — sem `dangerouslySetInnerHTML` (T-52-71).
  *
  * @module features/hub-candidato/components/DadosCadastroBloco
@@ -32,6 +33,7 @@ import {
   rotuloModeloTrabalho,
   rotuloTurno,
 } from '../lib/formatos'
+import { TextoComLinks } from './TextoComLinks'
 
 /** Rótulos e frases da ficha — uma fonte só, testável. */
 export const COPY_DADOS_CADASTRO = {
@@ -99,17 +101,22 @@ function Par({
   rotulo,
   valor,
   quebraTudo = false,
+  comLinks = false,
 }: {
   rotulo: string
   valor: string | null
   quebraTudo?: boolean
+  /** 52-24 (D-20): o valor passa por `segmentosComLinks` — só `http(s)` vira link. */
+  comLinks?: boolean
 }) {
   const ausente = valor === null
   const classe = ausente ? DD_AUSENTE : quebraTudo ? `${DD} break-all` : DD
   return (
     <div className="space-y-1">
       <dt className={DT}>{rotulo}</dt>
-      <dd className={classe}>{ausente ? COPY_DADOS_CADASTRO.naoInformado : valor}</dd>
+      <dd className={classe}>
+        {ausente ? COPY_DADOS_CADASTRO.naoInformado : comLinks ? <TextoComLinks texto={valor} /> : valor}
+      </dd>
     </div>
   )
 }
@@ -149,11 +156,13 @@ export function DadosCadastroBloco({
           rotulo={R.linkedin}
           valor={texto(cadastro.linkedin_url) ?? texto(cadastro.linkedin)}
           quebraTudo
+          comLinks
         />
         <Par
           rotulo={R.instagram}
           valor={texto(cadastro.instagram_url) ?? texto(cadastro.instagram)}
           quebraTudo
+          comLinks
         />
       </dl>
 

@@ -56,6 +56,7 @@ import { AnaliseIABlock } from './AnaliseIABlock'
 import { HistoricoBlock } from './HistoricoBlock'
 import { ContatoCandidatoHeader } from './ContatoCandidatoHeader'
 import { DadosCadastroBloco, COPY_DADOS_CADASTRO } from './DadosCadastroBloco'
+import { RespostasInscricaoBloco, COPY_RESPOSTAS_INSCRICAO } from './RespostasInscricaoBloco'
 import {
   AvaliacoesRespondidasBloco,
   COPY_AVALIACOES_RESPONDIDAS,
@@ -93,17 +94,30 @@ function abaDaUrl(valor: string | null): AbaHub {
 function AbaCadastroInscricao({ candidaturaId }: { candidaturaId: string }) {
   const { data, isLoading, isError } = useCadastroCandidatoRh(candidaturaId)
   return (
-    <HubSection
-      titulo={COPY_DADOS_CADASTRO.titulo}
-      estado="com_dados"
-      isLoading={isLoading}
-      isError={isError}
-    >
-      <DadosCadastroBloco
-        cadastro={data?.cadastro ?? null}
-        disponibilidade={data?.disponibilidade ?? null}
-      />
-    </HubSection>
+    <>
+      <HubSection
+        titulo={COPY_DADOS_CADASTRO.titulo}
+        estado="com_dados"
+        isLoading={isLoading}
+        isError={isError}
+      >
+        <DadosCadastroBloco
+          cadastro={data?.cadastro ?? null}
+          disponibilidade={data?.disponibilidade ?? null}
+        />
+      </HubSection>
+
+      {/* 52-24 (D-19, D-20, JORN-55): as respostas da inscrição, na ordem e nos grupos do
+          formulário — `inscricao` do MESMO useCadastroCandidatoRh acima (nenhuma leitura nova). */}
+      <HubSection
+        titulo={COPY_RESPOSTAS_INSCRICAO.titulo}
+        estado="com_dados"
+        isLoading={isLoading}
+        isError={isError}
+      >
+        <RespostasInscricaoBloco inscricao={data?.inscricao ?? []} />
+      </HubSection>
+    </>
   )
 }
 
