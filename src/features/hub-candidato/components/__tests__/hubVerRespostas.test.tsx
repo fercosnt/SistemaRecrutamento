@@ -18,6 +18,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ScoreRow } from '@/features/avaliacao/services/scoresRhService'
 
@@ -124,7 +125,7 @@ function montar(rows: ScoreRow[], etapa = 'avaliacao_assincrona') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <HubCandidatoRH />
+      <MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=avaliacoes']}><HubCandidatoRH /></MemoryRouter>
     </QueryClientProvider>,
   )
 }

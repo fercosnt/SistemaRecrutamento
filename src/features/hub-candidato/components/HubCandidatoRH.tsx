@@ -26,11 +26,12 @@
  * @see src/lib/navegacao/funilNavMap.ts (etapa → workspace CTA source — D-17)
  * @see .planning/phases/17-navegacao-arquitetura-informacao/17-UI-SPEC.md (§Interaction Contract; §Empty states)
  */
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, X } from 'lucide-react'
 import { RHLayout } from '@/components/RHLayout'
 import { Glass, GlassCard, GlassButton } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { funilNavMap } from '@/lib/navegacao/funilNavMap'
 import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada'
 import { proximaEtapaDeTrabalho } from '@/lib/candidatura/proximaEtapa'
@@ -54,6 +55,7 @@ import { CvButton } from './CvButton'
 import { AnaliseIABlock } from './AnaliseIABlock'
 import { HistoricoBlock } from './HistoricoBlock'
 import { ContatoCandidatoHeader } from './ContatoCandidatoHeader'
+import { DadosCadastroBloco, COPY_DADOS_CADASTRO } from './DadosCadastroBloco'
 import {
   AvaliacoesRespondidasBloco,
   COPY_AVALIACOES_RESPONDIDAS,
@@ -63,6 +65,47 @@ import { LiberacaoCognitivoBlock } from '@/features/avaliacao-cognitiva/componen
 import { instrumentosDaVaga, type Aplicabilidade } from '../lib/instrumentosDaVaga'
 import { useAnaliseCandidato } from '../hooks/useAnaliseCandidato'
 import { useHistoricoCandidatura } from '../hooks/useHistoricoCandidatura'
+import { useCadastroCandidatoRh } from '../hooks/useCadastroCandidatoRh'
+
+/**
+ * 52-10 / D-17 (rótulos travados) + D-52-U02 — as quatro abas do hub, na ordem, com o valor que
+ * vai para `?aba=`. A primeira é a que abre (e o destino de qualquer valor desconhecido).
+ */
+export const ABAS_HUB = [
+  { valor: 'resumo', rotulo: 'Resumo' },
+  { valor: 'cadastro', rotulo: 'Cadastro e inscrição' },
+  { valor: 'avaliacoes', rotulo: 'Avaliações' },
+  { valor: 'historico', rotulo: 'Histórico' },
+] as const
+
+type AbaHub = (typeof ABAS_HUB)[number]['valor']
+
+function abaDaUrl(valor: string | null): AbaHub {
+  return ABAS_HUB.find((a) => a.valor === valor)?.valor ?? 'resumo'
+}
+
+/**
+ * 52-10 — a aba «Cadastro e inscrição». O hook de dados pessoais (`useCadastroCandidatoRh`, EF do
+ * 52-09 com linha de log — D-11) mora AQUI, num filho, como no cabeçalho de contato do 52-23: o
+ * corpo do hub tem early return de not-found, e a leitura só tem sentido com a aba montada. A
+ * chave é a mesma do cabeçalho — uma chamada à EF serve aos dois.
+ */
+function AbaCadastroInscricao({ candidaturaId }: { candidaturaId: string }) {
+  const { data, isLoading, isError } = useCadastroCandidatoRh(candidaturaId)
+  return (
+    <HubSection
+      titulo={COPY_DADOS_CADASTRO.titulo}
+      estado="com_dados"
+      isLoading={isLoading}
+      isError={isError}
+    >
+      <DadosCadastroBloco
+        cadastro={data?.cadastro ?? null}
+        disponibilidade={data?.disponibilidade ?? null}
+      />
+    </HubSection>
+  )
+}
 
 /**
  * The funnel timeline order (the 8 M2 stages). The candidate's position in this order
@@ -129,6 +172,19 @@ export function HubCandidatoRH() {
   const { id } = useParams<{ id: string }>()
   const candidaturaId = id ?? '' // ⚠ candidaturaId, NOT candidato.id (Pitfall 1)
   const navigate = useNavigate()
+
+  // 52-10 / D-52-U02: a aba mora na URL. Hook ACIMA do early return de not-found (rules of hooks).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const aba = abaDaUrl(searchParams.get('aba'))
+  const trocarAba = (valor: string) =>
+    setSearchParams(
+      (atual) => {
+        const proximos = new URLSearchParams(atual)
+        proximos.set('aba', valor)
+        return proximos
+      },
+      { replace: true },
+    )
 
   // The candidatura "row in scope" — name + etapa + vaga resolution (allowlist projection).
   const { data: contexto, isLoading: loadingContexto, isError: errorContexto } =
@@ -267,301 +323,336 @@ export function HubCandidatoRH() {
             hook novo no corpo deste hub (o early return de not-found acima exige isso). */}
         <ContatoCandidatoHeader candidaturaId={candidaturaId} />
 
-        {/* Próximo passo — o CTA dominante da etapa_atual (D-06) MAIS a linha de ações
-            OPER-01/02/03 (avançar/retroceder/rejeitar) ao lado dele.
+        {/* 52-10 / D-17, D-52-U01, D-52-U02 — o hub em quatro abas, com a aba na URL (`?aba=`).
+            Trocar de aba grava com `replace` (não enche o histórico do navegador); valor
+            desconhecido cai no Resumo. O Radix desmonta o conteúdo inativo, então as leituras
+            próprias de cada aba só disparam quando ela abre. As ações de decisão continuam no
+            «Próximo passo», primeira seção da aba que abre; o contato fica acima, fora das abas. */}
+        <Tabs value={aba} onValueChange={trocarAba} className="space-y-6">
+          <TabsList
+            data-testid="hub-abas"
+            className="flex h-auto w-full flex-wrap gap-2 bg-transparent p-0"
+          >
+            {ABAS_HUB.map((a) => (
+              <TabsTrigger
+                key={a.valor}
+                value={a.valor}
+                className="min-h-[44px] rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/70 transition-colors hover:bg-white/10 data-[state=active]:border-white/30 data-[state=active]:bg-white/20 data-[state=active]:text-white"
+              >
+                {a.rotulo}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-            ⚠ ATÉ 2026-08-26 A CONDIÇÃO ERA `rotaWorkspaceAtual && entradaAtual`, e isso
-            escondia o bloco INTEIRO — inclusive Avançar, Retroceder e Rejeitar — em
-            qualquer etapa cujo `rotaWorkspaceRH` seja `null`.
+          <TabsContent value="resumo" className="space-y-6 pt-2">
+            {/* Próximo passo — o CTA dominante da etapa_atual (D-06) MAIS a linha de ações
+                OPER-01/02/03 (avançar/retroceder/rejeitar) ao lado dele.
 
-            `triagem` é exatamente esse caso, e por desenho: o próprio hub É o destino
-            dela, então a rota aponta para `null` (funilNavMap:82). O efeito medido em
-            produção foi que na etapa em que TODO candidato entra — e onde a triagem
-            acontece — o RH não tinha nenhuma das três ações. O funil não avançava pela
-            tela.
+                ⚠ ATÉ 2026-08-26 A CONDIÇÃO ERA `rotaWorkspaceAtual && entradaAtual`, e isso
+                escondia o bloco INTEIRO — inclusive Avançar, Retroceder e Rejeitar — em
+                qualquer etapa cujo `rotaWorkspaceRH` seja `null`.
 
-            A rota é pré-requisito só do CTA de navegação. As ações dependem de haver
-            `etapaAtual`, não de existir workspace. A condição passa a ser `entradaAtual`,
-            e o CTA dominante é que fica condicionado à rota.
+                `triagem` é exatamente esse caso, e por desenho: o próprio hub É o destino
+                dela, então a rota aponta para `null` (funilNavMap:82). O efeito medido em
+                produção foi que na etapa em que TODO candidato entra — e onde a triagem
+                acontece — o RH não tinha nenhuma das três ações. O funil não avançava pela
+                tela.
 
-            ⚠ O comentário anterior afirmava que o bloco ficava "naturalmente oculto em
-            aprovado/rejeitado (T-31-04)" — e isso NUNCA foi verdade. As duas têm
-            `rotaWorkspaceRH` apontando para `/decisao` (funilNavMap:117 e :124), então o
-            bloco já aparecia nelas antes desta mudança. O que some nas terminais é o
-            botão Avançar, porque `proximaEtapa` é nula ali — não o bloco. Verificado por
-            execução em 2026-08-26; a afirmação antiga não foi. */}
-        {entradaAtual ? (
-          <Glass variant="dark" blur="lg" className="rounded-xl p-6">
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#35BFAD]">Próximo passo</p>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-              <p className="text-base text-white/80">
-                Continue o funil pela etapa atual do candidato.
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {etapaAtual ? (
-                  <>
-                    {/* Avançar — 1-clique pelo write-path auditável (accent, subordinado ao CTA). */}
-                    {proximaEtapa && !encerrada ? (
+                A rota é pré-requisito só do CTA de navegação. As ações dependem de haver
+                `etapaAtual`, não de existir workspace. A condição passa a ser `entradaAtual`,
+                e o CTA dominante é que fica condicionado à rota.
+
+                ⚠ O comentário anterior afirmava que o bloco ficava "naturalmente oculto em
+                aprovado/rejeitado (T-31-04)" — e isso NUNCA foi verdade. As duas têm
+                `rotaWorkspaceRH` apontando para `/decisao` (funilNavMap:117 e :124), então o
+                bloco já aparecia nelas antes desta mudança. O que some nas terminais é o
+                botão Avançar, porque `proximaEtapa` é nula ali — não o bloco. Verificado por
+                execução em 2026-08-26; a afirmação antiga não foi. */}
+            {entradaAtual ? (
+              <Glass variant="dark" blur="lg" className="rounded-xl p-6">
+                <p className="text-sm font-semibold uppercase tracking-wide text-[#35BFAD]">Próximo passo</p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+                  <p className="text-base text-white/80">
+                    Continue o funil pela etapa atual do candidato.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {etapaAtual ? (
+                      <>
+                        {/* Avançar — 1-clique pelo write-path auditável (accent, subordinado ao CTA). */}
+                        {proximaEtapa && !encerrada ? (
+                          <button
+                            type="button"
+                            onClick={() => avancarEtapa({ candidaturaId, novaEtapa: proximaEtapa })}
+                            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#35BFAD]/40 bg-[#35BFAD]/10 px-4 text-sm font-semibold text-[#35BFAD] transition-colors hover:bg-[#35BFAD]/20"
+                          >
+                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                            Avançar
+                          </button>
+                        ) : null}
+
+                        {/* Retroceder — dialog compartilhado, gatilho neutro dark-glass.
+                            ⚠ Só oferecido quando EXISTE etapa anterior. Em `aprovado`/
+                            `rejeitado` o `FUNNEL_ORDER` não contém a etapa (indexOf → -1) e o
+                            diálogo abriria com o select VAZIO — foi o que aconteceu em
+                            2026-08-26. Oferecer uma ação que não pode ser concluída é pior
+                            que não oferecer: o operador tenta, não consegue, e não descobre
+                            o motivo. */}
+                        {podeRetroceder ? (
+                        <RetrocederCandidaturaDialog
+                          candidaturaId={candidaturaId}
+                          nome={nomeCandidato}
+                          etapaAtual={etapaAtual}
+                          trigger={
+                            <button
+                              type="button"
+                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-4 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"
+                            >
+                              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                              Retroceder
+                            </button>
+                          }
+                        />
+                        ) : null}
+
+                        {/* Rejeitar — dialog compartilhado (única via de rejeição), gatilho destrutivo.
+                            Não oferecido para candidatura encerrada (JORN-26 C1b). Em vez de
+                            sumir calado, a linha abaixo diz por quê — botão que desaparece sem
+                            explicação faz o operador procurar um defeito que não existe. */}
+                        {encerrada ? (
+                          <p
+                            data-testid="hub-acoes-encerrada"
+                            className="text-sm text-white/70"
+                          >
+                            Candidatura encerrada — não há ação de funil a tomar.
+                          </p>
+                        ) : (
+                        <RejeitarCandidaturaDialog
+                          candidaturaId={candidaturaId}
+                          nome={nomeCandidato}
+                          trigger={
+                            <button
+                              type="button"
+                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-red-500/40 bg-red-500/10 px-4 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/20"
+                            >
+                              <X className="h-4 w-4" aria-hidden="true" />
+                              Rejeitar
+                            </button>
+                          }
+                        />
+                        )}
+                      </>
+                    ) : null}
+
+                    {/* O CTA dominante permanece — não é deslocado (turquesa sólido).
+                        Só existe quando a etapa TEM workspace próprio: em `triagem` o
+                        destino é este mesmo hub, e um botão que navega para a página em
+                        que já se está não ajuda ninguém. */}
+                    {rotaWorkspaceAtual ? (
                       <button
                         type="button"
-                        onClick={() => avancarEtapa({ candidaturaId, novaEtapa: proximaEtapa })}
-                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#35BFAD]/40 bg-[#35BFAD]/10 px-4 text-sm font-semibold text-[#35BFAD] transition-colors hover:bg-[#35BFAD]/20"
+                        onClick={() => navigate(rotaWorkspaceAtual)}
+                        className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-base font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90"
                       >
-                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                        Avançar
+                        {entradaAtual.ctaRH}
                       </button>
                     ) : null}
+                  </div>
+                </div>
+              </Glass>
+            ) : null}
 
-                    {/* Retroceder — dialog compartilhado, gatilho neutro dark-glass.
-                        ⚠ Só oferecido quando EXISTE etapa anterior. Em `aprovado`/
-                        `rejeitado` o `FUNNEL_ORDER` não contém a etapa (indexOf → -1) e o
-                        diálogo abriria com o select VAZIO — foi o que aconteceu em
-                        2026-08-26. Oferecer uma ação que não pode ser concluída é pior
-                        que não oferecer: o operador tenta, não consegue, e não descobre
-                        o motivo. */}
-                    {podeRetroceder ? (
-                    <RetrocederCandidaturaDialog
-                      candidaturaId={candidaturaId}
-                      nome={nomeCandidato}
-                      etapaAtual={etapaAtual}
-                      trigger={
+            {/* Timeline — all 8 stages always visible; current = accent, others reachable/locked */}
+            <Glass variant="dark" blur="lg" className="rounded-xl p-6">
+              <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">Linha do funil</h2>
+              <ol className="flex flex-wrap gap-2">
+                {TIMELINE.map((etapa) => {
+                  const isAtual = etapa === etapaAtual
+                  const idxEtapa = TIMELINE.indexOf(etapa)
+                  const idxAtual = etapaAtual ? TIMELINE.indexOf(etapaAtual) : -1
+                  const isPassada = idxAtual >= 0 && idxEtapa < idxAtual
+                  const rotaPassada = funilNavMap[etapa].rotaWorkspaceRH(candidaturaId)
+                  return (
+                    <li key={etapa}>
+                      {isPassada && rotaPassada ? (
                         <button
                           type="button"
-                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-4 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"
+                          onClick={() => navigate(rotaPassada)}
+                          className="inline-flex min-h-[44px] items-center rounded-lg border border-white/20 bg-white/5 px-3 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"
                         >
-                          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                          Retroceder
+                          Revisar {ETAPA_M2_LABELS[etapa]}
                         </button>
-                      }
-                    />
-                    ) : null}
-
-                    {/* Rejeitar — dialog compartilhado (única via de rejeição), gatilho destrutivo.
-                        Não oferecido para candidatura encerrada (JORN-26 C1b). Em vez de
-                        sumir calado, a linha abaixo diz por quê — botão que desaparece sem
-                        explicação faz o operador procurar um defeito que não existe. */}
-                    {encerrada ? (
-                      <p
-                        data-testid="hub-acoes-encerrada"
-                        className="text-sm text-white/70"
-                      >
-                        Candidatura encerrada — não há ação de funil a tomar.
-                      </p>
-                    ) : (
-                    <RejeitarCandidaturaDialog
-                      candidaturaId={candidaturaId}
-                      nome={nomeCandidato}
-                      trigger={
-                        <button
-                          type="button"
-                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-red-500/40 bg-red-500/10 px-4 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/20"
+                      ) : (
+                        <span
+                          className={
+                            isAtual
+                              ? 'inline-flex min-h-[44px] items-center rounded-lg bg-[#35BFAD] px-3 text-sm font-semibold text-white'
+                              : 'inline-flex min-h-[44px] items-center rounded-lg border border-white/15 bg-white/5 px-3 text-sm font-semibold text-white/50'
+                          }
                         >
-                          <X className="h-4 w-4" aria-hidden="true" />
-                          Rejeitar
-                        </button>
-                      }
-                    />
-                    )}
-                  </>
-                ) : null}
+                          {ETAPA_M2_LABELS[etapa]}
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+            </Glass>
 
-                {/* O CTA dominante permanece — não é deslocado (turquesa sólido).
-                    Só existe quando a etapa TEM workspace próprio: em `triagem` o
-                    destino é este mesmo hub, e um botão que navega para a página em
-                    que já se está não ajuda ninguém. */}
-                {rotaWorkspaceAtual ? (
-                  <button
-                    type="button"
-                    onClick={() => navigate(rotaWorkspaceAtual)}
-                    className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-base font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90"
-                  >
-                    {entradaAtual.ctaRH}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </Glass>
-        ) : null}
+            {/* Currículo (VISRH-01) — opens the CV via the P32 signed-URL EF (owner/admin,
+                60s TTL); the URL is never cached nor logged (Pitfall 7). High-value cluster
+                right after the funnel timeline. */}
+            <Glass variant="dark" blur="lg" className="rounded-xl p-6">
+              <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">Currículo</h2>
+              <CvButton candidaturaId={candidaturaId} />
+            </Glass>
 
-        {/* Timeline — all 8 stages always visible; current = accent, others reachable/locked */}
-        <Glass variant="dark" blur="lg" className="rounded-xl p-6">
-          <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">Linha do funil</h2>
-          <ol className="flex flex-wrap gap-2">
-            {TIMELINE.map((etapa) => {
-              const isAtual = etapa === etapaAtual
-              const idxEtapa = TIMELINE.indexOf(etapa)
-              const idxAtual = etapaAtual ? TIMELINE.indexOf(etapaAtual) : -1
-              const isPassada = idxAtual >= 0 && idxEtapa < idxAtual
-              const rotaPassada = funilNavMap[etapa].rotaWorkspaceRH(candidaturaId)
-              return (
-                <li key={etapa}>
-                  {isPassada && rotaPassada ? (
-                    <button
-                      type="button"
-                      onClick={() => navigate(rotaPassada)}
-                      className="inline-flex min-h-[44px] items-center rounded-lg border border-white/20 bg-white/5 px-3 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"
-                    >
-                      Revisar {ETAPA_M2_LABELS[etapa]}
-                    </button>
-                  ) : (
-                    <span
-                      className={
-                        isAtual
-                          ? 'inline-flex min-h-[44px] items-center rounded-lg bg-[#35BFAD] px-3 text-sm font-semibold text-white'
-                          : 'inline-flex min-h-[44px] items-center rounded-lg border border-white/15 bg-white/5 px-3 text-sm font-semibold text-white/50'
-                      }
-                    >
-                      {ETAPA_M2_LABELS[etapa]}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ol>
-        </Glass>
+            {/* Análise da IA (VISRH-02) — REPLACES the empty "Score de Triagem" placeholder.
+                Renders the FULL analysis (pontos_fortes/gaps in full, band chip, disclaimer).
+                RH-ONLY surface: the candidate has no rh_le_analise SELECT and never sees it. */}
+            <AnaliseIABlock
+              analise={analiseQuery.data ?? null}
+              isLoading={analiseQuery.isLoading}
+              isError={analiseQuery.isError}
+            />
 
-        {/* Currículo (VISRH-01) — opens the CV via the P32 signed-URL EF (owner/admin,
-            60s TTL); the URL is never cached nor logged (Pitfall 7). High-value cluster
-            right after the funnel timeline. */}
-        <Glass variant="dark" blur="lg" className="rounded-xl p-6">
-          <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">Currículo</h2>
-          <CvButton candidaturaId={candidaturaId} />
-        </Glass>
+            {/* Agendamento de entrevista (AGEND-02/03) — na aba Resumo (52-10 / D-52-U01: é operação,
+            perto das ações de decisão, não resposta do candidato),
+                etapa-gated to entrevista_online/entrevista_presencial (locked "futuro"
+                otherwise). RH schedules/reschedules/cancels + records compareceu; writes go
+                DIRECT to agendamentos_entrevista (payloads exclude the trigger-stamped cols). */}
+            <AgendamentoBlock candidaturaId={candidaturaId} etapaAtual={etapaAtual} />
 
-        {/* Análise da IA (VISRH-02) — REPLACES the empty "Score de Triagem" placeholder.
-            Renders the FULL analysis (pontos_fortes/gaps in full, band chip, disclaimer).
-            RH-ONLY surface: the candidate has no rh_le_analise SELECT and never sees it. */}
-        <AnaliseIABlock
-          analise={analiseQuery.data ?? null}
-          isLoading={analiseQuery.isLoading}
-          isError={analiseQuery.isError}
-        />
+            {/* Decisão Final — consolidação (candidaturaId + vagaId) */}
+            <HubSection
+              titulo="Decisão Final"
+              isLoading={decisaoQuery.isLoading}
+              isError={decisaoQuery.isError}
+              estado={estadoDaSecao('decisao_final', etapaAtual, !!decisaoQuery.data)}
+            >
+              <p className="text-sm text-white/80">
+                A consolidação da decisão está disponível — abra o workspace de decisão para revisar.
+              </p>
+            </HubSection>
+          </TabsContent>
 
-        {/* Avaliação Assíncrona — Work-Sample/SJT + Big Five (comportamental, contextual) */}
-        <HubSection
-          titulo="Avaliação Assíncrona"
-          isLoading={triagemQuery.isLoading}
-          isError={triagemQuery.isError}
-          estado={estadoAssincrona}
-        >
-          {/* D-18: a frase não promete mais uma revisão sem caminho («disponíveis para revisão»). */}
-          <p className="text-sm text-white/80">
-            {COPY_AVALIACOES_RESPONDIDAS.contagem(avaliacoesRespondidas)}
-          </p>
-        </HubSection>
+          <TabsContent value="cadastro" className="space-y-6 pt-2">
+            {/* «Dados do cadastro» — a MESMA query do cabeçalho de contato (uma chamada à EF do
+                52-09, com linha de log). As respostas da inscrição entram aqui no 52-24. */}
+            <AbaCadastroInscricao candidaturaId={candidaturaId} />
+          </TabsContent>
 
-        {/* 51-02 / JORN-45 (D-17) — «Ver respostas» abre o detalhe AQUI MESMO. Irmão do
-            HubSection, não filho, pelo mesmo motivo do botão IN-04 da Redação: o HubSection só
-            renderiza filhos em `com_dados`, e o caminho tem de existir em qualquer etapa.
-            51-03 / D-16: a ÚNICA exceção é a seção acima dizer «Não se aplica a esta vaga» —
-            não há o que ver, e «Nenhuma avaliação respondida ainda.» logo abaixo de «Não se
-            aplica» se contradiria. */}
-        {candidaturaId && !assincronaNaoSeAplica ? (
-          <AvaliacoesRespondidasBloco candidaturaId={candidaturaId} />
-        ) : null}
+          <TabsContent value="avaliacoes" className="space-y-6 pt-2">
+            {/* Avaliação Assíncrona — Work-Sample/SJT + Big Five (comportamental, contextual) */}
+            <HubSection
+              titulo="Avaliação Assíncrona"
+              isLoading={triagemQuery.isLoading}
+              isError={triagemQuery.isError}
+              estado={estadoAssincrona}
+            >
+              {/* D-18: a frase não promete mais uma revisão sem caminho («disponíveis para revisão»). */}
+              <p className="text-sm text-white/80">
+                {COPY_AVALIACOES_RESPONDIDAS.contagem(avaliacoesRespondidas)}
+              </p>
+            </HubSection>
 
-        {/* Prova cognitiva — o instrumento TEXTUAL liberado pela vaga (`aplica_cognitivo`),
-            banda contextual `tipo='cognitivo'`. 51-03 / D-15: até aqui o título era «Avaliação
-            Cognitiva», o mesmo nome genérico que servia ao Raven logo abaixo — o RH não tinha
-            como distinguir os dois na mesma tela. Agora: «Prova cognitiva» aqui, «Raciocínio
-            lógico (Matrizes)» no bloco do Raven. D-16: se a vaga não aplica a prova
-            (`aplica_cognitivo = false`, com a vaga carregada) e não há banda, a seção diz «Não
-            se aplica a esta vaga» em vez de «Sem dados nesta etapa». */}
-        <HubSection
-          titulo="Prova cognitiva"
-          isLoading={entrevistaQuery.isLoading}
-          isError={entrevistaQuery.isError}
-          estado={estadoDoInstrumento(
-            aplic.cognitivo,
-            'avaliacao_assincrona',
-            etapaAtual,
-            cognitivoScores.length > 0,
-          )}
-        >
-          <p className="text-sm text-white/80">
-            Banda da prova cognitiva registrada — disponível no workspace de entrevista.
-          </p>
-        </HubSection>
+            {/* 51-02 / JORN-45 (D-17) — «Ver respostas» abre o detalhe AQUI MESMO. Irmão do
+                HubSection, não filho, pelo mesmo motivo do botão IN-04 da Redação: o HubSection só
+                renderiza filhos em `com_dados`, e o caminho tem de existir em qualquer etapa.
+                51-03 / D-16: a ÚNICA exceção é a seção acima dizer «Não se aplica a esta vaga» —
+                não há o que ver, e «Nenhuma avaliação respondida ainda.» logo abaixo de «Não se
+                aplica» se contradiria. */}
+            {candidaturaId && !assincronaNaoSeAplica ? (
+              <AvaliacoesRespondidasBloco candidaturaId={candidaturaId} />
+            ) : null}
 
-        {/* Raciocínio lógico (Matrizes) — o Raven — FORA do HubSection de propósito.
-            As seções acima seguem a linha do funil (`estadoDaSecao`), e esta não
-            pertence a etapa nenhuma: é liberada nominalmente, quando o operador
-            decide, e a aplicação é presencial. Amarrá-la a uma etapa daria a
-            impressão de que "chega a vez dela" sozinha — o oposto do desenho. */}
-        <LiberacaoCognitivoBlock candidaturaId={candidaturaId} />
+            {/* Prova cognitiva — o instrumento TEXTUAL liberado pela vaga (`aplica_cognitivo`),
+                banda contextual `tipo='cognitivo'`. 51-03 / D-15: até aqui o título era «Avaliação
+                Cognitiva», o mesmo nome genérico que servia ao Raven logo abaixo — o RH não tinha
+                como distinguir os dois na mesma tela. Agora: «Prova cognitiva» aqui, «Raciocínio
+                lógico (Matrizes)» no bloco do Raven. D-16: se a vaga não aplica a prova
+                (`aplica_cognitivo = false`, com a vaga carregada) e não há banda, a seção diz «Não
+                se aplica a esta vaga» em vez de «Sem dados nesta etapa». */}
+            <HubSection
+              titulo="Prova cognitiva"
+              isLoading={entrevistaQuery.isLoading}
+              isError={entrevistaQuery.isError}
+              estado={estadoDoInstrumento(
+                aplic.cognitivo,
+                'avaliacao_assincrona',
+                etapaAtual,
+                cognitivoScores.length > 0,
+              )}
+            >
+              <p className="text-sm text-white/80">
+                Banda da prova cognitiva registrada — disponível no workspace de entrevista.
+              </p>
+            </HubSection>
 
-        {/* Redação — review-queue presence scoped to THIS candidatura (WR-01: RedacaoReviewRow
-            carries candidatura_id, so the section no longer flips to com_dados just because ANY
-            candidate in the vaga has a pending redação). The "data exists" copy below stays gated
-            on temRedacaoDoCandidato; the always-on CTA (IN-04) is rendered as a sibling so it is
-            click-reachable regardless of data state (HubSection only renders children on
-            com_dados) — D-04 requires the hub to reach each of the 3 RH workspaces. */}
-        <HubSection
-          titulo="Redação"
-          isLoading={redacaoQuery.isLoading}
-          isError={redacaoQuery.isError}
-          estado={estadoDoInstrumento(
-            aplic.redacao,
-            'avaliacao_assincrona',
-            etapaAtual,
-            temRedacaoDoCandidato,
-          )}
-        >
-          <p className="text-sm text-white/80">
-            Há redação deste candidato na fila de revisão — abra o workspace de redação para revisar.
-          </p>
-        </HubSection>
+            {/* Raciocínio lógico (Matrizes) — o Raven — FORA do HubSection de propósito.
+                As seções acima seguem a linha do funil (`estadoDaSecao`), e esta não
+                pertence a etapa nenhuma: é liberada nominalmente, quando o operador
+                decide, e a aplicação é presencial. Amarrá-la a uma etapa daria a
+                impressão de que "chega a vez dela" sozinha — o oposto do desenho. */}
+            <LiberacaoCognitivoBlock candidaturaId={candidaturaId} />
 
-        {/* IN-04 — always-visible navigation affordance to the 3rd RH workspace
-            (RedacaoReviewPanel at /rh/candidato/:id/redacao). NOT gated on data state — nem
-            em «Não se aplica a esta vaga» (51-03): é atalho de navegação, não afirmação de dado. */}
-        {candidaturaId ? (
-          <button
-            type="button"
-            onClick={() => navigate(`/rh/candidato/${candidaturaId}/redacao`)}
-            className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-base font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90"
-          >
-            Abrir workspace de redação
-          </button>
-        ) : null}
+            {/* Redação — review-queue presence scoped to THIS candidatura (WR-01: RedacaoReviewRow
+                carries candidatura_id, so the section no longer flips to com_dados just because ANY
+                candidate in the vaga has a pending redação). The "data exists" copy below stays gated
+                on temRedacaoDoCandidato; the always-on CTA (IN-04) is rendered as a sibling so it is
+                click-reachable regardless of data state (HubSection only renders children on
+                com_dados) — D-04 requires the hub to reach each of the 3 RH workspaces. */}
+            <HubSection
+              titulo="Redação"
+              isLoading={redacaoQuery.isLoading}
+              isError={redacaoQuery.isError}
+              estado={estadoDoInstrumento(
+                aplic.redacao,
+                'avaliacao_assincrona',
+                etapaAtual,
+                temRedacaoDoCandidato,
+              )}
+            >
+              <p className="text-sm text-white/80">
+                Há redação deste candidato na fila de revisão — abra o workspace de redação para revisar.
+              </p>
+            </HubSection>
 
-        {/* Entrevista — scorecard rows (tipo='entrevista') */}
-        <HubSection
-          titulo="Entrevista"
-          isLoading={entrevistaQuery.isLoading}
-          isError={entrevistaQuery.isError}
-          estado={estadoDaSecao('entrevista_online', etapaAtual, entrevistaScores.length > 0)}
-        >
-          <p className="text-sm text-white/80">
-            Avaliação de entrevista registrada — abra o workspace de entrevista para revisar.
-          </p>
-        </HubSection>
+            {/* IN-04 — always-visible navigation affordance to the 3rd RH workspace
+                (RedacaoReviewPanel at /rh/candidato/:id/redacao). NOT gated on data state — nem
+                em «Não se aplica a esta vaga» (51-03): é atalho de navegação, não afirmação de dado. */}
+            {candidaturaId ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/rh/candidato/${candidaturaId}/redacao`)}
+                className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-base font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90"
+              >
+                Abrir workspace de redação
+              </button>
+            ) : null}
 
-        {/* Agendamento de entrevista (AGEND-02/03) — sibling of the Entrevista section,
-            etapa-gated to entrevista_online/entrevista_presencial (locked "futuro"
-            otherwise). RH schedules/reschedules/cancels + records compareceu; writes go
-            DIRECT to agendamentos_entrevista (payloads exclude the trigger-stamped cols). */}
-        <AgendamentoBlock candidaturaId={candidaturaId} etapaAtual={etapaAtual} />
+            {/* Entrevista — scorecard rows (tipo='entrevista') */}
+            <HubSection
+              titulo="Entrevista"
+              isLoading={entrevistaQuery.isLoading}
+              isError={entrevistaQuery.isError}
+              estado={estadoDaSecao('entrevista_online', etapaAtual, entrevistaScores.length > 0)}
+            >
+              <p className="text-sm text-white/80">
+                Avaliação de entrevista registrada — abra o workspace de entrevista para revisar.
+              </p>
+            </HubSection>
+          </TabsContent>
 
-        {/* Decisão Final — consolidação (candidaturaId + vagaId) */}
-        <HubSection
-          titulo="Decisão Final"
-          isLoading={decisaoQuery.isLoading}
-          isError={decisaoQuery.isError}
-          estado={estadoDaSecao('decisao_final', etapaAtual, !!decisaoQuery.data)}
-        >
-          <p className="text-sm text-white/80">
-            A consolidação da decisão está disponível — abra o workspace de decisão para revisar.
-          </p>
-        </HubSection>
-
-        {/* Histórico (VISRH-03) — read-only feed of etapa transitions, newest-first.
-            The LAST block (after Decisão Final), per UI-SPEC §Surface 1 placement. */}
-        <HistoricoBlock
-          rows={historicoQuery.data ?? []}
-          isLoading={historicoQuery.isLoading}
-          isError={historicoQuery.isError}
-        />
+          <TabsContent value="historico" className="space-y-6 pt-2">
+            {/* Histórico (VISRH-03) — read-only feed of etapa transitions, newest-first.
+                Aba própria desde o 52-10 (D-17), inalterado. */}
+            <HistoricoBlock
+              rows={historicoQuery.data ?? []}
+              isLoading={historicoQuery.isLoading}
+              isError={historicoQuery.isError}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </RHLayout>
   )

@@ -16,6 +16,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type {
   CadastroCandidatoRh,
@@ -389,7 +390,7 @@ describe('HubCandidatoRH — o contato está no cabeçalho, fora das abas (52-23
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={qc}>
-        <HubCandidatoRH />
+        <MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=resumo']}><HubCandidatoRH /></MemoryRouter>
       </QueryClientProvider>,
     )
     expect(screen.getByTestId('hub-contato-email')).toHaveAttribute(

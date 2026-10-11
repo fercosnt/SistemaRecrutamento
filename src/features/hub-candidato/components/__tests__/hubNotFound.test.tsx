@@ -19,6 +19,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import '@testing-library/jest-dom'
 
 // The single dominant contexto read — configurable per test (null = unresolved id).
@@ -100,14 +101,14 @@ describe('HubCandidatoRH — estado não-encontrado (UX-03)', () => {
 
   it('id que não resolve (contexto null, já carregado) → mostra "Candidatura não encontrada" + corpo verbatim', () => {
     useEntrevistaContextoMock.mockReturnValue({ data: null, isLoading: false, isError: false })
-    render(<HubCandidatoRH />)
+    render(<MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=resumo']}><HubCandidatoRH /></MemoryRouter>)
     expect(screen.getByText('Candidatura não encontrada')).toBeInTheDocument()
     expect(screen.getByText(NOT_FOUND_BODY)).toBeInTheDocument()
   })
 
   it('estado não-encontrado NÃO degrada para o header genérico "Candidato" nem para a "Linha do funil"', () => {
     useEntrevistaContextoMock.mockReturnValue({ data: null, isLoading: false, isError: false })
-    render(<HubCandidatoRH />)
+    render(<MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=resumo']}><HubCandidatoRH /></MemoryRouter>)
     // Generic silent-degrade header must NOT render for an unresolved id.
     expect(screen.queryByRole('heading', { name: 'Candidato' })).toBeNull()
     // Nor the normal hub content (the funnel timeline).
@@ -116,20 +117,20 @@ describe('HubCandidatoRH — estado não-encontrado (UX-03)', () => {
 
   it('back-link "Voltar aos candidatos" navega para /rh/candidatos', () => {
     useEntrevistaContextoMock.mockReturnValue({ data: null, isLoading: false, isError: false })
-    render(<HubCandidatoRH />)
+    render(<MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=resumo']}><HubCandidatoRH /></MemoryRouter>)
     fireEvent.click(screen.getByText('Voltar aos candidatos'))
     expect(navigateSpy).toHaveBeenCalledWith('/rh/candidatos')
   })
 
   it('isError (query falhou) também renderiza o estado não-encontrado', () => {
     useEntrevistaContextoMock.mockReturnValue({ data: null, isLoading: false, isError: true })
-    render(<HubCandidatoRH />)
+    render(<MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=resumo']}><HubCandidatoRH /></MemoryRouter>)
     expect(screen.getByText('Candidatura não encontrada')).toBeInTheDocument()
   })
 
   it('ainda carregando (isLoading) NÃO mostra o não-encontrado (evita flash prematuro)', () => {
     useEntrevistaContextoMock.mockReturnValue({ data: null, isLoading: true, isError: false })
-    render(<HubCandidatoRH />)
+    render(<MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=resumo']}><HubCandidatoRH /></MemoryRouter>)
     expect(screen.queryByText('Candidatura não encontrada')).toBeNull()
   })
 
@@ -139,7 +140,7 @@ describe('HubCandidatoRH — estado não-encontrado (UX-03)', () => {
       isLoading: false,
       isError: false,
     })
-    render(<HubCandidatoRH />)
+    render(<MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=resumo']}><HubCandidatoRH /></MemoryRouter>)
     expect(screen.getByText('Ana Silva')).toBeInTheDocument()
     expect(screen.queryByText('Candidatura não encontrada')).toBeNull()
     // The normal hub renders its funnel timeline.

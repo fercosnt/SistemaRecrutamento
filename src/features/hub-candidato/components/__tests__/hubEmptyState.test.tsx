@@ -34,6 +34,7 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within, cleanup } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ScoreRow } from '@/features/avaliacao/services/scoresRhService'
 
@@ -145,7 +146,7 @@ function montarHub({ vaga = {}, avaliacoes = [], entrevistaRows = [], etapa = 'a
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <HubCandidatoRH />
+      <MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=avaliacoes']}><HubCandidatoRH /></MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -294,7 +295,7 @@ function cleanupAndRemount() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
-      <HubCandidatoRH />
+      <MemoryRouter initialEntries={['/rh/candidatos/cand-1?aba=avaliacoes']}><HubCandidatoRH /></MemoryRouter>
     </QueryClientProvider>,
   )
 }
