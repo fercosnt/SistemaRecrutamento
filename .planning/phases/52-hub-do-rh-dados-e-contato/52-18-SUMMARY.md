@@ -349,7 +349,7 @@ Nenhum. O plano não tem código.
 ## Threat Flags
 
 Nenhum. A superfície nova (mapa em `supabase_migrations`, troca do `pontuar_sjt`) está no `<threat_model>` do plano
-(T-52-77/78/79) e foi provada em PROD.
+(T-52-93/94/79 — os dois primeiros renumerados de T-52-77/78, que colidiam com o 52-01 e o 52-23) e foi provada em PROD.
 
 ## User Setup Required
 
