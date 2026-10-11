@@ -72,7 +72,16 @@ interface AvaliacaoContainerProps {
    * «Ir ao painel» buttons are not rendered (never an inert button).
    */
   onBackToPanel?: () => void
+  /**
+   * Presentational mode only: the «Ver devolutiva» handler handed to the shell (the connected
+   * mode injects the devolutiva route itself). Absent → the «Ver devolutiva» buttons are not
+   * rendered (never an inert button). 52-04 / pendência (f) da 51.
+   */
+  onVerDevolutiva?: () => void
 }
+
+/** 52-04 / pendência (f) da 51: o rótulo do caminho de volta à devolutiva do Big Five. */
+export const COPY_VER_DEVOLUTIVA = 'Ver devolutiva'
 
 /**
  * Phase 51 / Plan 51-01 (JORN-44, JORN-46 — D-25, D-26, D-37): navigation labels of
@@ -219,6 +228,7 @@ function AvaliacaoShell({
   onLogout,
   onOpenTeste,
   onBackToPanel,
+  onVerDevolutiva,
 }: {
   cards: TesteCard[]
   candidatoNome?: string
@@ -227,8 +237,29 @@ function AvaliacaoShell({
   onOpenTeste?: (card: TesteCard) => void
   /** JORN-44 / D-26: «Ir ao painel» (header, every list state + «tudo concluído»). */
   onBackToPanel?: () => void
+  /**
+   * Pendência (f) da 51: reabrir a devolutiva do Big Five; ausente → os botões não são
+   * renderizados, nunca botão inerte.
+   */
+  onVerDevolutiva?: () => void
 }) {
   const allDone = avaliacoesConcluidas(cards)
+  // O card do Big Five concluído (o alias legado `bigfive` conta como o mesmo instrumento).
+  const ehBigFive = (c: TesteCard) => c.teste === 'big_five' || c.teste === 'bigfive'
+  const bigFiveConcluido = cards.some(
+    (c) => ehBigFive(c) && statusInfo(c.status).label === 'Concluído',
+  )
+  const botaoVerDevolutiva = onVerDevolutiva ? (
+    <GlassButton
+      variant="white"
+      hover
+      data-testid="avaliacao-ver-devolutiva"
+      onClick={onVerDevolutiva}
+      className="w-full mt-4 min-h-[44px] text-white drop-shadow-sm"
+    >
+      {COPY_VER_DEVOLUTIVA}
+    </GlassButton>
+  ) : null
 
   return (
     <div className="relative min-h-screen">
@@ -304,6 +335,8 @@ function AvaliacaoShell({
                 <p className="text-white/70">
                   Você concluiu todas as avaliações desta etapa. Acompanhe o andamento pelo seu painel.
                 </p>
+                {/* 52-04 / pendência (f): a devolutiva do Big Five, acima do «Ir ao painel». */}
+                {bigFiveConcluido && botaoVerDevolutiva}
                 {onBackToPanel && (
                   <GlassButton
                     variant="white"
@@ -359,6 +392,8 @@ function AvaliacaoShell({
                             : 'Começar avaliação'}
                         </GlassButton>
                       )}
+                      {/* 52-04 / pendência (f): no lugar do CTA dos pendentes, o caminho de volta à devolutiva. */}
+                      {done && ehBigFive(card) && botaoVerDevolutiva}
                     </GlassCard>
                   )
                 })}
@@ -488,10 +523,20 @@ export function deriveCards(
  * and renders the shell (or the neutral wrong-etapa lock). Falls back to the
  * presentational shell when a `testes` prop is provided (Wave-0 RED test).
  */
-export function AvaliacaoContainer({ testes, onBackToPanel }: AvaliacaoContainerProps = {}) {
+export function AvaliacaoContainer({
+  testes,
+  onBackToPanel,
+  onVerDevolutiva,
+}: AvaliacaoContainerProps = {}) {
   // ── Presentational mode (test path): no router/query providers required. ──
   if (testes) {
-    return <AvaliacaoShell cards={testes} onBackToPanel={onBackToPanel} />
+    return (
+      <AvaliacaoShell
+        cards={testes}
+        onBackToPanel={onBackToPanel}
+        onVerDevolutiva={onVerDevolutiva}
+      />
+    )
   }
   return <ConnectedAvaliacaoContainer />
 }
@@ -605,6 +650,7 @@ function ConnectedAvaliacaoContainer() {
       onLogout={handleLogout}
       onOpenTeste={handleOpenTeste}
       onBackToPanel={() => navigate('/candidato/dashboard')}
+      onVerDevolutiva={() => navigate(`/candidato/avaliacao/${candidaturaId}/bigfive/devolutiva`)}
     />
   )
 }
