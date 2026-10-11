@@ -48,6 +48,22 @@
 --       `entrevista` em `scores_candidato`.
 --   (d) a mesma análise com as 3 notas (4, 5, 3) grava: retorno `score_entrevista` = 4.00,
 --       `status_analise` 'concluida', linha `entrevista` com `score` 4.00.
+--   (e) `pergunta_id` = 'nao-e-uuid' num payload do tamanho da bateria → 22023 'resposta malformada'
+--       (nunca o 22P02 sem rótulo do `::uuid`); nada gravado.
+--   (f) `opcao_id` malformado → idem.
+--   (g) `p_respostas` objeto; um elemento que é string; um elemento sem `pergunta_id` → idem nos três.
+--   (h) o conjunto válido com TODOS os ids em MAIÚSCULAS (itens distintos) → aceito, com o mesmo
+--       `score`/`score_max` da (b) — a comparação por uuid não recusa a mais.
+--   (i) a avaliação da (c) com as 3 notas e uma chave fora do conjunto (`Z`) → 23514 'fora das
+--       competencias'.
+--   (j) valor fora de 1–5 ou não numérico numa competência (0, 6, "x") → 23514 'scores_humanos
+--       incompleto' nos três.
+--   (k) `p_scores_humanos` array e JSON `null` → 23514 'tem de ser um objeto' nos dois.
+--   (l) a sobrecarga de 3 argumentos, com a análise de fixture como ÚNICA vigente da candidatura,
+--       recusa a avaliação incompleta (23514 'scores_humanos incompleto') e grava a completa (4.00) —
+--       ela delega à primária e herda a regra.
+--   (m) análise com `competencias = []` → o conjunto são os 4 nomes de DEFAULT_COMPETENCIAS: três de
+--       quatro → 23514 'scores_humanos incompleto'; os quatro notados gravam (4.00).
 --
 -- Toda recusa é conferida por SQLSTATE E pelo rótulo da mensagem (sem o rótulo, uma recusa por
 -- outro motivo passaria por esta).
@@ -58,7 +74,9 @@
 -- ⚠ PROIBIDO: `node p46apply.cjs run` deste arquivo (ele COMMITA): a guarda abaixo recusa.
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
--- deliberado), num ÚNICO literal (`smoke52g.esperado`, abaixo). Hoje: 4 — a … d.
+-- deliberado), num ÚNICO literal (`smoke52g.esperado`, abaixo). Hoje: 13 — a … m.
+-- As mutações G1–G7 (`scripts/p52_mutacoes.cjs`) provam que as cláusulas mordem: G1/G2 → (a),
+-- G3 → (e), G4 → (c), G5 → (i), G6 → (m), G7 → (d).
 -- Reprovação: `P52G FAIL (<letra>): …` — só SQLSTATE, rótulos, contagens e notas; nenhum dado pessoal.
 -- =============================================================================
 
@@ -81,7 +99,7 @@ $p52_so_ensaio$;
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);
 SELECT set_config('smoke52g.pass', '0', false);
-SELECT set_config('smoke52g.esperado', '4', false);
+SELECT set_config('smoke52g.esperado', '13', false);
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -133,6 +151,29 @@ BEGIN
   END;
 END
 $p52g_salvar4$;
+
+-- `salvar_avaliacao_entrevista` de 3 argumentos (compatibilidade) como o RH
+CREATE FUNCTION pg_temp.p52g_salvar3(p_cdt uuid, p_scores jsonb, p_sub uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $p52g_salvar3$
+DECLARE
+  v_r jsonb;
+BEGIN
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', p_sub::text, 'role', 'authenticated',
+                        'app_metadata', json_build_object('role', 'administrador'))::text, true);
+    v_r := public.salvar_avaliacao_entrevista(p_cdt, p_scores, 'Notas do gestor no smoke P52G.');
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claims', '', true);
+    RETURN jsonb_build_object('ok', v_r);
+  EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('err', SQLSTATE || ':' || SQLERRM);
+  END;
+END
+$p52g_salvar3$;
 
 -- leva a candidatura do escopo à vaga descartável (bateria por cargo) e à avaliação assíncrona —
 -- SÓ dentro da subtransação da cláusula, que reverte
@@ -464,5 +505,431 @@ BEGIN
 END
 $d$;
 
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (e) WR-04 — `pergunta_id` que não é uuid: 22023 'resposta malformada', nunca 22P02
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $e$
+DECLARE
+  v_cdt    uuid  := current_setting('p52g.cdt')::uuid;
+  v_sub    uuid  := current_setting('p52g.sub')::uuid;
+  v_cargo  text  := current_setting('p52g.cargo');
+  v_valido jsonb := current_setting('p52g.valido')::jsonb;
+  v_n      int   := current_setting('p52g.bateria')::int;
+  v_vaga   uuid  := gen_random_uuid();
+  v_pays   jsonb[];
+  v_res    text[] := ARRAY[]::text[];
+  v_r      jsonb;
+  v_linhas bigint;
+  v_err    text;
+  v_fim    boolean := false;
+  i        int;
+BEGIN
+  v_pays := ARRAY[(SELECT jsonb_agg(CASE WHEN t.ord = v_n THEN jsonb_set(t.e, '{pergunta_id}', to_jsonb('nao-e-uuid'::text)) ELSE t.e END ORDER BY t.ord) FROM jsonb_array_elements(v_valido) WITH ORDINALITY AS t(e, ord))];
+  BEGIN
+    PERFORM pg_temp.p52g_fixture_sjt(v_vaga, v_cdt, v_cargo);
+    FOR i IN 1 .. cardinality(v_pays) LOOP
+      v_r := pg_temp.p52g_pontuar(v_cdt, v_pays[i], v_sub);
+      v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    END LOOP;
+    SELECT count(*) INTO v_linhas FROM public.scores_candidato s
+     WHERE s.candidatura_id = v_cdt AND s.tipo = 'sjt' AND s.subtipo = 'mc';
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('e', v_vaga);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (e): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF cardinality(v_res) <> cardinality(v_pays)
+     OR EXISTS (SELECT 1 FROM unnest(v_res) x WHERE x <> '22023:resposta malformada') OR v_linhas <> 0 THEN
+    RAISE EXCEPTION 'P52G FAIL (e): devolveu [%] e gravou % linha(s) SJT mc — esperado 22023 resposta malformada em todas e nada gravado',
+      left(array_to_string(v_res, ' | '), 300), v_linhas;
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.e=22023:malformada' || CASE WHEN cardinality(v_pays) > 1 THEN 'x' || cardinality(v_pays)::text ELSE '' END);
+END
+$e$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (f) WR-04 — `opcao_id` que não é uuid: 22023 'resposta malformada'
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $f$
+DECLARE
+  v_cdt    uuid  := current_setting('p52g.cdt')::uuid;
+  v_sub    uuid  := current_setting('p52g.sub')::uuid;
+  v_cargo  text  := current_setting('p52g.cargo');
+  v_valido jsonb := current_setting('p52g.valido')::jsonb;
+  v_n      int   := current_setting('p52g.bateria')::int;
+  v_vaga   uuid  := gen_random_uuid();
+  v_pays   jsonb[];
+  v_res    text[] := ARRAY[]::text[];
+  v_r      jsonb;
+  v_linhas bigint;
+  v_err    text;
+  v_fim    boolean := false;
+  i        int;
+BEGIN
+  v_pays := ARRAY[(SELECT jsonb_agg(CASE WHEN t.ord = v_n THEN jsonb_set(t.e, '{opcao_id}', to_jsonb('nao-e-uuid'::text)) ELSE t.e END ORDER BY t.ord) FROM jsonb_array_elements(v_valido) WITH ORDINALITY AS t(e, ord))];
+  BEGIN
+    PERFORM pg_temp.p52g_fixture_sjt(v_vaga, v_cdt, v_cargo);
+    FOR i IN 1 .. cardinality(v_pays) LOOP
+      v_r := pg_temp.p52g_pontuar(v_cdt, v_pays[i], v_sub);
+      v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    END LOOP;
+    SELECT count(*) INTO v_linhas FROM public.scores_candidato s
+     WHERE s.candidatura_id = v_cdt AND s.tipo = 'sjt' AND s.subtipo = 'mc';
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('f', v_vaga);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (f): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF cardinality(v_res) <> cardinality(v_pays)
+     OR EXISTS (SELECT 1 FROM unnest(v_res) x WHERE x <> '22023:resposta malformada') OR v_linhas <> 0 THEN
+    RAISE EXCEPTION 'P52G FAIL (f): devolveu [%] e gravou % linha(s) SJT mc — esperado 22023 resposta malformada em todas e nada gravado',
+      left(array_to_string(v_res, ' | '), 300), v_linhas;
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.f=22023:malformada' || CASE WHEN cardinality(v_pays) > 1 THEN 'x' || cardinality(v_pays)::text ELSE '' END);
+END
+$f$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (g) WR-04 — payload que não é array, elemento que não é objeto, elemento sem `pergunta_id`
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $g$
+DECLARE
+  v_cdt    uuid  := current_setting('p52g.cdt')::uuid;
+  v_sub    uuid  := current_setting('p52g.sub')::uuid;
+  v_cargo  text  := current_setting('p52g.cargo');
+  v_valido jsonb := current_setting('p52g.valido')::jsonb;
+  v_n      int   := current_setting('p52g.bateria')::int;
+  v_vaga   uuid  := gen_random_uuid();
+  v_pays   jsonb[];
+  v_res    text[] := ARRAY[]::text[];
+  v_r      jsonb;
+  v_linhas bigint;
+  v_err    text;
+  v_fim    boolean := false;
+  i        int;
+BEGIN
+  v_pays := ARRAY[
+    jsonb_build_object('respostas', v_valido),
+    (SELECT jsonb_agg(CASE WHEN t.ord = v_n THEN to_jsonb('x'::text) ELSE t.e END ORDER BY t.ord) FROM jsonb_array_elements(v_valido) WITH ORDINALITY AS t(e, ord)),
+    (SELECT jsonb_agg(CASE WHEN t.ord = v_n THEN (t.e - 'pergunta_id') ELSE t.e END ORDER BY t.ord) FROM jsonb_array_elements(v_valido) WITH ORDINALITY AS t(e, ord))
+  ];
+  BEGIN
+    PERFORM pg_temp.p52g_fixture_sjt(v_vaga, v_cdt, v_cargo);
+    FOR i IN 1 .. cardinality(v_pays) LOOP
+      v_r := pg_temp.p52g_pontuar(v_cdt, v_pays[i], v_sub);
+      v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    END LOOP;
+    SELECT count(*) INTO v_linhas FROM public.scores_candidato s
+     WHERE s.candidatura_id = v_cdt AND s.tipo = 'sjt' AND s.subtipo = 'mc';
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('g', v_vaga);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (g): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF cardinality(v_res) <> cardinality(v_pays)
+     OR EXISTS (SELECT 1 FROM unnest(v_res) x WHERE x <> '22023:resposta malformada') OR v_linhas <> 0 THEN
+    RAISE EXCEPTION 'P52G FAIL (g): devolveu [%] e gravou % linha(s) SJT mc — esperado 22023 resposta malformada em todas e nada gravado',
+      left(array_to_string(v_res, ' | '), 300), v_linhas;
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.g=22023:malformada' || CASE WHEN cardinality(v_pays) > 1 THEN 'x' || cardinality(v_pays)::text ELSE '' END);
+END
+$g$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (h) WR-04 — o conjunto válido com TODOS os ids em maiúsculas é aceito, com a mesma nota da (b)
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $h$
+DECLARE
+  v_cdt     uuid  := current_setting('p52g.cdt')::uuid;
+  v_sub     uuid  := current_setting('p52g.sub')::uuid;
+  v_cargo   text  := current_setting('p52g.cargo');
+  v_valido  jsonb := current_setting('p52g.valido')::jsonb;
+  v_n       int   := current_setting('p52g.bateria')::int;
+  v_vaga    uuid  := gen_random_uuid();
+  v_maius   jsonb;
+  v_esp     numeric;
+  v_esp_max numeric;
+  v_r       jsonb;
+  v_l       jsonb;
+  v_err     text;
+  v_fim     boolean := false;
+BEGIN
+  SELECT jsonb_agg(jsonb_build_object('pergunta_id', upper(t.e ->> 'pergunta_id'), 'opcao_id', upper(t.e ->> 'opcao_id')) ORDER BY t.ord)
+    INTO v_maius
+    FROM jsonb_array_elements(v_valido) WITH ORDINALITY AS t(e, ord);
+  IF v_maius::text = v_valido::text THEN
+    RAISE EXCEPTION 'P52G FAIL (h): nenhum id do conjunto valido tem letra — a entrada nao exercita a caixa';
+  END IF;
+  SELECT sum(o.peso) INTO v_esp
+    FROM jsonb_array_elements(v_valido) e
+    JOIN public.perguntas_opcao_sjt o ON o.pergunta_id = (e ->> 'pergunta_id')::uuid AND o.opcao_id = (e ->> 'opcao_id')::uuid;
+  SELECT sum(m.mx) INTO v_esp_max
+    FROM (SELECT max(o.peso) AS mx FROM public.perguntas_opcao_sjt o
+           WHERE o.pergunta_id IN (SELECT (e ->> 'pergunta_id')::uuid FROM jsonb_array_elements(v_valido) e)
+           GROUP BY o.pergunta_id) m;
+  BEGIN
+    PERFORM pg_temp.p52g_fixture_sjt(v_vaga, v_cdt, v_cargo);
+    v_r := pg_temp.p52g_pontuar(v_cdt, v_maius, v_sub);
+    v_l := pg_temp.p52g_linha_mc(v_cdt);
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('h', v_vaga);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (h): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF v_r ? 'err' OR v_l IS NULL
+     OR (v_l ->> 'score')::numeric IS DISTINCT FROM v_esp
+     OR (v_l ->> 'score_max')::numeric IS DISTINCT FROM v_esp_max
+     OR (v_l ->> 'answered')::int IS DISTINCT FROM v_n THEN
+    RAISE EXCEPTION 'P52G FAIL (h): o conjunto valido em MAIUSCULAS devolveu [%] e gravou %; esperado aceito com score %/% (o da (b)) e answered = %',
+      coalesce(left(v_r ->> 'err', 120), 'ok'), coalesce(v_l::text, 'nada'), v_esp, v_esp_max, v_n;
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.h=maiusculas:' || v_esp::text || '/' || v_esp_max::text);
+END
+$h$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (i) F13 — chave fora do conjunto da análise: 23514 'fora das competencias'
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $i$
+DECLARE
+  v_cdt   uuid := current_setting('p52g.cdt')::uuid;
+  v_admin uuid := current_setting('p52g.admin')::uuid;
+  v_an    uuid;
+  v_r     jsonb;
+  v_res   text[] := ARRAY[]::text[];
+  v_ok    jsonb;
+  v_st    text;
+  v_sc    numeric;
+  v_err   text;
+  v_fim   boolean := false;
+BEGIN
+  BEGIN
+    v_an := pg_temp.p52g_analise(v_cdt, '[{"competency":"Comunicação"},{"competency":"Atitude de Dono"},{"competency":"Atitude de Dono"},{"competencia":"Liderança","competency":"X"}]'::jsonb);
+    v_r := pg_temp.p52g_salvar4(v_cdt, v_an, '{"Comunicação":4,"Atitude de Dono":5,"Liderança":3,"Z":5}'::jsonb, v_admin);
+    v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    SELECT ea.status_analise INTO v_st FROM public.entrevista_analises ea WHERE ea.id = v_an;
+    SELECT s.score INTO v_sc FROM public.scores_candidato s WHERE s.candidatura_id = v_cdt AND s.tipo = 'entrevista';
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('i', NULL);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (i): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF cardinality(v_res) = 0 OR EXISTS (SELECT 1 FROM unnest(v_res) x WHERE x NOT LIKE '23514:scores_humanos com % chave(s) fora das competencias%')
+     OR v_st IS DISTINCT FROM 'pendente_humano' OR v_sc IS NOT NULL THEN
+    RAISE EXCEPTION 'P52G FAIL (i): devolveu [%]; a analise ficou % e o score entrevista % — esperado 23514 fora das competencias em todas, nada gravado',
+      left(array_to_string(v_res, ' | '), 300), v_st, coalesce(v_sc::text, 'nenhum');
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.i=23514:fora');
+END
+$i$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (j) F13 — valor fora de 1–5 ou não numérico numa competência: 23514 'scores_humanos incompleto'
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $j$
+DECLARE
+  v_cdt   uuid := current_setting('p52g.cdt')::uuid;
+  v_admin uuid := current_setting('p52g.admin')::uuid;
+  v_an    uuid;
+  v_r     jsonb;
+  v_res   text[] := ARRAY[]::text[];
+  v_ok    jsonb;
+  v_st    text;
+  v_sc    numeric;
+  v_err   text;
+  v_fim   boolean := false;
+BEGIN
+  BEGIN
+    v_an := pg_temp.p52g_analise(v_cdt, '[{"competency":"Comunicação"},{"competency":"Atitude de Dono"},{"competency":"Atitude de Dono"},{"competencia":"Liderança","competency":"X"}]'::jsonb);
+    v_r := pg_temp.p52g_salvar4(v_cdt, v_an, '{"Comunicação":0,"Atitude de Dono":5,"Liderança":3}'::jsonb, v_admin);
+    v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    v_r := pg_temp.p52g_salvar4(v_cdt, v_an, '{"Comunicação":6,"Atitude de Dono":5,"Liderança":3}'::jsonb, v_admin);
+    v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    v_r := pg_temp.p52g_salvar4(v_cdt, v_an, '{"Comunicação":"x","Atitude de Dono":5,"Liderança":3}'::jsonb, v_admin);
+    v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    SELECT ea.status_analise INTO v_st FROM public.entrevista_analises ea WHERE ea.id = v_an;
+    SELECT s.score INTO v_sc FROM public.scores_candidato s WHERE s.candidatura_id = v_cdt AND s.tipo = 'entrevista';
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('j', NULL);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (j): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF cardinality(v_res) = 0 OR EXISTS (SELECT 1 FROM unnest(v_res) x WHERE x NOT LIKE '23514:scores_humanos incompleto%')
+     OR v_st IS DISTINCT FROM 'pendente_humano' OR v_sc IS NOT NULL THEN
+    RAISE EXCEPTION 'P52G FAIL (j): devolveu [%]; a analise ficou % e o score entrevista % — esperado 23514 scores_humanos incompleto em todas, nada gravado',
+      left(array_to_string(v_res, ' | '), 300), v_st, coalesce(v_sc::text, 'nenhum');
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.j=23514:incompletox3');
+END
+$j$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (k) F13 — p_scores_humanos que não é objeto (array, JSON null): 23514 'tem de ser um objeto'
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $k$
+DECLARE
+  v_cdt   uuid := current_setting('p52g.cdt')::uuid;
+  v_admin uuid := current_setting('p52g.admin')::uuid;
+  v_an    uuid;
+  v_r     jsonb;
+  v_res   text[] := ARRAY[]::text[];
+  v_ok    jsonb;
+  v_st    text;
+  v_sc    numeric;
+  v_err   text;
+  v_fim   boolean := false;
+BEGIN
+  BEGIN
+    v_an := pg_temp.p52g_analise(v_cdt, '[{"competency":"Comunicação"},{"competency":"Atitude de Dono"},{"competency":"Atitude de Dono"},{"competencia":"Liderança","competency":"X"}]'::jsonb);
+    v_r := pg_temp.p52g_salvar4(v_cdt, v_an, '[4,5,3]'::jsonb, v_admin);
+    v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    v_r := pg_temp.p52g_salvar4(v_cdt, v_an, 'null'::jsonb, v_admin);
+    v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    SELECT ea.status_analise INTO v_st FROM public.entrevista_analises ea WHERE ea.id = v_an;
+    SELECT s.score INTO v_sc FROM public.scores_candidato s WHERE s.candidatura_id = v_cdt AND s.tipo = 'entrevista';
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('k', NULL);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (k): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF cardinality(v_res) = 0 OR EXISTS (SELECT 1 FROM unnest(v_res) x WHERE x NOT LIKE '23514:scores_humanos tem de ser um objeto%')
+     OR v_st IS DISTINCT FROM 'pendente_humano' OR v_sc IS NOT NULL THEN
+    RAISE EXCEPTION 'P52G FAIL (k): devolveu [%]; a analise ficou % e o score entrevista % — esperado 23514 tem de ser um objeto em todas, nada gravado',
+      left(array_to_string(v_res, ' | '), 300), v_st, coalesce(v_sc::text, 'nenhum');
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.k=23514:objetox2');
+END
+$k$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (l) F13 — a sobrecarga de 3 argumentos herda a regra (a análise de fixture é a única vigente)
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $l$
+DECLARE
+  v_cdt   uuid := current_setting('p52g.cdt')::uuid;
+  v_admin uuid := current_setting('p52g.admin')::uuid;
+  v_an    uuid;
+  v_r     jsonb;
+  v_res   text[] := ARRAY[]::text[];
+  v_ok    jsonb;
+  v_st    text;
+  v_sc    numeric;
+  v_err   text;
+  v_fim   boolean := false;
+BEGIN
+  BEGIN
+    v_an := pg_temp.p52g_analise(v_cdt, '[{"competency":"Comunicação"},{"competency":"Atitude de Dono"},{"competency":"Atitude de Dono"},{"competencia":"Liderança","competency":"X"}]'::jsonb);
+    v_r := pg_temp.p52g_salvar3(v_cdt, '{"Comunicação":4,"Atitude de Dono":5}'::jsonb, v_admin);
+    v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    v_ok := pg_temp.p52g_salvar3(v_cdt, '{"Comunicação":4,"Atitude de Dono":5,"Liderança":3}'::jsonb, v_admin);
+    SELECT ea.status_analise INTO v_st FROM public.entrevista_analises ea WHERE ea.id = v_an;
+    SELECT s.score INTO v_sc FROM public.scores_candidato s WHERE s.candidatura_id = v_cdt AND s.tipo = 'entrevista';
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('l', NULL);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (l): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF cardinality(v_res) <> 1 OR v_res[1] NOT LIKE '23514:scores_humanos incompleto%'
+     OR v_ok ? 'err' OR (v_ok -> 'ok' ->> 'score_entrevista')::numeric IS DISTINCT FROM 4.00
+     OR v_st IS DISTINCT FROM 'concluida' OR v_sc IS DISTINCT FROM 4.00 THEN
+    RAISE EXCEPTION 'P52G FAIL (l): pela sobrecarga de 3 argumentos o incompleto devolveu [%] e o completo [%] (status %, score %) — esperado 23514 scores_humanos incompleto, depois 4.00 concluida',
+      left(array_to_string(v_res, ' | '), 160), coalesce(left(v_ok ->> 'err', 120), v_ok -> 'ok' ->> 'score_entrevista'), v_st, coalesce(v_sc::text, 'nenhum');
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.l=salvar3:23514+4.00');
+END
+$l$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (m) F13 — análise sem nenhuma competência: o conjunto são os 4 nomes padrão da tela
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $m$
+DECLARE
+  v_cdt   uuid := current_setting('p52g.cdt')::uuid;
+  v_admin uuid := current_setting('p52g.admin')::uuid;
+  v_an    uuid;
+  v_r     jsonb;
+  v_res   text[] := ARRAY[]::text[];
+  v_ok    jsonb;
+  v_st    text;
+  v_sc    numeric;
+  v_err   text;
+  v_fim   boolean := false;
+BEGIN
+  BEGIN
+    v_an := pg_temp.p52g_analise(v_cdt, '[]'::jsonb);
+    v_r := pg_temp.p52g_salvar4(v_cdt, v_an, '{"Experiência UAU":4,"Inovação":4,"Atitude de Dono":4}'::jsonb, v_admin);
+    v_res := v_res || coalesce(v_r ->> 'err', 'ACEITO');
+    v_ok := pg_temp.p52g_salvar4(v_cdt, v_an, '{"Experiência UAU":4,"Inovação":4,"Atitude de Dono":4,"Sede de Crescimento":4}'::jsonb, v_admin);
+    SELECT ea.status_analise INTO v_st FROM public.entrevista_analises ea WHERE ea.id = v_an;
+    SELECT s.score INTO v_sc FROM public.scores_candidato s WHERE s.candidatura_id = v_cdt AND s.tipo = 'entrevista';
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52G1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52G1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  PERFORM pg_temp.p52g_reverteu('m', NULL);
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52G FAIL (m): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF cardinality(v_res) <> 1 OR v_res[1] NOT LIKE '23514:scores_humanos incompleto%'
+     OR v_ok ? 'err' OR (v_ok -> 'ok' ->> 'score_entrevista')::numeric IS DISTINCT FROM 4.00
+     OR v_st IS DISTINCT FROM 'concluida' OR v_sc IS DISTINCT FROM 4.00 THEN
+    RAISE EXCEPTION 'P52G FAIL (m): com competencias = [] tres de quatro devolveu [%] e os quatro padrao [%] (status %, score %) — esperado 23514 scores_humanos incompleto, depois 4.00 concluida',
+      left(array_to_string(v_res, ' | '), 160), coalesce(left(v_ok ->> 'err', 120), v_ok -> 'ok' ->> 'score_entrevista'), v_st, coalesce(v_sc::text, 'nenhum');
+  END IF;
+  PERFORM pg_temp.p52g_passou('52g.m=padrao:23514+4.00');
+END
+$m$;
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);

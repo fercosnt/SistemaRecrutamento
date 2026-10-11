@@ -75,6 +75,7 @@ const E = require('./p52_ensaio.cjs');
 const SMOKES = {
   'supabase/tests/p52_leituras_rh_smoke.sql': { prefixo: 'P52L', par: '52l' },
   'supabase/tests/p52_banco_sjt_smoke.sql': { prefixo: 'P52B', par: '52b' },
+  'supabase/tests/p52_gap_servidor_smoke.sql': { prefixo: 'P52G', par: '52g' },
 };
 
 /* Baseline de persistência; null até ser lida. */
@@ -208,6 +209,60 @@ function b5Sql() {
   if (vivo.includes('$function$')) throw new Error('ANCORA AUSENTE/AMBIGUA: B5 (o corpo velho contem $function$)');
   return extrair(t, 'CREATE OR REPLACE FUNCTION public.pontuar_sjt(', 'AS $function$', 'B5') + vivo + '$function$;';
 }
+
+// ── 52-26: gap de servidor (migration 20261011000005, GERADA — o texto vem do disco) ───────────
+// Cada mutação extrai da migration o `CREATE OR REPLACE FUNCTION public.<funcao>(` … `$function$;`
+// GERADO e troca um alvo LITERAL único no trecho (contrato (1)); vale com a 0005 prefixada e, no
+// `--pos-apply`, contra o objeto vivo.
+const V05 = '20261011000005';
+const S52G = 'supabase/tests/p52_gap_servidor_smoke.sql';
+const fnGap = (nome) => extrair(mig(V05), `CREATE OR REPLACE FUNCTION public.${nome}(`, '$function$;', `${nome} (0005)`);
+const fnPontuar = () => fnGap('pontuar_sjt');
+const fnSalvar4 = () => fnGap('salvar_avaliacao_entrevista');
+/* A linha inteira da duplicata: `count(DISTINCT (r->>'pergunta_id')::uuid)` ocorre DUAS vezes (P2 e P3). */
+const G_DUP_UUID = "     <> (SELECT count(DISTINCT (r->>'pergunta_id')::uuid) FROM jsonb_array_elements(p_respostas) r) THEN\n";
+const G_DUP_TEXTO = "     <> (SELECT count(DISTINCT r->>'pergunta_id') FROM jsonb_array_elements(p_respostas) r) THEN\n";
+const G_ANS_UUID = "  SELECT count(DISTINCT (r->>'pergunta_id')::uuid) INTO v_answered FROM jsonb_array_elements(p_respostas) r;\n";
+const G_ANS_TEXTO = "  SELECT count(DISTINCT r->>'pergunta_id') INTO v_answered FROM jsonb_array_elements(p_respostas) r;\n";
+const G_MALFORMADA =
+  "  IF p_respostas IS NULL OR jsonb_typeof(p_respostas) <> 'array' THEN\n" +
+  "    RAISE EXCEPTION 'resposta malformada' USING errcode = '22023';\n" +
+  '  END IF;\n' +
+  '  IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_respostas) r\n' +
+  "              WHERE jsonb_typeof(r) <> 'object'\n" +
+  "                 OR NOT coalesce(pg_input_is_valid(r->>'pergunta_id', 'uuid'), false)\n" +
+  "                 OR NOT coalesce(pg_input_is_valid(r->>'opcao_id', 'uuid'), false)) THEN\n" +
+  "    RAISE EXCEPTION 'resposta malformada' USING errcode = '22023';\n" +
+  '  END IF;\n';
+/* G4: o bloco F13 inteiro (do IF do objeto ao fim do SELECT da média) volta ao bloco do corpo vivo. */
+const G4_INICIO = "  IF p_scores_humanos IS NULL OR jsonb_typeof(p_scores_humanos) <> 'object' THEN\n";
+const G4_FIM = String.raw`   WHERE kv.k = ANY (v_conj) AND CASE WHEN kv.v ~ '^[0-9]+(\.[0-9]+)?$' THEN kv.v::numeric BETWEEN 1 AND 5 ELSE false END;` + '\n';
+const G4_VIVO =
+  '  SELECT avg(kv.v::numeric), count(*)\n' +
+  '    INTO v_media, v_n\n' +
+  "    FROM jsonb_each_text(coalesce(p_scores_humanos, '{}'::jsonb)) AS kv(k, v)\n" +
+  String.raw`   WHERE kv.v ~ '^[0-9]+(\.[0-9]+)?$'` + '\n' +
+  '     AND kv.v::numeric BETWEEN 1 AND 5;\n' +
+  '\n' +
+  '  IF coalesce(v_n, 0) = 0 THEN\n' +
+  "    RAISE EXCEPTION 'scores_humanos sem notas numericas entre 1 e 5' USING ERRCODE = 'check_violation';\n" +
+  '  END IF;\n';
+const G5_FORA =
+  '  SELECT count(*) INTO v_fora\n' +
+  '    FROM jsonb_object_keys(p_scores_humanos) AS k(nome)\n' +
+  '   WHERE k.nome <> ALL (v_conj);\n' +
+  '  IF v_fora > 0 THEN\n' +
+  "    RAISE EXCEPTION 'scores_humanos com % chave(s) fora das competencias da analise', v_fora\n" +
+  "      USING ERRCODE = 'check_violation';\n" +
+  '  END IF;\n';
+/* G6: o IF do fallback inteiro (as três linhas, a do meio terminada pelo marcador do espelho). */
+function g6Alvo(fn) {
+  const ini = '  IF cardinality(v_conj) = 0 THEN\n';
+  const t = extrair(fn, ini, '  END IF;\n', 'G6 (fallback)');
+  if (!t.includes('-- F13: espelho de DEFAULT_COMPETENCIAS')) throw new Error('ANCORA AUSENTE/AMBIGUA: G6 (o IF do fallback nao traz o marcador do espelho)');
+  return t;
+}
+const G7_COMPETENCIA = "                   WHEN jsonb_typeof(e->'competencia') = 'string' AND length(e->>'competencia') > 0 THEN e->>'competencia'\n";
 
 const MUTACOES = [
   {
@@ -397,6 +452,75 @@ const MUTACOES = [
       "  IF v_n <> 1 THEN RAISE EXCEPTION 'MUTACAO B6 SEM ALVO: o mapa da versao " + V03 + " esta vazio nesta transacao'; END IF;\n" +
       'END\n' +
       '$b6$;',
+  },
+  {
+    // T-52-82 (WR-04): só a duplicata volta a comparar TEXTO — a completude por uuid ainda recusa, mas com OUTRO rótulo.
+    id: 'G1',
+    desc: 'pontuar_sjt: a checagem de duplicata volta a comparar pergunta_id como texto',
+    smoke: S52G,
+    letra: 'a',
+    requer: [V05],
+    sql: () => trocar(fnPontuar(), G_DUP_UUID, G_DUP_TEXTO, 'G1'),
+  },
+  {
+    // T-52-82 (WR-04): as duas checagens voltam a texto — o defeito original: a pergunta repetida conta duas vezes.
+    id: 'G2',
+    desc: 'pontuar_sjt: duplicata e completude voltam a comparar pergunta_id como texto',
+    smoke: S52G,
+    letra: 'a',
+    requer: [V05],
+    sql: () => trocar(trocar(fnPontuar(), G_DUP_UUID, G_DUP_TEXTO, 'G2 (duplicata)'), G_ANS_UUID, G_ANS_TEXTO, 'G2 (completude)'),
+  },
+  {
+    // T-52-83: sem as recusas 'resposta malformada', o `::uuid` levanta 22P02 sem rótulo.
+    id: 'G3',
+    desc: "pontuar_sjt: sem as duas recusas 'resposta malformada' (P1)",
+    smoke: S52G,
+    letra: 'e',
+    requer: [V05],
+    sql: () => trocar(fnPontuar(), G_MALFORMADA, '', 'G3'),
+  },
+  {
+    // T-52-84 (F13): o bloco volta à regra «pelo menos uma nota 1–5» do corpo vivo.
+    id: 'G4',
+    desc: 'salvar_avaliacao_entrevista: o bloco F13 volta a regra de pelo menos uma nota (corpo vivo)',
+    smoke: S52G,
+    letra: 'c',
+    requer: [V05],
+    sql: () => {
+      const fn = fnSalvar4();
+      return trocar(fn, extrair(fn, G4_INICIO, G4_FIM, 'G4 (bloco F13)'), G4_VIVO, 'G4');
+    },
+  },
+  {
+    // T-52-84 (F13): sem a recusa de chave fora do conjunto.
+    id: 'G5',
+    desc: 'salvar_avaliacao_entrevista: sem a recusa de chave fora das competencias da analise',
+    smoke: S52G,
+    letra: 'i',
+    requer: [V05],
+    sql: () => trocar(fnSalvar4(), G5_FORA, '', 'G5'),
+  },
+  {
+    // T-52-84 (F13): sem o fallback dos 4 nomes de DEFAULT_COMPETENCIAS.
+    id: 'G6',
+    desc: 'salvar_avaliacao_entrevista: sem o fallback dos 4 nomes de DEFAULT_COMPETENCIAS',
+    smoke: S52G,
+    letra: 'm',
+    requer: [V05],
+    sql: () => {
+      const fn = fnSalvar4();
+      return trocar(fn, g6Alvo(fn), '', 'G6');
+    },
+  },
+  {
+    // T-52-84 (F13): a normalização ignora `competencia` — o conjunto do servidor deixa de ser o da tela.
+    id: 'G7',
+    desc: 'salvar_avaliacao_entrevista: a normalizacao ignora a chave competencia (so competency)',
+    smoke: S52G,
+    letra: 'd',
+    requer: [V05],
+    sql: () => trocar(fnSalvar4(), G7_COMPETENCIA, '', 'G7'),
   },
 ];
 
