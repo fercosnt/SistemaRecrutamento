@@ -68,6 +68,7 @@ import {
 } from '@/features/avaliacao-cognitiva/services/cognitivoService'
 import { useProctoring } from '@/features/avaliacao-cognitiva/hooks/useProctoring'
 import { marcarInstrumentoRegistrado } from '@/features/avaliacao/lib/avaliacaoStatusCache'
+import { SairDaProvaButton } from '@/features/avaliacao/components/SairDaProvaButton'
 
 /** Verbatim pt-BR copy from 14-UI-SPEC §Copywriting Contract (candidate cognitive prova). */
 const COPY = {
@@ -321,6 +322,15 @@ export function ProvaCognitivaScreen() {
   return (
     <ScreenShell>
       <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
+        {/* 52-02 / D-36: sem rascunho (FX-13) — as respostas vivem só aqui, então a saída
+            durante a prova confirma a perda quando há ≥1 marcada. */}
+        <div className="flex justify-start">
+          <SairDaProvaButton
+            rotulo="voltarAvaliacoes"
+            destino={`/candidato/avaliacao/${candidaturaId}`}
+            temRespostaNaoSalva={Object.keys(respostas).length > 0}
+          />
+        </div>
         {/* Heading + soft timer */}
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-3xl md:text-4xl font-semibold drop-shadow-md">{COPY.heading}</h1>

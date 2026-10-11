@@ -50,6 +50,7 @@ import {
 import { upsertResposta } from '@/features/avaliacao/services/avaliacaoService'
 import { useAutosaveAvaliacao } from '@/features/avaliacao/hooks/useAutosaveAvaliacao'
 import { marcarInstrumentoRegistrado } from '@/features/avaliacao/lib/avaliacaoStatusCache'
+import { SairDaProvaButton } from './SairDaProvaButton'
 import {
   LIKERT_LABELS,
   BIGFIVE_TOTAL_ITENS,
@@ -277,13 +278,17 @@ export function EscalaLegenda({
 export function BigFiveIntro({
   onComecar,
   totalItens = BIGFIVE_TOTAL_ITENS,
+  acaoSair,
 }: {
   onComecar: () => void
   /** Number of administered items shown in the intro copy — defaults to the active count. */
   totalItens?: number
+  /** 52-02 / D-24: the exit button, first line of the panel (the screen passes it). */
+  acaoSair?: React.ReactNode
 }) {
   return (
     <GlassPanel variant="white" blur="xl" className={cn(PANEL_DARK, 'text-white space-y-6')}>
+      {acaoSair ? <div className="flex justify-start">{acaoSair}</div> : null}
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold drop-shadow-md">Avaliação comportamental</h1>
         {/* Scannable highlight line — turquoise now reads on the dark glass (WCAG AA). */}
@@ -359,6 +364,17 @@ export function BigFiveQuestionnaireScreen() {
   // D-37 / C-11: the etapa moved on → straight to the panel (the list would only show
   // its lock screen).
   const goToPanel = () => navigate('/candidato/dashboard')
+
+  // 52-02 / D-24: saída durante a prova — há rascunho, então sai direto, depois do flush
+  // (o flush de desmontagem do hook é fogo-e-esquece). Na introdução e nas páginas.
+  const sairDaProva = (
+    <SairDaProvaButton
+      rotulo="voltarAvaliacoes"
+      destino={`/candidato/avaliacao/${candidaturaId}`}
+      temRespostaNaoSalva={false}
+      antesDeSair={autosave.flushNow}
+    />
+  )
 
   const ordered = useMemo<BigfiveItem[]>(
     () => (itens ? [...itens].sort((a, b) => a.ordem - b.ordem) : []),
@@ -461,7 +477,11 @@ export function BigFiveQuestionnaireScreen() {
   if (page === 0) {
     return (
       <ScreenShell>
-        <BigFiveIntro onComecar={() => setPage(1)} totalItens={ordered.length} />
+        <BigFiveIntro
+          onComecar={() => setPage(1)}
+          totalItens={ordered.length}
+          acaoSair={sairDaProva}
+        />
       </ScreenShell>
     )
   }
@@ -475,6 +495,7 @@ export function BigFiveQuestionnaireScreen() {
   return (
     <ScreenShell>
       <GlassPanel variant="white" blur="xl" className={cn(PANEL_DARK, 'text-white space-y-6')}>
+        <div className="flex justify-start">{sairDaProva}</div>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-semibold drop-shadow-md">
             Página {page} de {totalQuestionPages}

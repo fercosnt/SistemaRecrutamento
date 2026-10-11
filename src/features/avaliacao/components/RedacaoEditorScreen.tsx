@@ -61,6 +61,7 @@ import {
 import { marcarInstrumentoRegistrado } from '@/features/avaliacao/lib/avaliacaoStatusCache'
 import { RedacaoCounter, countWords, MIN_WORDS, MAX_WORDS } from './RedacaoCounter'
 import { RedacaoCronometro } from './RedacaoCronometro'
+import { SairDaProvaButton } from './SairDaProvaButton'
 
 const TESTE = 'redacao'
 
@@ -354,6 +355,15 @@ export function RedacaoEditorScreen() {
   return (
     <ScreenShell>
       <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
+        {/* 52-02 / D-24: saída durante a prova — há rascunho, então sai direto, depois do flush. */}
+        <div className="flex justify-start">
+          <SairDaProvaButton
+            rotulo="voltarAvaliacoes"
+            destino={`/candidato/avaliacao/${candidaturaId}`}
+            temRespostaNaoSalva={false}
+            antesDeSair={flushNow}
+          />
+        </div>
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold drop-shadow-md">Redação cultural</h1>
           <AutosaveAffordance status={status} />

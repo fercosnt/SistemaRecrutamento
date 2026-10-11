@@ -49,6 +49,7 @@ import {
   type AutosaveStatus,
 } from '@/features/avaliacao/hooks/useAutosaveAvaliacao'
 import { marcarInstrumentoRegistrado } from '@/features/avaliacao/lib/avaliacaoStatusCache'
+import { SairDaProvaButton } from './SairDaProvaButton'
 
 const TESTE = 'sjt_caso_aberto'
 
@@ -237,6 +238,15 @@ export function SjtCasoAbertoScreen() {
   return (
     <ScreenShell>
       <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
+        {/* 52-02 / D-24: saída durante a prova — há rascunho, então sai direto, depois do flush. */}
+        <div className="flex justify-start">
+          <SairDaProvaButton
+            rotulo="voltarAvaliacoes"
+            destino={`/candidato/avaliacao/${candidaturaId}`}
+            temRespostaNaoSalva={false}
+            antesDeSair={flushNow}
+          />
+        </div>
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold drop-shadow-md">Caso prático</h1>
           <AutosaveIndicator status={status} />
