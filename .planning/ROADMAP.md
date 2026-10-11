@@ -772,7 +772,7 @@ Plans:
 - [x] 52-16-PLAN.md — Banco SJT v2 em texto: pré-vendas 6+1 e versão nova de marketing; tabela de caracteres (D-34); gerador com ordem embaralhada (D-37); casos abertos mantidos conferidos por máquina; LGPD-04 antes do portão; ensaio
 
 **Wave 3**
-- [ ] 52-03-PLAN.md — Raven na shell da marca, instruções visíveis, «Ir ao painel» com confirmação
+- [x] 52-03-PLAN.md — Raven na shell da marca, instruções visíveis, «Ir ao painel» com confirmação
 - [ ] 52-23-PLAN.md — Contato no cabeçalho do hub: «Enviar e-mail» e «Chamar no WhatsApp» (D-12..D-16)
 
 **Wave 4**
