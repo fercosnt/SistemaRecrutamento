@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-06-PLAN.md (2026-10-11): login do candidato respeita a sessão aberta (resolveRedirect + escopo /candidato/, senão painel; «Verificando sua sessão…» durante a hidratação; envioEmCursoRef impede o efeito de sequestrar o ?redirect do próprio envio); «Meu painel» na CandidatoNavbar (ausente em /candidato/dashboard); CartaoInscricaoEncerrada extraído e legível no vidro (text-2xl text-white / white/80 / white/70, texto D-15 intacto); SelectItem com realce bg-[#35BFAD]/20 e texto herdado (D-52-U21); RED_EVIDENCE_OK (JUnit) nos 4 alvos; vitest 173/173 + 550/550 nos escopos, suíte 2910/2912 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89; conferência visual do SelectItem nos dois consumidores fica para a UAT da 52; sem push."
-last_updated: "2026-10-11T04:42:00.000Z"
+stopped_at: "Completed 52-07-PLAN.md (2026-10-11): entrevista com notas 1–5 em radiogroup por competência, nenhuma marcada ao abrir (nota da IA fora do estado e da lista), «Salvar avaliação» só com todas as notas + notas escritas (aviso nota-faltante por aria-describedby), payload só com notas escolhidas; subtítulo sem jargão (D-52-U13) e «Notas do gestor (obrigatório)»; ban p52-ban-jargao-entrevista com mordida provada na linha real; RED_EVIDENCE_OK (JUnit) nos 2 alvos; vitest 283/283 nos escopos, suíte 2922/2924 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89; residual F13 (servidor aceita notas parciais) para o 52-SECURITY; sem push."
+last_updated: "2026-10-11T04:52:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 180
-  percent: 91
+  completed_plans: 181
+  percent: 92
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."
