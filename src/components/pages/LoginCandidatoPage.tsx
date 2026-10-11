@@ -18,7 +18,7 @@
  * @module components/pages/LoginCandidatoPage
  */
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -49,6 +49,7 @@ import { AuthError, isAuthError } from '@/features/auth/types'
 import { useRateLimitCooldown } from '@/features/auth/hooks'
 import { waitForCandidatoHydrated } from '@/features/auth/utils'
 import { resolveRedirect } from '@/features/auth/utils/resolveRedirect'
+import { useAuthStore } from '@/store/authStore'
 
 // Phase 22 / Plan 22-03 (UX-05): `resolveRedirect` was extracted into a shared
 // auth util so login AND cadastro consume ONE anti-open-redirect guard. It is
@@ -56,9 +57,26 @@ import { resolveRedirect } from '@/features/auth/utils/resolveRedirect'
 // which imports `resolveRedirect` from this module) keeps working unchanged.
 export { resolveRedirect }
 
+/**
+ * 52-06 (JORN-62 · achado do aceite 51-17) — a frase do estado «sessão ainda hidratando».
+ * Exportada para o teste pinar a frase inteira (precedente `COPY_CONTEXTO_KNOCKOUT`).
+ */
+export const COPY_LOGIN_SESSAO = {
+  verificando: 'Verificando sua sessão…',
+} as const
+
 export function LoginCandidatoPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  // 52-06 (51-17): o candidato JÁ logado que abre o link do e-mail
+  // (`/auth/login?redirect=/candidato/…`) caía no formulário, como se não tivesse sessão.
+  const isLoading = useAuthStore((s) => s.isLoading)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const role = useAuthStore((s) => s.role)
+  // A sessão que nasce DO PRÓPRIO envio (o listener do App hidrata o store durante o
+  // `signIn`) é do `onSubmit`, que tem o seu destino — o efeito de sessão aberta não pode
+  // correr na frente dele e mandar ao painel quem pediu `/vagas/123`.
+  const envioEmCursoRef = useRef(false)
   const [showPassword, setShowPassword] = useState(false)
   const [lastError, setLastError] = useState<AuthError | null>(null)
   const [isResending, setIsResending] = useState(false)
@@ -92,8 +110,25 @@ export function LoginCandidatoPage() {
   // Encadeia o ref do RHF com o ref local (para focus em INVALID_CREDENTIALS).
   const passwordRegister = register('password')
 
+  // Sessão de candidato já aberta → direto ao destino, sem o formulário. A VALIDAÇÃO do
+  // destino é o `resolveRedirect` (anti-open-redirect: `//`, `/\`, controle, espaço, origem);
+  // o prefixo `/candidato/` só restringe o ESCOPO — esta é a porta da área do candidato —, e
+  // qualquer outro destino válido vira o painel. RH/admin ou sem sessão: o formulário de hoje.
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || role !== 'candidato') return
+    if (envioEmCursoRef.current) return
+    const alvo = resolveRedirect(searchParams.get('redirect'))
+    navigate(alvo.startsWith('/candidato/') ? alvo : '/candidato/dashboard', {
+      replace: true,
+    })
+  }, [isLoading, isAuthenticated, role, searchParams, navigate])
+
+  const sessaoDeCandidatoAberta =
+    !isLoading && isAuthenticated && role === 'candidato' && !envioEmCursoRef.current
+
   const onSubmit = async (data: LoginFormData) => {
     setLastError(null)
+    envioEmCursoRef.current = true
     try {
       await signIn({
         email: data.email,
@@ -129,6 +164,7 @@ export function LoginCandidatoPage() {
       const target = resolveRedirect(searchParams.get('redirect'))
       navigate(target, { replace: true })
     } catch (err) {
+      envioEmCursoRef.current = false
       if (isAuthError(err)) {
         setLastError(err)
         switch (err.code) {
@@ -233,6 +269,18 @@ export function LoginCandidatoPage() {
             className="mx-auto mb-8 drop-shadow-lg"
           />
 
+          {isLoading || sessaoDeCandidatoAberta ? (
+            <GlassCard variant="white" blur="lg" className="p-6 sm:p-8">
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex flex-col items-center justify-center gap-3 py-6"
+              >
+                <Loader2 className="h-8 w-8 animate-spin text-white" aria-hidden="true" />
+                <p className="text-base text-white/80">{COPY_LOGIN_SESSAO.verificando}</p>
+              </div>
+            </GlassCard>
+          ) : (
           <GlassCard variant="white" blur="lg" className="p-6 sm:p-8">
             <div className="text-center mb-6">
               <h1 className="text-white text-2xl font-semibold mb-2 drop-shadow-lg">
@@ -484,6 +532,7 @@ export function LoginCandidatoPage() {
               )}
             </form>
           </GlassCard>
+          )}
 
           <p className="text-center text-sm text-white/80 mt-6">
             Não tem uma conta?{' '}

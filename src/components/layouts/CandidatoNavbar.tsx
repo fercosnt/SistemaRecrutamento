@@ -13,14 +13,18 @@
  * @prop showAreaLink — when true (default), renders the "Área do candidato" link to
  *   /candidato/perfil. MeuPerfilCandidatoPage passes `false` because it IS the area.
  *
+ * «Meu painel» (52-06 · JORN-62 · achado do aceite 51-17): volta a /candidato/dashboard de
+ * qualquer tela do candidato, à esquerda de "Área do candidato"; não renderiza no próprio
+ * painel (um botão que leva aonde já se está é ruído).
+ *
  * Logout (WR-01-09): handleLogout now does a real try/catch. authStore.logout was
  * root-fixed to re-throw signOut failures (after clearAuth), so the catch here can
  * surface an honest error toast instead of always showing success.
  * Pitfall 7: console.error logs only the message, never PII/token.
  */
 
-import { useNavigate } from 'react-router-dom'
-import { LogOut, UserCircle } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, LogOut, UserCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { BeautySmileLogo } from '../BeautySmileLogo'
 import { Glass, GlassButton } from '../ui/glass'
@@ -37,6 +41,7 @@ interface CandidatoNavbarProps {
 
 export function CandidatoNavbar({ showAreaLink = true }: CandidatoNavbarProps) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const role = useAuthStore((state) => state.role)
   const candidato = useAuthStore((state) => state.candidato)
@@ -100,6 +105,19 @@ export function CandidatoNavbar({ showAreaLink = true }: CandidatoNavbarProps) {
 
             {/* Right: (optional) Área do candidato + Sair */}
             <div className="flex items-center gap-2">
+              {pathname !== '/candidato/dashboard' && (
+                <GlassButton
+                  variant="white"
+                  hover
+                  onClick={() => navigate('/candidato/dashboard')}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap text-white drop-shadow-sm"
+                  aria-label="Meu painel"
+                  data-testid="navbar-meu-painel"
+                >
+                  <LayoutDashboard className="w-4 h-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Meu painel</span>
+                </GlassButton>
+              )}
               {showAreaLink && (
                 <GlassButton
                   variant="white"
