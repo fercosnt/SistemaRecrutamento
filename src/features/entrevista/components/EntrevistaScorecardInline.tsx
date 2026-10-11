@@ -13,8 +13,10 @@
  * Radix não tem estado vazio (sem valor não há polegar), então o controle virou 5 botões
  * `role="radio"` num `radiogroup` por competência, NENHUM marcado ao abrir. «Salvar avaliação»
  * só habilita com TODAS as competências notadas (`entrevista-nota-faltante` diz o que falta) e
- * o payload leva só as notas escolhidas. Residual (F13): o servidor recusa apenas «nenhuma
- * nota entre 1 e 5» — a regra «todas notadas» vive aqui no cliente (bloco A é sem banco).
+ * o payload leva só as notas escolhidas. Desde o 52-26 (F13) o servidor exige a mesma regra:
+ * nota 1–5 para TODA competência da análise — o conjunto desta tela, inclusive o fallback
+ * `DEFAULT_COMPETENCIAS` — e nenhuma chave fora dele (23514). A lista é espelhada na migration
+ * `20261011000005` e vigiada por `__tests__/competencias-padrao-servidor.test.ts`.
  *
  * 49-31 (gap CR-03, D-39): a nota humana é gravada numa análise NOMEADA por id, e a tela
  * diz qual — «Esta avaliação será registrada sobre a análise da {entrevista}». Com mais de
@@ -64,8 +66,12 @@ export const SCORECARD_COPY = {
 /** As notas possíveis, na ordem em que aparecem. */
 const NOTAS = [1, 2, 3, 4, 5] as const
 
-/** Default Beauty Smile interview competencies (used when the AI gives none). */
-const DEFAULT_COMPETENCIAS = [
+/**
+ * Default Beauty Smile interview competencies (used when the AI gives none). Espelhada no
+ * servidor (migration `20261011000005`, F13): mudar aqui exige mudar lá — a guarda
+ * `competencias-padrao-servidor.test.ts` reprova a divergência.
+ */
+export const DEFAULT_COMPETENCIAS = [
   'Experiência UAU',
   'Inovação',
   'Atitude de Dono',
