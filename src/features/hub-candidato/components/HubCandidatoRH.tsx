@@ -53,6 +53,7 @@ import { HubSection, type HubSectionEstado } from './HubSection'
 import { CvButton } from './CvButton'
 import { AnaliseIABlock } from './AnaliseIABlock'
 import { HistoricoBlock } from './HistoricoBlock'
+import { ContatoCandidatoHeader } from './ContatoCandidatoHeader'
 import {
   AvaliacoesRespondidasBloco,
   COPY_AVALIACOES_RESPONDIDAS,
@@ -260,6 +261,11 @@ export function HubCandidatoRH() {
             </span>
           </div>
         )}
+
+        {/* 52-23 / D-12: o contato do candidato, no cabeçalho e FORA das abas. O hook de leitura
+            (`useCadastroCandidatoRh`, EF com log do 52-09) mora dentro do componente — nenhum
+            hook novo no corpo deste hub (o early return de not-found acima exige isso). */}
+        <ContatoCandidatoHeader candidaturaId={candidaturaId} />
 
         {/* Próximo passo — o CTA dominante da etapa_atual (D-06) MAIS a linha de ações
             OPER-01/02/03 (avançar/retroceder/rejeitar) ao lado dele.
