@@ -254,10 +254,10 @@ corrige todas.
 | 240, 251, 260 | rótulos «Citações» / «Texto do candidato» / «Red flags» | `text-xs uppercase tracking-wide text-white/50` | `text-sm font-semibold text-white/70`, sem caixa-alta («Red flags» vira «Pontos de atenção», D-52-U19) |
 | 296 | selo «Contextual · não-eliminatório» do `BigFiveEstado` | `text-xs font-semibold` | `text-sm font-semibold` — e no hub o card passa a ser `BigFiveResultadoHub`, com o selo neutro de 14px |
 
-E, na variante do hub de `RespostaCasoAbertoConteudo` (`src/features/decisao/components/RespostaCasoAbertoSjt.tsx`),
-os seis `text-xs` (linhas 58, 66, 82, 83, 96, 110) viram: texto do candidato e frases de estado
-(`carregando`/`erro`/`removida`/`indisponivel`/`sem_resposta_enviada`) em **16px**; rótulo e botão de recarregar em
-**14px/600**. A variante da Decisão Final continua como está (âmbar, 12px — C-7 da 51; fora do hub).
+E a variante do hub de `RespostaCasoAbertoConteudo` (`src/features/decisao/components/RespostaCasoAbertoSjt.tsx`) é **código novo**, não edição: um ramo de retorno antecipado logo depois da `useQuery` compartilhada, numa função interna própria, em que o texto do candidato (via `TextoComCitacoes`) e as frases de estado
+(`carregando`/`erro`/`removida`/`indisponivel`/`sem_resposta_enviada`) saem em **16px** e o botão de recarregar em **14px/600**. O rótulo do texto tem um dono só — o «Texto do candidato» do card (`ScorecardAvaliacao`, linha 251 da tabela acima, 14/600); o ramo do hub não desenha rótulo próprio.
+Os seis `text-xs` do arquivo **não são editados, movidos nem reindentados** — `:58`, `:66`, `:82`, `:83` e `:96` são a variante da Decisão Final, e `:110` é o botão de abrir/ocultar do `RespostaCasoAbertoSjt`, que o hub nunca renderiza —, então não reaparecem como linhas acrescentadas e a varredura do executor não os acusa (52-12).
+A variante da Decisão Final continua como está (âmbar, 12px — C-7 da 51; fora do hub): é herança intocada no mesmo arquivo, como o `span` neutro e o selo do painel do candidato mais abaixo (telas do candidato, nesta seção).
 
 **Fora do contrato — herança medida, não tocada por esta fase** (o hub as renderiza porque o componente apenas
 **muda de aba**; a fase não edita o markup deles):
