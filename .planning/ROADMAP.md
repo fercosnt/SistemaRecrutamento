@@ -791,7 +791,7 @@ Plans:
 - [x] 52-14-PLAN.md — Portão do bloco B: prova sobre o estado vivo + review adversarial bloqueante + decisão do operador
 
 **Wave 9**
-- [ ] 52-15-PLAN.md — Bloco B no ar: apply das RPCs e dos nomes, deploy da EF, push do cliente (A+B); `db:types`
+- [x] 52-15-PLAN.md — Bloco B no ar: apply das RPCs e dos nomes, deploy da EF, push do cliente (A+B); `db:types`
 
 **Wave 10** *(checkpoint)*
 - [ ] 52-17-PLAN.md — Portão de texto do bloco C (operador aprova o texto e o critério); migration gerada do texto aprovado; guarda LGPD-04

@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-14-PLAN.md (2026-10-11): portão do bloco B — tracer verde no estado vivo (ensaio vistas=igual 52l=20/20, mutações 8/8, deno 40/0, delta vitest alteradas=0 novas=0 mordida=ok, lint 89, chunks, tipografia OK); 52-REVIEW-PORTAO-1 recusou (CR-01: Big Five e Caso prático saíam sem aviso) → rodada nos donos (aacef0a6, 0b4d486b, 794aaf26, 1f688f52, 040c6b4d) → 52-REVIEW-PORTAO-2 critical 0, PORTAO OK (reviewed_head 040c6b4d); operador: (a) «aplicar», (b) «Confirmo»; registros emendados (WR-03 do -2, 355f1249); carry-forwards obrigatórios do bloco C antes do 52-17/52-18: WR-01 (52-18-PLAN: 0003 destrutiva, mapa velho→novo, prova pós «zero opcao_id não-v4 em item ativo»), WR-02 (pontuar_sjt recusa opcao_id sem par, dentro da migration do bloco C), IN-09 (review do bloco C inclui scripts/geradores/ e p52_banco_sjt_smoke.sql inteiros); nada aplicado, sem push. Próximo: 52-15."
-last_updated: "2026-10-11T17:15:00.000Z"
+stopped_at: "Completed 52-15-PLAN.md (2026-10-11): bloco B no ar — pin refs/gsd/52-15/sha=bc0d2720; migrations 20261011000001 (md5 a42c4754…) e 20261011000002 (md5 08c996ac…) aplicadas pelo p46apply com portao, ledger = arquivo; smoke vivo 52l=20/20 vistas=vacua; mutacoes pos-apply 8/8; EF ler-cadastro-candidato-rh v1 ACTIVE verify_jwt=true, 401 sem sessao; push por sha ff6878c2..bc0d2720 (109 commits, 68 codigo, 41 planning, 0 ALHEIO); sair-da-prova em index-CfSo-z5g.js e hub-abas em PerfilCandidatoRHPage-CqFjwW7k.js no ar; db:types (tsc 89→89) em commit LOCAL fa6ab81b, sobe no 52-18. Proximo: UAT da 52 (hub com sessao real) e bloco C apos os carry-forwards do 52-14."
+last_updated: "2026-10-11T17:20:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 189
-  percent: 96
+  completed_plans: 190
+  percent: 97
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
 last_activity_desc: "/gsd-plan-phase 52: pesquisa (F1..F18), pattern map, 25 planos verificados (3 rodadas + rodada orientada + rodada curta aprovadas pelo operador); D-36..D-40 no 52-CONTEXT."
