@@ -50,6 +50,8 @@ import type {
 
 /** Cópia pt-BR da escolha da análise avaliada (49-31). */
 export const SCORECARD_COPY = {
+  /** 52-07 (D-52-U13): instrução simples no lugar do jargão de componente e de coluna. */
+  subtitulo: 'Escolha uma nota de 1 a 5 para cada competência. A decisão é sempre humana.',
   registradaSobre: 'Esta avaliação será registrada sobre a análise da',
   escolherLegenda: 'Qual análise você está avaliando?',
   semVigente: 'Nenhuma análise vigente: analise a transcrição antes de registrar a avaliação.',
@@ -154,9 +156,7 @@ export function EntrevistaScorecardInline({
           <h3 className="text-xl font-semibold text-white">Avaliação por competência</h3>
           {hasIA ? <SugestaoIABadge variant="compact" /> : null}
         </div>
-        <p className="text-sm font-semibold text-white/60">
-          BARS sliders 1–5 — notas_humanas. A decisão é sempre humana.
-        </p>
+        <p className="text-sm font-semibold text-white/60">{SCORECARD_COPY.subtitulo}</p>
       </div>
 
       {/* Qual análise recebe a nota (49-31, D-39) — e a escolha, quando há mais de uma. */}
@@ -243,7 +243,8 @@ export function EntrevistaScorecardInline({
       {/* Notas do gestor obrigatórias (espelho de `salvar_avaliacao_entrevista`, D-22). */}
       <div className="space-y-2">
         <Label htmlFor="entrevista-notas" className="text-sm font-semibold text-white/90">
-          Notas do gestor
+          Notas do gestor{' '}
+          <span className="font-normal text-white/70">(obrigatório)</span>
         </Label>
         <Textarea
           id="entrevista-notas"
