@@ -30,3 +30,25 @@ A releitura do rascunho fica fora do escopo. Emenda à D-36: a lista «com rascu
   que entre na ordem de apply.
 
 Os INFO do review seguem para a disposição no 52-14-SUMMARY (quem decidiu cada um).
+
+---
+
+# Decisão do portão do bloco B (depois do 52-REVIEW-PORTAO-2)
+
+Data: 2026-10-11. Revisão: `52-REVIEW-PORTAO-2.md` (commit efe55372, reviewed_head 040c6b4d) — 0 critical,
+3 warning, 9 info. Portão conferido pelo orquestrador: `PORTAO OK: revisao=…52-REVIEW-PORTAO-2.md
+reviewed_head=040c6b4d6d2e1c6b839c59a14394d1bdf0b138c4 pin=- modo=revisao` (rc=0).
+
+**(a) Resposta (verbatim): «aplicar»**
+
+**(b) Resposta (verbatim): «Confirmo»** — nenhuma outra janela publica (push / apply / deploy) neste
+repositório até o fim do 52-15.
+
+**Disposição dos warnings do -2 (verbatim): «WR-03 now: fix the records, WR-01 before block C, WR-02 before block C»**
+
+- WR-03 (dono 52-14): agora, no fecho do 52-14 — emendar 52-UI-SPEC, 52-VALIDATION, 52-CONTEXT e 52-02-SUMMARY
+  para dizer que Big Five e Caso prático confirmam a saída (decisão do CR-01). Só `.planning/`.
+- WR-01 (dono 52-18): antes do 52-17/52-18 — corrigir o 52-18-PLAN: a 0003 é destrutiva sobre respostas
+  gravadas; registrar o mapa id velho→novo; acrescentar a prova pós-apply «zero opcao_id fora de uuid v4 em item ativo».
+- WR-02 (dono 52-16/52-18): antes de o remap ser aplicado — `pontuar_sjt` recusa com erro um `opcao_id` sem
+  correspondência, em vez de pontuar 0 em silêncio (dentro da migration do bloco C).
