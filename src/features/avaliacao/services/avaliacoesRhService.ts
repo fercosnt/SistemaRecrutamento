@@ -5,6 +5,10 @@
  * - `lerDevolutivaBigFiveRh` — as faixas do Big Five QUE O CANDIDATO VIU na devolutiva dele
  *   (D-04, UI-SPEC Invariante 2), mais o texto integral que ele recebeu (D-06), pela RPC
  *   `ler_devolutiva_bigfive_rh` (52-08). Nunca de `scores_candidato.metadata.dimensoes`.
+ * - `lerSjtMcRh` — o SJT de múltipla escolha: por situação, o cenário, TODAS as alternativas na
+ *   ordem neutra calculada no servidor (D-37) e qual foi a escolhida; etiqueta e peso SÓ da
+ *   escolhida (D-21), pela RPC `ler_sjt_mc_rh` (52-08). Nenhuma alternativa leva etiqueta/peso no
+ *   tipo, e a projeção descarta os que viessem (T-52-32: nenhum gabarito chega à tela).
  *
  * O TIPO É A PRIMEIRA TRAVA (UI-SPEC Invariante 1, T-52-31): `BigFiveHubDimensao` tem só
  * `dim`, `banda` e `texto_interpretativo`. Cada objeto que chega da rede é PROJETADO campo a
@@ -158,4 +162,94 @@ export async function lerDevolutivaBigFiveRh(candidaturaId: string): Promise<Dev
     disclaimer_emocional: textoOuNulo(data.disclaimer_emocional),
     disclaimer_lgpd_crp: textoOuNulo(data.disclaimer_lgpd_crp),
   }
+}
+
+// ── SJT de múltipla escolha ─────────────────────────────────────────────────────────────────
+
+/** As situações do SJT MC, como a RPC as devolve. */
+export const SITUACOES_SJT_MC_RH = ['disponivel', 'sem_sjt_mc'] as const
+
+export type SituacaoSjtMcRh = (typeof SITUACOES_SJT_MC_RH)[number]
+
+function isSituacaoSjtMc(v: unknown): v is SituacaoSjtMcRh {
+  return typeof v === 'string' && (SITUACOES_SJT_MC_RH as readonly string[]).includes(v)
+}
+
+/** Uma alternativa como o candidato a viu — SEM etiqueta e SEM peso (gabarito). */
+export interface SjtMcAlternativaRh {
+  opcao_id: string
+  texto: string
+  escolhida: boolean
+}
+
+/** Uma situação do SJT MC: o cenário, as alternativas em ordem neutra e a escolha. */
+export interface SjtMcItemRh {
+  pergunta_id: string | null
+  cenario: string | null
+  alternativas: SjtMcAlternativaRh[]
+  escolhida_tag: string | null
+  escolhida_peso: number | null
+  escolhida_no_banco: boolean
+}
+
+export interface SjtMcRh {
+  situacao: SituacaoSjtMcRh
+  itens: SjtMcItemRh[]
+}
+
+const ERRO_SJT_MC = 'Não foi possível carregar as situações.'
+const FORMATO_SJT_MC = 'Situações em formato inesperado.'
+
+function formatoSjt(): never {
+  throw new AvaliacoesRhServiceError(FORMATO_SJT_MC, 'DATABASE_ERROR')
+}
+
+function textoOuNuloSjt(v: unknown): string | null {
+  if (v === null || v === undefined) return null
+  return typeof v === 'string' ? v : formatoSjt()
+}
+
+/** Projeção EXPLÍCITA da alternativa — `tag`/`peso` que viessem ficam para trás. */
+function projetarAlternativa(bruto: unknown): SjtMcAlternativaRh {
+  if (!isObjeto(bruto)) return formatoSjt()
+  const { opcao_id: opcaoId, texto, escolhida } = bruto
+  if (typeof opcaoId !== 'string' || typeof escolhida !== 'boolean') return formatoSjt()
+  return { opcao_id: opcaoId, texto: textoOuNuloSjt(texto) ?? '', escolhida }
+}
+
+function projetarItem(bruto: unknown): SjtMcItemRh {
+  if (!isObjeto(bruto) || !Array.isArray(bruto.alternativas)) return formatoSjt()
+  const peso = bruto.escolhida_peso
+  if (peso !== null && peso !== undefined && typeof peso !== 'number') return formatoSjt()
+  if (typeof bruto.escolhida_no_banco !== 'boolean') return formatoSjt()
+  return {
+    pergunta_id: textoOuNuloSjt(bruto.pergunta_id),
+    cenario: textoOuNuloSjt(bruto.cenario),
+    alternativas: bruto.alternativas.map(projetarAlternativa),
+    escolhida_tag: textoOuNuloSjt(bruto.escolhida_tag),
+    escolhida_peso: typeof peso === 'number' ? peso : null,
+    escolhida_no_banco: bruto.escolhida_no_banco,
+  }
+}
+
+/**
+ * Lê, para o RH, as situações do SJT de múltipla escolha da candidatura. A RPC (SECURITY DEFINER)
+ * aplica a guarda de papel antes de qualquer busca e ordena as alternativas de forma neutra — o
+ * cliente NÃO reordena (a ordem do banco é o gabarito, D-37).
+ */
+export async function lerSjtMcRh(candidaturaId: string): Promise<SjtMcRh> {
+  if (!candidaturaId) {
+    throw new AvaliacoesRhServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
+  }
+
+  const { data, error } = await chamarRpc('ler_sjt_mc_rh', candidaturaId)
+  if (error) {
+    throw new AvaliacoesRhServiceError(ERRO_SJT_MC, codigoDoErro(error), error)
+  }
+
+  if (!isObjeto(data) || !isSituacaoSjtMc(data.situacao) || !Array.isArray(data.itens)) {
+    return formatoSjt()
+  }
+  if (data.situacao === 'sem_sjt_mc') return { situacao: 'sem_sjt_mc', itens: [] }
+  return { situacao: 'disponivel', itens: data.itens.map(projetarItem) }
 }

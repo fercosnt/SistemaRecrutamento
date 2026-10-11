@@ -2,7 +2,7 @@
  * ScorecardAvaliacao — the RH-facing read-only SJT scorecard (AVAL-02/03).
  *
  * Desktop RH shell (NOT the candidate glass shell — inherits the Phase-10 panel
- * contract). Renders the deterministic MC per-item breakdown + the open-case BARS
+ * contract). Renders the deterministic MC situations (`SjtMcDetalhe`, 52-11) + the open-case BARS
  * dimensions (1-5 → composite 0-25) + citations/red_flags from `metadata`, in a
  * NEUTRAL/structured presentation (no red/green pass-fail tints). Every AI-derived
  * block carries the reused `SugestaoIABadge` (RNF-07a — full on the panel header,
@@ -46,10 +46,10 @@ import { RespostaCasoAbertoConteudo } from '@/features/decisao/components/Respos
 import { estadoBigFive, type EstadoBigFive } from '@/features/vagas/types/vagasTypes'
 import { useScorecardCandidato } from '../hooks/useScorecardCandidato'
 import { BigFiveResultadoHub, COPY_BIG_FIVE_HUB } from './BigFiveResultadoHub'
+import { SjtMcDetalhe } from './SjtMcDetalhe'
 import {
   isBigFiveRow,
   type ScoreRow,
-  type McMetadata,
   type CasoAbertoMetadata,
 } from '../services/scoresRhService'
 // Phase 49 / plano 49-41 — JORN-41, decisão (a). O vocabulário do sinal tem UMA fonte, a mesma
@@ -76,77 +76,6 @@ function RevisaoHumanaMarker() {
       <CircleDashed className="h-4 w-4" aria-hidden="true" />
       {REQUER_REVISAO_COPY}
     </Badge>
-  )
-}
-
-/** A neutral score display "x / max" — never tinted red/green. */
-function ScoreValue({
-  score,
-  scoreMax,
-}: {
-  score: number | null
-  scoreMax: number | null
-}) {
-  if (score == null) {
-    return <span className="text-white/50">—</span>
-  }
-  return (
-    <span className="font-semibold text-white">
-      {score}
-      {scoreMax != null ? <span className="text-white/50"> / {scoreMax}</span> : null}
-    </span>
-  )
-}
-
-/** MC per-item breakdown card (subtipo='mc'). */
-function McBreakdown({ row }: { row: ScoreRow }) {
-  const meta = (row.metadata ?? {}) as McMetadata
-  const respostas = meta.respostas ?? []
-  const pendente = row.status === 'pendente_humano'
-  const falhou = row.status === 'falhou'
-
-  return (
-    <Card className="border-white/10 bg-white/[0.03]">
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-white">Múltipla escolha</CardTitle>
-          {/* MC scoring is purely deterministic (Σ peso) — NO AI. No SugestaoIABadge here
-              (UI-review fix: the badge belongs only on AI-derived blocks / CasoAbertoBreakdown). */}
-          <div className="flex items-center gap-2">
-            {pendente ? <RevisaoHumanaMarker /> : null}
-          </div>
-        </div>
-        <CardDescription className="text-white/70">
-          {falhou ? (
-            'Pontuação indisponível'
-          ) : (
-            <>
-              Pontuação: <ScoreValue score={row.score} scoreMax={row.score_max} />
-            </>
-          )}
-        </CardDescription>
-      </CardHeader>
-      {!falhou && respostas.length > 0 ? (
-        <CardContent>
-          <ul className="divide-y divide-white/10">
-            {respostas.map((item, i) => (
-              <li
-                key={`${item.pergunta_id}-${i}`}
-                className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
-              >
-                <span className="text-white/80">Item {i + 1}</span>
-                <span className="flex items-center gap-2">
-                  <Badge className="border-white/15 bg-white/5 text-white/70 text-xs">
-                    {item.tag}
-                  </Badge>
-                  <span className="text-white/60">peso {item.peso}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      ) : null}
-    </Card>
   )
 }
 
@@ -361,7 +290,14 @@ export function ScorecardAvaliacao({
         .filter((row) => !isBigFiveRow(row))
         .map((row) =>
           row.subtipo === 'mc' ? (
-            <McBreakdown key={row.id} row={row} />
+            // 52-11 / D-21, D-37: situação, alternativas em ordem neutra e a escolhida — no lugar
+            // da antiga lista «Item N · etiqueta · peso», que mostrava o código cru da etiqueta.
+            <SjtMcDetalhe
+              key={row.id}
+              row={row}
+              candidaturaId={candidaturaId}
+              marcadorRevisao={row.status === 'pendente_humano' ? <RevisaoHumanaMarker /> : null}
+            />
           ) : (
             <CasoAbertoBreakdown key={row.id} row={row} candidaturaId={candidaturaId} />
           ),
