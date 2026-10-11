@@ -51,9 +51,25 @@
 --   As expressões das impressões digitais de (j)–(l) são as MESMAS que o gerador emite no PRE e no
 --   POS (`FP_ESCOPO`, `FP_RESPOSTAS`, `FP_SCORES`, `RE_V4` em `scripts/geradores/gen-sjt-v2.py`),
 --   byte a byte — o `test_gen_sjt_v2.py` reprova se divergirem.
+--   (m) WR-01 do 52-REVIEW-PORTAO-2 — o MAPA velho→novo (`supabase_migrations.p52_remap_opcao_sjt`)
+--       existe, tem exatamente uma linha por alternativa do escopo do PRE (mesmos ids de linha, mesmos
+--       ids velhos, uma versão só), o id novo de cada linha é o que a alternativa tem agora e é v4; e
+--       nenhum papel de API o alcança — por privilégio (anon, authenticated, service_role: sem USAGE
+--       no esquema, sem privilégio na tabela) e por comportamento (o candidato da (d) recebe 42501).
+--       A (k) isenta este mapa da varredura do id velho: guardar o id velho é a função dele.
+--   (n) WR-02 do 52-REVIEW-PORTAO-2 — `pontuar_sjt` no ar é o corpo novo (md5 do PRE) e, numa
+--       candidatura de fixture (subtransação que REVERTE: vaga descartável com a bateria por cargo de
+--       um item remapeado, uma candidatura de candidato real levada à `avaliacao_assincrona`), como o
+--       CANDIDATO dono: (1) um conjunto VÁLIDO e completo grava o MESMO score, score_max, status e
+--       metadata que o corpo VELHO (cópia `pg_temp` do `prosrc` que o PRE guardou) grava para a mesma
+--       entrada; (2) o mesmo conjunto com o id VELHO de um item remapeado → 22023 'opcao fora da
+--       pergunta'; (3) com um `opcao_id` forjado → o mesmo 22023; e (4) a mordida da própria
+--       entrada: o corpo VELHO aceita (2) em silêncio, com nota parcial (o defeito que a cláusula
+--       vigia). Sem escopo de remapeamento (estado já limpo), (2) e (4) usam o id forjado.
 --
--- NÃO ESCREVE NADA: só lê, e troca de papel dentro de funções `pg_temp` cujo bloco de exceção
--- desfaz o `SET LOCAL ROLE`. Mesmo assim só roda dentro do ensaio que ABORTA (bloco
+-- NÃO ESCREVE NADA, salvo a (n): só lê, e troca de papel dentro de funções `pg_temp` cujo bloco de
+-- exceção desfaz o `SET LOCAL ROLE`; a (n) escreve só dentro de subtransações que revertem (sem
+-- INSERT em `candidaturas`, cujo gatilho dispara e-mail). Mesmo assim só roda dentro do ensaio que ABORTA (bloco
 -- `$p52_so_ensaio$`): é a migration prefixada que escreve, e ela tem de voltar.
 --
 -- COMO RODAR: node scripts/p52_ensaio.cjs --migracoes="$TMPDIR/20261011000003_p52_banco_sjt_v2.sql"
@@ -61,7 +77,10 @@
 -- ⚠ PROIBIDO: `node p46apply.cjs run` deste arquivo.
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de cláusulas DESTE arquivo (escopo
--- deliberado), num ÚNICO literal (`smoke52b.esperado`, abaixo). Hoje: 12 — a … l.
+-- deliberado), num ÚNICO literal (`smoke52b.esperado`, abaixo). Hoje: 14 — a … n (o
+-- `test_gen_sjt_v2.py` confere que o literal é o número de blocos `DO $<letra>$`).
+-- (n) é a única cláusula que ESCREVE — dentro de subtransações que levantam `P52B1` e voltam antes
+-- do aborto do ensaio; o ensaio aborta de qualquer forma.
 -- Reprovação: `P52B FAIL (<letra>): …` — só contagens, ids e hashes; nenhum texto de item.
 -- =============================================================================
 
@@ -84,7 +103,7 @@ $p52_so_ensaio$;
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);
 SELECT set_config('smoke52b.pass', '0', false);
-SELECT set_config('smoke52b.esperado', '12', false);
+SELECT set_config('smoke52b.esperado', '14', false);
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -136,6 +155,87 @@ BEGIN
   END;
 END
 $p52b_opcoes$;
+
+-- (m) o candidato tenta ler o mapa do remapeamento (dinâmico: a tabela nasce na migration)
+CREATE FUNCTION pg_temp.p52b_ler_mapa(p_sub uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $p52b_mapa$
+DECLARE
+  v_n bigint;
+BEGIN
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', p_sub::text, 'role', 'authenticated',
+                        'app_metadata', json_build_object('role', 'candidato'))::text, true);
+    EXECUTE 'SELECT count(*) FROM supabase_migrations.p52_remap_opcao_sjt' INTO v_n;
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claims', '', true);
+    RETURN jsonb_build_object('ok', v_n);
+  EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('err', SQLSTATE || ':' || SQLERRM);
+  END;
+END
+$p52b_mapa$;
+
+-- (n) `pontuar_sjt` como o CANDIDATO dono (o caminho do cliente: authenticated + JWT)
+CREATE FUNCTION pg_temp.p52b_pontuar(p_cdt uuid, p_resp jsonb, p_sub uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $p52b_pontuar$
+DECLARE
+  v_r jsonb;
+BEGIN
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', p_sub::text, 'role', 'authenticated',
+                        'app_metadata', json_build_object('role', 'candidato'))::text, true);
+    v_r := public.pontuar_sjt(p_cdt, p_resp);
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claims', '', true);
+    RETURN jsonb_build_object('ok', v_r);
+  EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('err', SQLSTATE || ':' || SQLERRM);
+  END;
+END
+$p52b_pontuar$;
+
+-- (n) o corpo VELHO (cópia `pg_temp` criada na (n) a partir do `prosrc` que o PRE guardou), com o
+-- mesmo JWT; roda como o dono do ensaio porque a cópia não é SECURITY DEFINER
+CREATE FUNCTION pg_temp.p52b_pontuar_antigo(p_cdt uuid, p_resp jsonb, p_sub uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $p52b_antigo$
+DECLARE
+  v_r jsonb;
+BEGIN
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', p_sub::text, 'role', 'authenticated',
+                        'app_metadata', json_build_object('role', 'candidato'))::text, true);
+    EXECUTE 'SELECT pg_temp.p52b_pontuar_velho($1, $2)' INTO v_r USING p_cdt, p_resp;
+    PERFORM set_config('request.jwt.claims', '', true);
+    RETURN jsonb_build_object('ok', v_r);
+  EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('err', SQLSTATE || ':' || SQLERRM);
+  END;
+END
+$p52b_antigo$;
+
+-- (n) a linha SJT mc que a chamada gravou, sem carimbo de tempo; respostas em ordem de pergunta
+CREATE FUNCTION pg_temp.p52b_linha_mc(p_cdt uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+AS $p52b_linha$
+  SELECT jsonb_build_object('score', s.score, 'score_max', s.score_max, 'status', s.status,
+                            'meta', s.metadata - 'respostas',
+                            'resp', (SELECT coalesce(jsonb_agg(x ORDER BY x ->> 'pergunta_id'), '[]'::jsonb)
+                                       FROM jsonb_array_elements(s.metadata -> 'respostas') x))
+    FROM public.scores_candidato s
+   WHERE s.candidatura_id = p_cdt AND s.tipo = 'sjt' AND s.subtipo = 'mc' AND s.pergunta_id IS NULL
+$p52b_linha$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -503,6 +603,8 @@ BEGIN
                     AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
                     AND n.nspname NOT LIKE 'pg\_temp%' AND n.nspname NOT LIKE 'pg\_toast\_temp%'
                     AND c.oid <> 'supabase_migrations.schema_migrations'::regclass
+                    -- o mapa do remapeamento (WR-01 do -2) guarda o id velho de propósito; a (m) o confere
+                    AND c.oid IS DISTINCT FROM pg_catalog.to_regclass('supabase_migrations.p52_remap_opcao_sjt')
                   ORDER BY 1 LOOP
       EXECUTE format('SELECT count(*) FROM %s x WHERE to_jsonb(x)::text ~* %L', v_tab.t, v_re) INTO v_occ;
       IF v_occ > 0 THEN
@@ -538,3 +640,250 @@ BEGIN
   PERFORM set_config('smoke52b.pass', (current_setting('smoke52b.pass')::int + 1)::text, false);
 END
 $l$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (m) WR-01 do 52-REVIEW-PORTAO-2 — o mapa velho→novo do remapeamento: existe, é exatamente o
+--     escopo do PRE, aponta os ids vigentes, e nenhum papel de API o alcança
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $m$
+DECLARE
+  v_n      text     := nullif(current_setting('p52.banco_remap_n', true), '');
+  v_ids    text     := coalesce(current_setting('p52.banco_remap_ids', true), '');
+  v_velhos text     := coalesce(current_setting('p52.banco_remap_velhos', true), '');
+  v_mapa   regclass := pg_catalog.to_regclass('supabase_migrations.p52_remap_opcao_sjt');
+  v_sub    uuid     := current_setting('smoke52b.cand')::uuid;
+  v_cnt    bigint;
+  v_ok     bigint;
+  v_v4     bigint;
+  v_vers   bigint;
+  v_mids   text;
+  v_mvel   text;
+  v_papel  text;
+  v_lido   jsonb;
+  v_rot    text[]   := ARRAY[]::text[];
+BEGIN
+  IF v_n IS NULL THEN
+    RAISE EXCEPTION 'P52B FAIL (m): p52.banco_remap_n vazio — o PRE do banco v2 nao mediu o escopo do remapeamento nesta transacao';
+  END IF;
+  IF v_mapa IS NULL THEN
+    RAISE EXCEPTION 'P52B FAIL (m): o mapa supabase_migrations.p52_remap_opcao_sjt nao existe — o remapeamento nao deixou registro para o desfazer';
+  END IF;
+  EXECUTE 'SELECT count(*), '
+       || 'count(*) FILTER (WHERE o.opcao_id = m.opcao_id_novo AND o.pergunta_id = m.pergunta_id), '
+       || 'count(*) FILTER (WHERE m.opcao_id_novo::text ~ ''^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'' AND m.opcao_id_novo <> m.opcao_id_velho), '
+       || 'count(DISTINCT m.versao), '
+       || 'coalesce(string_agg(m.opcao_linha_id::text, '','' ORDER BY m.opcao_linha_id::text COLLATE "C"), ''''), '
+       || 'coalesce(string_agg(lower(m.opcao_id_velho::text), '','' ORDER BY m.opcao_linha_id::text COLLATE "C"), '''') '
+       || 'FROM supabase_migrations.p52_remap_opcao_sjt m LEFT JOIN public.perguntas_opcao_sjt o ON o.id = m.opcao_linha_id'
+    INTO v_cnt, v_ok, v_v4, v_vers, v_mids, v_mvel;
+  IF v_cnt::text <> v_n OR v_ok <> v_cnt OR v_v4 <> v_cnt OR v_mids IS DISTINCT FROM v_ids OR v_mvel IS DISTINCT FROM v_velhos
+     OR (v_cnt > 0 AND v_vers <> 1) THEN
+    v_rot := v_rot || format('conteudo: linhas=%s (PRE=%s), id novo vigente=%s, novo v4 e diferente do velho=%s, versoes=%s, ids iguais=%s, velhos iguais=%s',
+                             v_cnt, v_n, v_ok, v_v4, v_vers, v_mids IS NOT DISTINCT FROM v_ids, v_mvel IS NOT DISTINCT FROM v_velhos);
+  END IF;
+  -- escopo deliberado: os três papéis do PostgREST e das EFs
+  FOREACH v_papel IN ARRAY ARRAY['anon', 'authenticated', 'service_role'] LOOP
+    IF has_schema_privilege(v_papel, 'supabase_migrations', 'USAGE')
+       OR has_table_privilege(v_papel, v_mapa, 'SELECT,INSERT,UPDATE,DELETE') THEN
+      v_rot := v_rot || ('privilegio:' || v_papel);
+    END IF;
+  END LOOP;
+  v_lido := pg_temp.p52b_ler_mapa(v_sub);
+  IF coalesce(v_lido ->> 'err', '') NOT LIKE '42501:%' THEN
+    v_rot := v_rot || ('candidato:' || coalesce(left(v_lido ->> 'err', 60), 'leu ' || (v_lido ->> 'ok') || ' linha(s)'));
+  END IF;
+  IF cardinality(v_rot) > 0 THEN
+    RAISE EXCEPTION 'P52B FAIL (m): [%] — o mapa velho→novo nao e o registro do remapeamento, ou esta ao alcance de papel de API', array_to_string(v_rot, '; ');
+  END IF;
+  PERFORM set_config('p52.evidencia', btrim(coalesce(current_setting('p52.evidencia', true), '') || ' 52b.mapa=' || v_cnt::text), false);
+  PERFORM set_config('smoke52b.pass', (current_setting('smoke52b.pass')::int + 1)::text, false);
+END
+$m$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (n) WR-02 do 52-REVIEW-PORTAO-2 — `pontuar_sjt` recusa alto (22023) a resposta sem alternativa e
+--     pontua o conjunto válido exatamente como o corpo velho. Fixture em subtransação que REVERTE.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $n$
+DECLARE
+  v_velho_src text   := nullif(current_setting('p52.banco_pontuar_velho', true), '');
+  v_md5_novo  text   := nullif(current_setting('p52.banco_pontuar_md5_novo', true), '');
+  v_ids       text[] := coalesce(string_to_array(nullif(current_setting('p52.banco_remap_ids', true), ''), ','), ARRAY[]::text[]);
+  v_velhos    text[] := coalesce(string_to_array(nullif(current_setting('p52.banco_remap_velhos', true), ''), ','), ARRAY[]::text[]);
+  v_cargo     text;
+  v_pid       uuid;
+  v_alvo      uuid;
+  v_velho_id  text;
+  v_esp_code  text   := '22023';
+  v_esp_msg   text   := 'opcao fora da pergunta';
+  v_forjado   text   := gen_random_uuid()::text;
+  v_vaga      uuid   := gen_random_uuid();
+  v_cdt       uuid;
+  v_sub       uuid;
+  v_bateria   bigint;
+  v_valido    jsonb;
+  v_com_velho jsonb;
+  v_com_forj  jsonb;
+  v_rc        int;
+  v_a         jsonb;  v_la jsonb;
+  v_b         jsonb;  v_lb jsonb;
+  v_c         jsonb;
+  v_d         jsonb;
+  v_e         jsonb;  v_le jsonb;
+  v_err       text;
+  v_fim       boolean := false;
+  v_rot       text[] := ARRAY[]::text[];
+BEGIN
+  IF v_velho_src IS NULL OR v_md5_novo IS NULL THEN
+    RAISE EXCEPTION 'P52B FAIL (n): p52.banco_pontuar_velho/_md5_novo vazios — o PRE do pontuar_sjt nao rodou nesta transacao';
+  END IF;
+  IF (SELECT md5(p.prosrc) FROM pg_catalog.pg_proc p WHERE p.oid = to_regprocedure('public.pontuar_sjt(uuid,jsonb)')) IS DISTINCT FROM v_md5_novo THEN
+    v_rot := v_rot || 'o pontuar_sjt no ar nao e o corpo novo';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.perguntas_opcao_sjt o WHERE o.opcao_id::text = v_forjado) THEN
+    RAISE EXCEPTION 'P52B FAIL (n): o uuid forjado existe — repetir';
+  END IF;
+
+  -- a cópia do corpo VELHO, para a prova diferencial (pg_temp; some no aborto do ensaio)
+  EXECUTE format('CREATE FUNCTION pg_temp.p52b_pontuar_velho(p_candidatura_id uuid, p_respostas jsonb) RETURNS jsonb LANGUAGE plpgsql AS %L', v_velho_src);
+
+  -- a bateria: por cargo de um item REMAPEADO (o caso do WR-02) — o de MAIOR bateria, para a prova
+  -- diferencial cobrir o maior número de itens; sem escopo, um cargo do texto
+  SELECT p.cargo, p.id INTO v_cargo, v_pid
+    FROM public.perguntas_opcao_sjt o JOIN public.perguntas p ON p.id = o.pergunta_id
+   WHERE o.id::text = ANY (v_ids) AND p.status = 'active' AND p.formato = 'mc'
+   ORDER BY (SELECT count(*) FROM public.perguntas q WHERE q.status = 'active' AND q.formato = 'mc' AND q.cargo = p.cargo) DESC,
+            p.cargo, p.id
+   LIMIT 1;
+  IF v_cargo IS NULL THEN
+    v_cargo := (string_to_array(current_setting('p52.banco_cargos'), ','))[1];
+  ELSE
+    SELECT v_velhos[i] INTO v_velho_id
+      FROM generate_subscripts(v_ids, 1) i JOIN public.perguntas_opcao_sjt o ON o.id::text = v_ids[i]
+     WHERE o.pergunta_id = v_pid ORDER BY i LIMIT 1;
+  END IF;
+
+  -- o conjunto VÁLIDO: um item por pergunta da bateria (o mesmo predicado do pontuar_sjt para bateria
+  -- por cargo), alternativa variada pela posição — para a nota não ser trivial
+  WITH bat AS (SELECT p.id, row_number() OVER (ORDER BY p.id) AS rn FROM public.perguntas p
+                WHERE p.status = 'active' AND p.formato = 'mc' AND p.cargo = v_cargo),
+       esc AS (SELECT b.id, b.rn, (SELECT array_agg(o.opcao_id::text ORDER BY o.ordem, o.id)
+                                     FROM public.perguntas_opcao_sjt o WHERE o.pergunta_id = b.id) AS ops FROM bat b)
+  SELECT (SELECT count(*) FROM bat),
+         jsonb_agg(jsonb_build_object('pergunta_id', e.id::text, 'opcao_id', e.ops[1 + ((e.rn - 1) % cardinality(e.ops))::int]) ORDER BY e.id)
+    INTO v_bateria, v_valido
+    FROM esc e WHERE cardinality(e.ops) > 0;
+  IF v_bateria = 0 OR v_valido IS NULL OR jsonb_array_length(v_valido) <> v_bateria THEN
+    RAISE EXCEPTION 'P52B FAIL (n): a bateria do cargo % nao tem alternativas para todas as % pergunta(s) — populacao vazia nao prova nada', v_cargo, v_bateria;
+  END IF;
+  v_alvo := coalesce(v_pid, (v_valido -> 0 ->> 'pergunta_id')::uuid);
+  SELECT jsonb_agg(CASE WHEN t.e ->> 'pergunta_id' = v_alvo::text
+                        THEN jsonb_set(t.e, '{opcao_id}', to_jsonb(coalesce(v_velho_id, v_forjado))) ELSE t.e END ORDER BY t.ord),
+         jsonb_agg(CASE WHEN t.e ->> 'pergunta_id' = v_alvo::text
+                        THEN jsonb_set(t.e, '{opcao_id}', to_jsonb(v_forjado)) ELSE t.e END ORDER BY t.ord)
+    INTO v_com_velho, v_com_forj
+    FROM jsonb_array_elements(v_valido) WITH ORDINALITY AS t(e, ord);
+
+  -- a candidatura do fixture: de um candidato real (user_id, fora do RH), não encerrada, sem linha
+  -- SJT mc — levada, NA SUBTRANSAÇÃO, a uma vaga descartável e à etapa da avaliação. Nenhum INSERT
+  -- em `candidaturas` (o gatilho de insert dispara e-mail).
+  SELECT c.id, cd.user_id INTO v_cdt, v_sub
+    FROM public.candidaturas c JOIN public.candidatos cd ON cd.id = c.candidato_id
+   WHERE cd.user_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.usuarios_rh u WHERE u.user_id = cd.user_id)
+     AND NOT public.candidatura_encerrada(c.etapa_atual, c.status)
+     AND NOT EXISTS (SELECT 1 FROM public.scores_candidato s WHERE s.candidatura_id = c.id AND s.tipo = 'sjt' AND s.subtipo = 'mc')
+   ORDER BY c.created_at, c.id LIMIT 1;
+  IF v_cdt IS NULL THEN
+    RAISE EXCEPTION 'P52B FAIL (n): nenhuma candidatura nao encerrada, de candidato com user_id, sem SJT mc — populacao vazia nao prova nada';
+  END IF;
+
+  BEGIN
+    INSERT INTO public.vagas (id, titulo, slug, testes_aplicaveis)
+    VALUES (v_vaga, '[P52B SMOKE] pontuar_sjt (revertido)', 'p52b-smoke-' || replace(v_vaga::text, '-', ''),
+            jsonb_build_array(jsonb_build_object('tipo', 'sjt', 'cargo', v_cargo)));
+    UPDATE public.candidaturas
+       SET vaga_id = v_vaga, etapa_atual = 'avaliacao_assincrona', etapa_justificativa = 'smoke52b (n): subtransacao revertida'
+     WHERE id = v_cdt;
+    GET DIAGNOSTICS v_rc = ROW_COUNT;
+    IF v_rc <> 1 THEN RAISE EXCEPTION 'o fixture atingiu % candidatura(s)', v_rc; END IF;
+
+    -- (1a) corpo NOVO, como o candidato, conjunto válido
+    BEGIN
+      v_a := pg_temp.p52b_pontuar(v_cdt, v_valido, v_sub);
+      v_la := pg_temp.p52b_linha_mc(v_cdt);
+      RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52B1';
+    EXCEPTION WHEN SQLSTATE 'P52B1' THEN NULL;
+    END;
+    -- (1b) corpo VELHO, mesma entrada
+    BEGIN
+      v_b := pg_temp.p52b_pontuar_antigo(v_cdt, v_valido, v_sub);
+      v_lb := pg_temp.p52b_linha_mc(v_cdt);
+      RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52B1';
+    EXCEPTION WHEN SQLSTATE 'P52B1' THEN NULL;
+    END;
+    -- (2) corpo NOVO, id velho do item remapeado (ou forjado, sem escopo)
+    BEGIN
+      v_c := pg_temp.p52b_pontuar(v_cdt, v_com_velho, v_sub);
+      RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52B1';
+    EXCEPTION WHEN SQLSTATE 'P52B1' THEN NULL;
+    END;
+    -- (3) corpo NOVO, opcao_id forjado
+    BEGIN
+      v_d := pg_temp.p52b_pontuar(v_cdt, v_com_forj, v_sub);
+      RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52B1';
+    EXCEPTION WHEN SQLSTATE 'P52B1' THEN NULL;
+    END;
+    -- (4) a mordida da entrada: o corpo VELHO aceita (2) em silêncio, com nota parcial
+    BEGIN
+      v_e := pg_temp.p52b_pontuar_antigo(v_cdt, v_com_velho, v_sub);
+      v_le := pg_temp.p52b_linha_mc(v_cdt);
+      RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52B1';
+    EXCEPTION WHEN SQLSTATE 'P52B1' THEN NULL;
+    END;
+    v_fim := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52B1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52B1' THEN NULL;
+    WHEN OTHERS THEN v_err := format('%s: %s', SQLSTATE, SQLERRM);
+  END;
+  IF v_err IS NOT NULL OR NOT v_fim THEN
+    RAISE EXCEPTION 'P52B FAIL (n): a subtransacao do fixture abortou por erro INESPERADO (%) — nada foi julgado; o defeito e do SMOKE', coalesce(v_err, 'nao chegou ao fim');
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.vagas v WHERE v.id = v_vaga)
+     OR EXISTS (SELECT 1 FROM public.candidaturas c WHERE c.id = v_cdt AND c.vaga_id = v_vaga) THEN
+    RAISE EXCEPTION 'P52B FAIL (n): o fixture nao reverteu';
+  END IF;
+
+  IF v_a ? 'err' OR v_la IS NULL THEN
+    v_rot := v_rot || ('valido(novo):' || coalesce(left(v_a ->> 'err', 80), 'sem linha gravada'));
+  END IF;
+  IF v_b ? 'err' OR v_lb IS NULL THEN
+    v_rot := v_rot || ('valido(velho):' || coalesce(left(v_b ->> 'err', 80), 'sem linha gravada'));
+  END IF;
+  IF v_la IS NOT NULL AND v_lb IS NOT NULL AND v_la IS DISTINCT FROM v_lb THEN
+    v_rot := v_rot || format('valido: o corpo novo gravou score %s/%s %s e o velho %s/%s %s (ou metadata diferente)',
+                             v_la ->> 'score', v_la ->> 'score_max', v_la ->> 'status', v_lb ->> 'score', v_lb ->> 'score_max', v_lb ->> 'status');
+  END IF;
+  IF coalesce(v_c ->> 'err', '') <> v_esp_code || ':' || v_esp_msg THEN
+    v_rot := v_rot || ('id ' || CASE WHEN v_velho_id IS NULL THEN 'forjado' ELSE 'velho' END || ':' ||
+                       coalesce(left(v_c ->> 'err', 80), 'ACEITO (nota parcial em silencio)'));
+  END IF;
+  IF coalesce(v_d ->> 'err', '') <> v_esp_code || ':' || v_esp_msg THEN
+    v_rot := v_rot || ('id forjado:' || coalesce(left(v_d ->> 'err', 80), 'ACEITO (nota parcial em silencio)'));
+  END IF;
+  IF v_e ? 'err' OR v_le IS NULL OR jsonb_array_length(v_le -> 'resp') <> v_bateria - 1 THEN
+    v_rot := v_rot || ('a entrada nao exercita o defeito: o corpo velho ' ||
+                       coalesce('recusou (' || left(v_e ->> 'err', 60) || ')', 'gravou ' || coalesce(jsonb_array_length(v_le -> 'resp')::text, 'nada') || ' de ' || v_bateria));
+  END IF;
+  IF cardinality(v_rot) > 0 THEN
+    RAISE EXCEPTION 'P52B FAIL (n): [%] — o pontuar_sjt nao recusa alto a resposta sem alternativa, ou pontua o valido diferente do corpo velho', array_to_string(v_rot, '; ');
+  END IF;
+  PERFORM set_config('p52.evidencia', btrim(coalesce(current_setting('p52.evidencia', true), '') ||
+    ' 52b.pontuar=bateria:' || v_bateria::text || ',valido=igual,22023=' || CASE WHEN v_velho_id IS NULL THEN 'forjado' ELSE 'velho+forjado' END ||
+    ',velho_silencioso=' || jsonb_array_length(v_le -> 'resp')::text || '/' || v_bateria::text), false);
+  PERFORM set_config('smoke52b.pass', (current_setting('smoke52b.pass')::int + 1)::text, false);
+END
+$n$;

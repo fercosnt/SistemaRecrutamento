@@ -6,10 +6,14 @@
 
 Até o portão de texto do operador (52-17) a saída vai para um arquivo TEMPORÁRIO, nunca para
 `supabase/migrations/`. O SQL emitido tem, nesta ordem: cabeçalho; os dois `SET LOCAL`; `DO $pre$`
-(recusas e baseline); os INSERTs dos itens novos (`ordem` permutada, D-37); a retirada dos itens
-antigos dos cargos do texto (D-35 b); `DO $remap$` (WR-03: `opcao_id` artesanal dos itens que ficam
-ativos → `gen_random_uuid()`, com as respostas gravadas); `DO $pos$` (6+1 por cargo, retirados =
-baseline, anti-escada, casos mantidos, remapeamento, md5 da tabela por `char_length`).
+(recusas e baseline); `DO $pre_pontuar$` + a troca de `public.pontuar_sjt` + `DO $pos_pontuar$`
+(WR-02 do 52-REVIEW-PORTAO-2: o corpo VIVO, lido de `pontuar_sjt_vivo.plpgsql` com md5 conferido,
+mais a recusa alta `22023` da resposta sem alternativa); os INSERTs dos itens novos (`ordem`
+permutada, D-37); a retirada dos itens antigos dos cargos do texto (D-35 b); a tabela do mapa
+(WR-01 do -2) e `DO $remap$` (WR-03 do -1: `opcao_id` artesanal dos itens que ficam ativos →
+`gen_random_uuid()`, com as respostas gravadas e o mapa velho→novo); `DO $pos$` (6+1 por cargo,
+retirados = baseline, anti-escada, casos mantidos, remapeamento e mapa, md5 da tabela por
+`char_length`).
 Determinístico: o mesmo texto dá o mesmo SQL (os ids novos nascem no apply, nunca no arquivo).
 """
 import argparse
@@ -73,6 +77,63 @@ FP_ESCOPO = (
     "current_setting('p52.banco_remap_ids', true), ''), ',')))"
 )
 
+# ── WR-02 do 52-REVIEW-PORTAO-2: `pontuar_sjt` recusa ALTO a resposta sem alternativa ────────────
+# O `JOIN` de `scored` no corpo vivo descarta em silêncio o par (pergunta_id, opcao_id) que não casa
+# — depois do remapeamento, um envio com o id velho (tela aberta durante o apply) sairia com nota
+# parcial definitiva (a trava «avaliacao ja registrada» impede refazer). O corpo NOVO é o corpo VIVO
+# mais um bloco inserido logo depois de UMA âncora; nada é transcrito. O corpo vivo mora em
+# `pontuar_sjt_vivo.plpgsql` (o `prosrc` de PROD byte a byte, lido só leitura em 2026-10-11), o
+# gerador recusa se o md5 do arquivo não for o medido, e o PRE da migration recusa se o `prosrc` vivo
+# não for esse mesmo md5 — o corpo velho fica registrado (git) para o desfazer.
+PONTUAR_VIVO = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pontuar_sjt_vivo.plpgsql')
+PONTUAR_VIVO_MD5 = '7a892f7b8c15e35b0976e408f9648864'
+ANCORA_PONTUAR = ("  IF v_max = 0 THEN RAISE EXCEPTION 'bateria SJT nao configurada' "
+                  "USING errcode = '22023'; END IF;\n")
+MSG_RECUSA_PONTUAR = 'opcao fora da pergunta'
+BLOCO_RECUSA_PONTUAR = (
+    "\n"
+    "  -- WR-02 (52-REVIEW-PORTAO-2, Phase 52 / 52-16): toda resposta tem de casar uma alternativa da\n"
+    "  -- propria pergunta. O JOIN de `scored` descartava em silencio o par sem correspondencia (um\n"
+    "  -- opcao_id remapeado, retirado ou forjado) e a bateria saia com nota parcial definitiva; agora a\n"
+    "  -- submissao inteira e recusada alto e nada e gravado. (pergunta_id, opcao_id) e UNIQUE em\n"
+    "  -- perguntas_opcao_sjt: cada resposta que casa da exatamente 1 linha em `scored`.\n"
+    "  IF jsonb_array_length(v_breakdown) <> v_answered THEN\n"
+    f"    RAISE EXCEPTION '{MSG_RECUSA_PONTUAR}' USING errcode = '22023';\n"
+    "  END IF;\n"
+)
+
+# ── WR-01 do 52-REVIEW-PORTAO-2: o mapa velho→novo do remapeamento, durável ─────────────────────
+# O id velho carrega a `ordem` (a ordem 1 era a certa): o mapa velho→novo É o gabarito dos itens
+# remapeados. Por isso ele mora no esquema `supabase_migrations` — dono postgres, SEM USAGE para
+# anon, authenticated e service_role (medido em 2026-10-11) —, ao lado do ledger que registra a
+# migration que o produziu; a tabela ainda tem RLS ligada sem policy e nenhum GRANT. Nenhum papel de
+# API (nem uma EF com service_role) o lê; só postgres (Management API / SQL Editor), que é quem roda
+# o desfazer.
+TABELA_MAPA = 'supabase_migrations.p52_remap_opcao_sjt'
+
+
+class CorpoVivoInvalido(Exception):
+    pass
+
+
+def corpo_pontuar_novo():
+    """O `prosrc` novo de `pontuar_sjt`: o vivo (md5 conferido) + a recusa, depois de UMA âncora."""
+    with open(PONTUAR_VIVO, 'rb') as f:
+        b = f.read()
+    md5 = hashlib.md5(b).hexdigest()
+    if md5 != PONTUAR_VIVO_MD5:
+        raise CorpoVivoInvalido(
+            f'CORPO VIVO DO pontuar_sjt DIVERGE: md5 {md5} em {os.path.basename(PONTUAR_VIVO)}, '
+            f'esperado {PONTUAR_VIVO_MD5} — recapturar o prosrc de PROD (so leitura) e rever a ancora')
+    vivo = b.decode('utf-8')
+    n = vivo.count(ANCORA_PONTUAR)
+    if n != 1:
+        raise CorpoVivoInvalido(f'ANCORA DO pontuar_sjt achada {n} vez(es) no corpo vivo (esperado 1)')
+    novo = vivo.replace(ANCORA_PONTUAR, ANCORA_PONTUAR + BLOCO_RECUSA_PONTUAR, 1)
+    if '$function$' in novo:
+        raise CorpoVivoInvalido('DELIMITADOR COLIDE: $function$ no corpo do pontuar_sjt')
+    return novo
+
 
 def dq(s, tag):
     """Dollar-quote com etiqueta própria; recusa se a etiqueta colidir com o texto."""
@@ -89,7 +150,7 @@ def arr(xs):
     return 'ARRAY[' + ', '.join(lit(x) for x in xs) + ']::text[]' if xs else 'ARRAY[]::text[]'
 
 
-def cabecalho(versao, texto_rel, texto_md5, itens, mantidos):
+def cabecalho(versao, texto_rel, texto_md5, itens, mantidos, pontuar_md5_novo):
     cs = sjt_texto.cargos(itens)
     n_mc = sum(1 for i in itens if i['formato'] == 'mc')
     n_ca = sum(1 for i in itens if i['formato'] == 'caso_aberto')
@@ -126,8 +187,24 @@ def cabecalho(versao, texto_rel, texto_md5, itens, mantidos):
 -- roda com o OK do operador no checkpoint do apply, e o PRE recusa sem mudar nada se o id velho
 -- aparecer em qualquer tabela fora do alcance desta transacao (o ledger, que guarda o texto da
 -- migration semeadora, e historia e fica). Um candidato com a prova SJT aberta NO MOMENTO do apply,
--- num cargo remapeado, enviaria um id que deixou de existir e o `pontuar_sjt` nao o pontuaria:
--- o PRE conta essas candidaturas (`em_curso` na evidencia) para o operador ver antes.
+-- num cargo remapeado, enviaria um id que deixou de existir: o PRE conta essas candidaturas e
+-- publica os ids delas (`em_curso`, `em_curso_ids` na evidencia; id de candidatura, nenhum dado
+-- pessoal) para o operador ver antes.
+-- (WR-02 do 52-REVIEW-PORTAO-2) Esse envio NAO e mais pontuado em silencio: este arquivo troca o
+-- corpo de `pontuar_sjt` pelo corpo VIVO mais uma recusa — toda resposta cujo `opcao_id` nao casa
+-- uma alternativa da pergunta faz a submissao inteira falhar com 22023 ('{MSG_RECUSA_PONTUAR}'),
+-- sem gravar nada. O corpo vivo e lido de `scripts/geradores/pontuar_sjt_vivo.plpgsql` (md5
+-- conferido pelo gerador); o PRE recusa se o `prosrc` vivo tiver mudado; o POS confere o md5 novo,
+-- as propriedades, a ACL (mantida como esta no ar, sem GRANT/REVOKE) e o comentario.
+-- ⚠ ISTO SUBSTITUI UMA FUNCAO VIVA: o desfazer e recriar o corpo velho a partir daquele arquivo.
+-- (WR-01 do 52-REVIEW-PORTAO-2) O mapa velho→novo do remapeamento e gravado na MESMA transacao em
+-- `{TABELA_MAPA}` (esquema sem USAGE para anon, authenticated e service_role;
+-- RLS ligada, nenhum GRANT): o id velho carrega a ordem, entao o mapa e o gabarito dos itens
+-- remapeados. O desfazer do remapeamento le dali (id velho de volta nas alternativas + uma segunda
+-- passada nas respostas gravadas).
+--
+-- pontuar_sjt_prosrc_md5_antes: {PONTUAR_VIVO_MD5}
+-- pontuar_sjt_prosrc_md5_novo: {pontuar_md5_novo}
 --
 -- Cargos deste texto: {', '.join(cs)}.
 -- Itens: {n_mc} mc + {n_ca} caso aberto; {n_novos} inseridos por este arquivo, {len(mantidos)} mantido(s) do ar.
@@ -150,9 +227,11 @@ def cabecalho(versao, texto_rel, texto_md5, itens, mantidos):
 -- um BEGIN sao a forma exata do 42601 (CLAUDE.md §Migrations).
 --
 -- APLICAR COM: node p46apply.cjs migrate supabase/migrations/{versao}_p52_banco_sjt_v2.sql
--- SO depois do portao de texto do operador (52-17), com o OK do operador ao remapeamento (WR-03)
--- no checkpoint do apply, e fora de sessao de UAT em curso: um candidato com prova aberta no
--- momento do apply recebe erro em `get_opcoes_sjt`/`pontuar_sjt` para os itens retirados.
+-- SO depois do portao de texto do operador (52-17), com o OK do operador ao remapeamento (WR-03),
+-- a troca do `pontuar_sjt` (WR-02) e o mapa (WR-01) no checkpoint do apply, e fora de sessao de UAT
+-- em curso: um candidato com prova aberta no momento do apply recebe erro — `42704` em
+-- `get_opcoes_sjt` para item retirado; 22023 em `pontuar_sjt` para id remapeado (a tela precisa ser
+-- recarregada para buscar os ids novos).
 """
 
 
@@ -192,6 +271,7 @@ DECLARE
   v_occ        bigint;
   v_fora       text[] := ARRAY[]::text[];
   v_curso      bigint;
+  v_curso_ids  text;
   v_tab        record;
 BEGIN
   -- (forma) toda vaga tem `testes_aplicaveis` em forma de lista (ou nulo): outra forma esconderia
@@ -304,8 +384,9 @@ BEGIN
 
   -- em curso: candidatura na avaliacao, ainda sem o SJT mc pontuado, numa vaga cuja bateria SJT
   -- alcanca item remapeado — se a prova estiver aberta no momento do apply, o id que ela enviar
-  -- deixou de existir. So contagem, publicada para o operador (o apply e fora de sessao de UAT).
-  SELECT count(*) INTO v_curso
+  -- deixou de existir (e o `pontuar_sjt` novo a recusa com 22023). Contagem e ids de candidatura
+  -- (nenhum dado pessoal), publicados para o operador (o apply e fora de sessao de UAT).
+  SELECT count(*), coalesce(string_agg(c.id::text, '+' ORDER BY c.id::text), '') INTO v_curso, v_curso_ids
     FROM public.candidaturas c
    WHERE c.etapa_atual = 'avaliacao_assincrona'
      AND NOT EXISTS (SELECT 1 FROM public.scores_candidato s
@@ -328,6 +409,7 @@ BEGIN
   PERFORM set_config('p52.banco_remap_refs',    v_refs::text, true);
   PERFORM set_config('p52.banco_remap_linhas',  v_rlin::text, true);
   PERFORM set_config('p52.banco_remap_curso',   v_curso::text, true);
+  PERFORM set_config('p52.banco_remap_curso_ids', v_curso_ids, true);
   PERFORM set_config('p52.banco_respostas_fp',  {FP_RESPOSTAS}, true);
   PERFORM set_config('p52.banco_scores_fp',     {FP_SCORES}, true);
   PERFORM set_config('p52.banco_escopo_fp',     {FP_ESCOPO}, true);
@@ -341,6 +423,121 @@ BEGIN
 END
 $pre$;
 """
+
+
+PONTUAR_SIG = "to_regprocedure('public.pontuar_sjt(uuid,jsonb)')"
+
+# Propriedades, ACL (conjunto ordenado de aclexplode), comentario e EXECUTE de anon da funcao — a
+# MESMA leitura no PRE e no POS (idioma do P51-01): a troca do corpo nao pode mexer em mais nada.
+LE_PONTUAR = f"""  SELECT md5(p.prosrc), p.prosrc,
+         concat_ws('|', p.prosecdef, p.provolatile, p.proparallel, p.prokind, p.proisstrict, p.proleakproof, p.proretset,
+                   coalesce(p.proconfig::text, '<null>'), l.lanname, pg_catalog.pg_get_userbyid(p.proowner),
+                   pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_result(p.oid)),
+         coalesce((SELECT string_agg(x, ',' ORDER BY x)
+            FROM (SELECT coalesce(nullif(a.grantee, 0)::regrole::text, 'PUBLIC') || ':' || a.privilege_type || ':'
+                         || a.is_grantable::text || ':' || a.grantor::regrole::text AS x
+                    FROM pg_catalog.aclexplode(coalesce(p.proacl, pg_catalog.acldefault('f', p.proowner))) a) s), ''),
+         coalesce(pg_catalog.obj_description(p.oid, 'pg_proc'), '<null>'),
+         has_function_privilege('anon', p.oid, 'EXECUTE')::text
+    INTO v_md5, v_src, v_props, v_acl, v_cmt, v_anon
+    FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_language l ON l.oid = p.prolang
+   WHERE p.oid = {PONTUAR_SIG};"""
+
+
+def bloco_pontuar(novo):
+    md5_novo = hashlib.md5(novo.encode()).hexdigest()
+    return f"""-- ─────────────────────────────────────────────────────────────────────────────
+-- P52B PRE-PORTAO (pontuar_sjt) — WR-02 do 52-REVIEW-PORTAO-2: o corpo VIVO tem de ser o que o
+-- gerador leu (`scripts/geradores/pontuar_sjt_vivo.plpgsql`); senao recusa e nada muda. Guarda as
+-- propriedades, a ACL, o comentario e o corpo velho em GUCs LOCAIS (o POS e o smoke comparam).
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $pre_pontuar$
+DECLARE
+  v_md5   text;
+  v_src   text;
+  v_props text;
+  v_acl   text;
+  v_cmt   text;
+  v_anon  text;
+BEGIN
+{LE_PONTUAR}
+  IF v_src IS NULL THEN
+    RAISE EXCEPTION 'P52B PRE-PORTAO (pontuar_sjt): public.pontuar_sjt(uuid, jsonb) nao existe; nada mudou';
+  END IF;
+  IF v_md5 IS DISTINCT FROM '{PONTUAR_VIVO_MD5}' THEN
+    RAISE EXCEPTION 'P52B PRE-PORTAO (pontuar_sjt): md5(prosrc) vivo = % (o gerador leu {PONTUAR_VIVO_MD5}) — o corpo vivo mudou depois da captura: recapturar scripts/geradores/pontuar_sjt_vivo.plpgsql e gerar de novo; nada mudou', v_md5;
+  END IF;
+  PERFORM set_config('p52.banco_pontuar_props',    v_props, true);
+  PERFORM set_config('p52.banco_pontuar_acl',      v_acl,   true);
+  PERFORM set_config('p52.banco_pontuar_cmt',      v_cmt,   true);
+  PERFORM set_config('p52.banco_pontuar_anon',     v_anon,  true);
+  PERFORM set_config('p52.banco_pontuar_velho',    v_src,   true);
+  PERFORM set_config('p52.banco_pontuar_md5_novo', '{md5_novo}', true);
+END
+$pre_pontuar$;
+
+-- `pontuar_sjt`: o corpo VIVO + a recusa 22023 da resposta sem alternativa (WR-02). Mesma
+-- assinatura, mesmas propriedades; CREATE OR REPLACE preserva dono, ACL e comentario.
+CREATE OR REPLACE FUNCTION public.pontuar_sjt(p_candidatura_id uuid, p_respostas jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function${novo}$function$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- P52B POS-PORTAO (pontuar_sjt) — o corpo e o esperado; propriedades, ACL, comentario e o EXECUTE
+-- de anon iguais aos do PRE (a ACL e mantida como esta no ar; nenhum GRANT/REVOKE aqui).
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $pos_pontuar$
+DECLARE
+  v_md5   text;
+  v_src   text;
+  v_props text;
+  v_acl   text;
+  v_cmt   text;
+  v_anon  text;
+BEGIN
+{LE_PONTUAR}
+  IF v_md5 IS DISTINCT FROM '{md5_novo}' THEN
+    RAISE EXCEPTION 'P52B POS-PORTAO (pontuar_sjt): md5(prosrc) = % (esperado {md5_novo}); nada persiste', v_md5;
+  END IF;
+  IF v_props IS DISTINCT FROM current_setting('p52.banco_pontuar_props', true) THEN
+    RAISE EXCEPTION 'P52B POS-PORTAO (pontuar_sjt): propriedades mudaram (% -> %); nada persiste', current_setting('p52.banco_pontuar_props', true), v_props;
+  END IF;
+  IF v_acl IS DISTINCT FROM current_setting('p52.banco_pontuar_acl', true)
+     OR v_anon IS DISTINCT FROM current_setting('p52.banco_pontuar_anon', true) THEN
+    RAISE EXCEPTION 'P52B POS-PORTAO (pontuar_sjt): ACL mudou (% -> %; anon EXECUTE % -> %); nada persiste', current_setting('p52.banco_pontuar_acl', true), v_acl, current_setting('p52.banco_pontuar_anon', true), v_anon;
+  END IF;
+  IF v_cmt IS DISTINCT FROM current_setting('p52.banco_pontuar_cmt', true) THEN
+    RAISE EXCEPTION 'P52B POS-PORTAO (pontuar_sjt): o comentario da funcao mudou; nada persiste';
+  END IF;
+  PERFORM set_config('p52.evidencia', btrim(coalesce(current_setting('p52.evidencia', true), '') || ' pontuar_sjt=' || v_md5), false);
+END
+$pos_pontuar$;"""
+
+
+def bloco_mapa():
+    return f"""-- ─────────────────────────────────────────────────────────────────────────────
+-- MAPA DO REMAPEAMENTO (WR-01 do 52-REVIEW-PORTAO-2) — o registro durável velho→novo, gravado pelo
+-- bloco de remapeamento abaixo, na MESMA transacao. Nasce DEPOIS do PRE (cuja varredura procura o id velho em toda
+-- tabela). O id velho carrega a ordem: o mapa e o gabarito dos itens remapeados — por isso o esquema
+-- `supabase_migrations` (sem USAGE para anon, authenticated e service_role), RLS ligada sem policy e
+-- nenhum GRANT. So postgres o le, e e quem roda o desfazer.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE {TABELA_MAPA} (
+  versao         text        NOT NULL,
+  opcao_linha_id uuid        NOT NULL,
+  pergunta_id    uuid        NOT NULL,
+  opcao_id_velho uuid        NOT NULL,
+  opcao_id_novo  uuid        NOT NULL,
+  remapeado_em   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (versao, opcao_linha_id)
+);
+ALTER TABLE {TABELA_MAPA} ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE {TABELA_MAPA} FROM PUBLIC, anon, authenticated, service_role;
+COMMENT ON TABLE {TABELA_MAPA} IS
+  'Phase 52 / 52-16 (WR-01 do 52-REVIEW-PORTAO-2): mapa opcao_id velho -> novo do remapeamento dos ids artesanais (WR-03 do 52-REVIEW-PORTAO-1), gravado na mesma transacao da migration que o fez (coluna versao). Serve ao desfazer: devolver o id velho as alternativas (opcao_linha_id) e uma segunda passada nas respostas gravadas. O id velho carrega a ordem, entao este mapa e o gabarito dos itens remapeados: esquema sem USAGE para os papeis de API, RLS ligada sem policy, nenhum GRANT.';"""
 
 
 def bloco_insert(i, it, ordem):
@@ -391,17 +588,19 @@ $retira$;
 """
 
 
-def bloco_remap():
+def bloco_remap(versao):
     return f"""-- ─────────────────────────────────────────────────────────────────────────────
 -- REMAPEAMENTO (WR-03) — depois da retirada: o escopo medido AGORA tem de ser o que o PRE previu.
--- Troca SO o `opcao_id` (por `gen_random_uuid()`) e, na mesma transacao, as respostas gravadas que
--- apontam para ele. ⚠ Atualiza resposta gravada de candidato: o apply e checkpoint do operador.
+-- Troca SO o `opcao_id` (por `gen_random_uuid()`), grava o mapa velho→novo (WR-01 do -2) e, na
+-- mesma transacao, as respostas gravadas que apontam para ele. ⚠ Atualiza resposta gravada de
+-- candidato: o apply e checkpoint do operador.
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $remap$
 DECLARE
   v_map   jsonb;
   v_ids   text;
   v_n     bigint;
+  v_mapa  bigint;
   v_lin   bigint;
   v_refs  bigint;
   v_rest  bigint;
@@ -426,6 +625,15 @@ BEGIN
   GET DIAGNOSTICS v_n = ROW_COUNT;
   IF v_n <> jsonb_array_length(v_map) THEN
     RAISE EXCEPTION 'P52B REMAP: % de % alternativa(s) remapeada(s); nada persiste', v_n, jsonb_array_length(v_map);
+  END IF;
+
+  -- o mapa velho→novo, durável (WR-01 do 52-REVIEW-PORTAO-2): o desfazer le daqui
+  INSERT INTO {TABELA_MAPA} (versao, opcao_linha_id, pergunta_id, opcao_id_velho, opcao_id_novo)
+  SELECT '{versao}', (m ->> 'id')::uuid, (m ->> 'p')::uuid, (m ->> 'velho')::uuid, (m ->> 'novo')::uuid
+    FROM jsonb_array_elements(v_map) m;
+  GET DIAGNOSTICS v_mapa = ROW_COUNT;
+  IF v_mapa <> jsonb_array_length(v_map) THEN
+    RAISE EXCEPTION 'P52B REMAP: % de % par(es) velho/novo gravado(s) no mapa; nada persiste', v_mapa, jsonb_array_length(v_map);
   END IF;
 
   -- as respostas gravadas: o elemento que aponta (pergunta, id velho) passa a apontar o id novo;
@@ -464,7 +672,7 @@ $remap$;
 """
 
 
-def bloco_pos(itens, mantidos):
+def bloco_pos(itens, mantidos, versao):
     cs = sjt_texto.cargos(itens)
     hs = [i['content_hash'] for i in itens]
     return f"""-- ─────────────────────────────────────────────────────────────────────────────
@@ -492,6 +700,11 @@ DECLARE
   v_ev       text   := '';
   v_velhos   text[] := coalesce(string_to_array(nullif(current_setting('p52.banco_remap_velhos', true), ''), ','), ARRAY[]::text[]);
   v_remap    text   := '';
+  v_mapa_n   bigint;
+  v_mapa_ok  bigint;
+  v_mapa_ids text;
+  v_mapa_vel text;
+  v_papel    text;
 BEGIN
   IF v_ret IS NULL OR v_base IS NULL OR current_setting('p52.banco_cargos', true) IS DISTINCT FROM array_to_string(v_cargos, ',') THEN
     RAISE EXCEPTION 'P52B POS-PORTAO (retirados): as GUCs do PRE/da retirada nao estao definidas nesta transacao — o POS nao pode medir';
@@ -580,9 +793,33 @@ BEGIN
   IF {FP_SCORES} IS DISTINCT FROM current_setting('p52.banco_scores_fp', true) THEN
     RAISE EXCEPTION 'P52B POS-PORTAO (remap): o score de uma linha SJT (gravado ou recomputado pelo par pergunta+opcao) mudou; nada persiste';
   END IF;
+  -- o mapa durável (WR-01 do -2): uma linha por alternativa remapeada DESTA versao; o id novo e o
+  -- que a alternativa tem agora; os ids de linha e os velhos sao os do PRE, na mesma ordem
+  SELECT count(*), count(*) FILTER (WHERE o.opcao_id = m.opcao_id_novo AND o.pergunta_id = m.pergunta_id),
+         coalesce(string_agg(m.opcao_linha_id::text, ',' ORDER BY m.opcao_linha_id::text COLLATE "C"), ''),
+         coalesce(string_agg(lower(m.opcao_id_velho::text), ',' ORDER BY m.opcao_linha_id::text COLLATE "C"), '')
+    INTO v_mapa_n, v_mapa_ok, v_mapa_ids, v_mapa_vel
+    FROM {TABELA_MAPA} m LEFT JOIN public.perguntas_opcao_sjt o ON o.id = m.opcao_linha_id
+   WHERE m.versao = '{versao}';
+  IF v_mapa_n::text IS DISTINCT FROM current_setting('p52.banco_remap_n', true) OR v_mapa_ok <> v_mapa_n
+     OR v_mapa_ids IS DISTINCT FROM coalesce(current_setting('p52.banco_remap_ids', true), '')
+     OR v_mapa_vel IS DISTINCT FROM coalesce(current_setting('p52.banco_remap_velhos', true), '') THEN
+    RAISE EXCEPTION 'P52B POS-PORTAO (mapa): % linha(s) no mapa da versao {versao}, % com o id novo vigente; o PRE mediu % alternativa(s) (ids/velhos iguais: %/%); nada persiste',
+      v_mapa_n, v_mapa_ok, current_setting('p52.banco_remap_n', true),
+      v_mapa_ids IS NOT DISTINCT FROM coalesce(current_setting('p52.banco_remap_ids', true), ''),
+      v_mapa_vel IS NOT DISTINCT FROM coalesce(current_setting('p52.banco_remap_velhos', true), '');
+  END IF;
+  -- nenhum papel de API le o mapa (escopo deliberado: os tres papeis do PostgREST/EF)
+  FOREACH v_papel IN ARRAY ARRAY['anon', 'authenticated', 'service_role'] LOOP
+    IF has_schema_privilege(v_papel, 'supabase_migrations', 'USAGE')
+       OR has_table_privilege(v_papel, '{TABELA_MAPA}', 'SELECT,INSERT,UPDATE,DELETE') THEN
+      RAISE EXCEPTION 'P52B POS-PORTAO (mapa): o papel % alcanca o mapa (gabarito dos itens remapeados); nada persiste', v_papel;
+    END IF;
+  END LOOP;
   v_remap := ';remap=' || current_setting('p52.banco_remap_n', true) || '/' || current_setting('p52.banco_remap_itens', true) ||
              ',refs=' || current_setting('p52.banco_remap_refs', true) || ',linhas=' || current_setting('p52.banco_remap_linhas', true) ||
-             ',em_curso=' || current_setting('p52.banco_remap_curso', true);
+             ',em_curso=' || current_setting('p52.banco_remap_curso', true) || ',mapa=' || v_mapa_n::text ||
+             ',em_curso_ids=' || coalesce(nullif(current_setting('p52.banco_remap_curso_ids', true), ''), '-');
   -- ── fim (remap) ─────────────────────────────────────────────────────────────
 
   -- md5 da tabela de caracteres por char_length — a MESMA linha canonica do script:
@@ -615,16 +852,18 @@ def gerar(texto, versao):
         mcs = [i for i in itens if i['cargo'] == c and i['formato'] == 'mc']
         for it, ordem in zip(mcs, sjt_texto.ordem_permutada(mcs)):
             ordens[it['content_hash']] = ordem
-    partes = [cabecalho(versao, rel, texto_md5, itens, mantidos),
+    novo = corpo_pontuar_novo()
+    partes = [cabecalho(versao, rel, texto_md5, itens, mantidos, hashlib.md5(novo.encode()).hexdigest()),
               "SET LOCAL lock_timeout = '3s';\nSET LOCAL statement_timeout = '5s';\n",
-              bloco_pre(itens, mantidos)]
+              bloco_pre(itens, mantidos),
+              bloco_pontuar(novo)]
     for i, it in enumerate(itens, 1):
         if it['mantido']:
             partes.append(f"-- {i:02d} · {it['cargo']} · caso aberto · {it['titulo']} — MANTIDO do banco no ar "
                           f"(content_hash {it['content_hash']}): nenhum INSERT; o PRE e o POS amarram o id vivo.")
         else:
             partes.append(bloco_insert(i, it, ordens.get(it['content_hash'])))
-    partes += [bloco_retirada(itens), bloco_remap(), bloco_pos(itens, mantidos)]
+    partes += [bloco_retirada(itens), bloco_mapa(), bloco_remap(versao), bloco_pos(itens, mantidos, versao)]
     return '\n\n'.join(p.rstrip('\n') for p in partes) + '\n'
 
 
@@ -641,6 +880,9 @@ def principal():
         sql = gerar(a.texto, a.versao)
     except sjt_texto.TextoInvalido as e:
         print(f'TEXTO RECUSADO: {e}', file=sys.stderr)
+        return 1
+    except CorpoVivoInvalido as e:
+        print(f'CORPO VIVO RECUSADO: {e}', file=sys.stderr)
         return 1
     with open(a.saida, 'w', encoding='utf-8') as f:
         f.write(sql)

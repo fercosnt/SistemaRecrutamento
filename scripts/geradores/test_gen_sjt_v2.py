@@ -236,6 +236,151 @@ class Remapeamento(Base):
         self.assertIn("',em_curso=' ||", sql)
 
 
+def sem_comentarios(sql):
+    """O SQL sem as linhas de comentario `--` (o cabecalho explica GRANT/REVOKE em prosa)."""
+    return '\n'.join(l for l in sql.split('\n') if not l.lstrip().startswith('--'))
+
+
+def blocos_smoke():
+    """As cláusulas do smoke52b: `DO $<letra>$ … $<letra>$;`, na ordem do arquivo."""
+    import re
+    with open(SMOKE, encoding='utf-8') as f:
+        smoke = f.read()
+    return smoke, re.findall(r'(?m)^DO \$([a-z])\$$', smoke)
+
+
+class PontuarSjt(Base):
+    """WR-02 do 52-REVIEW-PORTAO-2: `pontuar_sjt` recusa alto (22023) a resposta cujo `opcao_id`
+    não casa uma alternativa da pergunta — em vez de pontuar 0 em silêncio. O corpo novo é o corpo
+    VIVO (arquivo com md5 conferido) mais um bloco inserido depois de UMA âncora."""
+
+    def test_corpo_novo_e_o_vivo_mais_so_a_recusa(self):
+        import difflib
+        g = modulo_gerador()
+        with open(g.PONTUAR_VIVO, encoding='utf-8', newline='') as f:
+            vivo = f.read()
+        self.assertEqual(hashlib.md5(vivo.encode()).hexdigest(), g.PONTUAR_VIVO_MD5)
+        novo = g.corpo_pontuar_novo()
+        self.assertEqual(vivo.count(g.ANCORA_PONTUAR), 1)
+        dif = list(difflib.ndiff(vivo.splitlines(keepends=True), novo.splitlines(keepends=True)))
+        self.assertEqual([l for l in dif if l.startswith('- ')], [], 'o corpo vivo perdeu linha')
+        # emenda exata: o bloco entra uma vez, colado depois da ancora, e tirar o bloco devolve o vivo
+        self.assertEqual(novo.count(g.BLOCO_RECUSA_PONTUAR), 1)
+        self.assertIn(g.ANCORA_PONTUAR + g.BLOCO_RECUSA_PONTUAR, novo)
+        self.assertEqual(novo.replace(g.BLOCO_RECUSA_PONTUAR, '', 1), vivo)
+        self.assertIn(f"RAISE EXCEPTION '{g.MSG_RECUSA_PONTUAR}' USING errcode = '22023'", novo)
+        self.assertLess(novo.index(g.ANCORA_PONTUAR), novo.index(g.MSG_RECUSA_PONTUAR))
+        self.assertLess(novo.index(g.MSG_RECUSA_PONTUAR), novo.index('v_status := CASE'))
+
+    def test_recusa_corpo_vivo_adulterado(self):
+        g = modulo_gerador()
+        falso = os.path.join(self.dir.name, 'vivo.plpgsql')
+        with open(g.PONTUAR_VIVO, encoding='utf-8', newline='') as f:
+            vivo = f.read()
+        with open(falso, 'w', encoding='utf-8', newline='') as f:
+            f.write(vivo.replace('v_mc_min_pct numeric := 60', 'v_mc_min_pct numeric := 50'))
+        g.PONTUAR_VIVO = falso
+        with self.assertRaisesRegex(g.CorpoVivoInvalido, 'CORPO VIVO DO pontuar_sjt'):
+            g.corpo_pontuar_novo()
+
+    def test_recusa_ancora_ausente_ou_repetida(self):
+        g = modulo_gerador()
+        with open(g.PONTUAR_VIVO, encoding='utf-8', newline='') as f:
+            vivo = f.read()
+        for nome, corpo in (('sem', vivo.replace(g.ANCORA_PONTUAR, '')),
+                            ('dupla', vivo + g.ANCORA_PONTUAR)):
+            falso = os.path.join(self.dir.name, nome + '.plpgsql')
+            with open(falso, 'w', encoding='utf-8', newline='') as f:
+                f.write(corpo)
+            g.PONTUAR_VIVO = falso
+            g.PONTUAR_VIVO_MD5 = hashlib.md5(corpo.encode()).hexdigest()
+            with self.assertRaisesRegex(g.CorpoVivoInvalido, 'ANCORA'):
+                g.corpo_pontuar_novo()
+
+    def test_sql_troca_pontuar_sjt_entre_pre_e_pos_proprios(self):
+        g = modulo_gerador()
+        rc, out, err, sql = self.gerar(self.escrever(texto_cargo()))
+        self.assertEqual(rc, 0, err)
+        novo = g.corpo_pontuar_novo()
+        md5_novo = hashlib.md5(novo.encode()).hexdigest()
+        cab = sql[:sql.index('SET LOCAL')]
+        self.assertIn(f'-- pontuar_sjt_prosrc_md5_antes: {g.PONTUAR_VIVO_MD5}\n', cab)
+        self.assertIn(f'-- pontuar_sjt_prosrc_md5_novo: {md5_novo}\n', cab)
+        pre = sql[sql.index('DO $pre_pontuar$'):sql.index('$pre_pontuar$;')]
+        pos = sql[sql.index('DO $pos_pontuar$'):sql.index('$pos_pontuar$;')]
+        self.assertIn(f"'{g.PONTUAR_VIVO_MD5}'", pre)
+        self.assertIn('p52.banco_pontuar_velho', pre)
+        self.assertIn(f"'{md5_novo}'", pos)
+        for k in ('aclexplode', 'obj_description', "has_function_privilege('anon'"):
+            self.assertIn(k, pre, k + ' fora do PRE do pontuar_sjt')
+            self.assertIn(k, pos, k + ' fora do POS do pontuar_sjt')
+        cria = 'CREATE OR REPLACE FUNCTION public.pontuar_sjt(p_candidatura_id uuid, p_respostas jsonb)'
+        self.assertEqual(sql.count(cria), 1)
+        self.assertIn('AS $function$' + novo + '$function$;', sql)
+        self.assertLess(sql.index('$pre$;'), sql.index('DO $pre_pontuar$'))
+        self.assertLess(sql.index('$pre_pontuar$;'), sql.index(cria))
+        self.assertLess(sql.index(cria), sql.index('DO $pos_pontuar$'))
+        # ACL mantida tal como está no ar — conferida no POS, nunca reescrita por GRANT/REVOKE
+        self.assertNotRegex(sem_comentarios(sql), r'(?i)\b(GRANT|REVOKE)\b[^;]*pontuar_sjt')
+
+
+class MapaDuravel(Base):
+    """WR-01 do 52-REVIEW-PORTAO-2: o mapa velho→novo do remapeamento fica gravado na MESMA
+    transação, num esquema sem USAGE para anon/authenticated/service_role."""
+
+    def sql(self):
+        rc, out, err, sql = self.gerar(self.escrever(texto_cargo()))
+        self.assertEqual(rc, 0, err)
+        return sql
+
+    def test_tabela_do_mapa_sem_acesso_de_papel_de_api(self):
+        g = modulo_gerador()
+        sql = self.sql()
+        t = g.TABELA_MAPA
+        self.assertEqual(t, 'supabase_migrations.p52_remap_opcao_sjt')
+        self.assertIn(f'CREATE TABLE {t} (', sql)
+        self.assertIn(f'ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;', sql)
+        self.assertIn(f'REVOKE ALL ON TABLE {t} FROM PUBLIC, anon, authenticated, service_role;', sql)
+        self.assertNotRegex(sem_comentarios(sql), r'(?i)\bGRANT\b[^;]*p52_remap_opcao_sjt')
+        # nasce DEPOIS da varredura do PRE (que procura o id velho em toda tabela) e antes do remap
+        self.assertLess(sql.index('$pre$;'), sql.index(f'CREATE TABLE {t} ('))
+        self.assertLess(sql.index(f'CREATE TABLE {t} ('), sql.index('DO $remap$'))
+
+    def test_remap_grava_o_mapa_e_o_pos_o_confere(self):
+        g = modulo_gerador()
+        sql = self.sql()
+        remap = sql[sql.index('DO $remap$'):sql.index('$remap$;')]
+        pos = sql[sql.index('DO $pos$'):sql.index('$pos$;')]
+        self.assertIn(f'INSERT INTO {g.TABELA_MAPA} ', remap)
+        self.assertIn("'20261011000003'", remap)
+        self.assertIn(g.TABELA_MAPA, pos)
+        self.assertIn("',mapa=' ||", pos)
+        self.assertIn("',em_curso_ids=' ||", pos)
+
+
+class SmokeContrato(Base):
+    def test_esperado_e_o_numero_de_clausulas(self):
+        import re
+        smoke, letras = blocos_smoke()
+        esperado = int(re.search(r"set_config\('smoke52b\.esperado', '(\d+)', false\)", smoke).group(1))
+        self.assertEqual(letras, [chr(ord('a') + i) for i in range(len(letras))])
+        self.assertEqual(esperado, len(letras))
+        self.assertEqual(esperado, 14)
+
+    def test_smoke_prova_mapa_e_recusa_do_pontuar(self):
+        g = modulo_gerador()
+        smoke, _ = blocos_smoke()
+        m = smoke[smoke.index('DO $m$'):smoke.index('$m$;')]
+        n = smoke[smoke.index('DO $n$'):smoke.index('$n$;')]
+        k = smoke[smoke.index('DO $k$'):smoke.index('$k$;')]
+        self.assertIn(g.TABELA_MAPA, m)
+        self.assertIn(g.TABELA_MAPA, k)  # a (k) isenta o mapa da varredura do id velho
+        self.assertIn(f"'{g.MSG_RECUSA_PONTUAR}'", n)
+        self.assertIn("'22023'", n)
+        self.assertIn('p52.banco_pontuar_velho', n)
+        self.assertIn('p52.banco_pontuar_md5_novo', n)
+
+
 class OrdemPermutada(Base):
     def test_anti_escada_e_deterministica(self):
         sys.dont_write_bytecode = True
