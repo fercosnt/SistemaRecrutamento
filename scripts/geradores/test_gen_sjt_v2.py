@@ -81,7 +81,10 @@ class Base(unittest.TestCase):
     def gerar(self, texto):
         saida = os.path.join(self.dir.name, '20261011000003_teste.sql')
         rc, out, err = rodar(GERADOR, '--texto', texto, '--versao', '20261011000003', '--saida', saida)
-        sql = open(saida, encoding='utf-8').read() if rc == 0 and os.path.exists(saida) else ''
+        sql = ''
+        if rc == 0 and os.path.exists(saida):
+            with open(saida, encoding='utf-8') as f:
+                sql = f.read()
         return rc, out, err, sql
 
 
