@@ -64,6 +64,10 @@ adiadas do UAT e os achados do 51-17. Registro: `51-UAT.md` (G-51-OP1 + «Deferr
 - [ ] Conferir que painéis, KPIs e exports não contaram as 8 fixtures como dado real.
 - [ ] PITR: o operador decidiu ligar; confirmar `pitr_enabled=true` pela Management API.
   ↳ 2026-10-10: virou pré-condição do bloco D da 52 (D-41) — o 52-19 recusa sem `pitr_enabled=true`; medido hoje: `false`.
+  ↳ **2026-10-11: PITR RECUSADO pelo operador** (custo ~US$100/mês). A D-41 foi emendada: o bloco D parte de backup diário
+    COMPLETED posterior ao último apply (Management API, `walg_enabled=true`), export prévio local fora do git da população
+    aprovada com md5 no SUMMARY, e apply do 52-21 na manhã seguinte a um backup diário
+    (`.planning/phases/52-hub-do-rh-dados-e-contato/52-DECISAO-2026-10-11-gaps-e-pitr.md`).
 
 ## ▶ ESTADO EM 2026-10-04 — Phases 42 e 47 concluídas; respostas do operador registradas
 
