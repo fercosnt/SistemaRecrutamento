@@ -22,7 +22,7 @@ created: "2026-10-10"
 | Framework | Vitest 4.1.9 (unidade/componente/guardas) · `deno test` (EF) · smokes SQL dentro de ensaio que aborta (`scripts/p52_ensaio.cjs`, cópia do p51) · auto-testes node (tabela de caracteres, comparação de população) |
 | Config file | `vite.config.ts` (`test.include: ['**/__tests__/**/*.{test,spec}.{ts,tsx}']`; EFs fora) |
 | Quick run command | `npx vitest run <arquivos tocados> && npm run lint` (lint ≤ 90; hoje 89) |
-| Full suite command | `npm run test:run && npm run lint && deno test --allow-all supabase/functions/ler-cadastro-candidato-rh/` + `node scripts/p52_ensaio.cjs --vistas supabase/tests/p52_*.sql` + `node scripts/p52_mutacoes.cjs` |
+| Full suite command | `node scripts/p52_vitest_delta.cjs` (suíte Vitest inteira por delta contra `refs/gsd/52/base` medida na mesma execução: `alteradas=0 · novas=0 · mordida=ok` — `npm run test:run` puro é vermelho por construção, a base já reprova 2 testes, STATE.md:1404) `&& npm run lint && deno test --allow-all supabase/functions/ler-cadastro-candidato-rh/` + `node scripts/p52_ensaio.cjs --vistas supabase/tests/p52_*.sql` + `node scripts/p52_mutacoes.cjs` |
 
 Medido nesta sessão: `npx vitest run src/features/hub-candidato src/__tests__/guards` → 22 arquivos, 245 testes, 1,41 s (o
 ruído de `AsyncTaskManager.abortAll` do happy-dom no teardown é pré-existente e não reprova).
@@ -32,7 +32,7 @@ ruído de `AsyncTaskManager.abortAll` do happy-dom no teardown é pré-existente
 |--------|----------|-----------|-------------------|-------------|
 | JORN-52 | 6 `mc` + 1 `caso_aberto` ativos por cargo; antigos retirados; vagas sem `itens_ids` | smoke SQL (ensaio) + catálogo | `node scripts/p52_ensaio.cjs --migracoes=<banco_v2> supabase/tests/p52_banco_sjt_smoke.sql` | ❌ Wave 0 |
 | JORN-52 | Tabela de caracteres reproduzível e critério aplicado | auto-teste python + cruzamento SQL | `python3 -I scripts/geradores/tabela-comprimento-sjt.py --auto-teste && python3 -I scripts/geradores/tabela-comprimento-sjt.py <texto-v2.md>` | ❌ Wave 0 |
-| JORN-53 | WhatsApp/`mailto:`; inválido e `@invalido.local` sem link | unit + componente | `npx vitest run src/features/hub-candidato/lib src/features/hub-candidato/components/__tests__/contato*` | ❌ Wave 0 |
+| JORN-53 | WhatsApp/`mailto:`; inválido sem link; `@invalido.local` (tombstone e fictícios, mesmo com celular) sem nenhum `mailto:`/`wa.me`/mensagem pronta — EF devolve `contato: null` | unit + componente + deno | `npx vitest run src/features/hub-candidato/lib src/features/hub-candidato/components/__tests__/contato*` | ❌ Wave 0 |
 | JORN-54 | EF: 401/403(rh inativo, candidato)/400/404/200; tombstone → `null`; log só com chaves permitidas | deno unit (deps injetadas) | `deno test --allow-all supabase/functions/ler-cadastro-candidato-rh/` | ❌ Wave 0 |
 | JORN-55 | Ordem do formulário, selo, sem opção eliminatória no DOM, `javascript:` vira texto | componente | `npx vitest run src/features/hub-candidato/components/__tests__/respostasInscricao*` | ❌ Wave 0 |
 | JORN-56 | Faixas sim, percentil não (DOM e tipo); sem devolutiva → frase sem faixa | componente + smoke da RPC | `npx vitest run src/features/avaliacao/components/__tests__/BigFiveResultadoHub*` + `p52_ensaio.cjs … p52_leituras_rh_smoke.sql` | ❌ Wave 0 |
@@ -55,6 +55,7 @@ Manual-only (justificado): a sessão real do operador no hub com conta de recrut
 
 ### Wave 0 Gaps
 - [ ] `scripts/p52_ensaio.cjs` — cópia adaptada de `p51_ensaio.cjs` (lista de migrations `_p52_`, marca `p52.tx`)
+- [ ] `scripts/p52_vitest_delta.cjs` — delta da suíte Vitest contra `refs/gsd/52/base` (molde `p50_vitest_delta.cjs`), com `--auto-teste` e `BASE NAO MEDIDA` fail-closed (52-01 Task 3; usado no 52-14, 52-17, 52-20)
 - [ ] `supabase/tests/p52_leituras_rh_smoke.sql` — atores lidos na execução (molde `p50_acesso_recrutador_smoke.sql`), população > 0 publicada
 - [ ] `supabase/tests/p52_banco_sjt_smoke.sql`, `supabase/tests/p52_populacao_limpeza.sql` (só leitura)
 - [ ] `scripts/p52_mutacoes.cjs` — mutações: guard sem helper, RPC que projeta `percentil`/`tag` das outras, item antigo ativo, `NOT IN` no lugar de `NOT EXISTS`

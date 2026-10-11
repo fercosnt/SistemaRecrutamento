@@ -757,7 +757,7 @@ Plans:
 **Plans**: 25 plans
 
 **Wave 1**
-- [ ] 52-01-PLAN.md — Arnês da fase: `p52_ensaio.cjs` (ensaio que aborta), `p52_portao.cjs` (regra 8 sobre `_p52_`), `p52_tipografia.cjs`; base `refs/gsd/52/base`
+- [ ] 52-01-PLAN.md — Arnês da fase: `p52_ensaio.cjs` (ensaio que aborta), `p52_portao.cjs` (regra 8 sobre `_p52_`), `p52_tipografia.cjs`, `p52_vitest_delta.cjs` (suíte Vitest por delta contra a base, medida na mesma execução); base `refs/gsd/52/base`
 
 **Wave 2** *(blocked on 52-01)*
 - [ ] 52-02-PLAN.md — Saída durante as provas (SJT MC e Prova cognitiva com confirmação de perda — D-36; Big Five/Redação/Caso direto após o flush); «Tempo decorrido»

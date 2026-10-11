@@ -64,7 +64,9 @@ Precedem qualquer escolha estética. Um plano que os viole está errado mesmo qu
    eliminatória (D-19).
 4. **Contato de anonimizado ou fictício não existe.** Um e-mail no domínio `@invalido.local` (marcador do motor
    de exclusão, BD-9, e dos 6 fictícios das migrations `20260830000005`/`20260905000002`) **nunca** é mostrado
-   nem vira `mailto:`. A tela diz «Sem contato disponível.» — **sem causa** (Invariante 9 da 45-UI-SPEC: o
+   nem vira `mailto:` — e o registro **inteiro** fica sem contato: nenhum `wa.me` nem mensagem pronta, **mesmo com
+   celular gravado** (os 6 fictícios têm celular; a regra é o registro ser fictício/anonimizado, não a falta de
+   telefone — JORN-53, ROADMAP SC2; a EF devolve `contato: null`). A tela diz «Sem contato disponível.» — **sem causa** (Invariante 9 da 45-UI-SPEC: o
    recrutador não pode inferir que o titular exerceu direito de exclusão).
 5. **Texto do candidato é sempre nó de texto React.** Caso aberto com citações marcadas, respostas da inscrição
    com links, devolutiva: a montagem é por **segmentos** (`string` + `<mark>` / `<a>`), **nunca**
@@ -425,7 +427,7 @@ RHLayout
 - **Normalização** (`normalizarCelularWhatsApp`, função pura): `d = celular.replace(/\D/g, '')`; se `d` começa com `55` e tem 12–13 dígitos → `d`; senão, se tem 10–11 dígitos e o DDD (2 primeiros) não começa com `0` → `'55' + d`; qualquer outro caso → **inválido**.
 - **Inválido:** o número aparece como texto (cru, como gravado) e, no lugar do botão, a linha
   `text-sm text-white/70` «Número fora do formato do WhatsApp — confira o cadastro.» (Invariante 7).
-- **Sem contato** (e-mail ausente ou `@invalido.local`, celular ausente): a linha toda vira «Sem contato disponível.» — sem causa (Invariante 4).
+- **Sem contato:** (a) registro fictício ou anonimizado — e-mail em `@invalido.local`, **com ou sem celular gravado** (a EF devolve `contato: null`); ou (b) e-mail e celular ausentes. Nos dois casos a linha toda vira «Sem contato disponível.» — nenhum `mailto:`, nenhum `wa.me`, nenhuma mensagem pronta, nenhum número como texto, e sem causa (Invariante 4). A regra (a) independe do telefone: o celular de um registro fictício/anonimizado **nunca** vira «Chamar no WhatsApp». O cabeçalho lê contato só do `contato` da EF, nunca do `cadastro`.
 - Os botões aparecem **em qualquer etapa e status**, inclusive rejeitado (D-16). O clique não é registrado (D-15).
 - **{vaga}** = título da vaga da candidatura. Hoje `useEntrevistaContexto` não traz o título — a leitura do
   contato (ou o contexto) passa a trazê-lo. Sem título: as frases caem para as versões sem «para {vaga}» (§Copy).
@@ -670,7 +672,7 @@ concluídas (`interactive-control`).
 | E1 | Contato | loading | ✅ covered | `Skeleton h-10 w-full max-w-md bg-white/5` no lugar da linha de contato enquanto a leitura de dados pessoais está em voo; nome e etapa continuam com o skeleton existente |
 | E1 | Contato | error | ✅ covered | «Não foi possível carregar o contato.» + «Recarregar contato» (refetch). O resto do hub funciona — a falha do contato não derruba as abas |
 | E1 | Contato | long-text | ✅ covered | E-mail `break-all`; a linha é `flex flex-wrap gap-4` — a 360px cada par (valor + botão) quebra para a linha de baixo, nunca rola na horizontal, nunca trunca |
-| E1 | Contato | privacy | 🧪 backstop | Os dois riscos: `@invalido.local` vazando como contato (anonimizado/fictício) e WhatsApp com número inválido virando link quebrado. **Backstop:** testes puros de `normalizarCelularWhatsApp` (10, 11, 12, 13 dígitos; DDD `0x`; vazio; com máscara) e teste de render provando que `@invalido.local` produz «Sem contato disponível.» **sem** `href` `mailto:` no DOM |
+| E1 | Contato | privacy | 🧪 backstop | Os dois riscos: `@invalido.local` vazando como contato (anonimizado/fictício) e WhatsApp com número inválido virando link quebrado. **Backstop:** testes puros de `normalizarCelularWhatsApp` (10, 11, 12, 13 dígitos; DDD `0x`; vazio; com máscara) e testes de render provando que `@invalido.local` (fictício com celular gravado, tombstone, e o e-mail marcado chegando mesmo assim) produz «Sem contato disponível.» **sem** `href` `mailto:`, **sem** `wa.me` e **sem** a mensagem pronta no DOM |
 | E2 | Abas | loading | ✅ covered | As abas renderizam imediatamente (são estáticas); cada `TabsContent` delega carregando às suas `HubSection` |
 | E2 | Abas | error | ✅ covered | Erro é por seção (`HubSection`), nunca da aba inteira. `?aba=` inválido → `resumo`, sem erro |
 | E2 | Abas | overflow | ✅ covered | `TabsList flex-wrap h-auto gap-2` — a 360px as 4 abas quebram em 2 linhas sem cobrir o conteúdo (defeito 31 já pago na devolutiva) |
