@@ -5,9 +5,11 @@
  *
  * Cópia adaptada de `scripts/p51_ensaio.cjs` (revisado três vezes na 51; ele mesmo cópia do
  * `scripts/p50_ensaio.cjs`) — mesmo contrato de CLI, mesmas garantias, mesmos códigos de saída
- * 0/1/3. Mudou SÓ o que é da fase (52-01): o sentinela (`ENSAIO_P52_TERMINOU`), as quatro versões
- * fixadas `20261011000001..4_p52_*` em MIGS, os pares de smoke `smoke52l` (leituras do RH, bloco B),
- * `smoke52b` (banco SJT v2, bloco C) e `smoke52d` (limpeza, bloco D) somados aos legados, a marca
+ * 0/1/3. Mudou SÓ o que é da fase (52-01): o sentinela (`ENSAIO_P52_TERMINOU`), as cinco versões
+ * fixadas `20261011000001..5_p52_*` em MIGS (a 0005 é do 52-26 — gap WR-04 + F13 — e entra na lista
+ * ANTES da 0004, na ordem de APLICAÇÃO), os pares de smoke `smoke52l` (leituras do RH, bloco B),
+ * `smoke52b` (banco SJT v2, bloco C), `smoke52g` (gap de servidor, 52-26) e `smoke52d` (limpeza,
+ * bloco D) somados aos legados, a marca
  * `p52.tx` (somada a `p51.tx` e `p50.tx`, as três com o mesmo txid), a GUC de evidência `p52.evidencia`
  * (o sentinela carrega `p52.evidencia` e `p51.evidencia`, nessa ordem — os smokes legados p51 que a
  * fase re-roda anexam à segunda), o prefixo das mensagens (`P52E …`, `P52V FAIL (vistas)`) e, em
@@ -16,7 +18,9 @@
  * Exceção revisada: a rodada 1 do portão do bloco B (WR-02 do 52-REVIEW-PORTAO-1) acrescentou a
  * chave `usuarios_rh` a `capturar()` — ver o comentário dela; vai ao 52-REVIEW-PORTAO-2. Na mesma
  * rodada, o WR-03 acrescentou a chave `opcoes_sjt` (o remapeamento do bloco C) — idem.
- * Serve aos blocos B (52-08, leituras do RH), C (52-17, banco SJT v2) e D (52-20/52-21, limpeza).
+ * Serve aos blocos B (52-08, leituras do RH), C (52-17, banco SJT v2) e D (52-20/52-21, limpeza), e ao
+ * gap de servidor do 52-26 (0005: `pontuar_sjt` por uuid e `salvar_avaliacao_entrevista` com todas as
+ * competências — dono: 52-26).
  *
  * O QUE GARANTE QUE NADA PERSISTE. O endpoint da Management API roda o corpo INTEIRO da
  * requisição numa única transação (CLAUDE.md §«Via de apply ATUAL», propriedade 1 — medido em
@@ -57,7 +61,7 @@
  * duas para fora na mensagem do erro — `p52.evidencia` primeiro, separadas por espaço, só as não
  * vazias —, e a linha de veredito a copia. Os smokes publicam o par `smoke<k>.pass`/
  * `smoke<k>.esperado`; o sentinela reporta `smokes=[<k>=<p>/<e>,…]` SÓ para os pares em que alguma
- * das duas GUCs foi definida (k ∈ 50, 51a, 51b, 52l, 52b, 52d). Verde exige todo par reportado com
+ * das duas GUCs foi definida (k ∈ 50, 51a, 51b, 52l, 52b, 52g, 52d). Verde exige todo par reportado com
  * pass = esperado.
  *
  * LOCK. Cada ensaio com migration segura o lock que ela toma até abortar. `lock_timeout = 3s`
@@ -106,26 +110,32 @@ const SENTINELA = 'ENSAIO_P52_TERMINOU';
 
 /* Ordem de aplicação das migrations da Phase 52 (versões fixadas no planejamento, 52-01): 0001 leituras
  * do RH (bloco B, 52-08), 0002 nomes do RH por papel (bloco B, 52-08, D-39 emendada), 0003 banco SJT v2
- * (bloco C, 52-17), 0004 limpeza dos dados de teste (bloco D, 52-20 — DESTRUTIVA, portão próprio, D-41).
- * As que ainda não existem no disco simplesmente não são prefixadas (`ausentes=`). O
+ * (bloco C, 52-17), 0005 gap de servidor (52-26: WR-04 + F13), 0004 limpeza dos dados de teste (bloco
+ * D, 52-20 — DESTRUTIVA, portão próprio, D-41). A 0005 vem ANTES da 0004 porque a lista é a ordem de
+ * APLICAÇÃO, não a numérica: a 0004 está fixada por nome em planos já verificados e ainda não existe;
+ * nenhum portão depende da ordem das versões, e a ordem fora de sequência no ledger faz o `supabase db
+ * push` recusar sem `--include-all` (ver o cabeçalho da 0005). As que ainda não existem no disco
+ * simplesmente não são prefixadas (`ausentes=`). O
  * `p52_portao.cjs --modo deploy|push` NÃO lê esta lista: ele confere o ledger por FORMA (toda
  * `supabase/migrations/<versão>_p52_*.sql` do pin). */
 const MIGS = [
   'supabase/migrations/20261011000001_p52_leituras_rh.sql',
   'supabase/migrations/20261011000002_p52_nomes_rh_por_papel.sql',
   'supabase/migrations/20261011000003_p52_banco_sjt_v2.sql',
+  'supabase/migrations/20261011000005_p52_sjt_uuid_e_nota_completa.sql',
   'supabase/migrations/20261011000004_p52_limpeza_dados_teste.sql',
 ];
 
 /* Pares de smoke que o sentinela conhece: <chave no relatório> -> prefixo das GUCs. Os três
  * legados (50, 51a, 51b) ficam para os smokes que a fase re-roda; os da 52: 52l (leituras do RH),
- * 52b (banco SJT v2), 52d (limpeza). */
+ * 52b (banco SJT v2), 52g (gap de servidor, 52-26), 52d (limpeza). */
 const PARES = [
   ['50', 'smoke50'],
   ['51a', 'smoke51a'],
   ['51b', 'smoke51b'],
   ['52l', 'smoke52l'],
   ['52b', 'smoke52b'],
+  ['52g', 'smoke52g'],
   ['52d', 'smoke52d'],
 ];
 
@@ -145,6 +155,7 @@ const PREFIXO =
   "       set_config('smoke51b.pass', '', false), set_config('smoke51b.esperado', '', false),\n" +
   "       set_config('smoke52l.pass', '', false), set_config('smoke52l.esperado', '', false),\n" +
   "       set_config('smoke52b.pass', '', false), set_config('smoke52b.esperado', '', false),\n" +
+  "       set_config('smoke52g.pass', '', false), set_config('smoke52g.esperado', '', false),\n" +
   "       set_config('smoke52d.pass', '', false), set_config('smoke52d.esperado', '', false),\n" +
   "       set_config('p52.evidencia', '', false),\n" +
   "       set_config('p51.evidencia', '', false), set_config('p50.evidencia', '', false),\n" +
