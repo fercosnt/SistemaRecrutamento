@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-15-PLAN.md (2026-10-11): bloco B no ar — pin refs/gsd/52-15/sha=bc0d2720; migrations 20261011000001 (md5 a42c4754…) e 20261011000002 (md5 08c996ac…) aplicadas pelo p46apply com portao, ledger = arquivo; smoke vivo 52l=20/20 vistas=vacua; mutacoes pos-apply 8/8; EF ler-cadastro-candidato-rh v1 ACTIVE verify_jwt=true, 401 sem sessao; push por sha ff6878c2..bc0d2720 (109 commits, 68 codigo, 41 planning, 0 ALHEIO); sair-da-prova em index-CfSo-z5g.js e hub-abas em PerfilCandidatoRHPage-CqFjwW7k.js no ar; db:types (tsc 89→89) em commit LOCAL fa6ab81b, sobe no 52-18. Proximo: UAT da 52 (hub com sessao real) e bloco C apos os carry-forwards do 52-14."
-last_updated: "2026-10-11T17:20:00.000Z"
+stopped_at: "Completed 52-17-PLAN.md (2026-10-11): texto do bloco C aprovado pelo operador (rodada 1 mudar, rodada 2 aprovar + polir) — texto md5 03b2a0d5…, tabela 1d441390…, criterio proposto, casos abertos ficam; migration 20261011000003 GERADA (md5 18141c60…, NAO aplicada); ensaio exato ENSAIO VERDE 52b=14/14 mantidos=3 remap=32/8; vitest delta alteradas=0 novas=0 mordida=ok; MUTACOES 14/14 (B5 mordendo apos o fix ::text da :743 do smoke, decidido pelo orquestrador). Proximo: 52-18 (review do bloco C, decisao destrutiva do operador + LOCK TABLE e cliente apos 22023 nao decididos, apply, push). Aberto: p49_12_pos_estado.sql:126,135 com o mesmo 22P02."
+last_updated: "2026-10-11T18:35:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 190
+  completed_plans: 191
   percent: 97
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52

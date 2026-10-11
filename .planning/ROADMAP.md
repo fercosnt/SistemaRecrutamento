@@ -794,7 +794,7 @@ Plans:
 - [x] 52-15-PLAN.md — Bloco B no ar: apply das RPCs e dos nomes, deploy da EF, push do cliente (A+B); `db:types`
 
 **Wave 10** *(checkpoint)*
-- [ ] 52-17-PLAN.md — Portão de texto do bloco C (operador aprova o texto e o critério); migration gerada do texto aprovado; guarda LGPD-04
+- [x] 52-17-PLAN.md — Portão de texto do bloco C (operador aprova o texto e o critério); migration gerada do texto aprovado; guarda LGPD-04
 
 **Wave 11** *(checkpoint)*
 - [ ] 52-18-PLAN.md — Review do bloco C, apply do banco SJT v2, push — depois: **UAT da Phase 52**
