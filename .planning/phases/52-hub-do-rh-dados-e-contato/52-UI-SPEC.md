@@ -312,8 +312,11 @@ arquivo da fase e ver a varredura acusá-la, depois remover (regra «portão é 
     `text-2xl` (24px) junto da troca de cor — é o tamanho dos outros dois `h1` da mesma página (`:508`, `:600`).
     Os dois parágrafos já são `text-base`. Texto inalterado (D-15 da 48).
   - O resto de cada tela do candidato (o que a fase não edita) é herança e não é varrido — inclusive o `span`
-    neutro do «Próximo passo» do painel (`DashboardCandidatoPage.tsx:480`, `text-sm font-medium`), que o estado
-    novo da D-27 **reusa sem editar**, e o eyebrow `:455` (`text-xs`).
+    neutro do «Próximo passo» do painel (`DashboardCandidatoPage.tsx:480`, `text-sm font-medium`) e o selo de status
+    (`:437`, `font-medium`), que o estado novo da D-27 **reusa sem editar**, e o eyebrow `:455` (`text-xs`). O reuso é
+    **pelos dados** (revisão de planejamento, 2026-10-10): a frase chega ao `span` por `stepCTA` com `destino: null`, e o
+    selo «Aguardando a equipe» por `statusInfo` — o markup não é copiado, movido nem reindentado, porque uma cópia seria
+    linha acrescentada e a varredura acusaria o `font-medium` (52-04).
 - **Números tabulares** (`tabular-nums`) em «Tempo decorrido» e no cronômetro do Raven (já existe no Raven).
 
 ---

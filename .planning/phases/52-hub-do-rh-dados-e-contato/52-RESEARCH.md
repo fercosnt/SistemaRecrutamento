@@ -949,7 +949,7 @@ SELECT jsonb_agg(jsonb_build_object('opcao_id', o.opcao_id, 'texto', o.opcao_tex
 | Framework | Vitest 4.1.9 (unidade/componente/guardas) · `deno test` (EF) · smokes SQL dentro de ensaio que aborta (`scripts/p52_ensaio.cjs`, cópia do p51) · auto-testes node (tabela de caracteres, comparação de população) |
 | Config file | `vite.config.ts` (`test.include: ['**/__tests__/**/*.{test,spec}.{ts,tsx}']`; EFs fora) |
 | Quick run command | `npx vitest run <arquivos tocados> && npm run lint` (lint ≤ 90; hoje 89) |
-| Full suite command | `npm run test:run && npm run lint && deno test --allow-all supabase/functions/ler-cadastro-candidato-rh/` + `node scripts/p52_ensaio.cjs --vistas supabase/tests/p52_*.sql` + `node scripts/p52_mutacoes.cjs` |
+| Full suite command | `node scripts/p52_vitest_delta.cjs && npm run lint && deno test --allow-all supabase/functions/ler-cadastro-candidato-rh/` + `node scripts/p52_ensaio.cjs --vistas supabase/tests/p52_*.sql` + `node scripts/p52_mutacoes.cjs` — *atualizado no planejamento (2026-10-10): a suíte Vitest inteira é julgada por `scripts/p52_vitest_delta.cjs` contra `refs/gsd/52/base`, medida na mesma execução (52-01 Task 3); `npm run test:run` seria vermelho por construção, porque a base já reprova dois testes* |
 
 Medido nesta sessão: `npx vitest run src/features/hub-candidato src/__tests__/guards` → 22 arquivos, 245 testes, 1,41 s (o
 ruído de `AsyncTaskManager.abortAll` do happy-dom no teardown é pré-existente e não reprova).
