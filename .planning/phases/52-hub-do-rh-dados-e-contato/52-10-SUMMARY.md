@@ -251,3 +251,8 @@ None.
 ---
 *Phase: 52-hub-do-rh-dados-e-contato*
 *Completed: 2026-10-11*
+
+## Self-Check: PASSED
+
+- 8/8 arquivos criados presentes; commits `c9f112a1` e `e0417b33` ancestrais de HEAD; SUMMARY em `cc139fd1`.
+- STATE.md (só frontmatter: `stopped_at`, `last_updated`, `completed_plans` 184 → 185; `percent` segue 94) e ROADMAP.md (só a linha do 52-10) escritos à mão, sem gsd-tools; `git diff` conferido: 4 linhas, só essas.

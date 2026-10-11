@@ -776,7 +776,7 @@ Plans:
 - [x] 52-23-PLAN.md — Contato no cabeçalho do hub: «Enviar e-mail» e «Chamar no WhatsApp» (D-12..D-16)
 
 **Wave 4**
-- [ ] 52-10-PLAN.md — Hub em quatro abas (`?aba=`); Dados do cadastro + Endereço + Disponibilidade
+- [x] 52-10-PLAN.md — Hub em quatro abas (`?aba=`); Dados do cadastro + Endereço + Disponibilidade
 
 **Wave 5**
 - [ ] 52-24-PLAN.md — Respostas da inscrição na ordem do formulário, selo «Eliminatória», links só `http(s)` (D-19, D-20)

@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-23-PLAN.md (2026-10-11): contato no cabecalho do hub (ContatoCandidatoHeader fora das abas, lido pelo useCadastroCandidatoRh do 52-09): «Enviar e-mail» com mailto validado (regex sem ?/&/#, assunto da vaga codificado) e «Chamar no WhatsApp» (wa.me/55 com mensagem pronta, noopener noreferrer; numero invalido vira texto + frase da Invariante 7); contatoUtilizavel derruba @invalido.local em qualquer caixa; skeleton, erro com «Recarregar contato», «Vaga: {titulo}»; 3 renders de privacidade sem mailto/wa.me/mensagem; RED_EVIDENCE_OK (JUnit) nos 3 alvos; mutacoes mordem; vitest hub+guardas 280/280, suite 2991/2993 (2 reds baseline promessasComExecutor), tipografia OK, tsc 89; nada publicado (52-15); sem push."
-last_updated: "2026-10-11T05:31:00.000Z"
+stopped_at: "Completed 52-10-PLAN.md (2026-10-11): hub do RH em quatro abas (Resumo · Cadastro e inscrição · Avaliações · Histórico, hub-abas) com a aba em ?aba= gravada com replace (desconhecido → resumo); secoes redistribuidas pela D-52-U01 sem mudar conteudo, contato fora das abas; aba Cadastro com «Dados do cadastro» (DadosCadastroBloco: 10 pares + Endereço + Disponibilidade, «Não informado», celular texto puro no ficticio — D-40) lido pelo useCadastroCandidatoRh; lib/formatos (CPF, CEP, idade em America/Sao_Paulo, mapas sobre lower); testes do hub existentes so com MemoryRouter ?aba= (nenhuma assercao mudou); RED_EVIDENCE_OK (JUnit) nos 3 alvos; 10 mutacoes mordem; vitest hub+guardas 305/305, suite 3025/3027 (2 reds baseline promessasComExecutor), tsc 89, marcador hub-abas no chunk lazy; 2 achados de tipografia herdados (h2 Linha do funil/Curriculo re-indentados) ficam para o 52-25 (D-52-U22); nada publicado (52-15); sem push."
+last_updated: "2026-10-11T05:40:00.000Z"
 last_activity: 2026-10-11
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 196
-  completed_plans: 184
+  completed_plans: 185
   percent: 94
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
