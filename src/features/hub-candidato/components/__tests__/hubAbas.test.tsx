@@ -90,10 +90,6 @@ vi.mock('@/features/avaliacao-cognitiva/components/LiberacaoCognitivoBlock', () 
 vi.mock('@/features/agendamento/components/AgendamentoBlock', () => ({
   AgendamentoBlock: () => <span data-testid="stub-agendamento" />,
 }))
-vi.mock('../AvaliacoesRespondidasBloco', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../AvaliacoesRespondidasBloco')>()
-  return { ...actual, AvaliacoesRespondidasBloco: () => <span data-testid="stub-ver-respostas" /> }
-})
 
 import { HubCandidatoRH } from '../HubCandidatoRH'
 
@@ -246,10 +242,12 @@ describe('HubCandidatoRH — quatro abas com a aba na URL (52-10 / D-17, D-52-U0
     montar('/rh/candidatos/cand-1?aba=avaliacoes')
     expect(abaSelecionada()).toBe('Avaliações')
     const painel = screen.getByRole('tabpanel')
-    for (const t of ['Avaliação Assíncrona', 'Prova cognitiva', 'Redação', 'Entrevista']) {
+    for (const t of ['Avaliação assíncrona', 'Prova cognitiva', 'Redação', 'Entrevista']) {
       expect(within(painel).getByRole('heading', { name: t })).toBeInTheDocument()
     }
-    expect(within(painel).getByTestId('stub-ver-respostas')).toBeInTheDocument()
+    // 52-25 / D-52-U03: o «Ver respostas» saiu do hub (o detalhe monta aberto na seção — contrato
+    // do hubVerRespostas.test.tsx); nenhuma aba o mostra mais.
+    expect(screen.queryByText('Ver respostas')).toBeNull()
     expect(within(painel).getByTestId('stub-raven')).toBeInTheDocument()
     expect(within(painel).getByRole('button', { name: 'Abrir workspace de redação' })).toBeInTheDocument()
     expect(within(painel).queryByRole('heading', { name: 'Linha do funil' })).toBeNull()

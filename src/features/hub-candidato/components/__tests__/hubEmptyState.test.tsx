@@ -95,11 +95,14 @@ vi.mock('@/features/avaliacao-cognitiva/components/LiberacaoCognitivoBlock', () 
 vi.mock('@/features/agendamento/components/AgendamentoBlock', () => ({
   AgendamentoBlock: () => null,
 }))
-vi.mock('../AvaliacoesRespondidasBloco', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../AvaliacoesRespondidasBloco')>()
+// 52-25 / D-52-U03: o «Ver respostas» saiu do hub; o detalhe (`ScorecardAvaliacao`) monta aberto
+// DENTRO da seção «Avaliação assíncrona». Aqui ele é um marcador — o conteúdo dele é contrato do
+// `hubVerRespostas.test.tsx` e do `ScorecardAvaliacao.test.tsx`; `linhasDeAvaliacao` fica real.
+vi.mock('@/features/avaliacao/components/ScorecardAvaliacao', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/avaliacao/components/ScorecardAvaliacao')>()
   return {
     ...actual,
-    AvaliacoesRespondidasBloco: () => <div data-testid="hub-ver-respostas">Ver respostas</div>,
+    ScorecardAvaliacao: () => <div data-testid="stub-scorecard-avaliacao" />,
   }
 })
 
@@ -242,24 +245,24 @@ describe('HubCandidatoRH — «Não se aplica» só com evidência positiva, e n
   /** Vaga cuja configuração (convenção atual, toda reconhecida) EXCLUI a avaliação assíncrona. */
   const SO_REDACAO = { aplica_cognitivo: true, testes_aplicaveis: [{ teste: 'redacao_cultural' }] }
 
-  it('assíncrona nao_aplica e SEM linha → «Não se aplica a esta vaga» e sem o bloco «Ver respostas»', () => {
+  it('assíncrona nao_aplica e SEM linha → «Não se aplica a esta vaga» e nenhum detalhe montado', () => {
     montarHub({ vaga: SO_REDACAO })
-    expect(secao('Avaliação Assíncrona').textContent).toContain('Não se aplica a esta vaga')
-    expect(screen.queryByTestId('hub-ver-respostas')).toBeNull()
+    expect(secao('Avaliação assíncrona').textContent).toContain('Não se aplica a esta vaga')
+    expect(screen.queryByTestId('stub-scorecard-avaliacao')).toBeNull()
   })
 
-  it('assíncrona nao_aplica mas COM linha (config mudou depois) → o estado de hoje com dados e o «Ver respostas»', () => {
+  it('assíncrona nao_aplica mas COM linha (config mudou depois) → com dados, e o detalhe aberto DENTRO da seção', () => {
     montarHub({ vaga: SO_REDACAO, avaliacoes: [linhaScore('mc-1', 'sjt')] })
-    const s = secao('Avaliação Assíncrona')
+    const s = secao('Avaliação assíncrona')
     expect(within(s).queryByTestId('hub-secao-nao-se-aplica')).toBeNull()
     expect(s.textContent).toContain('1 avaliação respondida')
-    expect(screen.getByTestId('hub-ver-respostas')).toBeInTheDocument()
+    expect(within(s).getByTestId('stub-scorecard-avaliacao')).toBeInTheDocument()
   })
 
-  it('vaga desconhecida (testes_aplicaveis não carregado) → estado de hoje, «Ver respostas» presente, nenhum «Não se aplica»', () => {
+  it('vaga desconhecida (testes_aplicaveis não carregado) e sem linha → «Sem dados nesta etapa», nenhum «Não se aplica»', () => {
     montarHub({ vaga: { aplica_cognitivo: false } })
-    expect(within(secao('Avaliação Assíncrona')).getByText('Sem dados nesta etapa')).toBeInTheDocument()
-    expect(screen.getByTestId('hub-ver-respostas')).toBeInTheDocument()
+    expect(within(secao('Avaliação assíncrona')).getByText('Sem dados nesta etapa')).toBeInTheDocument()
+    expect(screen.queryByTestId('stub-scorecard-avaliacao')).toBeNull()
     expect(screen.queryByTestId('hub-secao-nao-se-aplica')).toBeNull()
   })
 
@@ -267,7 +270,8 @@ describe('HubCandidatoRH — «Não se aplica» só com evidência positiva, e n
     montarHub({ vaga: { aplica_cognitivo: true, testes_aplicaveis: [{ teste: 'work_sample_sjt' }, { teste: 'big_five' }] } })
     expect(secao('Redação').textContent).toContain('Não se aplica a esta vaga')
     expect(screen.getByRole('button', { name: 'Abrir workspace de redação' })).toBeInTheDocument()
-    expect(screen.getByTestId('hub-ver-respostas')).toBeInTheDocument()
+    // A assíncrona, aplicável e sem linha, segue o estado de hoje — o «Não se aplica» é só da redação.
+    expect(within(secao('Avaliação assíncrona')).getByText('Sem dados nesta etapa')).toBeInTheDocument()
   })
 
   it('prova cognitiva nao_aplica mas COM banda registrada → o dado vence a configuração', () => {
@@ -280,12 +284,20 @@ describe('HubCandidatoRH — «Não se aplica» só com evidência positiva, e n
     expect(s.textContent).toContain('Banda da prova cognitiva registrada')
   })
 
-  it('leitura da avaliação com erro numa vaga nao_aplica → o erro aparece e «Ver respostas» continua', () => {
+  it('leitura da avaliação com erro numa vaga nao_aplica → o erro aparece, nunca «Não se aplica»', () => {
     montarHub({ vaga: SO_REDACAO })
     useScorecardCandidatoMock.mockReturnValue({ data: undefined, isLoading: false, isError: true })
     cleanupAndRemount()
-    expect(secao('Avaliação Assíncrona').textContent).toContain('Não foi possível carregar esta seção.')
-    expect(screen.getByTestId('hub-ver-respostas')).toBeInTheDocument()
+    const s = secao('Avaliação assíncrona')
+    expect(s.textContent).toContain('Não foi possível carregar esta seção.')
+    expect(within(s).queryByTestId('hub-secao-nao-se-aplica')).toBeNull()
+  })
+
+  it('o dado vence a etapa também aqui: etapa anterior (triagem) COM linha → com dados, detalhe aberto', () => {
+    montarHub({ etapa: 'triagem', avaliacoes: [linhaScore('mc-1', 'sjt')] })
+    const s = secao('Avaliação assíncrona')
+    expect(within(s).queryByText('Etapa ainda não iniciada')).toBeNull()
+    expect(within(s).getByTestId('stub-scorecard-avaliacao')).toBeInTheDocument()
   })
 })
 

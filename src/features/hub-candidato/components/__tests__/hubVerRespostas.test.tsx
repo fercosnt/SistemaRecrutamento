@@ -1,23 +1,28 @@
 /// <reference types="@testing-library/jest-dom" />
 /**
- * ⛔ POR QUE ESTE ARQUIVO EXISTE (51-02 / JORN-45, D-17..D-20, C-7, C-8).
+ * ⛔ POR QUE ESTE ARQUIVO EXISTE (51-02 / JORN-45, C-8 → 52-25 / JORN-58, D-18, D-52-U03).
  *
- * O hub do RH dizia «N registro(s) de avaliação comportamental disponíveis para revisão» e não
- * dava caminho nenhum até esses registros: o `ScorecardAvaliacao` não estava montado em tela
- * nenhuma (49-REVIEW-GAPS-3 CR-02). E o N contava TODAS as linhas de `scores_candidato` — uma
- * entrevista ou uma redação entravam no número e, se o detalhe fosse montado sem filtro,
- * virariam um card de «caso aberto» (C-8).
+ * Origem (51-02): o hub do RH dizia «N registro(s) … disponíveis para revisão» e não dava caminho
+ * nenhum até esses registros; e o N contava TODAS as linhas de `scores_candidato` — uma entrevista
+ * ou uma redação entravam no número e, montadas sem filtro, virariam card de «caso aberto» (C-8).
+ * A 51-02 resolveu com o bloco irmão «Ver respostas» (`AvaliacoesRespondidasBloco`).
  *
- * O contrato, medido pelo hub inteiro (não pelo bloco isolado):
- *  - logo depois da seção «Avaliação Assíncrona», em QUALQUER etapa, o texto «N avaliação(ões)
- *    respondida(s)» e o botão «Ver respostas» (`hub-ver-respostas`), com aria-expanded/controls;
- *  - o detalhe só monta depois do clique e mostra exatamente as linhas que o N conta
- *    (`tipo IN ('sjt','big_five')`, pela função exportada `linhasDeAvaliacao`);
- *  - a frase «disponíveis para revisão» não existe mais.
+ * Substituído pelo 52-25 (não apagado — o lock continua, sobre o comportamento novo):
+ *  - D-18 manda tudo aberto dentro das abas; com tudo aberto, o bloco irmão só repetia a contagem
+ *    (defeito (c) do UAT da 51). O «Ver respostas» SAI do hub (D-52-U03): o `ScorecardAvaliacao`
+ *    monta aberto DENTRO da seção «Avaliação assíncrona», e a frase «N avaliações respondidas»
+ *    aparece UMA vez.
+ *  - O motivo de o bloco ser irmão (caminho em QUALQUER etapa, D-17 da 51) é preservado pela regra
+ *    de estado: havendo linha `sjt`/`big_five`, a seção é `com_dados` em qualquer etapa — o dado
+ *    vence a etapa, como o 51-03/D-16 já fazia o dado vencer a configuração.
+ *  - C-8 continua: o N e o detalhe têm UMA fonte, `linhasDeAvaliacao`.
+ *
+ * Este arquivo nunca travou a D-32 da 51 (nenhuma asserção dela, medido em 2026-10-10): a única
+ * trava dela era um `describe` de `ScorecardAvaliacao.test.tsx`, substituído pelo 52-11 (D-01).
  */
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ScoreRow } from '@/features/avaliacao/services/scoresRhService'
@@ -130,9 +135,9 @@ function montar(rows: ScoreRow[], etapa = 'avaliacao_assincrona') {
   )
 }
 
-/** A seção «Avaliação Assíncrona» — o vazio «futuro»/«sem dados» se repete em outras seções. */
+/** A seção «Avaliação assíncrona» — o vazio «futuro»/«sem dados» se repete em outras seções. */
 function secaoAssincrona(): HTMLElement {
-  return screen.getByRole('heading', { name: 'Avaliação Assíncrona' }).parentElement as HTMLElement
+  return screen.getByRole('heading', { name: 'Avaliação assíncrona' }).parentElement as HTMLElement
 }
 
 describe('linhasDeAvaliacao — uma fonte para o número e para o detalhe (C-8)', () => {
@@ -145,75 +150,75 @@ describe('linhasDeAvaliacao — uma fonte para o número e para o detalhe (C-8)'
   })
 })
 
-describe('HubCandidatoRH — «Ver respostas» abre o detalhe no lugar (51-02 / JORN-45)', () => {
+describe('HubCandidatoRH — «Avaliação assíncrona» aberta, contagem uma vez (52-25 / D-18, D-52-U03, defeito c)', () => {
   beforeEach(() => {
     useEntrevistaContextoMock.mockReset()
     useScorecardCandidatoMock.mockReset()
   })
 
-  it('anuncia «3 avaliações respondidas» (entrevista e redação fora) e não promete «disponíveis para revisão»', () => {
+  it('«3 avaliações respondidas» aparece exatamente UMA vez no hub (entrevista e redação fora), sem «disponíveis para revisão»', () => {
     montar(CINCO)
-    expect(screen.getAllByText('3 avaliações respondidas').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('3 avaliações respondidas')).toHaveLength(1)
+    expect(within(secaoAssincrona()).getByText('3 avaliações respondidas')).toBeInTheDocument()
     expect(screen.queryByText(/disponíveis para revisão/)).toBeNull()
     expect(screen.queryByText(/registro\(s\)/)).toBeNull()
   })
 
-  it('o botão existe com aria-expanded=false e o detalhe NÃO está montado antes do clique', () => {
+  it('nenhum «Ver respostas» / «Ocultar respostas» — o detalhe não se abre por botão', () => {
     montar(CINCO)
-    const botao = screen.getByTestId('hub-ver-respostas')
-    expect(botao).toHaveTextContent('Ver respostas')
-    expect(botao).toHaveAttribute('aria-expanded', 'false')
-    const regiaoId = botao.getAttribute('aria-controls')
-    expect(regiaoId).toBeTruthy()
-    const regiao = document.getElementById(regiaoId!)
-    expect(regiao).not.toBeNull()
-    expect(regiao).toBeEmptyDOMElement()
-    expect(screen.queryByText('Múltipla escolha')).toBeNull()
-    expect(screen.queryByText('Caso aberto (BARS)')).toBeNull()
+    expect(screen.queryByTestId('hub-ver-respostas')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Ver respostas' })).toBeNull()
+    expect(screen.queryByText('Ver respostas')).toBeNull()
+    expect(screen.queryByText('Ocultar respostas')).toBeNull()
   })
 
-  it('depois do clique: aria-expanded=true, «Ocultar respostas», e o detalhe mostra as linhas que o número conta', () => {
+  it('o ScorecardAvaliacao está montado ABERTO dentro da seção, com exatamente as linhas que o número conta', () => {
     montar(CINCO)
-    const botao = screen.getByTestId('hub-ver-respostas')
-    fireEvent.click(botao)
-    expect(botao).toHaveAttribute('aria-expanded', 'true')
-    expect(botao).toHaveTextContent('Ocultar respostas')
-    const regiao = document.getElementById(botao.getAttribute('aria-controls')!)!
-    expect(within(regiao).getByText('Múltipla escolha')).toBeInTheDocument()
+    const secao = secaoAssincrona()
+    expect(within(secao).getByText('Múltipla escolha')).toBeInTheDocument()
     // Uma linha de entrevista e uma de redação NUNCA viram card de «caso aberto» (C-8).
-    expect(within(regiao).getAllByText('Caso aberto (BARS)')).toHaveLength(1)
+    expect(within(secao).getAllByText('Caso aberto (BARS)')).toHaveLength(1)
+    // A contagem vem ANTES dos cards.
+    const contagem = within(secao).getByText('3 avaliações respondidas')
+    const card = within(secao).getByText('Múltipla escolha')
+    expect(contagem.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 
-    fireEvent.click(botao)
-    expect(botao).toHaveAttribute('aria-expanded', 'false')
+  it.each(['inscricao', 'triagem'])(
+    'o dado vence a etapa: em «%s» (anterior à avaliação) com linha sjt, a seção é com_dados',
+    (etapa) => {
+      montar([linha('mc-1', 'sjt', 'mc')], etapa)
+      const secao = secaoAssincrona()
+      expect(within(secao).queryByText('Etapa ainda não iniciada')).toBeNull()
+      expect(within(secao).queryByText('Sem dados nesta etapa')).toBeNull()
+      expect(within(secao).getByText('1 avaliação respondida')).toBeInTheDocument()
+      expect(within(secao).getByText('Múltipla escolha')).toBeInTheDocument()
+    },
+  )
+
+  it('singular: uma linha → «1 avaliação respondida», uma vez só', () => {
+    montar([linha('bf-1', 'big_five', null)])
+    expect(screen.getAllByText('1 avaliação respondida')).toHaveLength(1)
+  })
+
+  it('zero linhas na etapa da avaliação → «Sem dados nesta etapa», sem contagem e sem card', () => {
+    montar([])
+    const secao = secaoAssincrona()
+    expect(within(secao).getByText('Sem dados nesta etapa')).toBeInTheDocument()
+    expect(screen.queryByText('Nenhuma avaliação respondida ainda.')).toBeNull()
+    expect(screen.queryByText(/avaliaç(ão|ões) respondida/)).toBeNull()
     expect(screen.queryByText('Múltipla escolha')).toBeNull()
   })
 
-  it('em etapa ANTERIOR à avaliação (seção «futuro»), o caminho continua lá (D-17)', () => {
-    montar(CINCO, 'triagem')
+  it('zero linhas em etapa anterior → a etapa ainda manda («Etapa ainda não iniciada»)', () => {
+    montar([], 'triagem')
     expect(within(secaoAssincrona()).getByText('Etapa ainda não iniciada')).toBeInTheDocument()
-    expect(screen.getByTestId('hub-ver-respostas')).toBeInTheDocument()
-    expect(screen.getByText('3 avaliações respondidas')).toBeInTheDocument()
   })
 
-  it('singular: uma linha → «1 avaliação respondida»', () => {
-    montar([linha('bf-1', 'big_five', null)])
-    expect(screen.getAllByText('1 avaliação respondida').length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('zero linhas: diz que nenhuma foi respondida, o botão continua e o detalhe mostra o vazio', () => {
-    montar([])
-    expect(screen.getByText('Nenhuma avaliação respondida ainda.')).toBeInTheDocument()
-    const botao = screen.getByTestId('hub-ver-respostas')
-    fireEvent.click(botao)
-    expect(screen.getByText('Sem avaliações registradas ainda.')).toBeInTheDocument()
-  })
-
-  it('só entrevista/redação: a seção usa a contagem FILTRADA (sem dados) e o detalhe não inventa card', () => {
+  it('só entrevista/redação: a seção usa a contagem FILTRADA (sem dados) e nenhum card é inventado', () => {
     montar([linha('en-1', 'entrevista', null), linha('rd-1', 'redacao', null)])
     expect(within(secaoAssincrona()).getByText('Sem dados nesta etapa')).toBeInTheDocument()
-    expect(screen.getByText('Nenhuma avaliação respondida ainda.')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('hub-ver-respostas'))
     expect(screen.queryByText('Caso aberto (BARS)')).toBeNull()
-    expect(screen.getByText('Sem avaliações registradas ainda.')).toBeInTheDocument()
+    expect(screen.queryByText(/avaliaç(ão|ões) respondida/)).toBeNull()
   })
 })
