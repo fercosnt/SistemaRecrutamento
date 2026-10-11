@@ -201,6 +201,18 @@ export function RedacaoEditorScreen() {
       })
   }, [candidaturaId, pergunta, update])
 
+  // 52-02 rodada 1 (WR-01 do 52-REVIEW-PORTAO-1): o `flushNow` grava o buffer SEMPRE, e o
+  // buffer só é semeado quando a releitura acima responde com rascunho DESTA pergunta.
+  // Sair (ou só tocar e soltar a caixa) antes disso — celular lento, ou rascunho de outra
+  // pergunta — gravava `{}` por cima do rascunho salvo. A saída e o blur só gravam o que
+  // foi EDITADO nesta pergunta nesta sessão; sem edição, o banco já tem a versão certa
+  // (e a semeadura da releitura, se veio, segue o seu próprio timer do autosave).
+  const editouRef = useRef(false)
+  const flushSeEditou = useCallback(async () => {
+    if (!editouRef.current) return
+    await flushNow()
+  }, [flushNow])
+
   const backToList = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
   // D-37 / C-11: the etapa moved on → straight to the panel (the list would only show
   // its lock screen).
@@ -213,6 +225,7 @@ export function RedacaoEditorScreen() {
     setIdx((i) => Math.min(i + 1, total - 1))
     setTexto('')
     setIsValid(false)
+    editouRef.current = false // WR-01 (52-02 rodada 1) — a próxima pergunta começa sem edição.
     elapsedSecondsRef.current = 0 // WR-03 — restart the timer accounting for the next prompt.
   }
 
@@ -355,13 +368,14 @@ export function RedacaoEditorScreen() {
   return (
     <ScreenShell>
       <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
-        {/* 52-02 / D-24: saída durante a prova — há rascunho, então sai direto, depois do flush. */}
+        {/* 52-02 / D-24: saída durante a prova — a Redação RELÊ o rascunho (a única das
+            telas de prova), então sai direto, depois do flush do que foi editado (WR-01). */}
         <div className="flex justify-start">
           <SairDaProvaButton
             rotulo="voltarAvaliacoes"
             destino={`/candidato/avaliacao/${candidaturaId}`}
             temRespostaNaoSalva={false}
-            antesDeSair={flushNow}
+            antesDeSair={flushSeEditou}
           />
         </div>
         <div className="flex items-center justify-between">
@@ -386,10 +400,11 @@ export function RedacaoEditorScreen() {
           <Textarea
             value={texto}
             onChange={(e) => {
+              editouRef.current = true
               setTexto(e.target.value)
               update({ pergunta_id: pergunta.id, texto: e.target.value })
             }}
-            onBlur={() => void flushNow()}
+            onBlur={() => void flushSeEditou()}
             placeholder="Escreva sua resposta aqui. Conte uma situação real, o que você fez e o que aprendeu."
             rows={14}
             className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-base leading-normal"
