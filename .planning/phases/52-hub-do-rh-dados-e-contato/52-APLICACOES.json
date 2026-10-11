@@ -15,6 +15,11 @@
       "version": "20261011000003",
       "aplicado_ate": "2026-10-11T18:59:09Z",
       "fonte": "52-18-SUMMARY.md: fim do comando do apply (UTC)"
+    },
+    {
+      "version": "20261011000005",
+      "aplicado_ate": "2026-10-11T22:51:48Z",
+      "fonte": "52-26 Task 4: now() do servidor (arredondado para cima), leitura so-leitura logo depois do migrate, no mesmo comando"
     }
   ]
 }
