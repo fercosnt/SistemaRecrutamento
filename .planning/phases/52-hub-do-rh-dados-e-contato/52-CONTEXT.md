@@ -155,7 +155,7 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
   contas **+claude1..+claude7** e a conta **+cand1** (as duas candidaturas dela — ver achado 1). O **método** (exclusão
   Art. 18 pelo próprio motor, ou teardown) é **decisão do planejamento**, **sempre com portão
   destrutivo** (dry-run pela mesma query, população medida e aprovada, review bloqueante, prova pós).
-  — **Reversibility:** one-way — apagar dado em PROD; PITR desligado e Storage sem backup.
+  — **Reversibility:** one-way — apagar dado em PROD; PITR desligado e Storage sem backup. ⚠ *[superado pela D-41 (2026-10-10): o 52-19 exige `pitr_enabled=true` — o «PITR desligado» é a medição de 2026-10-10, não o estado de que o bloco D parte]* *(anotação do planejador; o texto da D-30 fica como o operador o escreveu)*
   Medido em PROD (2026-10-10, só leitura), por vaga ativa:
   | Vaga ativa | +claudeN | cand1 | outras |
   |---|---|---|---|

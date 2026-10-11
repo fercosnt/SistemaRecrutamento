@@ -133,7 +133,7 @@
   contas **+claude1..+claude7** e a conta **+cand1** (as duas candidaturas dela — ver achado 1). O **método** (exclusão
   Art. 18 pelo próprio motor, ou teardown) é **decisão do planejamento**, **sempre com portão
   destrutivo** (dry-run pela mesma query, população medida e aprovada, review bloqueante, prova pós).
-  — **Reversibility:** one-way — apagar dado em PROD; PITR desligado e Storage sem backup.
+  — **Reversibility:** one-way — apagar dado em PROD; PITR desligado e Storage sem backup. ⚠ *[superado pela D-41 (2026-10-10): o 52-19 exige `pitr_enabled=true` — o «PITR desligado» é a medição de 2026-10-10, não o estado de que o bloco D parte]* *(anotação; a D-30 copiada como o operador a escreveu)*
   Medido em PROD (2026-10-10, só leitura), por vaga ativa:
   | Vaga ativa | +claudeN | cand1 | outras |
   |---|---|---|---|
@@ -749,7 +749,7 @@ com `service_role` — EF admin de uso único, ou script local que obtém a chav
 encadeado por `&&`: (0) artefatos commitados e no pin → (i) medição só-leitura pela **mesma** query da varredura → (ii)
 comparação com o aprovado (md5 e contagens; recusa «POPULAÇÃO DIFERE DA APROVADA») → (iii) portão de review → (iv)
 `p46apply.cjs migrate`. Prova pós: resíduo 0 por entrada; trava intacta (3 candidaturas de `d8ef9db1`); fixtures 8;
-contagem de `curriculos` = antes − aprovados. PITR **desligado** (`pitr_enabled:false`, backups diários `walg`, último
+contagem de `curriculos` = antes − aprovados. PITR **desligado** ⚠ *[medição de 2026-10-10 — superado pela D-41 (2026-10-10): o 52-19 exige `pitr_enabled=true`, e o 52-21 confere de novo na cabeça do comando do apply]* (`pitr_enabled:false`, backups diários `walg`, último
 2026-10-10T06:29Z) e Storage fora do backup `[VERIFIED: Management API /database/backups]`.
 
 ## Don't Hand-Roll
@@ -937,7 +937,7 @@ SELECT jsonb_agg(jsonb_build_object('opcao_id', o.opcao_id, 'texto', o.opcao_tex
 | Token da Management API (Keychain «Supabase CLI»/«supabase») | p46apply, efdeploy, leituras de PROD | ✓ (usado nesta sessão) | — | env `SUPABASE_ACCESS_TOKEN` |
 | Supabase CLI | `db:types` | ✗ no PATH (`npx --no-install supabase` ausente) | — | `npx supabase gen types … < /dev/null` (baixa sob demanda) ou cast confinado |
 | `timeout` (coreutils) | — | ✗ (zsh/macOS) | — | não usar em comandos de plano |
-| PITR | rede de segurança do bloco D | ✗ `pitr_enabled:false` | backups diários `walg` | Storage sem backup — a limpeza é one-way |
+| PITR | rede de segurança do bloco D | ✗ `pitr_enabled:false` (medido 2026-10-10) ⚠ *superado pela D-41 (2026-10-10): o 52-19 exige `pitr_enabled=true`* | backups diários `walg` | Storage sem backup — a limpeza é one-way (o banco volta só por restauração PITR do banco inteiro — D-41) |
 
 **Missing dependencies with no fallback:** nenhuma que bloqueie. **With fallback:** Supabase CLI (via `npx`), `timeout`.
 
