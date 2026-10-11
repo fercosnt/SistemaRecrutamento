@@ -13,6 +13,8 @@
  * fase re-roda anexam à segunda), o prefixo das mensagens (`P52E …`, `P52V FAIL (vistas)`) e, em
  * `capturar()`, as funções `public.p52_mutacao_%` e os titulares sintéticos `p52%smoke-%`.
  * Nenhuma outra mudança de comportamento: uma «melhoria» aqui seria código novo sem review.
+ * Exceção revisada: a rodada 1 do portão do bloco B (WR-02 do 52-REVIEW-PORTAO-1) acrescentou a
+ * chave `usuarios_rh` a `capturar()` — ver o comentário dela; vai ao 52-REVIEW-PORTAO-2.
  * Serve aos blocos B (52-08, leituras do RH), C (52-17, banco SJT v2) e D (52-20/52-21, limpeza).
  *
  * O QUE GARANTE QUE NADA PERSISTE. O endpoint da Management API roda o corpo INTEIRO da
@@ -303,8 +305,20 @@ const MD5_SET = (expr, from) => `(SELECT md5(coalesce(string_agg(x, E'\\n' ORDER
  *                  mesmo predicado do `p46_purga_smoke.sql`), nunca um padrão sobre o nome — e as
  *                  linhas de `public.disponibilidade` deles. O passo novo do motor (51-20) e a
  *                  limpeza (51-21) apagam exatamente essas linhas: um apagamento que escapasse do
- *                  aborto sai `PERSISTIU: disp_anonimizados…`.
+ *                  aborto sai `PERSISTIU: disp_anonimizados…`;
+ *   usuarios_rh    (WR-02 do 52-REVIEW-PORTAO-1, rodada 1 do 52-14) `public.usuarios_rh` INTEIRA:
+ *                  `<contagem>:<md5>` do conjunto de `to_jsonb(u)` ordenado — a linha toda, então
+ *                  coluna nova não envelhece o critério; o mesmo idioma do PRE da 0002
+ *                  (`FP_USUARIOS_RH`). É a única escrita de DADO do bloco B (a 0002 troca
+ *                  `nome_completo`/`updated_at` de duas contas) e o smoke 52l escreve `ativo` dentro
+ *                  do envelope: sem esta chave, um ensaio `--migracoes=…0002…` cujo aborto falhasse
+ *                  deixaria os nomes trocados em PROD com saída VERDE. Baseline medida nesta execução,
+ *                  nunca constante. `candidaturas` fica de fora de propósito: tem tráfego real de
+ *                  candidatos entre as duas capturas — compará-la inteira reprovaria trabalho correto.
  */
+const FP_USUARIOS_RH =
+  "(select count(*)::text || ':' || md5(coalesce(string_agg(to_jsonb(u)::text, E'\\n' ORDER BY to_jsonb(u)::text), '')) from public.usuarios_rh u)";
+
 function capturar() {
   const vs = MIGS.map(versao).map(lit).join(',');
   const RR = "pg_catalog.to_regclass('public.revisao_rejeicao')";
@@ -327,7 +341,8 @@ function capturar() {
     "json_build_object('users', (select count(*) from auth.users u where u.email like 'p52%smoke-%@invalido.local'), 'candidatos', (select count(*) from public.candidatos c where c.email like 'p52%smoke-%@invalido.local')) as fixtures_p52, " +
     // G1a: o reconhecedor do motor, por IGUALDADE (0004 / p46_purga_smoke), e as linhas de disponibilidade deles
     "(with anon as (select c.id from public.candidatos c where c.email = 'anonimizado+' || c.id::text || '@invalido.local' and c.user_id is null and c.data_nascimento = date '1900-01-01') " +
-    "select json_build_object('titulares', (select count(*) from anon), 'linhas', (select count(*) from public.disponibilidade d where d.candidato_id in (select a.id from anon a)))) as disp_anonimizados";
+    "select json_build_object('titulares', (select count(*) from anon), 'linhas', (select count(*) from public.disponibilidade d where d.candidato_id in (select a.id from anon a)))) as disp_anonimizados, " +
+    `${FP_USUARIOS_RH} as usuarios_rh`;
   return sqlLeitura(q)[0];
 }
 
@@ -551,6 +566,7 @@ module.exports = {
   funcoesP52,
   recusarTerminadores,
   ponto,
+  FP_USUARIOS_RH,
   MIGS,
   PARES,
   SENTINELA,
