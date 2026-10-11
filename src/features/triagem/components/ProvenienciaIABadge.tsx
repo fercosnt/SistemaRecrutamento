@@ -64,6 +64,12 @@ export const PROVENIENCIA_IA_COPY = {
   contingencia: 'Gerado pelo modelo de contingência {modelo}',
   /** D-30: `modelo_ia` NULL. Ocupa o lugar de `{modelo}`. */
   modeloDesconhecido: 'modelo não registrado',
+  /** 52-05 (D-23): `modelo_ia` NULL, sem data que confirme a época — frase INTEIRA. */
+  semModelo: 'Modelo não registrado',
+  /** 52-05 (D-52-U17): `modelo_ia` NULL e análise de até 22/09/2026 (São Paulo) — frase INTEIRA. */
+  semModeloAntigo: 'Modelo não registrado (análise anterior a 22/09/2026)',
+  /** 52-05 (D-23): contingência com `modelo_ia` NULL — frase INTEIRA. */
+  contingenciaSemModelo: 'Gerado pelo modelo de contingência (modelo não registrado)',
   /** Introduz a causa legível do fallback. */
   causaPrefixo: 'motivo: ',
 } as const
@@ -76,6 +82,11 @@ export interface ProvenienciaIABadgeProps {
   modeloIa: string | null | undefined
   /** Causa crua do fallback (`anthropic_max_tokens`, …) ou `null`. */
   fallbackCause?: string | null
+  /**
+   * 52-05 (D-52-U17): a data da análise (ISO), só para a frase de modelo nulo. Opcional:
+   * quem não tem a data recebe «Modelo não registrado», sem parêntese.
+   */
+  geradoEm?: string | null
   /** `full` (default) = texto completo + causa; `compact` = só o modelo. */
   variant?: 'full' | 'compact'
   className?: string
@@ -111,6 +122,7 @@ export function textoProveniencia(opts: {
   modeloIa: string | null | undefined
   fallbackCause?: string | null
   comCausa?: boolean
+  geradoEm?: string | null
 }): string {
   const { provedorIa, modeloIa, fallbackCause, comCausa = true } = opts
   const modelo = modeloIa ?? PROVENIENCIA_IA_COPY.modeloDesconhecido

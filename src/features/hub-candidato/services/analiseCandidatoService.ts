@@ -61,6 +61,8 @@ export interface AnaliseHubRow {
    */
   provedor_ia: string | null
   modelo_ia: string | null
+  /** Data da análise (`created_at`), só para a frase de proveniência — D-52-U17. */
+  gerado_em: string | null
 }
 
 /**
@@ -110,5 +112,6 @@ export async function getAnalise(candidaturaId: string): Promise<AnaliseHubRow |
     // e um resultado sem proveniência ficaria idêntico a um com proveniência confirmada.
     provedor_ia: raw.provedor_ia ?? null,
     modelo_ia: raw.modelo_ia ?? null,
+    gerado_em: null,
   }
 }
