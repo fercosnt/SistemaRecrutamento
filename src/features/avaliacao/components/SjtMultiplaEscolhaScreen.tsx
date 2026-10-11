@@ -5,8 +5,11 @@
  * ("Situação {n} de {total}"): the "Cenário" label + scenario body (16px/1.5) +
  * a shadcn `radio-group` of options fetched via `getOpcoesSjt` (the answer-key-
  * safe RPC — ONLY opcao_id + opcao_texto, server-randomized; the candidate never
- * sees peso/tag). A soft timer counts up with NO hard cutoff
- * ("Tempo sugerido: {mm:ss} (sem limite rígido)"). On the last item "Concluir
+ * sees peso/tag). A timer counts the ELAPSED time up, with NO cutoff, and says so
+ * («Tempo decorrido: {mm:ss} (sem limite de tempo)», 52-02 / D-26 — it is not a target).
+ * The picks live only in this screen's memory (no draft): the exit button
+ * (`SairDaProvaButton`, 52-02 / D-24) confirms the loss when ≥1 answer is marked.
+ * On the last item "Concluir
  * avaliação" opens the irreversible-submit `alert-dialog`; on confirm it submits
  * ONLY the option picks via `avaliacaoService.pontuarSjt` — the client never
  * computes or posts a score (RNF-07a / anti-tamper Pitfall 5). A 42501 back-lock
@@ -37,6 +40,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { SairDaProvaButton } from './SairDaProvaButton'
 import {
   getAvaliacaoContext,
   getOpcoesSjt,
@@ -216,13 +220,23 @@ export function SjtMultiplaEscolhaScreen() {
   return (
     <ScreenShell>
       <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
+        {/* 52-02 / D-24: saída durante a prova — respostas só na memória → confirma a perda. */}
+        <div className="flex justify-start">
+          <SairDaProvaButton
+            rotulo="voltarAvaliacoes"
+            destino={`/candidato/avaliacao/${candidaturaId}`}
+            temRespostaNaoSalva={Object.keys(respostas).length > 0}
+          />
+        </div>
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold drop-shadow-md">
             Situação {index + 1} de {total}
           </h1>
           <div className="flex items-center gap-1.5 text-sm text-white/70">
             <Clock className="w-4 h-4" />
-            <span>Tempo sugerido: {mmss(seconds)} (sem limite rígido)</span>
+            <span className="tabular-nums">
+              Tempo decorrido: {mmss(seconds)} (sem limite de tempo)
+            </span>
           </div>
         </div>
 
