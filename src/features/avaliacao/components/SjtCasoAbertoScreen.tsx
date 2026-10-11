@@ -238,13 +238,16 @@ export function SjtCasoAbertoScreen() {
   return (
     <ScreenShell>
       <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
-        {/* 52-02 / D-24: saída durante a prova — há rascunho, então sai direto, depois do flush. */}
+        {/* 52-02 / D-24 — saída durante a prova. Rodada 1 do portão (CR-01; operador,
+            52-14-DECISAO-RODADA-1): o autosave grava, mas esta tela nunca RELÊ o rascunho
+            (`texto` nasce ''), então o texto vive só na memória — «memória → confirma»:
+            com texto que não seja só espaço, «Sair da avaliação?»; sem texto, sai direto.
+            Sem `antesDeSair`: sem texto não há o que gravar. */}
         <div className="flex justify-start">
           <SairDaProvaButton
             rotulo="voltarAvaliacoes"
             destino={`/candidato/avaliacao/${candidaturaId}`}
-            temRespostaNaoSalva={false}
-            antesDeSair={flushNow}
+            temRespostaNaoSalva={texto.trim() !== ''}
           />
         </div>
         <div className="flex items-center justify-between">

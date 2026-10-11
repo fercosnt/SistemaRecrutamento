@@ -365,17 +365,6 @@ export function BigFiveQuestionnaireScreen() {
   // its lock screen).
   const goToPanel = () => navigate('/candidato/dashboard')
 
-  // 52-02 / D-24: saída durante a prova — há rascunho, então sai direto, depois do flush
-  // (o flush de desmontagem do hook é fogo-e-esquece). Na introdução e nas páginas.
-  const sairDaProva = (
-    <SairDaProvaButton
-      rotulo="voltarAvaliacoes"
-      destino={`/candidato/avaliacao/${candidaturaId}`}
-      temRespostaNaoSalva={false}
-      antesDeSair={autosave.flushNow}
-    />
-  )
-
   const ordered = useMemo<BigfiveItem[]>(
     () => (itens ? [...itens].sort((a, b) => a.ordem - b.ordem) : []),
     [itens],
@@ -384,6 +373,20 @@ export function BigFiveQuestionnaireScreen() {
   // 12 question pages of 10 (after the intro page 0).
   const totalQuestionPages = Math.ceil(ordered.length / ITENS_POR_PAGINA)
   const answeredCount = countAnswered(respostas)
+
+  // 52-02 / D-24 — saída durante a prova, na introdução e nas páginas. Rodada 1 do portão
+  // (CR-01 do 52-REVIEW-PORTAO-1; operador, 52-14-DECISAO-RODADA-1): o autosave GRAVA, mas
+  // esta tela nunca RELÊ o rascunho (`respostas` nasce `{}`). Para o candidato, as
+  // respostas vivem só na memória — então a saída segue o ramo «memória → confirma»: com
+  // ≥1 resposta, «Sair da avaliação?»; sem nenhuma, sai direto. Sem `antesDeSair`: sem
+  // resposta não há o que gravar, e um flush só escreveria `{}` por cima do guardado.
+  const sairDaProva = (
+    <SairDaProvaButton
+      rotulo="voltarAvaliacoes"
+      destino={`/candidato/avaliacao/${candidaturaId}`}
+      temRespostaNaoSalva={answeredCount > 0}
+    />
+  )
   // UX-08: the completion gate is driven off the LOADED item ids (the active set from
   // get_bigfive_itens = 116 non-contiguous ids), never a literal 1..N range — a gap at
   // 28/58/88/118 must not block "Concluir".

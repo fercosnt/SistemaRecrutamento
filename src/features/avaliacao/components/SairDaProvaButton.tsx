@@ -4,14 +4,16 @@
  * aqui no 52-02; o Raven no 52-03).
  *
  * A regra da D-24 (lista corrigida pela D-36): **rascunho → sai direto; memória → confirma.**
- *  - Telas com rascunho automático (Big Five, Redação, Caso aberto) passam
- *    `temRespostaNaoSalva={false}` e `antesDeSair={flushNow}`: o botão espera o flush e só
- *    então navega. O flush de desmontagem do `useAutosaveAvaliacao` é fogo-e-esquece; o de
- *    saída não pode ser.
- *  - Telas cujas respostas vivem só na memória (SJT MC, Prova cognitiva, Raven) passam
- *    `temRespostaNaoSalva` derivado das respostas: com ≥1 marcada abre a confirmação de
- *    perda; sem nenhuma, sai direto — um diálogo dizendo «não serão salvas» seria falso
- *    quando não há nada a perder (D-52-U15).
+ * «Rascunho» quer dizer rascunho que a tela RELÊ quando o candidato volta — gravar não basta.
+ *  - A Redação é a única tela que relê (`loadResposta`): passa `temRespostaNaoSalva={false}`
+ *    e um `antesDeSair` que espera o flush antes de navegar. O flush de desmontagem do
+ *    `useAutosaveAvaliacao` é fogo-e-esquece; o de saída não pode ser.
+ *  - Telas cujas respostas vivem só na memória (SJT MC, Prova cognitiva, Raven, e também
+ *    Big Five e Caso prático — que gravam pelo autosave, mas nunca releem; CR-01 do
+ *    52-REVIEW-PORTAO-1, decisão do operador em 52-14-DECISAO-RODADA-1) passam
+ *    `temRespostaNaoSalva` derivado das respostas: com ≥1 marcada (ou texto não-branco)
+ *    abre a confirmação de perda; sem nenhuma, sai direto — um diálogo dizendo «não serão
+ *    salvas» seria falso quando não há nada a perder (D-52-U15).
  *
  * Sair é navegação local: não há estado novo de falha. Se o flush rejeitar, a tela sai
  * assim mesmo — o rascunho pendente segue o fluxo do `useAutosaveAvaliacao` (buffer em
