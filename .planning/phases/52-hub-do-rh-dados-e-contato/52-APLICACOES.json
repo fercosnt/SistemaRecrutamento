@@ -1,0 +1,20 @@
+{
+  "contrato": "Toda versão `p52_%` do ledger de PROD (supabase_migrations.schema_migrations) tem aqui um instante UTC igual ou posterior ao COMMIT do seu apply; versão sem entrada faz o `p52_backup.cjs` recusar (D-41 emendada, condição 1: o backup diário COMPLETED tem de ser posterior ao maior `aplicado_ate`). O ledger não tem coluna de tempo e `track_commit_timestamp = off` — por isso este registro existe. Entradas novas nascem por máquina, no mesmo comando do `p46apply.cjs migrate`.",
+  "aplicacoes": [
+    {
+      "version": "20261011000001",
+      "aplicado_ate": "2026-10-11T17:12:01Z",
+      "fonte": "52-15-SUMMARY.md: fim do comando do apply (UTC)"
+    },
+    {
+      "version": "20261011000002",
+      "aplicado_ate": "2026-10-11T17:12:06Z",
+      "fonte": "52-15-SUMMARY.md: fim do comando do apply (UTC)"
+    },
+    {
+      "version": "20261011000003",
+      "aplicado_ate": "2026-10-11T18:59:09Z",
+      "fonte": "52-18-SUMMARY.md: fim do comando do apply (UTC)"
+    }
+  ]
+}
