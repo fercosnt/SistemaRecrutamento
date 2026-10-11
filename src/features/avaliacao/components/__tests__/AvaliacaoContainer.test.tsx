@@ -56,6 +56,7 @@ vi.mock('@/features/avaliacao/services/avaliacaoService', () => ({
 import {
   AvaliacaoContainer,
   COPY_NAVEGACAO,
+  COPY_VER_DEVOLUTIVA,
   CONTAINER_TESTE_CONFIG,
 } from '@/features/avaliacao/components/AvaliacaoContainer'
 
@@ -311,5 +312,118 @@ describe('AvaliacaoContainer — «Ir ao painel» na lista (51-01 / JORN-44)', (
     expect(screen.queryByText('Voltar ao painel')).toBeNull()
     fireEvent.click(screen.getByText(IR_AO_PAINEL))
     expect(mocks.navigateMock).toHaveBeenCalledWith('/candidato/dashboard')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 52 / Plan 52-04 — pendência (f) da 51: a devolutiva do Big Five tem caminho de volta
+// na interface. O card «Avaliação comportamental» CONCLUÍDO ganha «Ver devolutiva», e o estado
+// «Tudo concluído», havendo Big Five concluído, mostra o mesmo botão acima do «Ir ao painel».
+// Mesmo contrato do «Ir ao painel»: o shell é render puro e recebe o callback injetado
+// `onVerDevolutiva`; o modo conectado injeta a rota; sem o callback, nenhum botão (nunca inerte).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VER_DEVOLUTIVA = 'Ver devolutiva'
+const ROTA_DEVOLUTIVA = '/candidato/avaliacao/CAND123/bigfive/devolutiva'
+
+const BIG_FIVE_FEITO_COM_PENDENTE = {
+  ...ALL_PENDING,
+  big_five: { registrado: true, iniciado: true },
+}
+const TODAS_FEITAS = {
+  sjt_mc: { registrado: true },
+  sjt_caso_aberto: { registrado: true },
+  big_five: { registrado: true },
+  redacao: { registrado: true },
+  cognitivo: { registrado: false, iniciado: false },
+}
+
+describe('AvaliacaoContainer — «Ver devolutiva» do Big Five (52-04 / pendência f)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.getAvaliacaoContext.mockResolvedValue({ ...CONTEXT_BASE, aplica_cognitivo: false })
+  })
+
+  it('exporta COPY_VER_DEVOLUTIVA com o rótulo «Ver devolutiva»', () => {
+    expect(COPY_VER_DEVOLUTIVA).toBe(VER_DEVOLUTIVA)
+  })
+
+  it('modo conectado: card do Big Five concluído → «Ver devolutiva» no card; clique → a rota da devolutiva', async () => {
+    mocks.getAvaliacaoStatus.mockResolvedValue(BIG_FIVE_FEITO_COM_PENDENTE)
+    renderConnected()
+    const btn = await screen.findByTestId('avaliacao-ver-devolutiva')
+    expect(btn).toHaveTextContent(VER_DEVOLUTIVA)
+    expect(screen.getAllByTestId('avaliacao-ver-devolutiva')).toHaveLength(1)
+    // O botão mora no card do Big Five, não noutro.
+    const card = screen.getByText(BIG_FIVE_LABEL).closest('h3')?.parentElement?.parentElement?.parentElement
+    expect(card).toContainElement(btn)
+    fireEvent.click(btn)
+    expect(mocks.navigateMock).toHaveBeenCalledWith(ROTA_DEVOLUTIVA)
+  })
+
+  it('modo conectado: «Tudo concluído» com Big Five → «Ver devolutiva» acima de «Ir ao painel»; clique → a rota', async () => {
+    mocks.getAvaliacaoStatus.mockResolvedValue(TODAS_FEITAS)
+    renderConnected()
+    await screen.findByText('Tudo concluído!')
+    const ver = screen.getByTestId('avaliacao-ver-devolutiva')
+    const painel = screen.getByTestId('avaliacao-concluida-ir-ao-painel')
+    expect(ver).toHaveTextContent(VER_DEVOLUTIVA)
+    // «acima»: o botão da devolutiva vem ANTES do «Ir ao painel» no documento.
+    expect(ver.compareDocumentPosition(painel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(ver)
+    expect(mocks.navigateMock).toHaveBeenCalledWith(ROTA_DEVOLUTIVA)
+  })
+
+  it('card do Big Five pendente → continua «Começar avaliação»; nenhum «Ver devolutiva» (mesmo com o callback)', () => {
+    const onVerDevolutiva = vi.fn()
+    render(
+      <AvaliacaoContainer
+        testes={[{ teste: 'big_five', status: 'pendente', tempoEstimadoMin: 10 }]}
+        onVerDevolutiva={onVerDevolutiva}
+      />,
+    )
+    expect(screen.getByText('Começar avaliação')).toBeInTheDocument()
+    expect(screen.queryByTestId('avaliacao-ver-devolutiva')).toBeNull()
+  })
+
+  it('«Tudo concluído» sem Big Five na vaga → só «Ir ao painel»', () => {
+    render(
+      <AvaliacaoContainer
+        testes={ALL_DONE_TESTES}
+        onBackToPanel={vi.fn()}
+        onVerDevolutiva={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Tudo concluído!')).toBeInTheDocument()
+    expect(screen.getByTestId('avaliacao-concluida-ir-ao-painel')).toBeInTheDocument()
+    expect(screen.queryByTestId('avaliacao-ver-devolutiva')).toBeNull()
+  })
+
+  it('apresentacional com Big Five concluído e SEM onVerDevolutiva → nenhum botão (nunca inerte)', () => {
+    render(
+      <AvaliacaoContainer
+        testes={[
+          { teste: 'big_five', status: 'feito', tempoEstimadoMin: 10 },
+          { teste: 'sjt_mc', status: 'pendente', tempoEstimadoMin: 10 },
+        ]}
+      />,
+    )
+    expect(screen.getByText(BIG_FIVE_LABEL)).toBeInTheDocument()
+    expect(screen.queryByTestId('avaliacao-ver-devolutiva')).toBeNull()
+  })
+
+  it('apresentacional com Big Five concluído e COM onVerDevolutiva → o botão; clique chama o callback uma vez', () => {
+    const onVerDevolutiva = vi.fn()
+    render(
+      <AvaliacaoContainer
+        testes={[
+          { teste: 'big_five', status: 'feito', tempoEstimadoMin: 10 },
+          { teste: 'sjt_mc', status: 'pendente', tempoEstimadoMin: 10 },
+        ]}
+        onVerDevolutiva={onVerDevolutiva}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('avaliacao-ver-devolutiva'))
+    expect(onVerDevolutiva).toHaveBeenCalledTimes(1)
   })
 })
