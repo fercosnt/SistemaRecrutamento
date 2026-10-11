@@ -83,6 +83,10 @@ describe('montarMailto — só de endereço validado; assunto codificado (D-14, 
   it.each([
     ['a@b.com?bcc=x@y.com'],
     ['a@b.com&bcc=x@y.com'],
+    // Um `@` só: sem estes dois, uma regex que esquecesse `?`/`&` passaria pelos casos acima
+    // (o segundo `@` já os reprova) — medido por mutação no 52-23.
+    ['a@b.com?cc=chefe.com'],
+    ['a@b.com&body=oi'],
     ['a@b.com#x'],
     ['sem-arroba'],
     ['a b@c.com'],
