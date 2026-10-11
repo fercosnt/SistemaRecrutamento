@@ -107,9 +107,9 @@ mensagem dele, e ele já contou que está pesquisando em outras clínicas.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Explica que o valor depende do caso, dá a faixa autorizada e pergunta o que ele quer resolver no sorriso. |
-| 2 | pontua | 2 | Passa a faixa de valor que a clínica autoriza e convida para a avaliação, sem perguntar nada sobre o caso. |
-| 3 | neutro | 1 | Diz que não passa valor pelo WhatsApp e oferece um horário de avaliação para ele saber o preço na clínica. |
+| 1 | fortemente_pontua | 4 | Dá a faixa de preço, diz que o valor exato sai na avaliação e pergunta o que ele quer mudar no sorriso. |
+| 2 | pontua | 2 | Passa a faixa de preço e já convida para a avaliação, sem perguntar nada sobre o caso nem o que ele busca. |
+| 3 | neutro | 1 | Passa a faixa de preço e encerra dizendo que, quando ele quiser agendar a avaliação, é só chamar de novo. |
 | 4 | atencao | 0 | Passa o menor valor da tabela para não perder o lead para a concorrência e deixa o detalhe para a clínica. |
 
 ### MC5 · A confirmação que não volta
@@ -120,7 +120,7 @@ as duas mensagens foram entregues e não lidas. São 17h, e a agenda de amanhã 
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Liga ainda hoje; se ele não atender, deixa recado, avisa quem está na lista de espera e anota no CRM. |
+| 1 | fortemente_pontua | 4 | Liga ainda hoje; se ele não atender, deixa recado, deixa a lista de espera de sobreaviso e anota no CRM. |
 | 2 | pontua | 2 | Manda mais uma mensagem agora e, se não houver resposta até amanhã cedo, oferece o horário à lista. |
 | 3 | neutro | 1 | Mantém o horário como está e confia na confirmação de ontem, que foi entregue, mesmo sem ter sido lida. |
 | 4 | atencao | 0 | Libera o horário para a lista de espera agora, porque mensagem sem leitura costuma virar falta amanhã. |
@@ -203,8 +203,8 @@ no arquivo.
 | # | tag | peso | Opção |
 |---|---|---|---|
 | 1 | fortemente_pontua | 4 | Segura a publicação, avisa o Dr. de que falta o termo e pede à recepção que colha a assinatura antes. |
-| 2 | pontua | 2 | Publica cortando o rosto e mostrando só a boca, e providencia o termo de autorização logo depois. |
-| 3 | neutro | 1 | Publica só em stories, que somem em 24 horas, e deixa o feed para quando o termo de autorização chegar. |
+| 2 | pontua | 2 | Segura a publicação e propõe ao Dr. outro conteúdo para hoje, sem resolver a falta do termo da paciente. |
+| 3 | neutro | 1 | Segura a publicação sem explicar o motivo ao Dr. e espera que ele pergunte para só então falar do termo. |
 | 4 | atencao | 0 | Publica: foi o próprio Dr. quem mandou, e a autorização da paciente é responsabilidade da clínica. |
 
 ### MC4 · O estudo que sustenta o "Estudo do dia"
@@ -246,7 +246,7 @@ vezes, por escrito.
 | 1 | fortemente_pontua | 4 | Chama para uma conversa curta, mostra os três casos na tela e combina o padrão por escrito. |
 | 2 | pontua | 2 | Devolve de novo por escrito, agora com a marcação de tempo exata de cada ponto a ajustar no vídeo. |
 | 3 | neutro | 1 | Escala para a Coordenação cobrar o padrão: você já pediu duas vezes e não é sua função insistir. |
-| 4 | atencao | 0 | Corrige você mesma o que dá e entrega no prazo, para não travar o calendário de posts da semana. |
+| 4 | atencao | 0 | Corrige por conta própria o que dá e entrega no prazo, para não travar o calendário de posts da semana. |
 
 ### Caso aberto · O «Professor Sarcástico» encosta no limite
 *(mantido do banco no ar — content_hash 31741dd1defe05353d84ddf1233d552af1480853a6dfc73431da4d0858833b79)*
@@ -311,8 +311,8 @@ por perto, e não há câmera à vista.
 | # | tag | peso | Opção |
 |---|---|---|---|
 | 1 | fortemente_pontua | 4 | Não grava. Depois, com calma, pergunta se ele toparia contar de novo em vídeo, com termo assinado. |
-| 2 | pontua | 2 | Grava só o áudio do agradecimento e pede a autorização dele depois, porque o momento não se repete. |
-| 3 | neutro | 1 | Grava a cena discretamente, guarda sem publicar e decide depois com a Coordenação o que fazer. |
+| 2 | pontua | 2 | Aborda o paciente ali mesmo no corredor, ainda emocionado, e já o convida para gravar um depoimento. |
+| 3 | neutro | 1 | Deixa o momento passar sem gravar e não comenta com ninguém, nem volta a falar com ele depois. |
 | 4 | atencao | 0 | Grava e publica em stories: é um depoimento espontâneo e verdadeiro, e ele ficaria feliz de aparecer. |
 
 ### MC4 · O momento que não se repete
