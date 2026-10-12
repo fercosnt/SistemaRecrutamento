@@ -394,14 +394,14 @@ export function DashboardCandidatoPage() {
                           Conteúdo» quebrava uma palavra por linha (medido a 390 px, 2026-09-05). */}
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-2xl font-semibold mb-2 drop-shadow-md">
+                          <h3 data-testid="painel-vaga-titulo" className="text-2xl font-semibold mb-2 drop-shadow-md">
                             {candidatura.vaga?.titulo || 'Vaga não encontrada'}
                           </h3>
 
                           <div className="flex flex-wrap gap-4 text-white/80 text-sm mb-3">
                             <div className="flex items-center gap-2">
                               <Briefcase className="w-4 h-4" />
-                              <span>{candidatura.vaga?.departamento?.replace('_', ' ') || 'N/A'}</span>
+                              <span data-testid="painel-vaga-departamento">{candidatura.vaga?.departamento?.replace('_', ' ') || 'N/A'}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <Clock className="w-4 h-4" />

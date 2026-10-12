@@ -282,6 +282,78 @@ export async function createCandidatura(
   }
 }
 
+// ============================================
+// 52-31 (G-52-7 · D-52-G7-1..6) — a vaga das PRÓPRIAS candidaturas no painel do candidato
+// ============================================
+
+/** Nome da RPC de leitura do candidato (migration `20261011000006`). */
+export const RPC_VAGAS_DAS_MINHAS_CANDIDATURAS = 'ler_vagas_das_minhas_candidaturas'
+
+/** Um elemento do retorno da RPC: só a candidatura e os DOIS campos da vaga que o cartão lê. */
+export interface VagaDaMinhaCandidatura {
+  candidatura_id: string
+  titulo: string
+  departamento: string | null
+}
+
+function ehVagaDaMinhaCandidatura(x: unknown): x is VagaDaMinhaCandidatura {
+  if (typeof x !== 'object' || x === null || Array.isArray(x)) return false
+  const o = x as Record<string, unknown>
+  return (
+    typeof o.candidatura_id === 'string' &&
+    typeof o.titulo === 'string' &&
+    (typeof o.departamento === 'string' || o.departamento === null)
+  )
+}
+
+/**
+ * Mescla título e departamento da RPC nas linhas cujo embed `vaga` veio nulo (ou ausente).
+ *
+ * Pura e defensiva: `entradas` que não é array devolve as linhas como vieram; entrada malformada
+ * (sem `candidatura_id`/`titulo` string, ou `departamento` que não é string nem null) é ignorada;
+ * nunca lança. Copia SÓ `{ titulo, departamento }` — nenhuma outra chave da entrada atravessa — e
+ * nunca sobrescreve um embed que veio.
+ */
+export function mesclarVagasDasCandidaturas(linhas: Candidatura[], entradas: unknown): Candidatura[] {
+  if (!Array.isArray(entradas)) return linhas
+  const porCandidatura = new Map<string, VagaDaMinhaCandidatura>()
+  for (const e of entradas) {
+    if (ehVagaDaMinhaCandidatura(e) && !porCandidatura.has(e.candidatura_id)) {
+      porCandidatura.set(e.candidatura_id, e)
+    }
+  }
+  if (porCandidatura.size === 0) return linhas
+  return linhas.map((linha) => {
+    if (linha.vaga != null) return linha
+    const e = porCandidatura.get(linha.id)
+    if (!e) return linha
+    return { ...linha, vaga: { titulo: e.titulo, departamento: e.departamento } }
+  })
+}
+
+/**
+ * Lê `[{candidatura_id, titulo, departamento}]` das candidaturas vivas do próprio candidato.
+ * Erro (inclusive de transporte) devolve `null` — sem lançar e sem ecoar a mensagem: as linhas
+ * ficam como vieram (o fallback do cartão), e a lista nunca cai por causa desta leitura.
+ */
+async function lerVagasDasMinhasCandidaturas(): Promise<unknown> {
+  try {
+    // NARROW confined cast: `ler_vagas_das_minhas_candidaturas` não está em `database.types.ts`
+    // (D-52-G7-5); quem o retira: o primeiro plano que rodar `npm run db:types < /dev/null` E
+    // empurrar `database.types.ts` pela via da fase. Só o nome da RPC é alargado — NÃO um cliente
+    // sem tipos.
+    const { data, error } = await (supabase.rpc as unknown as (
+      fn: string,
+    ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>)(
+      RPC_VAGAS_DAS_MINHAS_CANDIDATURAS,
+    )
+    if (error) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
 /**
  * Lista candidaturas do candidato
  *
@@ -335,6 +407,16 @@ export async function listCandidaturas(
     // (`candidato_le_propria_decisao`). Nenhuma coluna de revisao, justificativa, decisor
     // ou do alerta interno ao RH (`alerta_prazo_enviado_em`). E o que deixa o painel trocar
     // o SLA da etapa («3 dias uteis») pelo prazo verdadeiro que o e-mail diz.
+    //
+    // 52-31 (G-52-7 · D-52-G7-1..6): o embed `vaga:vagas (...)` abaixo passa pela RLS de `vagas`,
+    // cuja única policy que alcança o candidato é «Público vê vagas ativas». Inativada a vaga
+    // (pausada, fechada, arquivada ou apagada), o embed volta NULO e o cartão caía em «Vaga não
+    // encontrada» / «N/A». A fonte nova é a RPC `ler_vagas_das_minhas_candidaturas` (posse por
+    // `auth.uid()`, allowlist `titulo`/`departamento`, qualquer status da vaga — D-52-G7-1),
+    // chamada no máximo UMA vez por leitura e SÓ quando alguma linha veio com o embed nulo; a
+    // mescla copia os dois campos só nessas linhas. O embed FICA: funciona para a vaga pública
+    // (o caso comum, zero chamadas a mais) e mexer nele é fora do G-52-7. Erro da RPC = as linhas
+    // como vieram. O lado do RH (`SELECT_LISTA_RH`, `VAGA_ALLOWLIST`) não muda.
     let query = supabase
       .from('candidaturas')
       .select(
@@ -434,9 +516,15 @@ export async function listCandidaturas(
     const total = count ?? 0
     const totalPages = Math.ceil(total / pagination.limit)
 
+    // 52-31 (G-52-7): título e departamento da vaga não pública, só onde o embed veio nulo.
+    let linhas = (data ?? []) as Candidatura[]
+    if (linhas.some((l) => l.vaga == null)) {
+      linhas = mesclarVagasDasCandidaturas(linhas, await lerVagasDasMinhasCandidaturas())
+    }
+
     return {
       success: true,
-      data: (data ?? []) as Candidatura[],
+      data: linhas,
       pagination: {
         page: pagination.page,
         limit: pagination.limit,
