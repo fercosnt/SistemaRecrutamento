@@ -3,7 +3,7 @@ status: diagnosed
 phase: 52-hub-do-rh-dados-e-contato
 source: [52-01-SUMMARY.md, 52-02-SUMMARY.md, 52-03-SUMMARY.md, 52-04-SUMMARY.md, 52-05-SUMMARY.md, 52-06-SUMMARY.md, 52-07-SUMMARY.md, 52-08-SUMMARY.md, 52-09-SUMMARY.md, 52-10-SUMMARY.md, 52-11-SUMMARY.md, 52-12-SUMMARY.md, 52-13-SUMMARY.md, 52-14-SUMMARY.md, 52-15-SUMMARY.md, 52-16-SUMMARY.md, 52-17-SUMMARY.md, 52-18-SUMMARY.md, 52-23-SUMMARY.md, 52-24-SUMMARY.md, 52-25-SUMMARY.md, 52-26-SUMMARY.md]
 started: 2026-10-12T01:30:00Z
-updated: 2026-10-12T05:10:00Z
+updated: 2026-10-12T05:20:00Z
 ---
 
 <!--
@@ -582,6 +582,12 @@ expected: A 0005 em PROD, provada contra o vivo (sessão B, Task 4 Passos 0–2)
 result: pass
 source: automated
 coverage_id: 52-26-D4
+
+## Decisões do operador sobre o escopo dos consertos (2026-10-12, AskUserQuestion, verbatim)
+
+- G-52-4 — linha de prazo no estado concluído: «Esconder (Recommended)» — usar `concluidas`; carregando/erro mantém a linha; nenhum prazo novo inventado.
+- G-52-6 — escopo dos selos: «Todos os selos (Recommended)» — um conserto em getStatusInfo para todos os selos (inclui «Aguardando a equipe»; concluidas.test:210-211 muda junto).
+- «Cancelada» em AgendamentoCandidatoCard.tsx:62 (mesmo card, mesmo defeito): «Entra junto (Recommended)».
 
 ## Observações fora dos testes
 <!-- Registradas pelo operador durante o UAT; não são falha do teste em que surgiram. -->
