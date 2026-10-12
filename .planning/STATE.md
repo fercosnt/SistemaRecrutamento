@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "UAT da 52 (2026-10-12): 52-UAT.md diagnosed — 14 pass, 2 issue (testes 2 e 4), 4 gaps (G-52-2 Raven selecao, G-52-4 prazo no concluido, G-52-4b Proximo passo com cara de botao, G-52-6 contraste do card rejeitado e selos — promovido pelo operador); escopo decidido pelo operador (esconder prazo; todos os selos; Cancelada junto). Planos de gap 52-28/29/30 (bb04b75d, revisados 1f3f187e e 4d378ec5; checker iteracao 3: 0 blocker, 0 warning). Proximo: /gsd-execute-phase 52 --gaps-only, depois /gsd-verify-work 52 (reconcilia os gaps), depois 52-19 com backup diario COMPLETED posterior a 2026-10-11T22:51:48Z."
+stopped_at: "Gap closure da 52 em curso (2026-10-12, --gaps-only, janela unica confirmada por escrito pelo operador no comando): 52-28 PLAN COMPLETE (G-52-6 — cartao rejeitado legivel, todos os selos + Cancelada opacos, scripts/p52_contraste.cjs com controle que morde; residual medido: 5 chips + 2 notas do cartao de entrevista, min 1,14–1,46). Proximo: 52-29 (G-52-4/4b/2 + caso do codigo cru), depois o review 52-REVIEW-UAT-1 pelo orquestrador e o 52-30 (push por sha + conferencia visual), depois /gsd-verify-work 52 e o 52-19."
 last_updated: "2026-10-12T06:30:00.000Z"
 last_activity: 2026-10-12
-state_head: 158c322515351108f8ac6bae0cf7f63038516276
+state_head: 0940aa39f5e42c797e8e547ca8af107654515fde
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 201
-  completed_plans: 193
+  completed_plans: 194
   percent: 97
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
-last_activity_desc: "/gsd-verify-work 52: UAT diagnosed (4 gaps); planos de gap 52-28..30 verificados pelo checker; ROADMAP a mao (30 planos, 22/30)."
+last_activity_desc: "/gsd-execute-phase 52 --gaps-only: 52-28 concluido (G-52-6, medidor p52_contraste, 7 residuais INFORMATIVO medidos); 52-29 em execucao; ROADMAP a mao (23/30)."
 ---
 
 # Project State
@@ -214,7 +214,7 @@ Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 51 — Consertos da Jornada — Bloco 3
+**Current focus:** Phase 52 — Hub do RH — Dados, Contato e Avaliações do Candidato (gap closure 52-28..30)
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
