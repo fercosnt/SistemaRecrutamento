@@ -19,6 +19,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { createRequire } from 'node:module'
+
+// 52-28 (G-52-6) — a MESMA função de contraste do medidor `scripts/p52_contraste.cjs`.
+const requireDoTeste = createRequire(import.meta.url)
 
 const mocks = vi.hoisted(() => ({
   navigateMock: vi.fn(),
@@ -205,10 +209,17 @@ describe('DashboardCandidatoPage — avaliações concluídas (52-04 / D-27)', (
     expect(within(proximo).queryAllByRole('button')).toHaveLength(0)
     expect(screen.queryByText(CTA_DE_HOJE)).not.toBeInTheDocument()
 
-    // O selo herdado, com o tratamento neutro.
+    // O selo herdado, com o tratamento neutro — opaco desde o 52-28 (G-52-6, «Todos os selos»),
+    // com o contraste julgado pela função do medidor `scripts/p52_contraste.cjs`.
     const selo = screen.getByText(SELO)
-    expect(selo).toHaveClass('text-gray-300')
-    expect(selo.parentElement).toHaveClass('bg-gray-500/20')
+    expect(selo).toHaveClass('text-gray-100')
+    expect(selo.parentElement).toHaveClass('bg-gray-700')
+    const { contrasteDeClasses } = requireDoTeste('../../../../scripts/p52_contraste.cjs') as {
+      contrasteDeClasses: (texto: string, fundo: string) => number
+    }
+    const tokenTexto = Array.from(selo.classList).find((c) => /^text-[a-z]+-[0-9]{2,3}$/.test(c))
+    const tokenFundo = Array.from((selo.parentElement as HTMLElement).classList).find((c) => c.startsWith('bg-'))
+    expect(contrasteDeClasses(tokenTexto as string, tokenFundo as string)).toBeGreaterThanOrEqual(4.5)
     expect(screen.queryByText('Aguardando Resposta')).not.toBeInTheDocument()
 
     // A frase quebra linha: nada de truncar nem de proibir a quebra.

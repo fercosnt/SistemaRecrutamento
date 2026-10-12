@@ -19,6 +19,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
+import { createRequire } from 'node:module'
+
+// 52-28 (G-52-6) — a MESMA função de contraste do medidor `scripts/p52_contraste.cjs`; carregada
+// dentro do caso, depois das asserções de DOM.
+const requireDoTeste = createRequire(import.meta.url)
 
 const useMeuAgendamentoMock = vi.fn()
 vi.mock('@/features/agendamento/hooks/useMeuAgendamento', () => ({
@@ -77,6 +82,18 @@ describe('AgendamentoCandidatoCard — states + AGEND-05 gating', () => {
     // card is visible — the cancelada chip + note render
     expect(screen.getByText('Cancelada')).toBeInTheDocument()
     expect(screen.getByText(/Esta entrevista foi cancelada/)).toBeInTheDocument()
+    // 52-28 (G-52-6, decisão do operador «Cancelada» → «Entra junto»): o chip é opaco, o mesmo
+    // par do «Rejeitado» do painel, com o contraste julgado pelas classes LIDAS DO DOM.
+    const rotulo = screen.getByText('Cancelada')
+    const conteiner = rotulo.parentElement as HTMLElement
+    const tokenTexto = Array.from(rotulo.classList).find((c) => /^text-[a-z]+-[0-9]{2,3}$/.test(c))
+    const tokenFundo = Array.from(conteiner.classList).find((c) => c.startsWith('bg-'))
+    expect(tokenTexto).toBe('text-red-100')
+    expect(tokenFundo).toBe('bg-red-800')
+    const { contrasteDeClasses } = requireDoTeste('../../../../../scripts/p52_contraste.cjs') as {
+      contrasteDeClasses: (texto: string, fundo: string) => number
+    }
+    expect(contrasteDeClasses(tokenTexto as string, tokenFundo as string)).toBeGreaterThanOrEqual(4.5)
     // gated OUT: no .ics button, no ≤24h badge — even though the date is in the future
     expect(screen.queryByText(/Adicionar à agenda/)).toBeNull()
     expect(screen.queryByText(/menos de 24h/)).toBeNull()
