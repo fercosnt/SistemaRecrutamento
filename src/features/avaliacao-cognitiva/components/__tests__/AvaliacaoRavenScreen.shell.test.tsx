@@ -19,6 +19,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ReactNode } from 'react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createRequire } from 'node:module'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -253,5 +254,126 @@ describe('AvaliacaoRavenScreen — shell da marca (52-03 / 51-UI-REVIEW Pilar 2)
     const shell = screen.getByTestId('background-image')
     expect(shell).toHaveAttribute('data-background', 'gradient')
     expect(shell).toContainElement(titulo)
+  })
+})
+
+/*
+ * 52-29 (G-52-2, UAT da 52) — a alternativa marcada sumia no gradiente turquesa: o contorno accent
+ * antigo media 1,08–2,28:1 contra o fundo e contra o próprio ladrilho. A prova não deixa voltar a um
+ * item respondido, então a seleção tem de ser inequívoca. O contraste é julgado pelas funções do
+ * medidor `scripts/p52_contraste.cjs` (a MESMA `corDeClasse`/`contraste` da CLI), com as cores LIDAS
+ * das classes do DOM — nunca uma cópia da fórmula.
+ */
+const RAIZ = resolve(__dirname, '../../../../..')
+const medidor = createRequire(import.meta.url)(resolve(RAIZ, 'scripts/p52_contraste.cjs')) as {
+  corDeClasse: (token: string) => { r: number; g: number; b: number; a: number }
+  contraste: (c1: object, c2: object) => number
+}
+const contrasteEntre = (a: string, b: string) =>
+  medidor.contraste(medidor.corDeClasse(a), medidor.corDeClasse(b))
+
+const MARCADA = ['border-[#00109E]', 'ring-4', 'ring-white']
+const FOCO = [
+  'focus-visible:outline-dashed',
+  'focus-visible:outline-2',
+  'focus-visible:outline-offset-[-10px]',
+  'focus-visible:outline-[#00109E]',
+]
+const CHECK = 'raven-alternativa-check'
+
+/** As classes de `el` que faltam em `esperadas` (vazio = todas presentes). */
+const faltam = (el: Element, esperadas: string[]) => esperadas.filter((c) => !el.classList.contains(c)).join(' ')
+/** As classes de `el` que estão em `proibidas` (vazio = nenhuma). */
+const presentes = (el: Element, proibidas: string[]) => proibidas.filter((c) => el.classList.contains(c)).join(' ')
+
+async function gradeDe8() {
+  m.listarQuestoesRaven.mockResolvedValue([questao(1, 8)])
+  montar()
+  const grade = (await noItem1()).parentElement as HTMLElement
+  const ladrilhos = within(grade).getAllByRole('button')
+  return { grade, ladrilhos }
+}
+
+describe('AvaliacaoRavenScreen — alternativa marcada visível no gradiente (52-29 / G-52-2)', () => {
+  it('nenhuma escolha: nenhum check; todo ladrilho com borda branca grossa, sem borda navy nem anel', async () => {
+    const { ladrilhos } = await gradeDe8()
+    expect(ladrilhos.length).toBe(8)
+    expect(screen.queryAllByTestId(CHECK).length, 'sem escolha nao ha check').toBe(0)
+    for (const l of ladrilhos) {
+      expect(faltam(l, ['border-4', 'border-white']), `ladrilho livre: ${l.getAttribute('aria-label')}`).toBe('')
+      expect(presentes(l, MARCADA), `ladrilho livre sem a marca: ${l.getAttribute('aria-label')}`).toBe('')
+    }
+  })
+
+  it('clique na «Alternativa 3»: um único check, dentro dela e aria-hidden; borda navy + anel branco só nela; nada accent na grade', async () => {
+    const { grade, ladrilhos } = await gradeDe8()
+    fireEvent.click(screen.getByRole('button', { name: 'Alternativa 3' }))
+
+    const tres = screen.getByRole('button', { name: 'Alternativa 3' })
+    const checks = screen.queryAllByTestId(CHECK)
+    expect(checks.length, 'exatamente um check').toBe(1)
+    expect(tres.contains(checks[0]), 'o check mora dentro da Alternativa 3').toBe(true)
+    expect(checks[0].getAttribute('aria-hidden'), 'o check e aria-hidden (aria-pressed carrega o estado)').toBe('true')
+    expect(faltam(tres, MARCADA), 'a marcada tem borda navy e anel branco').toBe('')
+    expect(tres.getAttribute('aria-pressed')).toBe('true')
+    for (const l of ladrilhos.filter((x) => x !== tres)) {
+      expect(presentes(l, ['border-[#00109E]', 'ring-4']), `livre sem a marca: ${l.getAttribute('aria-label')}`).toBe('')
+    }
+    // A seleção saiu do accent: nenhum elemento DENTRO da grade carrega o turquesa da marca.
+    const turquesa = Array.from(grade.querySelectorAll('*'))
+      .map((el) => el.getAttribute('class') || '')
+      .filter((c) => /35bfad/i.test(c))
+    expect(turquesa.join(' | '), 'nenhuma classe accent dentro da grade').toBe('')
+  })
+
+  it('clique na «Alternativa 5» depois da 3: o check se move (continua um só, agora no 5)', async () => {
+    await gradeDe8()
+    fireEvent.click(screen.getByRole('button', { name: 'Alternativa 3' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Alternativa 5' }))
+    const checks = screen.queryAllByTestId(CHECK)
+    expect(checks.length, 'exatamente um check').toBe(1)
+    expect(screen.getByRole('button', { name: 'Alternativa 5' }).contains(checks[0]), 'o check foi para a 5').toBe(true)
+    expect(presentes(screen.getByRole('button', { name: 'Alternativa 3' }), MARCADA), 'a 3 perdeu a marca').toBe('')
+  })
+
+  it('foco do teclado: contorno tracejado navy interno em todo ladrilho; a seleção não usa outline', async () => {
+    const { ladrilhos } = await gradeDe8()
+    fireEvent.click(screen.getByRole('button', { name: 'Alternativa 3' }))
+    for (const l of ladrilhos) {
+      expect(faltam(l, FOCO), `foco em ${l.getAttribute('aria-label')}`).toBe('')
+      const semFoco = Array.from(l.classList).filter((c) => !c.startsWith('focus-visible:'))
+      expect(semFoco.filter((c) => c.includes('outline')).join(' '), 'a selecao nao usa outline').toBe('')
+    }
+  })
+
+  it('contraste ≥ 3:1 pela função do medidor, com as cores lidas das classes do DOM', async () => {
+    await gradeDe8()
+    fireEvent.click(screen.getByRole('button', { name: 'Alternativa 3' }))
+    const tres = screen.getByRole('button', { name: 'Alternativa 3' })
+    const classes = Array.from(tres.classList)
+    const borda = classes.find((c) => /^border-\[#/.test(c)) || ''
+    const fundo = classes.find((c) => /^bg-/.test(c)) || ''
+    const anel = classes.find((c) => /^ring-(white|black|\[#|[a-z]+-[0-9])/.test(c)) || ''
+    const foco = (classes.find((c) => /^focus-visible:outline-\[#/.test(c)) || '').replace('focus-visible:', '')
+    const seloOuNada = screen.queryByTestId(CHECK)
+    expect(seloOuNada !== null, 'o check da marcada existe').toBe(true)
+    const selo = seloOuNada as HTMLElement
+    const glifo = Array.from(selo.classList).find((c) => /^text-/.test(c)) || ''
+    const fundoSelo = Array.from(selo.classList).find((c) => /^bg-/.test(c)) || ''
+    expect([borda, fundo, anel, foco, glifo, fundoSelo].every(Boolean), `classes lidas: ${[borda, fundo, anel, foco, glifo, fundoSelo].join(' ')}`).toBe(true)
+    expect(contrasteEntre(borda, fundo)).toBeGreaterThanOrEqual(3)
+    expect(contrasteEntre(borda, anel)).toBeGreaterThanOrEqual(3)
+    expect(contrasteEntre(glifo, fundoSelo)).toBeGreaterThanOrEqual(3)
+    expect(contrasteEntre(foco, fundo)).toBeGreaterThanOrEqual(3)
+  })
+
+  // O JIT do Tailwind só gera a classe escrita INTEIRA no fonte (o mesmo motivo da grade).
+  it('fonte: as classes da seleção e do foco estão escritas por extenso; a seleção accent antiga saiu', () => {
+    const fonte = readFileSync(resolve(__dirname, '../AvaliacaoRavenScreen.tsx'), 'utf-8')
+    expect(fonte.includes("'border-[#00109E] ring-4 ring-white'"), 'marcada por extenso').toBe(true)
+    expect(fonte.includes("'border-white hover:border-slate-300'"), 'livre por extenso').toBe(true)
+    expect(FOCO.filter((c) => !fonte.includes(c)).join(' '), 'foco por extenso').toBe('')
+    expect(fonte.includes('border-[#35BFAD]') || fonte.includes('ring-[#35BFAD]/40'), 'a selecao accent antiga saiu').toBe(false)
+    expect(/(border|ring|outline)-(\[)?\$\{/.test(fonte), 'nenhuma classe de borda/anel/contorno interpolada').toBe(false)
   })
 })
