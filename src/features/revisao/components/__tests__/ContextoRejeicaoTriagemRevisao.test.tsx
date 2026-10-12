@@ -124,7 +124,8 @@ describe('ContextoRejeicaoTriagemRevisao — conteúdo', () => {
   // cima percorre apenas códigos CONHECIDOS. Este prova o fallback: o código exato, sem rótulo
   // inventado, sem «Não registrado», sem reformatação (nem `_` → espaço, nem mudança de caixa).
   it('código de motivo fora do MOTIVO_OPTIONS aparece cru, sem reformatação (ressalva do teste 15 do UAT da 52)', async () => {
-    const CODIGO = 'motivo_fora_do_mapa_X9'
+    // `string`, não o literal: o código é justamente um valor FORA do tipo `MotivoRejeicaoRh`.
+    const CODIGO: string = 'motivo_fora_do_mapa_X9'
     // Afirmado antes: se o mapa crescer e passar a ter este código, o caso não passa por acaso.
     expect(MOTIVO_OPTIONS.some((o) => o.value === CODIGO), 'o codigo nao pode estar no MOTIVO_OPTIONS').toBe(false)
     lerContextoTriagemMock.mockResolvedValue({
