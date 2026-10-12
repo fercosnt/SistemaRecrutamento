@@ -89,6 +89,7 @@ const SMOKES = {
   // (7) o smoke52b lê as GUCs do PRE da 0003 (p52.banco_*): só roda com ela PREFIXADA.
   'supabase/tests/p52_banco_sjt_smoke.sql': { prefixo: 'P52B', par: '52b', exigePrefixadas: ['20261011000003'] },
   'supabase/tests/p52_gap_servidor_smoke.sql': { prefixo: 'P52G', par: '52g' },
+  'supabase/tests/p52_painel_vaga_smoke.sql': { prefixo: 'P52P', par: '52p' },
 };
 
 /* Baseline de persistência; null até ser lida. */
@@ -280,6 +281,18 @@ const G7_COMPETENCIA = "                   WHEN jsonb_typeof(e->'competencia') =
 const G8_COMPRIMENTO = " AND length(e->>'competencia') > 0 THEN e->>'competencia'\n";
 const G9_COMPETENCY = "                   WHEN jsonb_typeof(e->'competency') = 'string' THEN e->>'competency'\n";
 const G9_QUALQUER = "                   WHEN e ? 'competency' THEN e->>'competency'\n";
+
+// ── 52-31: a vaga das próprias candidaturas no painel do candidato (migration 20261011000006) ───
+// Cada alvo abaixo é LITERAL e único no texto da função escrita na 0006 (`trocar` recusa o
+// contrário); a mutação vai DEPOIS da migration (e do POS dela) como `CREATE OR REPLACE`.
+const V06 = '20261011000006';
+const S52P = 'supabase/tests/p52_painel_vaga_smoke.sql';
+const fnVagas = () => fnNova(V06, 'ler_vagas_das_minhas_candidaturas');
+const P_POSSE = 'c.candidato_id IN (SELECT ca.id FROM public.candidatos ca WHERE ca.user_id = v_uid)';
+const P_VIVA = '     AND c.deleted_at IS NULL AND c.is_rascunho = false;\n';
+const P_GUARDA = "  IF v_uid IS NULL OR coalesce(v_role, '') <> 'candidato' THEN\n";
+const P_GUARDA_BLOCO = P_GUARDA + "    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';\n" + '  END IF;\n';
+const P_JUNCAO = '    JOIN public.vagas v ON v.id = c.vaga_id\n';
 
 const MUTACOES = [
   {
@@ -558,6 +571,109 @@ const MUTACOES = [
     letra: 'n',
     requer: [V05],
     sql: () => trocar(fnSalvar4(), G9_COMPETENCY, G9_QUALQUER, 'G9'),
+  },
+  {
+    // T-52-102: posse aberta — o predicado de candidato_le_propria_candidatura vira `true`.
+    id: 'P1',
+    desc: 'ler_vagas_das_minhas_candidaturas: o predicado de posse vira true (toda candidatura viva de todos)',
+    smoke: S52P,
+    letra: 'b',
+    requer: [V06],
+    sql: () => trocar(fnVagas(), P_POSSE, 'true', 'P1'),
+  },
+  {
+    // G-52-7 / D-52-G7-1 (a truth): o filtro da vaga PÚBLICA volta ao WHERE — a vaga inativada some.
+    id: 'P2',
+    desc: "ler_vagas_das_minhas_candidaturas: filtro de vaga publica (status = 'ativa' AND deleted_at IS NULL) no WHERE",
+    smoke: S52P,
+    letra: 'a',
+    requer: [V06],
+    sql: () =>
+      trocar(
+        fnVagas(),
+        P_VIVA,
+        "     AND c.deleted_at IS NULL AND c.is_rascunho = false\n     AND v.status = 'ativa' AND v.deleted_at IS NULL;\n",
+        'P2'
+      ),
+  },
+  {
+    // T-52-104: sobre-projeção — 'status', v.status entra no objeto de cada elemento.
+    id: 'P3',
+    desc: "ler_vagas_das_minhas_candidaturas: 'status', v.status na projecao",
+    smoke: S52P,
+    letra: 'c',
+    requer: [V06],
+    sql: () => trocar(fnVagas(), "'departamento', v.departamento)", "'departamento', v.departamento,\n                                               'status', v.status)", 'P3'),
+  },
+  {
+    // T-52-107: a guarda passa a aceitar rh e administrador.
+    id: 'P4',
+    desc: 'ler_vagas_das_minhas_candidaturas: a guarda aceita rh e administrador',
+    smoke: S52P,
+    letra: 'g',
+    requer: [V06],
+    sql: () =>
+      trocar(
+        fnVagas(),
+        P_GUARDA,
+        "  IF v_uid IS NULL OR coalesce(v_role, '') NOT IN ('candidato', 'rh', 'administrador') THEN\n",
+        'P4'
+      ),
+  },
+  {
+    // T-52-105: EXECUTE de volta a anon depois da migration (o pg_default_acl de public).
+    id: 'P5',
+    desc: 'GRANT EXECUTE de ler_vagas_das_minhas_candidaturas a anon depois da migration',
+    smoke: S52P,
+    letra: 'f',
+    requer: [V06],
+    sql: 'GRANT EXECUTE ON FUNCTION public.ler_vagas_das_minhas_candidaturas() TO anon;',
+  },
+  {
+    // T-52-103: sem o filtro de rascunho — a candidatura rascunho volta a responder (oráculo).
+    id: 'P6',
+    desc: 'ler_vagas_das_minhas_candidaturas: sem AND c.is_rascunho = false',
+    smoke: S52P,
+    letra: 'h',
+    requer: [V06],
+    sql: () => trocar(fnVagas(), ' AND c.is_rascunho = false', '', 'P6'),
+  },
+  {
+    // G-52-7 / D-52-G7-1: a vaga apagada por deleted_at some do retorno (contra a decisão do operador).
+    id: 'P7',
+    desc: 'ler_vagas_das_minhas_candidaturas: AND v.deleted_at IS NULL no WHERE',
+    smoke: S52P,
+    letra: 'i',
+    requer: [V06],
+    sql: () =>
+      trocar(fnVagas(), P_VIVA, '     AND c.deleted_at IS NULL AND c.is_rascunho = false\n     AND v.deleted_at IS NULL;\n', 'P7'),
+  },
+  {
+    // T-52-107: a guarda deixa de exigir o sub — papel candidato sem sub passa.
+    id: 'P8',
+    desc: 'ler_vagas_das_minhas_candidaturas: a guarda sem v_uid IS NULL OR',
+    smoke: S52P,
+    letra: 'e',
+    requer: [V06],
+    sql: () => trocar(fnVagas(), 'IF v_uid IS NULL OR ', 'IF ', 'P8'),
+  },
+  {
+    // T-52-107: sem a guarda inteira — token sem claims chega à busca.
+    id: 'P9',
+    desc: 'ler_vagas_das_minhas_candidaturas: sem a guarda de papel',
+    smoke: S52P,
+    letra: 'e',
+    requer: [V06],
+    sql: () => trocar(fnVagas(), P_GUARDA_BLOCO, '', 'P9'),
+  },
+  {
+    // T-52-102: o conjunto vira multiconjunto — uma junção 1:N acrescentada por engano depois da de vagas.
+    id: 'P10',
+    desc: 'ler_vagas_das_minhas_candidaturas: CROSS JOIN (VALUES (1), (2)) logo depois da juncao de vagas (cada candidatura duas vezes)',
+    smoke: S52P,
+    letra: 'd',
+    requer: [V06],
+    sql: () => trocar(fnVagas(), P_JUNCAO, P_JUNCAO + '    CROSS JOIN (VALUES (1), (2)) AS p10_dup(n)\n', 'P10'),
   },
 ];
 
