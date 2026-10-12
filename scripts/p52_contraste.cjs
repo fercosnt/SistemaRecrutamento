@@ -296,6 +296,61 @@ const ANCORA_CARTAO_DENTRO_DO_GLASSCARD = {
   trecho: /<GlassCard\s+key=\{candidatura\.id\}(?:(?!<\/GlassCard>)[\s\S])*<AgendamentoCandidatoCard candidaturaId=\{candidatura\.id\} \/>/,
 };
 
+/*
+ * O RESIDUAL do 52-29 (UAT da 52, G-52-4b): o texto do cartão de vidro branco do painel, SEM
+ * superfície local, herda o contraste do vidro. Esta lista é o ESCOPO do residual — os cinco estilos
+ * de texto que ele nomeia (título, departamento/data, etapa, eyebrow e frase do «Próximo passo») —,
+ * não uma fotografia: cada um vira um cenário `informativo` com o pior caso medido, para o operador
+ * decidir com número no 52-30. A classe medida é a de COR que o fonte dá ao texto; o título não tem
+ * cor própria e herda a do `className` do `GlassCard`. `alvo` registra o limiar que valeria (o título,
+ * de 24 px peso 600, é texto grande: 3:1; os outros, 4,5:1) — informativo nunca reprova.
+ * Não modela a sombra projetada do título: o número dele é conservador.
+ */
+const TEXTOS_DO_CARTAO = [
+  {
+    id: 'painel-cartao-titulo',
+    alvo: 3,
+    texto: 'text-white',
+    ancoras: [
+      { arquivo: DASH, trecho: new RegExp(`<GlassCard\\s+key=\\{candidatura\\.id\\}\\s+variant="white"\\s+blur="md"\\s+hover\\s+className="[^"\\n]*${tok('text-white')}[^"\\n]*"`) },
+      // O título não tem cor própria (herda a do cartão): se ganhar uma, o cenário descola.
+      { arquivo: DASH, trecho: /<h3 className="(?![^"\n]*\btext-(?:white|black|\[|[a-z]+-[0-9]))[^"\n]*">\s*\n\s*\{candidatura\.vaga\?\.titulo/ },
+    ],
+  },
+  {
+    id: 'painel-cartao-departamento-data',
+    alvo: 4.5,
+    texto: 'text-white/80',
+    ancoras: [
+      { arquivo: DASH, trecho: new RegExp(`<div className="[^"\\n]*${tok('text-white/80')}[^"\\n]*">\\s*\\n\\s*<div className="[^"\\n]*">\\s*\\n\\s*<Briefcase `) },
+    ],
+  },
+  {
+    id: 'painel-cartao-etapa',
+    alvo: 4.5,
+    texto: 'text-white/70',
+    ancoras: [
+      { arquivo: DASH, trecho: new RegExp(`\\{candidatura\\.etapa_atual && \\(\\s*\\n\\s*<p className="[^"\\n]*${tok('text-white/70')}[^"\\n]*">[\\s\\S]{0,600}?Etapa atual:`) },
+    ],
+  },
+  {
+    id: 'painel-proximo-passo-eyebrow',
+    alvo: 4.5,
+    texto: 'text-white/60',
+    ancoras: [
+      { arquivo: DASH, trecho: new RegExp(`data-testid="painel-proximo-passo"[^\\n]*\\n\\s*<span className="[^"\\n]*${tok('text-white/60')}[^"\\n]*">\\s*\\n\\s*Próximo passo`) },
+    ],
+  },
+  {
+    id: 'painel-proximo-passo-texto',
+    alvo: 4.5,
+    texto: 'text-white/90',
+    ancoras: [
+      { arquivo: DASH, trecho: new RegExp(`data-testid="painel-proximo-passo-texto" className="[^"\\n]*${tok('text-white/90')}[^"\\n]*"`) },
+    ],
+  },
+];
+
 const SUPERFICIE_REJEICAO = 'bg-[#00109E]/70';
 const TEXTO_REJEICAO = 'text-white/80';
 
@@ -356,6 +411,15 @@ const CENARIOS = [
       ANCORA_CARTAO_DENTRO_DO_GLASSCARD,
       { arquivo: AGENDA, trecho: new RegExp(`${esc(n.guarda)}\\n\\s*<p className="[^"\\n]*${tok(n.texto)}`) },
     ],
+  })),
+  ...TEXTOS_DO_CARTAO.map((t) => ({
+    id: t.id,
+    tipo: 'informativo',
+    alvo: t.alvo,
+    pilha: PILHA_CARTAO_PAINEL,
+    superficie: null,
+    texto: t.texto,
+    ancoras: [...ANCORAS_PILHA_CARTAO_PAINEL, ...t.ancoras],
   })),
 ];
 
