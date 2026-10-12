@@ -278,3 +278,262 @@ Base da task: `eec21fc2`. Arquivos sujos de outras janelas (`.planning/ui-review
    precondition dela.
 
 fronteira_retomada: sessao_a_encerrada 2026-10-12T20:04Z head=38d654212d5d24e4c38c3d7d393fddaeb4853390
+
+---
+
+## §Task 2 — sessão B, 2026-10-12
+
+Executor: sessão B (Tasks 2–3). Início 2026-10-12T20:13Z. Nada foi aplicado em PROD: a 0006 rodou só
+dentro de `node scripts/p52_ensaio.cjs` / `node scripts/p52_mutacoes.cjs` (requisições que abortam).
+STATE.md e ROADMAP.md não foram tocados; nenhum `52-31-SUMMARY.md` existe.
+
+### Precondition (medida 2026-10-12T20:13Z, só leitura) — satisfeita
+
+- `52-31-FRONTEIRA.md` rastreado e limpo; última linha `fronteira_retomada: sessao_a_encerrada 2026-10-12T20:04Z head=38d654212d5d24e4c38c3d7d393fddaeb4853390`; `38d65421` ancestral de HEAD (`git merge-base --is-ancestor` = 0).
+- `52-31-SUMMARY.md`: ausente.
+- `node p46apply.cjs sql "set transaction read only; …"` → `{"no_ledger": 0, "ausente": true, "agora": "2026-10-12 17:13:35.020147-03"}`.
+- `git status --porcelain -- supabase src scripts e2e docs/compliance p46apply.cjs efdeploy.cjs database.types.ts` → vazio.
+
+### smoke52p (d)–(j) (commit `b326a215`)
+
+Sete blocos `DO` novos, um por cláusula, no idioma da Task 1 (envelopes `P52P1` que revertem; julgamento
+fora deles por lista de rótulos; nada de título, departamento ou e-mail nas mensagens). `smoke52p.esperado`
+= `10` num único literal. Cabeçalho: (a)–(j); escritas novas — (h) `UPDATE candidaturas SET is_rascunho
+= true` / `SET deleted_at = now()` no alvo, (i) `UPDATE vagas SET deleted_at = now()` na vaga do alvo;
+(d) confere inclusão do conjunto vivo, posse e ausência de repetição, não «nada além do vivo» (papel de
+(h)); a razão escrita da (j) (premissa sem mutação: DDL em `candidaturas` = lock exclusivo em tabela
+quente) e da cobertura de COMPLETUDE de (d) (sem mutação de âncora única que a faça a primeira vermelha;
+cobre a população natural publicada em `52p.pop`). Recusas por SQLSTATE E mensagem: a guarda é
+`42501:forbidden`, o ACL é `42501:permission denied for function ler_vagas_das_minhas_candidaturas`.
+(j) exige FK `convalidated` sobre `conkey = ARRAY[<attnum de vaga_id>]` com `confrelid =
+'public.vagas'::regclass` (nunca pelo nome) e `attnotnull`.
+
+Varredura «varra pela FORMA» depois do smoke: 443 achados (441 da §Task 1 + 2 novos, ambos `IF v_rc
+<> 1` sobre `ROW_COUNT` de UPDATE de UMA linha por id — escopo da linha alvo, não fotografia).
+
+### Runner `scripts/p52_mutacoes.cjs` (commit `b326a215`) — só entradas e a linha de SMOKES
+
+Diff: 0 linhas removidas; três hunks só de acréscimo — `@@ -89,6 +89,7 @@ const SMOKES` (a linha
+`'supabase/tests/p52_painel_vaga_smoke.sql': { prefixo: 'P52P', par: '52p' }`, sem `exigePrefixadas`),
+`@@ -281,6 +282,18 @@` (constantes `V06`, `S52P`, `fnVagas = () => fnNova(V06,
+'ler_vagas_das_minhas_candidaturas')` e os alvos literais `P_POSSE`, `P_VIVA`, `P_GUARDA`,
+`P_GUARDA_BLOCO`, `P_JUNCAO`) e `@@ -559,6 +572,109 @@ const MUTACOES` (P1–P10, `requer: [V06]`,
+`smoke: S52P`, id da ameaça em comentário; P5 é o texto do GRANT, como a L6; P10 troca a linha da
+junção de `public.vagas` por ela mesma seguida de `CROSS JOIN (VALUES (1), (2)) AS p10_dup(n)`).
+`julgarMutacao`/`julgarControle`/`aposentar`: nenhuma linha tocada (grep no diff = 0).
+
+### `<verify>` 1 — ensaio com a sonda de vistas (HEAD `587481ac`, 2026-10-12T20:22Z) — VERDE
+
+```
+ENSAIO VERDE: supabase/tests/p52_painel_vaga_smoke.sql · prefixadas=[20261011000006] · aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005] · ausentes=[20261011000004] · vistas=igual · smokes=[52p=10/10] · evidencia=painel:vagas_candidato=ok 52p.pop=cand:22,naturais:16 52p.alvo=publica · 912 ms
+```
+
+(A primeira rodada, antes dos commits, deu a mesma linha com `913 ms`.)
+
+### `<verify>` 2 — mutações P1–P10 e a rodada completa (HEAD `587481ac`) — VERDE
+
+```
+CONTROLE verde (supabase/tests/p52_painel_vaga_smoke.sql): par 52p=10/10 (614 ms)
+P1 morde: ler_vagas_das_minhas_candidaturas: o predicado de posse vira true (toda candidatura viva de todos) -> P52P FAIL (b) [outro_elementos_que_nao_sao_dele:42,outro_ve_candidaturas_do_dono:2,sub_sem_candidato:ok:n=44] (545 ms)
+P2 morde: ler_vagas_das_minhas_candidaturas: filtro de vaga publica (status = 'ativa' AND deleted_at IS NULL) no WHERE -> P52P FAIL (a) [rascunho_alvo_sem_titulo_e_departamento_da_vaga:ok:n=0,inativa_alvo_sem_titulo_e_departamento_da_vaga:ok:n=0,arquivada_alvo_sem_titulo_e_departamento_da_vaga:ok:n=0] (496 ms)
+P3 morde: ler_vagas_das_minhas_candidaturas: 'status', v.status na projecao -> P52P FAIL (c) [dono_vivo_chaves:candidatura_id|departamento|status|titulo,dono_vivo_elementos_tortos:2,outro_vivo_chaves:candidatura_id|departamento|status|titulo,outro_vivo_elementos_tortos:2,dono_vaga_inativa_chaves:candidatura_id|departamento|status|titulo,dono_vaga_inativa_elementos_tortos:2] (519 ms)
+P4 morde: ler_vagas_das_minhas_candidaturas: a guarda aceita rh e administrador -> P52P FAIL (g) [administrador_sub_do_admin:ok:n=3,rh_sub_do_recrutador:ok:n=0,administrador_sub_do_dono:ok:n=2] (685 ms)
+P5 morde: GRANT EXECUTE de ler_vagas_das_minhas_candidaturas a anon depois da migration -> P52P FAIL (f) [anon_com_execute:true,anon_chamada:err:42501:forbidden] (578 ms)
+P6 morde: ler_vagas_das_minhas_candidaturas: sem AND c.is_rascunho = false -> P52P FAIL (h) [rascunho_diferente_do_vivo_menos_o_alvo:n=2/esperado=1] (583 ms)
+P7 morde: ler_vagas_das_minhas_candidaturas: AND v.deleted_at IS NULL no WHERE -> P52P FAIL (i) [alvo_sem_titulo_e_departamento_da_vaga_apagada:ok:n=1] (540 ms)
+P8 morde: ler_vagas_das_minhas_candidaturas: a guarda sem v_uid IS NULL OR -> P52P FAIL (e) [candidato_sem_sub:ok:n=0] (777 ms)
+P9 morde: ler_vagas_das_minhas_candidaturas: sem a guarda de papel -> P52P FAIL (e) [sem_claims:ok:n=0,sem_papel:ok:n=2,candidato_sem_sub:ok:n=0] (552 ms)
+P10 morde: ler_vagas_das_minhas_candidaturas: CROSS JOIN (VALUES (1), (2)) logo depois da juncao de vagas (cada candidatura duas vezes) -> P52P FAIL (d) [repetidas:32_linhas_em_22/22_candidatos] (579 ms)
+MUTACOES: 10/10 mordem; controle verde; nada persistiu (so=P1,P2,P3,P4,P5,P6,P7,P8,P9,P10) (aposentadas: B1,B2,B3,B4,B5,B6)
+```
+
+Rodada completa (sem `--so`), na mesma execução do `<verify>`:
+
+```
+CONTROLE verde (supabase/tests/p52_leituras_rh_smoke.sql): par 52l=20/20 (622 ms)
+CONTROLE verde (supabase/tests/p52_gap_servidor_smoke.sql): par 52g=14/14 (651 ms)
+CONTROLE verde (supabase/tests/p52_painel_vaga_smoke.sql): par 52p=10/10 (637 ms)
+MUTACOES: 27/27 mordem; controle verde; nada persistiu (aposentadas: B1,B2,B3,B4,B5,B6)
+```
+
+(L1–L8, G1–G9 e P1–P10 mordem cada uma na sua letra; B1–B6 aposentadas pela regra (7), como antes
+desta task. Linha de base de cada mordida = o CONTROLE verde do mesmo smoke na mesma execução.)
+
+### `<verify>` 3 — regressão `p52_leituras_rh_smoke.sql`, controle e tratamento — VERDE
+
+```
+leituras_rh controle rc=0: ENSAIO VERDE: supabase/tests/p52_leituras_rh_smoke.sql · prefixadas=[] · aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005] · ausentes=[20261011000006,20261011000004] · smokes=[52l=20/20] · evidencia
+leituras_rh tratamento rc=0: ENSAIO VERDE: supabase/tests/p52_leituras_rh_smoke.sql · prefixadas=[20261011000006] · aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005] · ausentes=[20261011000004] · smokes=[52l=20/20] · evidencia=
+```
+
+### `<verify>` 4 — Vitest e o delta da suíte (HEAD commitado `587481ac`) — VERDE
+
+`npx vitest run src/features/vagas src/components/pages/__tests__` → `Test Files 23 passed (23) · Tests
+224 passed (224)`. Linha final do delta:
+
+```
+vitest delta: base=0d70ac7 2725/2 · head=587481a 3144/2 · pre-existentes=2 · corrigidas=0 · alteradas=0 · novas=0 · mordida=ok
+```
+
+(Os 2 pré-existentes são os de `promessasComExecutor.test.ts` já listados na §Task 1.)
+
+### `<verify>` 5 — lint — VERDE
+
+```
+lint exit=2 tsc errors=89
+```
+
+Igual à contagem de partida da §Task 1 (`tsc errors=89`) e ≤ 90. O pre-commit imprimiu `tsc errors: 89
+(frozen baseline: 96)` nos três commits desta sessão.
+
+### `<verify>` 6 — tipografia, build e marcadores — VERDE
+
+```
+TIPOGRAFIA OK (71 linhas acrescentadas varridas)
+marcadores no chunk eager do candidato
+```
+
+Os dois marcadores (`painel-vaga-titulo`, `ler_vagas_das_minhas_candidaturas`) moram no mesmo arquivo:
+`build/assets/index-CFPYr-z6.js` (build local; nada publicado).
+
+### Cliente — testes novos (commit `587481ac`) e a evidência RED (tdd)
+
+- `src/features/vagas/services/__tests__/candidaturasService.vagaInativa.test.ts` (13 testes): cliente
+  espião com `from` (cadeia awaitable) e `rpc`. `mesclarVagasDasCandidaturas`: copia só `titulo` e
+  `departamento` (chaves = `departamento,titulo` mesmo com `status`/`salario` na entrada); aceita
+  `departamento` null; não sobrescreve embed presente (mesma referência); ignora entrada malformada (8
+  formas) e sem linha; devolve as MESMAS linhas para `entradas` não-array (5 formas). `listCandidaturas`:
+  0 chamadas com todo embed presente; 1 chamada, pelo nome, com 2 embeds nulos entre 3 linhas, mescla só
+  nelas e o embed presente fica; erro da RPC e promessa rejeitada → `success: true`, linhas como vieram,
+  o texto do erro ausente de `JSON.stringify(retorno)`.
+- `src/components/pages/__tests__/DashboardCandidatoPage.vagaInativa.test.tsx`, casos novos: (3) erro da
+  RPC → títulos `Vaga não encontrada | <título público>`, departamentos `N/A | Clinica`, sem o texto do
+  erro na tela; (4) todo embed presente → 0 chamadas e o título da RPC não aparece; (5) o diálogo de
+  «Retirar minha candidatura» tem `COPY_RETIRAR_CANDIDATURA.titulo(<título da RPC>)` e fecha por «Voltar».
+- Nenhum código de produção mudou nesta task (nenhum caso novo reprovou sobre o código da Task 1).
+
+**RED (tdd.md) — por que por mutação.** O GREEN desta funcionalidade é o commit `38d65421` da Task 1;
+sobre ele os 18 testes dos dois arquivos passam (verde esperado, não «feature desconhecida»: tdd.md
+fail-fast 1 investigado). A evidência de que os testes novos MORDEM foi tomada com linha de base: o
+mesmo alvo verde sem a mutação (acima) e vermelho com ela. Cada mutação foi aplicada ao
+`candidaturasService.ts` só no disco, o alvo rodou com `--reporter=tap-flat`, e o arquivo voltou por
+`git checkout -- src/features/vagas/services/candidaturasService.ts` com `git diff --quiet HEAD` = 0
+conferido depois de cada uma. Registros em `node_modules/.cache/p52-31-red/R{1..4}.json` (dentro do
+projeto, ignorado pelo git), cada um passado a `gsd-tools check tdd-red-evidence --raw`:
+
+| # | mutação temporária | alvo (`file > suite > test`) | primeira linha da falha | classificador |
+|---|---|---|---|---|
+| R1 | a mescla copia a entrada inteira (`vaga: { ...e }`) | `candidaturasService.vagaInativa.test.ts > mesclarVagasDasCandidaturas (52-31 · G-52-7) > copia só titulo e departamento da entrada, mesmo quando ela traz status e salario` | `chaves do objeto mesclado: expected 'candidatura_id,departamento,salario,s…' to be 'departamento,titulo'` | `RED_EVIDENCE_OK` (`target_test_failed`; tests 13, fail 1) |
+| R2 | a RPC chamada com qualquer linha (`if (linhas.length > 0)`) | `… > listCandidaturas + ler_vagas_das_minhas_candidaturas (52-31 · G-52-7) > não chama a RPC quando todo embed veio` | `chamadas à RPC com todo embed presente: expected 1 to be +0` | `RED_EVIDENCE_OK` (tests 13, fail 1) |
+| R3 | o erro da RPC escapa (`throw` no lugar de `return null`, e o `catch` relança) | `… > com erro da RPC resolve com as linhas como vieram, sem lançar e sem o texto do erro` | `Erro inesperado ao listar candidaturas` (a lista lançou) | `RED_EVIDENCE_OK` (tests 13, fail 1) |
+| R4 | o `candidaturasService.ts` de antes do GREEN (`git show 38d65421^:…`) | `DashboardCandidatoPage.vagaInativa.test.tsx > painel do candidato — candidatura de vaga inativa (G-52-7) > (5) o diálogo de «Retirar minha candidatura» da vaga inativa nomeia a vaga pelo título da RPC` | `o título do diálogo com o nome da vaga vindo da RPC: expected null not to be null` | `RED_EVIDENCE_OK` (tests 5, fail 1) |
+
+Comando de cada rodada: `NO_COLOR=1 DEBUG_PRINT_LIMIT=0 npx vitest run <arquivo> -t <filtro>
+--reporter=tap-flat` (exit 1 nas quatro). **Avaliação semântica:** nos quatro o alvo executou e falhou
+na asserção planejada, pelo motivo pretendido — R1 a terceira chave atravessa a mescla (T-52-104 no
+cliente); R2 a RPC é chamada sem embed nulo (D-52-G7-4); R3 a lista cai pelo erro da RPC (T-52-109);
+R4 sem a mescla o diálogo de retirada não nomeia a vaga (diz «esta vaga»). Nenhum erro de carga,
+coleta, sintaxe ou fixture; nenhum alvo pulado.
+
+### Desvios e observações (Task 2)
+
+1. **[Rule 3 — evidência RED legível] Asserções estruturais viraram comparação de string de uma
+   linha, ANTES do commit `587481ac`.** O primeiro registro R1 saiu `invalid_record` («Non-TAP data in
+   report», «Malformed TAP»): o `toEqual` de array põe `actual`/`expected` multilinha no TAP — a mesma
+   classe do desvio 1 da §Task 1. Cinco `toEqual` do serviço e dois do painel viraram `toBe` sobre
+   `join(',')`/`join(' | ')`/`JSON.stringify` — mesma semântica. O relatório não foi editado.
+2. **Mutação errada, não teste errado (R3).** A primeira mutação de R3 (`throw` no lugar de `return null`)
+   saiu `unexpected_green`: o `throw` caía no próprio `try/catch` de `lerVagasDasMinhasCandidaturas` e
+   voltava `null` — a mutação não mudava o comportamento. A mutação certa também relança no `catch`;
+   o teste não mudou.
+3. **R2 refeito sobre o arquivo de teste final** (a primeira rodada R2 foi antes do desvio 1); a linha
+   da tabela é a da rodada final.
+
+---
+
+## §Task 3 — sessão B, 2026-10-12
+
+### Passo 1 — diagnóstico dos leitores residuais (só leitura; NADA consertado — R1/R2 do `<context>`)
+
+Medição em PROD — o primeiro `<verify>` da Task 3, como escrito (2026-10-12T20:24Z), exit 0:
+
+```
+sonda caso observado: [{"candidatura":"d31c78bb","etapa_atual":"entrevista_online","vaga_visivel":false},{"candidatura":"f59e7281","etapa_atual":"avaliacao_assincrona","vaga_visivel":true}]
+sonda caso natural em avaliacao_assincrona: [{"candidatura":"f73682b6","etapa_atual":"avaliacao_assincrona","vaga_visivel":false}]
+```
+
+Contagem agregada só leitura, na mesma rodada (`set transaction read only`; só contagens, nenhum id,
+título ou e-mail) — as 16 candidaturas vivas naturais de vaga não pública (candidatos fora de
+`usuarios_rh`):
+
+```
+{"naturais":16,"em_avaliacao_assincrona":1,"com_curriculo_exportavel":2,"candidaturas_sem_departamento":11,"vagas_sem_departamento":4,"inativa":1,"arquivada":15,"vaga_com_deleted_at":0,"por_etapa":{"rejeitado":1,"entrevista_online":2,"avaliacao_assincrona":1,"triagem":5,"decisao_final":2,"aprovado":5}}
+```
+
+| leitor | embed | efeito na tela (arquivo:linha até a tela) | caso medido |
+|---|---|---|---|
+| `avaliacaoService.ts:118` (`getAvaliacaoContext`) | `vaga:vagas ( testes_aplicaveis, aplica_cognitivo )` sob a RLS do candidato → nulo | `:143-144` `testesAplicaveis = null`, `aplicaCognitivo = false` → `AvaliacaoContainer.tsx:482` `deriveCards` devolve `[]` → `:323-329` a página de avaliações mostra «Nenhuma avaliação pendente» / «Você não tem avaliações para concluir nesta etapa no momento.» — o candidato em `avaliacao_assincrona` não vê os cards que tem de fazer. E no PAINEL: `useIdsAvaliacoesConcluidas.ts:55-58` (elegíveis = etapa `avaliacao_assincrona`, não encerrada) e `:75-79` derivam os MESMOS cards vazios → `avaliacoesConcluidas([])` é falso → o estado «Avaliações concluídas — aguardando a equipe» nunca aparece para essa candidatura | `f73682b6` (`avaliacao_assincrona`, vaga arquivada, `vaga_visivel:false`) — 1 hoje |
+| `redacaoService.ts:150` (`getRedacaoContext`) | `vaga:vagas!inner(testes_aplicaveis)` → a linha SOME | `:161-163` `NOT_FOUND` «Candidatura não encontrada» → `RedacaoEditorScreen.tsx:305-316` o estado de erro do `AsyncState` com «Tentar novamente». Alcançável só por link direto: com os cards vazios (linha acima) não há card de redação para clicar | o mesmo `f73682b6`, se a vaga dele tiver redação — ≤ 1 hoje |
+| `exportacaoService.ts:1005` (`CURRICULOS_ALLOWLIST`) | `vaga:vagas ( titulo )` → nulo | `:1034-1038` `tituloDaVaga` → `null` (`:1083` `vagaTitulo: null`) → `CurriculosBloco.tsx:138` mostra `COPY_CURRICULOS.vagaSemTitulo` = «Vaga não identificada» (`:71`) no bloco de currículos de `/candidato/privacidade` (e o export do titular sai com `vagaTitulo: null`) | 2 das 16 naturais têm `curriculo_url` |
+| `VagaDetalhePage.tsx` via `getVagaById` (`vagasService.ts:357-420`) | não é embed: `from('vagas').eq('id').is('deleted_at', null).single()` (`:372-376`) sob a RLS do candidato | o `onClick` do cartão (`DashboardCandidatoPage.tsx:96-98`, `handleVerVaga`) leva a `/vagas/:id`; `useVaga` (`useVagas.ts:145-160`) → `getVagaById` → PGRST116 → `VagasServiceError('Vaga não encontrada')` (`:382`; `:397` é a outra mensagem igual de `getVagaById`, para retorno vazio) → `VagaDetalhePage.tsx:88-91` «Vaga não encontrada» / «Vaga não encontrada ou não está mais ativa» com «Voltar para vagas». As mensagens de `vagasService.ts:382/397` citadas no UAT são DESSA página, fora do caminho do cartão. O `.is('deleted_at', null)` recusaria a vaga apagada mesmo com outra RLS | toda candidatura de vaga não pública: as 16 naturais (inclusive `d31c78bb`) |
+
+### Perguntas prontas para a Task 4 (cada uma com o número que a sustenta)
+
+- **R1 — `residual_leitores_embed`:** hoje 1 candidatura viva natural em `avaliacao_assincrona` com vaga
+  não pública (`f73682b6`, vaga arquivada) vê «Nenhuma avaliação pendente» na página de avaliações, e o
+  painel nunca lhe mostra «Avaliações concluídas — aguardando a equipe»; a redação dela (se houver) dá
+  erro «Tentar novamente» por link direto; 2 das 16 naturais veem «Vaga não identificada» no bloco de
+  currículos da privacidade. Consertar exige ler `testes_aplicaveis`/`aplica_cognitivo` por outra RPC —
+  outra migration e outro apply, que move de novo o «último apply» da D-41. **Pergunta:** aceitar e
+  registrar (backlog com dono), ou plano novo dentro da 52 antes do 52-19?
+- **R2 — `residual_detalhe_vaga`:** as 16 candidaturas vivas de vaga não pública (1 inativa, 15
+  arquivadas) levam, ao tocar o cartão, a «Vaga não encontrada ou não está mais ativa»
+  (`VagaDetalhePage.tsx:88-91`). A frase é verdadeira para a vaga, mas o cartão do painel passará a
+  mostrar o título que a página nega. **Pergunta:** aceitar como está, ou plano novo (cartão sem
+  navegação quando a vaga não é pública, ou uma página de detalhe do titular)?
+- **R3 — `residual_departamento_nulo`:** 4 vagas sem departamento, com 11 das 16 candidaturas naturais;
+  o cartão mostra «N/A», como já mostra para vaga ativa sem departamento (premissa sinalizada no
+  frontmatter, `assumptions`). **Pergunta:** aceitar «N/A», ou plano novo (omitir a linha de
+  departamento quando vazio — muda o cartão também para vaga ativa)?
+- **R4 — `db_types`:** `database.types.ts` (223613 octetos) tem 0 ocorrências de
+  `ler_vagas_das_minhas_candidaturas`; o cliente usa o cast ESTREITO confinado a
+  `lerVagasDasMinhasCandidaturas()` (`candidaturasService.ts:339-355`), com o comentário de quem o retira
+  (D-52-G7-5). **Pergunta:** aceitar a pendência nomeada (o primeiro plano que rodar `npm run db:types <
+  /dev/null` E empurrar `database.types.ts` pela via da fase retira o cast no mesmo commit), ou plano novo?
+
+### Passo 2 — emenda datada do G-52-7 no `52-UAT.md` (commit `17b50429`)
+
+Dois itens novos no `missing` do G-52-7, sem reescrever os existentes: (i) logo depois do item 1, a
+emenda D-52-G7-4 (o cartão lê só `vaga?.titulo` e `vaga?.departamento`; o parêntese «cidade, estado,
+status» era palpite); (ii) logo depois do item 3, a emenda D-52-G7-1 com a frase do operador verbatim
+(vaga com `deleted_at` e todo status não ativo MOSTRA título e departamento; só a vaga INEXISTENTE segue
+com o fallback, impossível no banco — D-52-G7-6). A truth e `status: failed` ficaram byte a byte;
+`updated:` do frontmatter `2026-10-12T18:05:00Z` → `2026-10-12T20:25:18Z`. Só o UAT no commit (`1 file
+changed, 3 insertions(+), 1 deletion(-)` — a deleção é a linha `updated:`).
+
+`<verify>` 2 da Task 3, como escrito (depois do commit), exit 0:
+
+```
+emenda datada do G-52-7 no UAT: ok (truth e status intactos)
+```
+
+### Desvios e observações (Task 3)
+
+1. **Contagem agregada só leitura além das duas sondas** (acima): para dar número a R1 e R3. Mesmo
+   padrão do Passo 0 da §Task 1 (`set transaction read only`), só contagens; as duas sondas do
+   `<verify>` rodaram exatamente como escritas.
+
+### Commits da sessão B (cada um com os caminhos nomeados; nenhum `-A`/`-a`/`--no-verify`)
+
+| # | sha | assunto | caminhos |
+|---|---|---|---|
+| 1 | `b326a215` | `test(52-31): smoke52p completo (10 clausulas) e mutacoes P1-P10` | `supabase/tests/p52_painel_vaga_smoke.sql`, `scripts/p52_mutacoes.cjs` |
+| 2 | `587481ac` | `test(52-31): a mescla do servico e os casos restantes do painel (erro da RPC, embed presente, dialogo de retirada)` | `src/features/vagas/services/__tests__/candidaturasService.vagaInativa.test.ts`, `src/components/pages/__tests__/DashboardCandidatoPage.vagaInativa.test.tsx` |
+| 3 | `17b50429` | `docs(52-31): emenda datada do G-52-7 no UAT — vaga com deleted_at mostra o titulo (D-52-G7-1); a leitura entrega so titulo e departamento (D-52-G7-4)` | `.planning/phases/52-hub-do-rh-dados-e-contato/52-UAT.md` |
+
+Arquivos sujos de outras janelas (`.planning/ui-reviews/.gitignore`, `docs/specs/DRAFT-banco-sjt-marketing.md`,
+`AGENTS.md`, `docs/vagas/`, `.planning/phases/51-*/.gitkeep`) fora de todo commit. Nenhuma task 4+ rodou:
+nenhum `/gsd-code-review`, `52-REVIEW-G7-*.md`, `52-31-DECISAO.md` nem `52-APLICACOES.json` foi escrito. A
+próxima é a Task 4 (review adversarial bloqueante, depois a decisão escrita do operador), numa sessão nova.
+
+fronteira_retomada: sessao_b_encerrada 2026-10-12T20:26Z head=17b5042908d37999fe2618819827a74b9fb2fe07
