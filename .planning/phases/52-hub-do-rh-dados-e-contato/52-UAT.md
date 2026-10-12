@@ -3,7 +3,7 @@ status: diagnosed
 phase: 52-hub-do-rh-dados-e-contato
 source: [52-01-SUMMARY.md, 52-02-SUMMARY.md, 52-03-SUMMARY.md, 52-04-SUMMARY.md, 52-05-SUMMARY.md, 52-06-SUMMARY.md, 52-07-SUMMARY.md, 52-08-SUMMARY.md, 52-09-SUMMARY.md, 52-10-SUMMARY.md, 52-11-SUMMARY.md, 52-12-SUMMARY.md, 52-13-SUMMARY.md, 52-14-SUMMARY.md, 52-15-SUMMARY.md, 52-16-SUMMARY.md, 52-17-SUMMARY.md, 52-18-SUMMARY.md, 52-23-SUMMARY.md, 52-24-SUMMARY.md, 52-25-SUMMARY.md, 52-26-SUMMARY.md]
 started: 2026-10-12T01:30:00Z
-updated: 2026-10-12T18:05:00Z
+updated: 2026-10-12T20:25:18Z
 ---
 
 <!--
@@ -731,7 +731,9 @@ blocked: 0
       issue: "nenhuma policy deixa o candidato ler a vaga das PRÓPRIAS candidaturas quando ela não está ativa"
   missing:
     - "Leitura do título/departamento (e o que mais o painel usa: cidade, estado, status) das vagas das PRÓPRIAS candidaturas do candidato, independente do status da vaga — forma a decidir no planejamento (policy adicional restrita por posse via candidaturas, RPC SECURITY DEFINER com guarda de posse, ou projeção no serviço); nunca abrir vagas inativas ao público"
+    - "_Emenda (2026-10-12, 52-31-PLAN.md, D-52-G7-4):_ medido no planejamento — o cartão lê só `vaga?.titulo` e `vaga?.departamento` (`DashboardCandidatoPage.tsx:398,404,563`; a navegação usa `candidatura.vaga_id`); o parêntese acima (cidade, estado, status) era palpite: a leitura entrega título e departamento só, por allowlist."
     - "Não reexpor dados internos da vaga (allowlist de colunas, como VAGA_ALLOWLIST do RH); RLS segue em 100% das tabelas"
     - "Teste que morde: candidatura viva com vaga inativa mostra título e departamento; vaga apagada (deleted_at) e vaga inexistente seguem com o fallback"
+    - "_Emenda (2026-10-12, 52-31-PLAN.md, D-52-G7-1), preferência do operador verbatim: «Decidir explicitamente o caso de vaga com deleted_at (minha inclinação: o candidato continua vendo o título da própria candidatura).»_ — vaga com `deleted_at` (e todo status não ativo) MOSTRA título e departamento, como a inativa; só a vaga INEXISTENTE segue com o fallback, e ela é impossível no banco (`candidaturas.vaga_id` NOT NULL, FK com `ON DELETE CASCADE`, medido em 2026-10-12, D-52-G7-6) — o fallback fica provado por Vitest."
     - "Conferência em PROD com a +cand1 d31c78bb / vaga 629a5f31 depois do apply e do push (duas vias: banco e front — CLAUDE.md «o front sai por outro canal»)"
   debug_session: ""
