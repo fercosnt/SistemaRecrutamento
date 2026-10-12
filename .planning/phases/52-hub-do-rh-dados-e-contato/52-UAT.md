@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 52-hub-do-rh-dados-e-contato
 source: [52-01-SUMMARY.md, 52-02-SUMMARY.md, 52-03-SUMMARY.md, 52-04-SUMMARY.md, 52-05-SUMMARY.md, 52-06-SUMMARY.md, 52-07-SUMMARY.md, 52-08-SUMMARY.md, 52-09-SUMMARY.md, 52-10-SUMMARY.md, 52-11-SUMMARY.md, 52-12-SUMMARY.md, 52-13-SUMMARY.md, 52-14-SUMMARY.md, 52-15-SUMMARY.md, 52-16-SUMMARY.md, 52-17-SUMMARY.md, 52-18-SUMMARY.md, 52-23-SUMMARY.md, 52-24-SUMMARY.md, 52-25-SUMMARY.md, 52-26-SUMMARY.md]
 started: 2026-10-12T01:30:00Z
-updated: 2026-10-12T04:09:15.795Z
+updated: 2026-10-12T05:10:00Z
 ---
 
 <!--
@@ -589,7 +589,7 @@ coverage_id: 52-26-D4
 - origem: teste 6
   tipo: observação para a G-51-OP1
   texto: "No PAINEL, o card da candidatura rejeitada repete o problema que a 52-06 consertou no formulário: «Agradecemos seu interesse na Beauty Smile.» pequeno e cinza-claro sobre fundo claro, quase ilegível (DashboardCandidatoPage.tsx:429, a segunda ocorrência apontada no 51-17); o selo «Rejeitado» também tem baixo contraste."
-  destino: "a decidir pelo operador no fecho do UAT (gap desta fase ou backlog)"
+  destino: "gap desta fase — G-52-6 (decisão do operador, 2026-10-12, AskUserQuestion: «Gap da 52»)"
 
 - origem: teste 6
   tipo: limpeza do bloco D
@@ -612,8 +612,22 @@ blocked: 0
   reason: "User reported: o estado SELECIONADO da alternativa é pouco visível — só um contorno turquesa fino sobre o fundo turquesa (print). Como a prova não deixa voltar a um item respondido, o candidato precisa enxergar com certeza o que marcou antes de avançar. Pedido: contorno grosso e de alto contraste (ex.: ring-4 branco ou escuro) + ícone de check no ladrilho escolhido; conferir o mesmo estado no celular."
   severity: minor
   test: 2
-  artifacts: []  # Filled by diagnosis
-  missing: []    # Filled by diagnosis
+  root_cause: "O ladrilho marcado só ganha `border-[#35BFAD] ring-2 ring-[#35BFAD]/40` (contorno turquesa fino) — estilo de 2026-08-26 (e2549a34), feito para a página clara. O 52-03 pôs a tela sobre o gradiente turquesa (UI-SPEC §Color, accent item 6, «existentes»; 52-03-PLAN:112 «mantém») e tirou o tom turquesa de 10% do ladrilho marcado. Contraste medido do sinal contra o fundo: halo 1,08–1,84, borda 1,23 (faixa turquesa) — mínimo WCAG 1.4.11 é 3:1. Mesmo problema a 360px (classes sem breakpoint)."
+  artifacts:
+    - path: "src/features/avaliacao-cognitiva/components/AvaliacaoRavenScreen.tsx:308-312"
+      issue: "estado selecionado = só contorno turquesa fino; não-selecionado e hover = branco sobre branco"
+    - path: "src/features/avaliacao-cognitiva/components/AvaliacaoRavenScreen.tsx:314-319"
+      issue: "ladrilho sem lugar para ícone de check"
+    - path: ".planning/phases/52-hub-do-rh-dados-e-contato/52-UI-SPEC.md:342"
+      issue: "accent item 6 prescreve o contorno turquesa como existente — emendar"
+  missing:
+    - "Contorno de alto contraste, sem a cor de destaque, que não dependa do fundo (ex.: borda interna escura #00109E + anel externo branco)"
+    - "Ícone de check (aria-hidden) só no ladrilho marcado"
+    - "Foco de teclado distinto do anel de seleção"
+    - "Teste que fixa as classes do estado selecionado, escritas por extenso (o shell.test lê o fonte)"
+    - "Conferência visual do estado marcado no desktop e a 360px com 8 opções, recarregando sem cache"
+  tests_to_keep: "button + aria-pressed + aria-label «Alternativa N» (shell.test:107,136,149,169,200; conclusao.test:88); nenhum teste fixa as classes atuais"
+  debug_session: ".planning/debug/raven-selecao-pouco-visivel.md"
 
 - gap_id: G-52-4
   truth: "Com todas as avaliações concluídas, o painel do candidato não mostra prazo de conclusão que contradiga o «Próximo passo» («Avaliações concluídas — aguardando a equipe»)."
@@ -621,8 +635,19 @@ blocked: 0
   reason: "User reported: [minor] A linha de prazo segue «Avaliação liberada — conclua em até 7 dias corridos. (Estimativa)» com todas as avaliações concluídas, contradizendo o «Próximo passo». A estimativa precisa refletir o estado concluído (ou sumir)."
   severity: minor
   test: 4
-  artifacts: []  # Filled by diagnosis
-  missing: []    # Filled by diagnosis
+  root_cause: "A linha de prazo (DashboardCandidatoPage.tsx:430-443) só esconde o texto quando candidaturaEncerrada(); escolhe o rótulo por etapa_atual, que o D-27 mantém em avaliacao_assincrona de propósito. `concluidas` (:363) já existe e só alimenta o selo e o «Próximo passo». O D-27 nunca falou da linha de prazo (lacuna de escopo); o único teste do estado concluído mocka o rótulo como null, então a linha nunca podia aparecer nele. Reproduzido com o texto real de PROD (20260721000002_config_sla_etapa.sql:102)."
+  artifacts:
+    - path: "src/components/pages/DashboardCandidatoPage.tsx:430-443"
+      issue: "condição que esconde a linha de prazo ignora `concluidas`"
+    - path: "src/components/pages/__tests__/DashboardCandidatoPage.concluidas.test.tsx:98-101"
+      issue: "mock rotuloDeEspera → null esconde o defeito"
+    - path: ".planning/phases/52-hub-do-rh-dados-e-contato/52-UI-SPEC.md:572,728-730"
+      issue: "linha D-27 e linhas E10 não dizem o que a linha de prazo faz no estado concluído"
+  missing:
+    - "Incluir `concluidas` na condição que esconde a linha de prazo (carregando/erro → concluidas=false → linha fica, coerente com D-52-U16)"
+    - "Teste com o texto real no mock: linha ausente quando tudo concluído; presente com avaliação pendente, carregando ou erro"
+    - "Emendar 52-UI-SPEC (D-27/E10) e 52-CONTEXT:142"
+  debug_session: ".planning/debug/painel-candidato-prazo-proximo-passo-rejeitado.md"
 
 - gap_id: G-52-4b
   truth: "O texto informativo do «Próximo passo» não tem aparência de botão (sem a mesma borda do «Retirar minha candidatura»)."
@@ -630,5 +655,37 @@ blocked: 0
   reason: "User reported: [cosmetic] O texto do «Próximo passo» está numa caixa com borda igual à do botão «Retirar minha candidatura»: parece clicável sem ser. Sugestão: texto simples, sem borda."
   severity: cosmetic
   test: 4
-  artifacts: []  # Filled by diagnosis
-  missing: []    # Filled by diagnosis
+  root_cause: "O texto sem ação do «Próximo passo» (:508) herdou a caixa do botão que substituiu em 2026-08-26 (666be509): `rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white/80` — quase idêntico ao botão real «Retirar minha candidatura» (RetirarCandidaturaAcao.tsx:163, `bg-white/5`), e mais cheio que ele. A 52-UI-SPEC:315-319/:572 mandou reusar «sem editar» (para não esbarrar no portão de tipografia por causa do font-medium). A caixa só aparece em estados sem ação; o único estado com ação é outro elemento (botão turquesa :496-506)."
+  artifacts:
+    - path: "src/components/pages/DashboardCandidatoPage.tsx:508"
+      issue: "classes de botão no texto informativo"
+    - path: ".planning/phases/52-hub-do-rh-dados-e-contato/52-UI-SPEC.md:315-319,572"
+      issue: "cláusula «reusa sem editar» e classes prescritas — emendar"
+  missing:
+    - "Texto simples (ex.: text-sm ou text-base text-white/80), sem borda, fundo, padding nem arredondamento; manter data-testid=painel-proximo-passo"
+    - "Respeitar p52_tipografia (sem font-medium/text-xs nas linhas tocadas)"
+    - "Emendar 52-UI-SPEC:315-319/:572 e 52-PATTERNS:690"
+  debug_session: ".planning/debug/painel-candidato-prazo-proximo-passo-rejeitado.md"
+
+- gap_id: G-52-6
+  truth: "No painel do candidato, o card da candidatura rejeitada é legível: «Agradecemos seu interesse na Beauty Smile.» com contraste adequado (como o 52-06 fez no formulário) e o selo «Rejeitado» com contraste adequado."
+  status: failed
+  reason: "Operator observation during test 6 (test 6 itself passed): No PAINEL, o card da candidatura rejeitada repete o problema que a 52-06 consertou no formulário: «Agradecemos seu interesse na Beauty Smile.» pequeno e cinza-claro sobre fundo claro, quase ilegível (DashboardCandidatoPage.tsx:429, a segunda ocorrência apontada no 51-17); o selo «Rejeitado» também tem baixo contraste."
+  severity: cosmetic
+  test: 6
+  origin: "observação fora do teste; promovida a gap pelo operador em 2026-10-12"
+  root_cause: "«Agradecemos…» é text-sm text-white/60 numa caixa bg-white/5 dentro do card bg-white/15 (hover /25) dentro do painel bg-white/15, sobre o gradiente fixo com véu de 15%: contraste 3,37 (mais escuro) / 2,23 (mediana) / 1,62 (turquesa) — pior que o formulário que o 52-06 consertou no mesmo pixel; nem branco puro passa (2,17–3,43). Selo «Rejeitado» text-red-300 sobre bg-red-500/20: 3,55 / 2,10 / 1,45, de getStatusInfo local (:133-134, render :463-467); os demais selos da função medem igualmente baixo. O 52-06 excluiu o painel de propósito: 52-RESEARCH:618 «já é text-white/60 — não mexer», com base numa suposição não medida do 51-UI-REVIEW:46. (O :429 do relato é a linha antiga do 51-17; hoje :456-458.)"
+  artifacts:
+    - path: "src/components/pages/DashboardCandidatoPage.tsx:452-458"
+      issue: "caixa da rejeição bg-white/5 + text-sm text-white/60"
+    - path: "src/components/pages/DashboardCandidatoPage.tsx:133-134,463-467"
+      issue: "cores do selo (text-red-300 / bg-red-500/20) e font-medium no rótulo do selo"
+    - path: ".planning/phases/52-hub-do-rh-dados-e-contato/52-RESEARCH.md:618"
+      issue: "«não mexer» — anotar como superado"
+  missing:
+    - "Fundo local escuro na caixa da rejeição (≈ bg-[#00109E]/60) e «Agradecemos» em text-base text-white/80 (texto D-15 inalterado)"
+    - "Selo com fundo sólido/escuro o bastante para não depender do que está atrás (escopo: só «Rejeitado» ou todos os selos de getStatusInfo — decisão do operador)"
+    - "Ajustar concluidas.test.tsx:210-211 se o selo «Aguardando a equipe» mudar"
+    - "Linha nova na 52-UI-SPEC (:311/:575) para o painel"
+    - "Fora do gap, mesmo defeito: AgendamentoCandidatoCard.tsx:62 («Cancelada»), no mesmo card"
+  debug_session: ".planning/debug/painel-candidato-prazo-proximo-passo-rejeitado.md"
