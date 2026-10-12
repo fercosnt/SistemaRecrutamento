@@ -96,6 +96,67 @@ export interface NeutralAck {
   registrado?: boolean
 }
 
+// ============================================
+// 52-32 (R1 do G-52-7 · D-52-G7B-1..4) — os testes da vaga das PRÓPRIAS candidaturas
+// ============================================
+
+/** Nome da RPC de leitura do candidato (migration `20261011000007`). */
+export const RPC_TESTES_DAS_MINHAS_CANDIDATURAS = 'ler_testes_das_minhas_candidaturas'
+
+/** Um elemento do retorno da RPC: a candidatura e os DOIS campos da vaga que os leitores de avaliação usam. */
+export interface TestesDaMinhaCandidatura {
+  candidatura_id: string
+  testes_aplicaveis: unknown
+  aplica_cognitivo: boolean
+}
+
+function ehTestesDaMinhaCandidatura(x: unknown): x is TestesDaMinhaCandidatura {
+  if (typeof x !== 'object' || x === null || Array.isArray(x)) return false
+  const o = x as Record<string, unknown>
+  return (
+    typeof o.candidatura_id === 'string' &&
+    typeof o.aplica_cognitivo === 'boolean' &&
+    Object.prototype.hasOwnProperty.call(o, 'testes_aplicaveis')
+  )
+}
+
+/**
+ * Lê, pela RPC `ler_testes_das_minhas_candidaturas`, a bateria (`testes_aplicaveis`) e o opt-in
+ * cognitivo (`aplica_cognitivo`) da vaga de UMA candidatura viva do próprio candidato — a fonte para
+ * quando o embed `vaga:vagas (...)` volta nulo porque a vaga saiu do ar (a policy pública de `vagas`
+ * só mostra vaga ativa e não apagada).
+ *
+ * UMA chamada. Erro (inclusive de transporte), retorno que não é array, entrada ausente ou malformada
+ * → `null`: sem lançar e sem ecoar a mensagem — cada leitor fica no desfecho de hoje (D-52-G7B-4).
+ * Devolve SÓ `{ testes_aplicaveis, aplica_cognitivo }`; nenhuma outra chave da entrada atravessa.
+ */
+export async function lerTestesDaMinhaCandidatura(
+  candidaturaId: string,
+): Promise<{ testes_aplicaveis: unknown; aplica_cognitivo: boolean } | null> {
+  try {
+    // NARROW confined cast: `ler_testes_das_minhas_candidaturas` ainda não está em
+    // `database.types.ts` (a função só nasce no banco com o apply da 0007); quem o retira é a
+    // Task 5 do 52-32, no commit do `database.types.ts` regenerado do banco vivo. Só o nome da RPC
+    // é alargado — NÃO um cliente sem tipos.
+    const { data, error } = await (supabase.rpc as unknown as (
+      fn: string,
+    ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>)(
+      RPC_TESTES_DAS_MINHAS_CANDIDATURAS,
+    )
+    if (error || !Array.isArray(data)) return null
+    const entrada = data.find(
+      (e: unknown) => ehTestesDaMinhaCandidatura(e) && e.candidatura_id === candidaturaId,
+    ) as TestesDaMinhaCandidatura | undefined
+    if (!entrada) return null
+    return {
+      testes_aplicaveis: entrada.testes_aplicaveis,
+      aplica_cognitivo: entrada.aplica_cognitivo,
+    }
+  } catch {
+    return null
+  }
+}
+
 /**
  * Reads the avaliação context for a candidatura (AVAL-01): the candidatura row
  * (allowlist `id, status, etapa_atual, vaga_id`), its vaga `testes_aplicaveis`,
@@ -111,6 +172,14 @@ export async function getAvaliacaoContext(
 
   // Allowlist explícita — sem `*`, sem colunas PII. Junta a vaga p/ testes_aplicaveis
   // + aplica_cognitivo (FUNIL-08 client half — o container gateia o card cognitivo).
+  //
+  // 52-32 (R1 do G-52-7 · D-52-G7B-1..4): sob a RLS do candidato, a única policy de SELECT de
+  // `vagas` que o alcança é a pública («Público vê vagas ativas»). Com a vaga pausada, fechada,
+  // arquivada ou apagada, o embed abaixo volta NULO — e, sem a bateria, a página dizia «Nenhuma
+  // avaliação pendente» e o painel nunca dizia «Avaliações concluídas — aguardando a equipe». O
+  // embed FICA (vaga pública: nenhuma chamada a mais); só quando ele vem nulo os dois campos vêm
+  // da RPC `ler_testes_das_minhas_candidaturas` (`lerTestesDaMinhaCandidatura`), uma vez por
+  // leitura. Sem a entrada (erro, ausência), o desfecho é o de hoje: sem testes, opt-in falso.
   const { data: cand, error: candErr } = await supabase
     .from('candidaturas')
     .select(
@@ -140,8 +209,17 @@ export async function getAvaliacaoContext(
     vaga: { testes_aplicaveis: unknown; aplica_cognitivo?: boolean } | null
   }
 
-  const testesAplicaveis = candRow.vaga?.testes_aplicaveis ?? null
-  const aplicaCognitivo = candRow.vaga?.aplica_cognitivo ?? false
+  let testesAplicaveis = candRow.vaga?.testes_aplicaveis ?? null
+  let aplicaCognitivo = candRow.vaga?.aplica_cognitivo ?? false
+  // 52-32: embed nulo (vaga fora do ar) → os dois campos pela RPC, ANTES do filtro de perguntas
+  // (que lê o elemento SJT desta bateria).
+  if (candRow.vaga == null) {
+    const daRpc = await lerTestesDaMinhaCandidatura(candRow.id)
+    if (daRpc) {
+      testesAplicaveis = daRpc.testes_aplicaveis ?? null
+      aplicaCognitivo = daRpc.aplica_cognitivo
+    }
+  }
 
   // FUNIL-07 (presentation): filter the SJT bank to the vaga's own battery so the
   // candidate never sees another cargo's questions. Prefer the work_sample_sjt
