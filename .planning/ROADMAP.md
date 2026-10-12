@@ -754,7 +754,7 @@ Plans:
   5. Depois da UAT da 52 (conferida por máquina), nenhuma conta, candidatura, fictício ou currículo de teste resta em PROD — população por conta medida, aprovada pelo operador e re-medida no mesmo comando, nenhuma conta de RH/admin tocada, prova pós com resíduo 0 —, e `git log --oneline origin/main..HEAD` sai vazio com os marcadores no chunk certo
 **Guardrails**: os do Bloco 3 — migrations pelo `p46apply.cjs` (md5 do ledger), EFs pelo `efdeploy.cjs`, ensaio em PROD que aborta antes de todo apply, portão que morde provado por mutação, push por sha enumerado e `git log origin/main..HEAD` vazio com o marcador no chunk certo. Alarga leitura de dado pessoal: review bloqueante antes do apply
 **Requirements (planejamento, 2026-10-10)**: JORN-52..63 — quatro blocos em ondas (D-33): A (telas sem banco) e B (hub do RH) → portão B → C (banco SJT v2) → **UAT da 52** → D (limpeza destrutiva)
-**Plans**: 27 plans
+**Plans**: 30 plans
 
 **Wave 1**
 - [x] 52-01-PLAN.md — Arnês da fase: `p52_ensaio.cjs` (ensaio que aborta), `p52_portao.cjs` (regra 8 sobre `_p52_`), `p52_tipografia.cjs`, `p52_vitest_delta.cjs` (suíte Vitest por delta contra a base, medida na mesma execução); base `refs/gsd/52/base`
@@ -802,6 +802,11 @@ Plans:
 **Wave 12** *(gap_closure — antes da UAT da 52; checkpoint de review e de janela única)*
 - [x] 52-26-PLAN.md — WR-04 (`pontuar_sjt` compara `pergunta_id` como uuid na duplicata e na completude; payload malformado → `22023`) + F13 (`salvar_avaliacao_entrevista` exige nota 1–5 em todas as competências da análise), migration `20261011000005` gerada dos corpos vivos, review, apply, instante registrado (`52-APLICACOES.json`, D-41 emendada) e push que leva os commits só-`.planning/` do 52-18 (operador, 2026-10-11) (concluído 2026-10-11: 0005 no ar 22:51:48Z, push c3e04a71..29f34756)
 
+**Gap closure do UAT da 52** *(UAT 2026-10-12, `52-UAT.md` diagnosed; ondas do frontmatter: 52-28 = 3, 52-29 = 4, 52-30 = 13; rodar com `/gsd-execute-phase 52 --gaps-only`)*
+- [ ] 52-28-PLAN.md — G-52-6: medidor de contraste `scripts/p52_contraste.cjs` (pior caso sobre o fundo real, controle negativo); caixa da rejeição no painel com superfície azul-marinho e «Agradecemos» em 16px; todos os selos de `getStatusInfo` opacos; «Cancelada» do `AgendamentoCandidatoCard`
+- [ ] 52-29-PLAN.md — G-52-4 (linha de prazo some com tudo concluído), G-52-4b («Próximo passo» sem ação vira texto simples), G-52-2 (alternativa marcada do Raven: borda azul-marinho, anel branco, check; foco de teclado distinto)
+- [ ] 52-30-PLAN.md — Review `52-REVIEW-UAT`, janela única por escrito, push por sha, marcadores no chunk de PROD, conferência visual do operador (desktop e 360px, sem cache)
+
 **Wave 13** *(checkpoint; só depois da UAT da 52 e com backup diário COMPLETED posterior ao último apply da fase — D-41 emendada em 2026-10-11, PITR recusado —, os dois conferidos por máquina)*
 - [ ] 52-19-PLAN.md — Backup diário posterior ao último apply conferido pela Management API (D-41 emendada, condição 1); varredura da população de teste por conta (lista da D-30 inteira, `3a9254c3` na população, trava do RH) e decisão do escopo da limpeza (só opções executáveis)
 
@@ -837,7 +842,7 @@ Plans:
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
 | 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | Complete | 2026-10-10 |
-| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 22/27 | In Progress | - |
+| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 22/30 | In Progress | - |
 
 ---
 
