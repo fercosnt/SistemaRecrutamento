@@ -3,7 +3,7 @@ status: diagnosed
 phase: 52-hub-do-rh-dados-e-contato
 source: [52-01-SUMMARY.md, 52-02-SUMMARY.md, 52-03-SUMMARY.md, 52-04-SUMMARY.md, 52-05-SUMMARY.md, 52-06-SUMMARY.md, 52-07-SUMMARY.md, 52-08-SUMMARY.md, 52-09-SUMMARY.md, 52-10-SUMMARY.md, 52-11-SUMMARY.md, 52-12-SUMMARY.md, 52-13-SUMMARY.md, 52-14-SUMMARY.md, 52-15-SUMMARY.md, 52-16-SUMMARY.md, 52-17-SUMMARY.md, 52-18-SUMMARY.md, 52-23-SUMMARY.md, 52-24-SUMMARY.md, 52-25-SUMMARY.md, 52-26-SUMMARY.md]
 started: 2026-10-12T01:30:00Z
-updated: 2026-10-12T05:20:00Z
+updated: 2026-10-12T18:05:00Z
 ---
 
 <!--
@@ -602,6 +602,11 @@ coverage_id: 52-26-D4
   tipo: limpeza do bloco D
   texto: "Conta nova de teste +claude8 (casa +claudeN), criada neste UAT, com inscrição na Social Media e897f709 — registrar para a limpeza do bloco D."
 
+- origem: 52-30 Task 3 (conferência visual dos consertos, 2026-10-12)
+  tipo: defeito novo fora dos quatro gaps
+  texto: "no painel da +cand1, a candidatura d31c78bb (vaga 629a5f31, INATIVA) aparece como «Vaga não encontrada» com departamento «N/A» (policy «Público vê vagas ativas»; vagasService.ts:382/397)."
+  destino: "gap desta fase — G-52-7 (decisão do operador, 2026-10-12, verbatim: «quero tratado DENTRO da 52, não no backlog»)"
+
 ## Summary
 
 total: 94
@@ -615,7 +620,10 @@ blocked: 0
 
 - gap_id: G-52-2
   truth: "Na Prova cognitiva (Raven), a alternativa escolhida no item atual é inequivocamente visível antes de avançar — a prova não deixa voltar a item respondido."
-  status: failed
+  status: resolved
+  resolved_by: 52-29-PLAN.md
+  resolved_at: 2026-10-12
+  reverified: "Item 1 (Raven, +claude7 8e4bb7a0: marcada inequívoca — borda grossa, anel, check; o check acompanha a troca; foco por Tab distinto; desktop e 360px; itens de 8 alternativas ok) da 52-30 Task 3 (conferência visual do operador, 2026-10-12, sobre o que está no ar em https://rh.beautysmile.com.br, chunk index-EkWKvKBY.js = push por sha 70528fba; desktop e 360px, sem cache; resposta verbatim em 52-30-SUMMARY.md § Task 3 e 52-30-DECISAO.md). Instrução do operador (2026-10-12, verbatim): «Os quatro gaps (G-52-2, G-52-4, G-52-4b, G-52-6) foram conferidos visualmente por mim na Task 3 do 52-30, sobre o que está no ar (index-EkWKvKBY.js), com resposta verbatim no 52-30-DECISAO/SUMMARY: reaproveite essa evidência.» Reconciliação feita à mão pelo orquestrador (tracking à mão, memória «gsd-tools corrompe o STATE.md»), no formato do reconcile_gaps."
   reason: "User reported: o estado SELECIONADO da alternativa é pouco visível — só um contorno turquesa fino sobre o fundo turquesa (print). Como a prova não deixa voltar a um item respondido, o candidato precisa enxergar com certeza o que marcou antes de avançar. Pedido: contorno grosso e de alto contraste (ex.: ring-4 branco ou escuro) + ícone de check no ladrilho escolhido; conferir o mesmo estado no celular."
   severity: minor
   test: 2
@@ -638,7 +646,10 @@ blocked: 0
 
 - gap_id: G-52-4
   truth: "Com todas as avaliações concluídas, o painel do candidato não mostra prazo de conclusão que contradiga o «Próximo passo» («Avaliações concluídas — aguardando a equipe»)."
-  status: failed
+  status: resolved
+  resolved_by: 52-29-PLAN.md
+  resolved_at: 2026-10-12
+  reverified: "Item 2 (painel +claude6, Consultor 3a9254c3 e Social Media 8101c56f: sem linha de prazo com tudo concluído; item 5: a linha segue aparecendo com avaliação pendente) da 52-30 Task 3 (conferência visual do operador, 2026-10-12, sobre o que está no ar em https://rh.beautysmile.com.br, chunk index-EkWKvKBY.js = push por sha 70528fba; desktop e 360px, sem cache; resposta verbatim em 52-30-SUMMARY.md § Task 3 e 52-30-DECISAO.md). Instrução do operador (2026-10-12, verbatim): «Os quatro gaps (G-52-2, G-52-4, G-52-4b, G-52-6) foram conferidos visualmente por mim na Task 3 do 52-30, sobre o que está no ar (index-EkWKvKBY.js), com resposta verbatim no 52-30-DECISAO/SUMMARY: reaproveite essa evidência.» Reconciliação feita à mão pelo orquestrador (tracking à mão, memória «gsd-tools corrompe o STATE.md»), no formato do reconcile_gaps."
   reason: "User reported: [minor] A linha de prazo segue «Avaliação liberada — conclua em até 7 dias corridos. (Estimativa)» com todas as avaliações concluídas, contradizendo o «Próximo passo». A estimativa precisa refletir o estado concluído (ou sumir)."
   severity: minor
   test: 4
@@ -658,7 +669,10 @@ blocked: 0
 
 - gap_id: G-52-4b
   truth: "O texto informativo do «Próximo passo» não tem aparência de botão (sem a mesma borda do «Retirar minha candidatura»)."
-  status: failed
+  status: resolved
+  resolved_by: 52-29-PLAN.md
+  resolved_at: 2026-10-12
+  reverified: "Item 2 (painel +claude6: «Avaliações concluídas — aguardando a equipe» em texto simples, sem caixa; selo «Aguardando a equipe» opaco e legível) da 52-30 Task 3 (conferência visual do operador, 2026-10-12, sobre o que está no ar em https://rh.beautysmile.com.br, chunk index-EkWKvKBY.js = push por sha 70528fba; desktop e 360px, sem cache; resposta verbatim em 52-30-SUMMARY.md § Task 3 e 52-30-DECISAO.md). Instrução do operador (2026-10-12, verbatim): «Os quatro gaps (G-52-2, G-52-4, G-52-4b, G-52-6) foram conferidos visualmente por mim na Task 3 do 52-30, sobre o que está no ar (index-EkWKvKBY.js), com resposta verbatim no 52-30-DECISAO/SUMMARY: reaproveite essa evidência.» Reconciliação feita à mão pelo orquestrador (tracking à mão, memória «gsd-tools corrompe o STATE.md»), no formato do reconcile_gaps."
   reason: "User reported: [cosmetic] O texto do «Próximo passo» está numa caixa com borda igual à do botão «Retirar minha candidatura»: parece clicável sem ser. Sugestão: texto simples, sem borda."
   severity: cosmetic
   test: 4
@@ -676,7 +690,10 @@ blocked: 0
 
 - gap_id: G-52-6
   truth: "No painel do candidato, o card da candidatura rejeitada é legível: «Agradecemos seu interesse na Beauty Smile.» com contraste adequado (como o 52-06 fez no formulário) e o selo «Rejeitado» com contraste adequado."
-  status: failed
+  status: resolved
+  resolved_by: 52-28-PLAN.md
+  resolved_at: 2026-10-12
+  reverified: "Item 3 (painel +claude8, Social Media e897f709: caixa escura com o retorno e «Agradecemos seu interesse na Beauty Smile.» legíveis; selo «Rejeitado» sólido e legível, no topo e depois de rolar; item 5: selos «Aguardando Resposta» e «Em Análise» opacos e legíveis; item 4 — cartão de entrevista com chip — NÃO OBSERVADO, coberto pelos sete cenários ALVO do medidor e pelo teste do cartão) da 52-30 Task 3 (conferência visual do operador, 2026-10-12, sobre o que está no ar em https://rh.beautysmile.com.br, chunk index-EkWKvKBY.js = push por sha 70528fba; desktop e 360px, sem cache; resposta verbatim em 52-30-SUMMARY.md § Task 3 e 52-30-DECISAO.md). Instrução do operador (2026-10-12, verbatim): «Os quatro gaps (G-52-2, G-52-4, G-52-4b, G-52-6) foram conferidos visualmente por mim na Task 3 do 52-30, sobre o que está no ar (index-EkWKvKBY.js), com resposta verbatim no 52-30-DECISAO/SUMMARY: reaproveite essa evidência.» Reconciliação feita à mão pelo orquestrador (tracking à mão, memória «gsd-tools corrompe o STATE.md»), no formato do reconcile_gaps."
   reason: "Operator observation during test 6 (test 6 itself passed): No PAINEL, o card da candidatura rejeitada repete o problema que a 52-06 consertou no formulário: «Agradecemos seu interesse na Beauty Smile.» pequeno e cinza-claro sobre fundo claro, quase ilegível (DashboardCandidatoPage.tsx:429, a segunda ocorrência apontada no 51-17); o selo «Rejeitado» também tem baixo contraste."
   severity: cosmetic
   test: 6
@@ -696,3 +713,25 @@ blocked: 0
     - "Linha nova na 52-UI-SPEC (:311/:575) para o painel"
     - "Fora do gap, mesmo defeito: AgendamentoCandidatoCard.tsx:62 («Cancelada»), no mesmo card"
   debug_session: ".planning/debug/painel-candidato-prazo-proximo-passo-rejeitado.md"
+
+- gap_id: G-52-7
+  truth: "No painel do candidato, a candidatura de uma vaga que o RH inativou (pausou ou fechou) continua mostrando o título e o departamento da vaga — o candidato ainda no funil nunca vê «Vaga não encontrada» nem «N/A»."
+  status: failed
+  reason: "Operator observation during 52-30 Task 3 (conferência visual dos consertos do UAT, 2026-10-12), verbatim: DEFEITO NOVO (gap para diagnóstico, não consertar nesta task): no painel da +cand1, a candidatura d31c78bb (vaga 629a5f31, INATIVA) aparece como «Vaga não encontrada» com departamento «N/A». Causa medida: a única policy de SELECT em vagas que alcança o candidato é «Público vê vagas ativas» (status = 'ativa' AND deleted_at IS NULL); inativada a vaga, o candidato ainda no funil perde título e departamento (vagasService.ts:382/397). Vai acontecer com candidato real quando o RH pausar ou fechar uma vaga com gente no processo. Sugestão: leitura do título/departamento das vagas das PRÓPRIAS candidaturas do candidato; prioridade: antes de inativar a primeira vaga real, não bloqueia a abertura."
+  severity: minor
+  test: 4
+  origin: "observação fora dos testes, na conferência visual da Task 3 do 52-30; promovida a gap DESTA fase pelo operador em 2026-10-12, verbatim: «O único item novo é o G-52-7 (vaga inativa → «Vaga não encontrada»), que quero tratado DENTRO da 52, não no backlog.»"
+  root_cause: "Medida pelo operador em PROD (acima). Leitura do orquestrador no código, a confirmar no diagnóstico: a lista do candidato embute a vaga por join (candidaturasService.ts:369 `vaga:vagas (id, titulo, cidade, estado, departamento, status)`); a RLS de `vagas` só deixa o candidato ler vagas ativas e não apagadas, então a linha embutida vem null e o painel cai no fallback `candidatura.vaga?.titulo || 'Vaga não encontrada'` (DashboardCandidatoPage.tsx:398) e `departamento … || 'N/A'` (:404). O mesmo título alimenta o RetirarCandidaturaAcao (:563, tituloVaga) — que já tem teste «nunca Vaga não encontrada» (RetirarCandidaturaAcao.test.tsx:172) para o caso sem título."
+  artifacts:
+    - path: "src/features/vagas/services/candidaturasService.ts:369-376"
+      issue: "embed vaga:vagas(...) na lista do candidato depende da policy pública de vagas"
+    - path: "src/components/pages/DashboardCandidatoPage.tsx:398,404,563"
+      issue: "fallbacks «Vaga não encontrada» e «N/A» aparecem para candidatura viva de vaga inativa"
+    - path: "supabase (RLS de public.vagas, policy «Público vê vagas ativas», status = 'ativa' AND deleted_at IS NULL)"
+      issue: "nenhuma policy deixa o candidato ler a vaga das PRÓPRIAS candidaturas quando ela não está ativa"
+  missing:
+    - "Leitura do título/departamento (e o que mais o painel usa: cidade, estado, status) das vagas das PRÓPRIAS candidaturas do candidato, independente do status da vaga — forma a decidir no planejamento (policy adicional restrita por posse via candidaturas, RPC SECURITY DEFINER com guarda de posse, ou projeção no serviço); nunca abrir vagas inativas ao público"
+    - "Não reexpor dados internos da vaga (allowlist de colunas, como VAGA_ALLOWLIST do RH); RLS segue em 100% das tabelas"
+    - "Teste que morde: candidatura viva com vaga inativa mostra título e departamento; vaga apagada (deleted_at) e vaga inexistente seguem com o fallback"
+    - "Conferência em PROD com a +cand1 d31c78bb / vaga 629a5f31 depois do apply e do push (duas vias: banco e front — CLAUDE.md «o front sai por outro canal»)"
+  debug_session: ""
