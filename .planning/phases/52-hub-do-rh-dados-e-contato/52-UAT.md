@@ -3,7 +3,7 @@ status: diagnosed
 phase: 52-hub-do-rh-dados-e-contato
 source: [52-01-SUMMARY.md, 52-02-SUMMARY.md, 52-03-SUMMARY.md, 52-04-SUMMARY.md, 52-05-SUMMARY.md, 52-06-SUMMARY.md, 52-07-SUMMARY.md, 52-08-SUMMARY.md, 52-09-SUMMARY.md, 52-10-SUMMARY.md, 52-11-SUMMARY.md, 52-12-SUMMARY.md, 52-13-SUMMARY.md, 52-14-SUMMARY.md, 52-15-SUMMARY.md, 52-16-SUMMARY.md, 52-17-SUMMARY.md, 52-18-SUMMARY.md, 52-23-SUMMARY.md, 52-24-SUMMARY.md, 52-25-SUMMARY.md, 52-26-SUMMARY.md]
 started: 2026-10-12T01:30:00Z
-updated: 2026-10-12T20:25:18Z
+updated: 2026-10-12T21:25:00Z
 ---
 
 <!--
@@ -716,7 +716,10 @@ blocked: 0
 
 - gap_id: G-52-7
   truth: "No painel do candidato, a candidatura de uma vaga que o RH inativou (pausou ou fechou) continua mostrando o título e o departamento da vaga — o candidato ainda no funil nunca vê «Vaga não encontrada» nem «N/A»."
-  status: failed
+  status: resolved
+  resolved_by: 52-31-PLAN.md
+  resolved_at: 2026-10-12
+  reverified: "Conferência no ar do operador (52-31 Task 6, 2026-10-12 ~18:15 -03, chunk servido index-CFPYr-z6.js), verbatim: «aprovado. 1. +cand1, card da d31c78bb (Entrevista online): título «[TESTE E2E] Social Media junior 1— Produção e Captação de Conteúdo» e departamento «Marketing», sem «Vaga não encontrada» nem «N/A» (print). 2. Controle: o card da f59e7281 (Social Media ativa) segue igual, com a linha de prazo (provas pendentes). 3. Diálogo de retirada: não testado. 4. Clique no card → /vagas/…: não testado.» Banco: RPC public.ler_vagas_das_minhas_candidaturas() em PROD pela migration 20261011000006 (md5 do ledger 810bbace769390c8ab1b78324ecc388b = arquivo; aplicado_ate 2026-10-12T21:04:42Z — ÚLTIMO apply da fase, D-41 condição 1); smoke52p 10/10 contra o vivo e P1–P10 mordendo em --pos-apply; review 52-REVIEW-G7-1 (critical 0, warning 2 → WR-01 backlog, WR-02 ao 52-32). Front: push por sha 954b3e4b/b0945868 pelo portão (22 commits, 7 código, 0 ALHEIO), marcadores painel-vaga-titulo e ler_vagas_das_minhas_candidaturas PRESENTES no chunk index de PROD às 21:09:41Z. Item 3 coberto pelo Vitest do diálogo de retirada (DashboardCandidatoPage.vagaInativa.test.tsx, caso (5)); item 4 é o R2, aceito pelo operador em 52-31-DECISAO.md. A resposta não menciona 360px nem recarga sem cache — registrado como veio. Residuais com dono: R1 (leitores do embed) e WR-02 → plano novo 52-32 antes do 52-19; R3 e WR-01 → backlog; R2 e R4 aceitos. Evidência completa: 52-31-SUMMARY.md § Task 6 e 52-31-FRONTEIRA.md."
   reason: "Operator observation during 52-30 Task 3 (conferência visual dos consertos do UAT, 2026-10-12), verbatim: DEFEITO NOVO (gap para diagnóstico, não consertar nesta task): no painel da +cand1, a candidatura d31c78bb (vaga 629a5f31, INATIVA) aparece como «Vaga não encontrada» com departamento «N/A». Causa medida: a única policy de SELECT em vagas que alcança o candidato é «Público vê vagas ativas» (status = 'ativa' AND deleted_at IS NULL); inativada a vaga, o candidato ainda no funil perde título e departamento (vagasService.ts:382/397). Vai acontecer com candidato real quando o RH pausar ou fechar uma vaga com gente no processo. Sugestão: leitura do título/departamento das vagas das PRÓPRIAS candidaturas do candidato; prioridade: antes de inativar a primeira vaga real, não bloqueia a abertura."
   severity: minor
   test: 4
