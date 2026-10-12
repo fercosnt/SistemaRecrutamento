@@ -270,6 +270,32 @@ const ANCORAS_PILHA_CARTAO_PAINEL = [
   { arquivo: GLASS, trecho: "'backdrop-saturate-150'" },
 ];
 
+/*
+ * O RESIDUAL do G-52-6 (decisão do operador «Cancelada» → «Entra junto», 2026-10-12): no
+ * `AgendamentoCandidatoCard` — montado DENTRO do `GlassCard` do painel, então com a mesma pilha —
+ * só «Cancelada» virou opaca. Os outros cinco chips do `STATUS_CONFIG` e as duas notas coloridas do
+ * mesmo cartão ficaram de fora POR ESCOPO. Esta lista é esse escopo (o que a decisão deixou de fora),
+ * não uma fotografia: cada item vira um cenário `informativo`, com o pior caso medido, para o
+ * operador decidir com número. Âncora: a linha da entrada (chave e as duas classes) ou a classe da
+ * nota no fonte — se o código mudar, o cenário descola e reprova.
+ */
+const AGENDA = 'src/features/agendamento/components/AgendamentoCandidatoCard.tsx';
+const CHIPS_RESIDUAIS = [
+  { chave: 'agendada', color: 'text-green-300', bg: 'bg-green-500/20' },
+  { chave: 'em_andamento', color: 'text-blue-300', bg: 'bg-blue-500/20' },
+  { chave: 'concluida', color: 'text-gray-300', bg: 'bg-gray-500/20' },
+  { chave: 'reagendada', color: 'text-yellow-300', bg: 'bg-yellow-500/20' },
+  { chave: 'nao_compareceu', color: 'text-gray-300', bg: 'bg-gray-500/20' },
+];
+const NOTAS_RESIDUAIS = [
+  { id: 'reagendada', texto: 'text-yellow-200/90', guarda: "row.status === 'reagendada' && (" },
+  { id: 'cancelada', texto: 'text-red-200/90', guarda: 'isCancelada && (' },
+];
+const ANCORA_CARTAO_DENTRO_DO_GLASSCARD = {
+  arquivo: DASH,
+  trecho: /<GlassCard\s+key=\{candidatura\.id\}(?:(?!<\/GlassCard>)[\s\S])*<AgendamentoCandidatoCard candidaturaId=\{candidatura\.id\} \/>/,
+};
+
 const SUPERFICIE_REJEICAO = 'bg-[#00109E]/70';
 const TEXTO_REJEICAO = 'text-white/80';
 
@@ -305,6 +331,32 @@ const CENARIOS = [
     texto: 'text-white/60',
     ancoras: [],
   },
+  ...CHIPS_RESIDUAIS.map((c) => ({
+    id: `agendamento-chip-${c.chave}`,
+    tipo: 'informativo',
+    alvo: 4.5,
+    pilha: PILHA_CARTAO_PAINEL,
+    superficie: c.bg,
+    texto: c.color,
+    ancoras: [
+      ...ANCORAS_PILHA_CARTAO_PAINEL,
+      ANCORA_CARTAO_DENTRO_DO_GLASSCARD,
+      { arquivo: AGENDA, trecho: new RegExp(`^\\s*${esc(c.chave)}: \\{[^\\n]*color: '${esc(c.color)}', bg: '${esc(c.bg)}'`, 'm') },
+    ],
+  })),
+  ...NOTAS_RESIDUAIS.map((n) => ({
+    id: `agendamento-nota-${n.id}`,
+    tipo: 'informativo',
+    alvo: 4.5,
+    pilha: PILHA_CARTAO_PAINEL,
+    superficie: null,
+    texto: n.texto,
+    ancoras: [
+      ...ANCORAS_PILHA_CARTAO_PAINEL,
+      ANCORA_CARTAO_DENTRO_DO_GLASSCARD,
+      { arquivo: AGENDA, trecho: new RegExp(`${esc(n.guarda)}\\n\\s*<p className="[^"\\n]*${tok(n.texto)}`) },
+    ],
+  })),
 ];
 
 /*
