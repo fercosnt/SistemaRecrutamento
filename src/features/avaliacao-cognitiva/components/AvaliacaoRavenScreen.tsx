@@ -24,7 +24,7 @@ import { toast } from 'sonner'
 import { Glass, GlassButton } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackgroundImage } from '@/components/BackgroundImage'
-import { ArrowRight, CheckCircle2, Clock, Lock } from 'lucide-react'
+import { ArrowRight, Check, CheckCircle2, Clock, Lock } from 'lucide-react'
 import {
   listarQuestoesRaven,
   consultarLiberacao,
@@ -298,6 +298,15 @@ export function AvaliacaoRavenScreen() {
             {questao.opcoes_imagens.map((url, i) => {
               const numero = i + 1
               const ativa = escolha === numero
+              // G-52-2 (UAT da 52, 2026-10-12): o contorno accent antigo sumia no gradiente
+              // turquesa (medido 1,08–2,28:1 contra o fundo e contra o próprio ladrilho), e a
+              // prova não deixa voltar a um item respondido. A borda navy fica entre o ladrilho
+              // branco e um anel branco: 13,39:1 contra as DUAS cores vizinhas, qualquer que seja
+              // o fundo. O selo de check dá forma à seleção (aria-hidden: quem carrega o estado é
+              // o aria-pressed). O foco do teclado é tracejado e INTERNO (na faixa do padding,
+              // navy sobre branco), distinto da seleção sólida. A seleção saiu do accent
+              // (52-UI-SPEC §Color item 6, emenda). Classes por extenso: o JIT só gera a classe
+              // que aparece inteira no fonte. Nenhuma variante responsiva: a 360px vale o mesmo.
               return (
                 <button
                   key={`${questao.id}-${numero}`}
@@ -305,12 +314,19 @@ export function AvaliacaoRavenScreen() {
                   onClick={() => setEscolha(numero)}
                   aria-pressed={ativa}
                   aria-label={`Alternativa ${numero}`}
-                  className={`rounded-lg border-2 bg-white p-2 transition-all ${
-                    ativa
-                      ? 'border-[#35BFAD] ring-2 ring-[#35BFAD]/40'
-                      : 'border-white/30 hover:border-white/70'
+                  className={`relative rounded-lg border-4 bg-white p-2 transition-all focus-visible:outline-dashed focus-visible:outline-2 focus-visible:outline-offset-[-10px] focus-visible:outline-[#00109E] ${
+                    ativa ? 'border-[#00109E] ring-4 ring-white' : 'border-white hover:border-slate-300'
                   }`}
                 >
+                  {ativa ? (
+                    <span
+                      data-testid="raven-alternativa-check"
+                      aria-hidden="true"
+                      className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[#00109E] text-white ring-2 ring-white"
+                    >
+                      <Check className="h-4 w-4" strokeWidth={3} />
+                    </span>
+                  ) : null}
                   {url ? (
                     <img src={url} alt="" className="h-full w-full object-contain" />
                   ) : (
