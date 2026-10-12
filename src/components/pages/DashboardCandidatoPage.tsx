@@ -131,7 +131,7 @@ export function DashboardCandidatoPage() {
       case 'aprovado_proxima':
         return { icon: CheckCircle2, color: 'text-green-300', bg: 'bg-green-500/20', label: 'Aprovado - Próxima Etapa' };
       case 'rejeitado':
-        return { icon: AlertCircle, color: 'text-red-300', bg: 'bg-red-500/20', label: 'Rejeitado' };
+        return { icon: AlertCircle, color: 'text-red-100', bg: 'bg-red-800', label: 'Rejeitado' };
       case 'finalizado':
         return { icon: CheckCircle2, color: 'text-gray-300', bg: 'bg-gray-500/20', label: 'Finalizado' };
       default:
@@ -446,14 +446,22 @@ export function DashboardCandidatoPage() {
                           {/* Phase 8 / D-16 — persisted neutral rejection message
                               below the status for rejeitado candidaturas. The
                               criterion is NEVER shown (feedback_rejeicao carries
-                              only the single D-15 neutral copy). Muted tone. */}
+                              only the single D-15 neutral copy).
+                              52-28 (G-52-6 · JORN-62): o tom apagado de antes (caixa branca
+                              translúcida, «Agradecemos» em 14 px branco 60%) ficou ilegível
+                              no vidro branco — medido no UAT da 52 e no diagnóstico: pior caso
+                              1,38:1 sobre a imagem real. A premissa «o vidro é escuro» do
+                              52-RESEARCH:618 era falsa no painel. O conserto é a superfície
+                              local escura, com os dois parágrafos em 16 px branco 80% (pior
+                              caso 5,73:1); o texto não muda. O número vem do medidor
+                              `scripts/p52_contraste.cjs`, que ancora estas classes. */}
                           {candidatura.status === 'rejeitado' &&
                             candidatura.feedback_rejeicao && (
-                              <div className="mt-3 rounded-lg bg-white/5 border border-white/10 p-3 space-y-1">
+                              <div data-testid="painel-rejeicao" className="mt-3 space-y-1 rounded-lg border border-white/15 bg-[#00109E]/70 p-3">
                                 <p className="text-base text-white/80">
                                   {candidatura.feedback_rejeicao}
                                 </p>
-                                <p className="text-sm text-white/60">
+                                <p className="text-base text-white/80">
                                   Agradecemos seu interesse na Beauty Smile.
                                 </p>
                               </div>
