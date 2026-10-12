@@ -14,6 +14,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { createRequire } from 'node:module'
+
+// 52-28 (G-52-6) — a MESMA função de contraste do medidor `scripts/p52_contraste.cjs` (um teste
+// sobre uma cópia da fórmula não morderia nada). `createRequire` aqui só cria a função; o medidor
+// é carregado DENTRO do caso, depois das asserções de DOM.
+const requireDoTeste = createRequire(import.meta.url)
 
 const mocks = vi.hoisted(() => ({
   navigateMock: vi.fn(),
@@ -109,6 +115,48 @@ describe('cartão de candidatura encerrada', () => {
     expect(screen.queryByText(/Próximo passo/i)).not.toBeInTheDocument()
     // O que a pessoa PRECISA ver continua lá.
     expect(screen.getByText(/não seguiremos com sua candidatura/i)).toBeInTheDocument()
+  })
+
+  // 52-28 (G-52-6 · JORN-62) — no UAT da 52 o cartão rejeitado era ilegível no painel: a caixa
+  // translúcida e o selo «Rejeitado» translúcido mediam 1,3–3,6:1 sobre o vidro branco (o pior caso
+  // sobre a imagem real, medido pelo `scripts/p52_contraste.cjs`). O conserto: superfície local
+  // escura na caixa, os dois parágrafos em 16 px branco 80%, o selo com fundo OPACO. O texto não
+  // muda (D-15 da Phase 48).
+  it('rejeitada: caixa da rejeição com superfície escura, texto inalterado, e selo «Rejeitado» opaco com contraste ≥ 4,5', () => {
+    const FEEDBACK =
+      'Após análise dos requisitos da vaga, não seguiremos com sua candidatura neste momento.'
+    renderCom('rejeitado', { feedback_rejeicao: FEEDBACK })
+
+    const caixaOuNada = screen.queryByTestId('painel-rejeicao')
+    expect(caixaOuNada, 'a caixa painel-rejeicao tem de existir').not.toBeNull()
+    const caixa = caixaOuNada as HTMLElement
+    expect(caixa.classList.contains('bg-[#00109E]/70')).toBe(true)
+    const paragrafos = Array.from(caixa.querySelectorAll('p'))
+    expect(paragrafos).toHaveLength(2)
+    expect(paragrafos[0].textContent?.trim()).toBe(FEEDBACK)
+    expect(paragrafos[1].textContent?.trim()).toBe('Agradecemos seu interesse na Beauty Smile.')
+    for (const p of paragrafos) {
+      expect(p.classList.contains('text-base')).toBe(true)
+      expect(p.classList.contains('text-white/80')).toBe(true)
+      expect(p.classList.contains('text-sm')).toBe(false)
+    }
+
+    // O selo: as classes LIDAS DO DOM (o token de cor do rótulo e o fundo do contêiner).
+    const rotulo = screen.getByText('Rejeitado')
+    const conteiner = rotulo.parentElement as HTMLElement
+    const tokenTexto = Array.from(rotulo.classList).find((c) => /^text-[a-z]+-[0-9]{2,3}$/.test(c))
+    const tokenFundo = Array.from(conteiner.classList).find((c) => c.startsWith('bg-'))
+    expect(tokenTexto).toBe('text-red-100')
+    expect(tokenFundo).toBe('bg-red-800')
+    // O ícone usa a mesma cor do rótulo (indicador não-textual, ≥ 3:1 — e o par passa de 4,5).
+    const icone = conteiner.querySelector('svg') as SVGElement
+    expect(icone.classList.contains(tokenTexto as string)).toBe(true)
+
+    // Só agora o medidor é carregado: no RED a falha é de comportamento, nunca de módulo ausente.
+    const { contrasteDeClasses } = requireDoTeste('../../../../scripts/p52_contraste.cjs') as {
+      contrasteDeClasses: (texto: string, fundo: string) => number
+    }
+    expect(contrasteDeClasses(tokenTexto as string, tokenFundo as string)).toBeGreaterThanOrEqual(4.5)
   })
 
   it('finalizada: idem (o processo acabou)', () => {
