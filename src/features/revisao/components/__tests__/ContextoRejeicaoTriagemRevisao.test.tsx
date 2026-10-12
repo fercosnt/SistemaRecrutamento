@@ -119,6 +119,37 @@ describe('ContextoRejeicaoTriagemRevisao — conteúdo', () => {
     }
   })
 
+  // 52-29 Task 4 (pedido do operador, 2026-10-12): a ressalva do teste 15 do UAT da 52 — «código
+  // desconhecido aparece cru» só era garantido pela leitura de `rotularMotivoRejeicao`. O caso de
+  // cima percorre apenas códigos CONHECIDOS. Este prova o fallback: o código exato, sem rótulo
+  // inventado, sem «Não registrado», sem reformatação (nem `_` → espaço, nem mudança de caixa).
+  it('código de motivo fora do MOTIVO_OPTIONS aparece cru, sem reformatação (ressalva do teste 15 do UAT da 52)', async () => {
+    const CODIGO = 'motivo_fora_do_mapa_X9'
+    // Afirmado antes: se o mapa crescer e passar a ter este código, o caso não passa por acaso.
+    expect(MOTIVO_OPTIONS.some((o) => o.value === CODIGO), 'o codigo nao pode estar no MOTIVO_OPTIONS').toBe(false)
+    lerContextoTriagemMock.mockResolvedValue({
+      situacao: 'disponivel',
+      motivo: CODIGO,
+      justificativa: 'J',
+    })
+    renderContexto()
+    const rotulo = await screen.findByText(COPY_CONTEXTO_TRIAGEM.motivo)
+    const par = rotulo.parentElement as HTMLElement
+    const valor = Array.from(par.children).find((el) => el !== rotulo)
+    expect(valor?.textContent, 'o par «Motivo da rejeição» mostra o codigo exato').toBe(CODIGO)
+    expect(within(par).queryByText(COPY_CONTEXTO_TRIAGEM.ausente) === null, 'sem «Não registrado» no par do motivo').toBe(true)
+    expect(
+      MOTIVO_OPTIONS.filter((o) => within(par).queryByText(o.label) !== null).map((o) => o.label).join(' | '),
+      'nenhum rotulo do MOTIVO_OPTIONS no par do motivo',
+    ).toBe('')
+    expect(
+      ['motivo fora do mapa X9', 'Motivo_fora_do_mapa_X9', 'MOTIVO_FORA_DO_MAPA_X9']
+        .filter((forma) => screen.queryByText(forma) !== null)
+        .join(' | '),
+      'nenhuma forma reformatada do codigo',
+    ).toBe('')
+  })
+
   it('cada par ocupa a linha inteira da grade (`sm:col-span-2`)', async () => {
     lerContextoTriagemMock.mockResolvedValue({
       situacao: 'disponivel',
