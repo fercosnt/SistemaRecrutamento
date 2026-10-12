@@ -317,6 +317,9 @@ arquivo da fase e ver a varredura acusá-la, depois remover (regra «portão é 
     **pelos dados** (revisão de planejamento, 2026-10-10): a frase chega ao `span` por `stepCTA` com `destino: null`, e o
     selo «Aguardando a equipe» por `statusInfo` — o markup não é copiado, movido nem reindentado, porque uma cópia seria
     linha acrescentada e a varredura acusaria o `font-medium` (52-04).
+    _Emenda (G-52-4b, 2026-10-12): o `span` foi EDITADO — texto simples `text-base text-white/90` com
+    `data-testid="painel-proximo-passo-texto"`, sem moldura (o peso herdado saiu junto); do selo, só os VALORES do mapa
+    mudaram (G-52-6, 52-28) — a linha que o renderiza segue herança não editada._
 - **Números tabulares** (`tabular-nums`) em «Tempo decorrido» e no cronômetro do Raven (já existe no Raven).
 
 ---
@@ -339,7 +342,9 @@ Paleta **travada** — idêntica às Phases 17 e 42–47.
 4. **Eyebrow «Próximo passo»** (`text-[#35BFAD]`) — existente.
 5. **CTA «Próximo item» / «Concluir avaliação» do Raven** — **novo**: hoje é `GlassButton` sem preenchimento sobre
    fundo branco (51-UI-REVIEW, Pilar 2). Passa a `bg-[#35BFAD] text-white` sólido. É a ação repetida 60 vezes.
-6. **Alternativa marcada no Raven** (`border-[#35BFAD] ring-2 ring-[#35BFAD]/40`) e **barra de progresso** — existentes.
+6. **Barra de progresso do Raven** — existente.
+   _Emenda (G-52-2, 2026-10-12): a alternativa marcada SAIU desta lista — o contorno accent sumia no gradiente
+   turquesa (medido 1,08–2,28:1). Ver «Explicitamente NÃO accent» e §Tratamentos semânticos._
 7. **Trecho citado pela IA dentro do texto do caso aberto** — **novo**: `<mark className="rounded-sm bg-[#35BFAD]/30 px-1 text-white">`.
    O turquesa já é o sinal de IA do hub (`Sparkles text-[#35BFAD]` no `AnaliseIABlock:63`); o 30% mantém o
    contraste do texto branco.
@@ -349,7 +354,8 @@ Paleta **travada** — idêntica às Phases 17 e 42–47.
 **Explicitamente NÃO accent:** gatilho de aba ativa (branco, precedente `EntrevistaWorkspace`); «Enviar e-mail» e
 «Chamar no WhatsApp» (neutros — o CTA dominante da tela continua sendo um só); «Ver devolutiva»; selo
 «Eliminatória»; alternativa escolhida no SJT MC; faixas do Big Five; os botões de nota da entrevista
-(selecionado = branco). Pintar a alternativa escolhida ou uma faixa de turquesa leria como «certo»/«bom» — o
+(selecionado = branco); a alternativa marcada no Raven (G-52-2 — borda navy, anel branco e check; emenda
+2026-10-12). Pintar a alternativa escolhida ou uma faixa de turquesa leria como «certo»/«bom» — o
 oposto de RNF-07a.
 
 **Destructive (`#EF4444`) reservado para:** o gatilho «Rejeitar» (existente, `border-red-500/40 bg-red-500/10
@@ -370,6 +376,7 @@ mais: nem o selo «Eliminatória», nem «Atenção» no SJT, nem «Não informa
 | Aba ativa / inativa | ativa `border-white/30 bg-white/20 text-white`; inativa `border-white/15 bg-white/5 text-white/70 hover:bg-white/10` | Gatilhos (verbatim `EntrevistaWorkspace.tsx:168`) |
 | Nota selecionada / livre (entrevista) | selecionada `border-white/40 bg-white/25 text-white`; livre `border-white/20 bg-white/5 text-white/80 hover:bg-white/15` | Os 5 botões por competência (molde do seletor de análise, `EntrevistaScorecardInline.tsx:173-177`) |
 | Faixa do Big Five | `BandaSegments` verbatim (`bg-white/80` ativo, `bg-white/15` demais) | Hub e devolutiva — **o mesmo componente** |
+| Alternativa marcada / livre (Raven, G-52-2) | base `relative rounded-lg border-4 bg-white p-2`; marcada `border-[#00109E] ring-4 ring-white` (13,39:1 contra as duas vizinhas, independente do fundo); livre `border-white hover:border-slate-300`; selo do check `data-testid="raven-alternativa-check"` `aria-hidden` `absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[#00109E] text-white ring-2 ring-white` com `Check` (`h-4 w-4`, traço 3), só na marcada; foco `focus-visible:outline-dashed focus-visible:outline-2 focus-visible:outline-offset-[-10px] focus-visible:outline-[#00109E]` (tracejado, interno). Emenda 2026-10-12 | Onde: ladrilhos de alternativa do Raven |
 
 **Conserto do `SelectItem` (R1, `select.tsx:132-136`):** remover as classes que forçam `text-white` em hover/foco
 (`hover:text-white`, `focus:text-white`, `[&_*]:hover:!text-white`, `[&_*]:focus:!text-white`) e o
@@ -570,8 +577,8 @@ Conteúdo **inalterado**, só redistribuído. A única mudança de texto na Resu
 | Redação | Saída direta | Sem diálogo — a Redação é a única tela que **relê** o rascunho (`loadResposta`); a saída grava antes de navegar só se houve edição na sessão (`flushSeEditou`, WR-01 do `52-REVIEW-PORTAO-1`) |
 | `SjtMultiplaEscolhaScreen` (D-26) | «Tempo sugerido» → «Tempo decorrido» | Mesmo lugar, mesmo `Clock`, `tabular-nums` |
 | `AvaliacaoContainer` (pendência f) | Devolutiva reabrível | Card «Avaliação comportamental» **concluído** ganha `GlassButton variant="white"` «Ver devolutiva» (`w-full mt-4 min-h-[44px]`, mesmo lugar do «Começar avaliação» dos pendentes) → `/candidato/avaliacao/:id/bigfive/devolutiva`. No estado «Tudo concluído», se a vaga tem Big Five concluído, o mesmo botão aparece **acima** do «Ir ao painel» |
-| `AvaliacaoRavenScreen` (Raven no shell) | Shell da marca + instruções | Envolver na shell do candidato (`BackgroundImage gradient` + overlay 15%, `container max-w-4xl`); textos `slate-*` → escala branca (`text-white`, `/80`, `/70`); `COPY.subtitulo` renderizado no cabeçalho (16px `text-white/80`) e `COPY.semVolta` logo abaixo (14px `text-white/70`) — **visíveis em todo item**. Matriz e alternativas sobre **ladrilho branco sólido** (`bg-white rounded-lg p-2`) — são desenhos em preto sobre branco. Grade com classes literais `nOpcoes > 6 ? 'grid-cols-4 sm:grid-cols-8' : 'grid-cols-3 sm:grid-cols-6'` (o template atual não é gerado pelo JIT). CTA accent sólido (§Color 5). Trilho da barra `bg-white/20` |
-| `DashboardCandidatoPage` (defeito a, D-27) | Avaliações concluídas | Na candidatura em `avaliacao_assincrona` com todas as avaliações concluídas: o «Próximo passo» mostra o `span` neutro existente (`border-white/20 bg-white/10 text-white/80`) com «Avaliações concluídas — aguardando a equipe», **sem** botão; o selo de status mostra «Aguardando a equipe» com o tratamento neutro opaco (`text-gray-100 bg-gray-700`, ≥ 4,5:1 — G-52-6, 2026-10-12; antes `text-gray-300 bg-gray-500/20`, translúcido, ilegível no vidro branco). Status do banco intocado. Carregando ou erro da leitura → o CTA de hoje (D-52-U16) |
+| `AvaliacaoRavenScreen` (Raven no shell) | Shell da marca + instruções | Envolver na shell do candidato (`BackgroundImage gradient` + overlay 15%, `container max-w-4xl`); textos `slate-*` → escala branca (`text-white`, `/80`, `/70`); `COPY.subtitulo` renderizado no cabeçalho (16px `text-white/80`) e `COPY.semVolta` logo abaixo (14px `text-white/70`) — **visíveis em todo item**. Matriz e alternativas sobre **ladrilho branco sólido** (`bg-white rounded-lg p-2`) — são desenhos em preto sobre branco. Grade com classes literais `nOpcoes > 6 ? 'grid-cols-4 sm:grid-cols-8' : 'grid-cols-3 sm:grid-cols-6'` (o template atual não é gerado pelo JIT). CTA accent sólido (§Color 5). Trilho da barra `bg-white/20`. Alternativa marcada: §Tratamentos semânticos (G-52-2, 2026-10-12) |
+| `DashboardCandidatoPage` (defeito a, D-27) | Avaliações concluídas | Na candidatura em `avaliacao_assincrona` com todas as avaliações concluídas: o «Próximo passo» mostra o `span` neutro existente (`border-white/20 bg-white/10 text-white/80`) com «Avaliações concluídas — aguardando a equipe», **sem** botão; o selo de status mostra «Aguardando a equipe» com o tratamento neutro opaco (`text-gray-100 bg-gray-700`, ≥ 4,5:1 — G-52-6, 2026-10-12; antes `text-gray-300 bg-gray-500/20`, translúcido, ilegível no vidro branco). Status do banco intocado. Carregando ou erro da leitura → o CTA de hoje (D-52-U16). _Emenda (UAT da 52, 2026-10-12):_ o «Próximo passo» mostra a frase como **TEXTO SIMPLES** (`text-base text-white/90`, `data-testid="painel-proximo-passo-texto"`, G-52-4b; antes, o `span` com a moldura do botão antigo); a linha de prazo do cartão **SOME** com todas as avaliações concluídas (G-52-4, operador «Esconder»: a estimativa contradizia a frase); carregando/erro → a linha fica, como o CTA (D-52-U16); nenhum prazo novo |
 | `CandidatoNavbar` (51-17) | Volta ao painel | `GlassButton` «Meu painel» com `LayoutDashboard`, rótulo `hidden sm:inline` + `aria-label="Meu painel"`, à esquerda do «Área do candidato»; **não** renderiza quando a rota atual já é `/candidato/dashboard` |
 | `LoginCandidatoPage` (51-17) | Sessão aberta | Sessão de candidato já hidratada → `navigate(destino, { replace: true })` sem mostrar o formulário; `destino` = `redirect` se começar com `/candidato/`, senão `/candidato/dashboard`. Enquanto o `authStore` hidrata: `Loader2` centralizado + «Verificando sua sessão…» (16px `text-white/80`) no lugar do formulário. Sessão de RH/admin ou sem sessão → formulário como hoje |
 | `FormularioCandidaturaPage:537-548` (51-17) | «Agradecemos» | O bloco inteiro do cartão de knockout: h1 `text-white`, corpo `text-white/80`, «Agradecemos…» `text-white/70` (sai `text-gray-900/700/500`). Texto **inalterado** (D-15 da 48, travado) |
@@ -674,6 +681,8 @@ concluídas (`interactive-control`).
 > delas não cabe em categoria de forma → **54**. Raven, navbar, login, «Agradecemos», `SelectItem`, sidebar,
 > proveniência e diálogo de revisão são emendas de classe/texto sem estado novo; as provas deles estão nas linhas
 > de backstop abaixo (E2/E8) e na §Acessibilidade.
+> _Emenda (G-52-4, 2026-10-12): mais 1 linha autorada — E10 · `concluído × prazo` (o risco é contradizer a frase,
+> não uma categoria de forma) → **55**._
 
 | # | Elemento | Category | Status | Resolution / Reason |
 |---|---|---|---|---|
@@ -731,6 +740,7 @@ concluídas (`interactive-control`).
 | E10 | Painel do candidato | loading | ✅ covered | Enquanto o status das avaliações carrega, o «Próximo passo» mostra o CTA de hoje (sem skeleton, sem piscar para vazio) — D-52-U16 |
 | E10 | Painel do candidato | error | ✅ covered | Falha na leitura do status → CTA de hoje; a lista de avaliações já diz «Tudo concluído» a quem clicar |
 | E10 | Painel do candidato | long-text | 🧪 backstop | O risco real é **mudar o banco** ou **esconder ação devida**. **Backstop:** (i) nenhuma escrita em `candidaturas` no caminho (D-27); (ii) com uma avaliação pendente o CTA «Continuar para …» continua; (iii) com todas concluídas aparece a frase e **não** há `<button>` no «Próximo passo»; (iv) a frase quebra linha a 360px sem truncar |
+| E10 | Painel do candidato | concluído × prazo | ✅ covered | Com todas as avaliações concluídas, a linha de prazo (texto real do config_sla_etapa) não aparece; com uma pendente, carregando ou erro, aparece (G-52-4, 2026-10-12) |
 
 <!-- Status vocabulary (locked by probe-core projectTruths):
      ✅ covered   → a plain truth string lifted into must_haves.truths
@@ -752,6 +762,9 @@ concluídas (`interactive-control`).
 - **Diálogo de perda:** foco inicial em «Continuar» (padrão do `AlertDialog`); `Esc` = Continuar.
 - **Alvos táteis:** 44px em todo controle novo (§Spacing).
 - **Raven no shell:** a matriz em ladrilho branco mantém o contraste do desenho; o `alt` existente da matriz não muda.
+  _Emenda (G-52-2, 2026-10-12):_ alternativa marcada = `aria-pressed` nativo + borda navy + anel branco + check
+  `aria-hidden` (a forma, não só a cor, carrega a seleção); foco do teclado tracejado dentro do ladrilho, distinto da
+  seleção; indicadores ≥ 3:1 contra as cores vizinhas (13,39:1), independentes do fundo.
 
 ---
 
@@ -807,6 +820,9 @@ D-25 e a D-24 nesses dois pontos; **D-52-U18** (Disponibilidade) decidida — en
 **Emendas do UAT da 52 (2026-10-12)** — decisões do operador em `52-UAT.md` § «Decisões do operador sobre o escopo dos consertos»:
 
 - **G-52-6 — cartão rejeitado e selos do painel do candidato (52-28).** A caixa da rejeição passou a superfície local escura (`bg-[#00109E]/70`, pior caso 5,73:1 sobre a imagem real; a de antes, 1,38:1) com os dois parágrafos em 16 px `text-white/80`, texto inalterado; o 52-RESEARCH:618 («já é `text-white/60` — não mexer») partia de uma premissa não medida e está anotado como superado. Decisão «**Todos os selos (Recommended)**»: todo selo do `getStatusInfo` e o `SELO_AGUARDANDO_EQUIPE` têm fundo opaco, texto `-100` sobre tom `-800` (cinza `-700`), ≥ 4,5:1 — vigiado pelo `DashboardCandidatoPage.selos.test.tsx`, que lê os descritores pela forma e morde em cada predicado. Decisão «Cancelada» → «**Entra junto (Recommended)**»: o chip «Cancelada» do `AgendamentoCandidatoCard` ganhou o mesmo par do «Rejeitado». **Residual** (fora da decisão, registrado com número para o operador): os outros cinco chips do `STATUS_CONFIG` seguem translúcidos (pior caso: agendada 1,33 · em andamento 1,14 · concluída 1,46 · reagendada 1,44 · não compareceu 1,46) e as duas notas coloridas do mesmo cartão (reagendada 1,45 · cancelada 1,18) — limiar de texto 4,5:1.
+- **G-52-2 — alternativa marcada do Raven (52-29).** O contorno accent da seleção sumia no gradiente turquesa (halo 1,08–1,84:1 contra o fundo; borda 1,23:1 na faixa turquesa e 2,28:1 contra o próprio ladrilho). Agora: borda navy `border-[#00109E]` entre o ladrilho branco e um anel branco `ring-4 ring-white` (13,39:1 contra as duas vizinhas, independente do fundo — WCAG 1.4.11), selo de check `raven-alternativa-check` (`aria-hidden`) só na marcada, foco do teclado tracejado navy dentro do ladrilho. A seleção saiu do accent (§Color item 6). Vigiado pelo `AvaliacaoRavenScreen.shell.test.tsx` (DOM, fonte e contraste pela função do medidor).
+- **G-52-4 — prazo do estado concluído (52-29).** Decisão do operador «**Esconder (Recommended)**»: com todas as avaliações concluídas, a linha «Avaliação liberada — conclua em até 7 dias corridos.» + «Estimativa» contradizia «Avaliações concluídas — aguardando a equipe» e some; o predicado é o `concluidas` da D-27; carregando/erro → a linha fica (D-52-U16); nenhum prazo novo; a linha da reabertura não muda. Vigiado pelo `DashboardCandidatoPage.concluidas.test.tsx` com o texto REAL do `config_sla_etapa` no mock (o rótulo nulo de antes escondia o defeito).
+- **G-52-4b — «Próximo passo» sem ação (52-29).** O `span` que herdara a moldura do botão antigo parecia clicável ao lado do «Retirar minha candidatura»; agora é texto simples `text-base text-white/90` (`data-testid="painel-proximo-passo-texto"`), quebrando linha a 360px. **Residual** (registrado com número para o operador no 52-30): o texto do cartão de vidro branco, sem superfície local, herda o contraste do vidro — pior caso medido pelo `p52_contraste.cjs`: título 1,78 (limiar 3:1, texto grande) · departamento/data 1,57 · etapa 1,48 · eyebrow 1,39 · frase do «Próximo passo» 1,67 (limiar 4,5:1).
 
 ---
 

@@ -688,6 +688,7 @@ Raven uses `max-w-4xl`. Lines to change (grep-verified this session): `:170`, `:
 - Query keys to **reuse** in the dashboard so `marcarInstrumentoRegistrado` invalidations apply (`:474-486`): `['avaliacao','context',candidaturaId]` and `['avaliacao','status',candidaturaId]`.
 - «Ver devolutiva» button mold = the pending-card CTA (`:315-327`): `GlassButton variant="white" hover … className="w-full mt-4 text-white drop-shadow-sm min-h-[44px]"` → route `/candidato/avaliacao/:candidaturaId/bigfive/devolutiva`; in «Tudo concluído» (`:269-288`) place above the «Ir ao painel» button.
 - Dashboard neutral span reused **unedited** (`DashboardCandidatoPage.tsx:476-479`):
+- ⚠ Superado (UAT da 52, G-52-4b, 2026-10-12): o `span` virou texto simples (`text-base text-white/90`, `data-testid="painel-proximo-passo-texto"`); o trecho abaixo é o registro do estado de 2026-10-10.
 ```tsx
                             <span className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white/80">
                               {stepCTA.label}

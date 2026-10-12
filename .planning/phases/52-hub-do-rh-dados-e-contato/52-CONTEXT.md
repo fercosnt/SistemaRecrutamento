@@ -141,6 +141,9 @@ JORN-50 está Complete (nota de escrituração abaixo); JORN-51 já era Complete
 - **D-26:** SJT MC: «Tempo sugerido: mm:ss» vira **«Tempo decorrido: mm:ss»** (sem limite rígido).
 - **D-27:** Painel do candidato com todas as avaliações concluídas: **«Avaliações concluídas —
   aguardando a equipe»**, sem botão de continuar. **Não muda status no banco** — só o que a tela lê.
+  - Emenda (operador, 2026-10-12, UAT G-52-4 — «Esconder»): com todas as avaliações concluídas a linha de prazo
+    some; carregando/erro mantêm a linha; nenhum prazo novo é inventado.
+  - Emenda (UAT G-52-4b, 2026-10-12): a frase vai em texto simples, sem a moldura de botão.
 
 ### Acréscimos do operador (2026-10-10, depois da discussão) — a 52 é a última fase antes de abrir para candidatos reais
 - **D-28 (JORN-52, recorte mínimo):** a 52 inclui escrever o **banco SJT do cargo de pré-vendas**
