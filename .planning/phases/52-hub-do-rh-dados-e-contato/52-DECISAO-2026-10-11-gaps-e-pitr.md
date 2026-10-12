@@ -38,3 +38,13 @@ Registre também no checklist de fecho do M8 que o PITR foi recusado.»
 5. Mantém-se (de `52-18-DECISAO-OPERADOR.md`): a varredura do 52-19 usa a lista da D-30 (`+claudeN`, `+cand1`,
    `@teste.com`, `@invalido.local`) MAIS a entrada por vaga de teste; a candidatura `3a9254c3` tem que aparecer na
    população medida.
+
+## Segunda emenda da D-41 (operador, 2026-10-12 21:28Z) — ver `52-DECISAO-2026-10-12-bloco-d-hoje.md`
+
+Supera os itens 3.1 e 3.3 acima: o ponto de restauração do bloco D é o backup físico COMPLETED
+`2026-10-12T06:31:59Z` (id 1941159569) + reaplicação das migrations do git aplicadas depois dele
+(`20261011000006` e as do 52-32) + o export prévio (3.2, inalterado); pré-condição medida antes do 52-21:
+nenhuma escrita em PROD fora de «migrations do git + contas de teste da população exportada» desde
+06:31:59Z (0 vagas criadas/alteradas, 0 candidaturas criadas) — escrita fora da lista = PARAR. Tudo hoje,
+na ordem 52-32 → `/gsd-verify-work 52` → 52-19 → 52-21 → 52-22. Texto do operador verbatim e a medição
+independente desta janela estão no arquivo citado.
