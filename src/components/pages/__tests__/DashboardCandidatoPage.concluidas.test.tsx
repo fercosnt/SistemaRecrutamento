@@ -13,13 +13,19 @@
  *
  * Os mocks de hook são os do harness do `funnel` (o mock é do HOOK, nunca do componente).
  *
+ * 52-29 (G-52-4 · G-52-4b): até 2026-10-12 o rótulo de espera do mock era nulo, e isso escondia o
+ * G-52-4 (o prazo «conclua em até 7 dias» ao lado de «aguardando a equipe») — agora é o texto REAL
+ * de `avaliacao_assincrona`, lido da migration `20260721000002_config_sla_etapa.sql`.
+ *
  * @see .planning/phases/52-hub-do-rh-dados-e-contato/52-04-PLAN.md (Task 1)
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { render, screen, waitFor, within, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 // 52-28 (G-52-6) — a MESMA função de contraste do medidor `scripts/p52_contraste.cjs`.
 const requireDoTeste = createRequire(import.meta.url)
@@ -27,6 +33,9 @@ const requireDoTeste = createRequire(import.meta.url)
 const mocks = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   candidaturasData: { data: [] as unknown[] },
+  // 52-29 — o rótulo de espera devolvido pelo mock de `rotuloDeEspera`: o texto REAL da migration,
+  // gravado no `beforeAll` (a fábrica do `vi.mock` é içada e não enxerga constante do topo).
+  prazo: null as string | null,
 }))
 
 /*
@@ -101,7 +110,7 @@ vi.mock('@/store/authStore', () => ({
 
 vi.mock('@/features/timeline/hooks', () => ({
   useSlaEtapas: () => ({ isLoading: false, error: null, lookup: new Map() }),
-  rotuloDeEspera: () => null,
+  rotuloDeEspera: () => mocks.prazo,
 }))
 
 vi.mock('@/features/vagas/hooks/useRetirarCandidatura', () => ({
@@ -119,6 +128,28 @@ const SELO = 'Aguardando a equipe'
 const CTA_DE_HOJE = /Continuar para Avaliação Assíncrona/
 
 const ID = 'cand-concluida'
+
+/*
+ * 52-29 (G-52-4) — o prazo REAL de `avaliacao_assincrona`, extraído da migration que semeia o
+ * `config_sla_etapa`. A migration alinha os campos com espaços; a extração os tolera.
+ */
+// A raiz do repositório é o diretório do Vitest (o `npm run test` roda de lá).
+const RAIZ = process.cwd()
+const MIGRATION_SLA = join(RAIZ, 'supabase/migrations/20260721000002_config_sla_etapa.sql')
+let PRAZO = ''
+
+beforeAll(() => {
+  const sql = readFileSync(MIGRATION_SLA, 'utf8')
+  const m = /\(\s*'avaliacao_assincrona'\s*,\s*[^,]+,\s*'[^']*'\s*,\s*'([^']*)'\s*\)/.exec(sql)
+  PRAZO = m ? m[1] : ''
+  // População vazia mente: sem o texto, a ausência do caso concluído seria vácua.
+  expect(PRAZO.length, 'o prazo de avaliacao_assincrona extraido da migration nao pode sair vazio').toBeGreaterThan(0)
+  expect(PRAZO.includes('conclua em até'), `o prazo extraido tem de conter «conclua em até»: ${PRAZO}`).toBe(true)
+  mocks.prazo = PRAZO
+})
+
+/** Tokens de moldura de botão: o texto simples do «Próximo passo» não tem nenhum (G-52-4b). */
+const MOLDURA_DE_BOTAO = /^(border|rounded|bg-|px-|py-|p-|inline-flex|shadow)/
 
 const candidatura = {
   id: ID,
@@ -206,6 +237,9 @@ describe('DashboardCandidatoPage — avaliações concluídas (52-04 / D-27)', (
 
     const proximo = await screen.findByTestId('painel-proximo-passo')
     expect(await within(proximo).findByText(FRASE)).toBeInTheDocument()
+    // 52-29 (G-52-4, operador «Esconder»): com tudo concluído, o prazo que mandava concluir some.
+    expect(screen.queryByText(PRAZO) === null, 'a linha de prazo nao pode aparecer com todas as avaliacoes concluidas').toBe(true)
+    expect(screen.queryByText('Estimativa') === null, 'o chip Estimativa nao pode aparecer com todas as avaliacoes concluidas').toBe(true)
     expect(within(proximo).queryAllByRole('button')).toHaveLength(0)
     expect(screen.queryByText(CTA_DE_HOJE)).not.toBeInTheDocument()
 
@@ -227,6 +261,11 @@ describe('DashboardCandidatoPage — avaliações concluídas (52-04 / D-27)', (
     expect(span).not.toHaveClass('truncate')
     expect(span).not.toHaveClass('whitespace-nowrap')
 
+    // 52-29 (G-52-4b): TEXTO SIMPLES, não uma caixa que parece o botão «Retirar minha candidatura».
+    expect(span.getAttribute('data-testid'), 'a frase mora no painel-proximo-passo-texto').toBe('painel-proximo-passo-texto')
+    expect(span.classList.contains('text-base') && span.classList.contains('text-white/90'), `classes do texto simples: ${span.className}`).toBe(true)
+    expect(Array.from(span.classList).filter((c) => MOLDURA_DE_BOTAO.test(c)).join(' | '), 'nenhuma moldura de botao').toBe('')
+
     // A leitura REAL aconteceu — sem isso «zero escrita» seria vácuo.
     expect(sb.from).toHaveBeenCalledWith('candidaturas')
     expect(sb.rpc).toHaveBeenCalledWith('get_avaliacao_status', { p_candidatura_id: ID })
@@ -243,6 +282,10 @@ describe('DashboardCandidatoPage — avaliações concluídas (52-04 / D-27)', (
     expect(screen.queryByText(FRASE)).not.toBeInTheDocument()
     expect(screen.queryByText(SELO)).not.toBeInTheDocument()
     expect(screen.getByText('Aguardando Resposta')).toBeInTheDocument()
+    // 52-29 — com uma pendente o prazo fica: o mock PRODUZ a linha, logo a ausência do caso
+    // concluído não é vácua.
+    expect(screen.queryByText(PRAZO) !== null, 'com uma avaliacao pendente a linha de prazo fica').toBe(true)
+    expect(screen.queryByText('Estimativa') !== null, 'com uma avaliacao pendente o chip Estimativa fica').toBe(true)
     semEscrita()
   })
 
@@ -257,6 +300,8 @@ describe('DashboardCandidatoPage — avaliações concluídas (52-04 / D-27)', (
     const proximo = screen.getByTestId('painel-proximo-passo')
     expect(within(proximo).getByRole('button', { name: CTA_DE_HOJE })).toBeInTheDocument()
     expect(screen.queryByText(FRASE)).not.toBeInTheDocument()
+    // 52-29 — carregando → `concluidas` falso → a linha de prazo fica (D-52-U16).
+    expect(screen.queryByText(PRAZO) !== null, 'status carregando: a linha de prazo fica').toBe(true)
     semEscrita()
   })
 
@@ -271,6 +316,8 @@ describe('DashboardCandidatoPage — avaliações concluídas (52-04 / D-27)', (
     const proximo = screen.getByTestId('painel-proximo-passo')
     expect(within(proximo).getByRole('button', { name: CTA_DE_HOJE })).toBeInTheDocument()
     expect(screen.queryByText(FRASE)).not.toBeInTheDocument()
+    // 52-29 — erro → `concluidas` falso → a linha de prazo fica (D-52-U16).
+    expect(screen.queryByText(PRAZO) !== null, 'status em erro: a linha de prazo fica').toBe(true)
     semEscrita()
   })
 })
