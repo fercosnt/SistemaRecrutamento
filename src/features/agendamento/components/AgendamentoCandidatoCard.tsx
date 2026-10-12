@@ -52,21 +52,27 @@ export interface AgendamentoCandidatoCardProps {
  * (colorblind-safe).
  *
  * 52-28 (G-52-6, decisão do operador «Cancelada» → «Entra junto», 2026-10-12): «Cancelada» é
- * OPACA, o mesmo par do «Rejeitado» do painel (texto claro sobre vermelho escuro, ≥ 4,5:1). Os
- * outros cinco chips seguem o idioma translúcido antigo POR ESCOPO — a decisão nomeou só
- * «Cancelada» — e são residual registrado, não esquecido: o pior caso de cada um, e o das duas
- * notas coloridas deste cartão, sai nas linhas INFORMATIVO do `scripts/p52_contraste.cjs`.
+ * OPACA, o mesmo par do «Rejeitado» do painel (texto claro sobre vermelho escuro, ≥ 4,5:1).
+ *
+ * 52-30 (2026-10-12, decisão do operador na Task 1: «residual_chips_agendamento: consertar agora»):
+ * os outros cinco chips, o descritor de reserva e as duas notas coloridas deste cartão seguem o
+ * MESMO par opaco dos selos do painel — texto -100 sobre o tom -800 da família (cinza -700). A cor
+ * translúcida de antes, sobre o vidro branco do painel, media 1,14–1,46:1 no pior caso (sete linhas
+ * INFORMATIVO do medidor); o par opaco não depende do pixel atrás. O significado de cada cor não
+ * muda; ícone + palavra, nunca só cor. Quem vigia: o `AgendamentoCandidatoCard.test.tsx` (lê os
+ * descritores pela FORMA, contraste ≥ 4,5 pela função do medidor) e os sete cenários
+ * `alvo agendamento-…` do `scripts/p52_contraste.cjs`.
  */
 const STATUS_CONFIG: Record<
   StatusAgendamento,
   { icon: LucideIcon; color: string; bg: string; label: string }
 > = {
-  agendada: { icon: CalendarCheck, color: 'text-green-300', bg: 'bg-green-500/20', label: 'Agendada' },
-  em_andamento: { icon: Clock, color: 'text-blue-300', bg: 'bg-blue-500/20', label: 'Em andamento' },
-  concluida: { icon: CheckCircle2, color: 'text-gray-300', bg: 'bg-gray-500/20', label: 'Concluída' },
-  reagendada: { icon: RefreshCw, color: 'text-yellow-300', bg: 'bg-yellow-500/20', label: 'Reagendada' },
+  agendada: { icon: CalendarCheck, color: 'text-green-100', bg: 'bg-green-800', label: 'Agendada' },
+  em_andamento: { icon: Clock, color: 'text-blue-100', bg: 'bg-blue-800', label: 'Em andamento' },
+  concluida: { icon: CheckCircle2, color: 'text-gray-100', bg: 'bg-gray-700', label: 'Concluída' },
+  reagendada: { icon: RefreshCw, color: 'text-yellow-100', bg: 'bg-yellow-800', label: 'Reagendada' },
   cancelada: { icon: AlertCircle, color: 'text-red-100', bg: 'bg-red-800', label: 'Cancelada' },
-  nao_compareceu: { icon: AlertCircle, color: 'text-gray-300', bg: 'bg-gray-500/20', label: 'Não compareceu' },
+  nao_compareceu: { icon: AlertCircle, color: 'text-gray-100', bg: 'bg-gray-700', label: 'Não compareceu' },
 }
 
 /** Long-form pt-BR date for the screen-reader aria-label (SP-pinned). */
@@ -146,10 +152,11 @@ export function AgendamentoCandidatoCard({ candidaturaId }: AgendamentoCandidato
 
   // ── has-agendamento (row exists — cancelada stays visible) ────────────────
   const row: MeuAgendamentoRow = agendamento
+  // Reserva para um status fora do mapa: o mesmo par cinza opaco do «Concluída» (52-30).
   const statusInfo = STATUS_CONFIG[row.status] ?? {
     icon: AlertCircle,
-    color: 'text-gray-300',
-    bg: 'bg-gray-500/20',
+    color: 'text-gray-100',
+    bg: 'bg-gray-700',
     label: row.status,
   }
   const StatusIcon = statusInfo.icon
@@ -225,14 +232,16 @@ export function AgendamentoCandidatoCard({ candidaturaId }: AgendamentoCandidato
         )}
       </div>
 
-      {/* reagendada / cancelada inline notes */}
+      {/* reagendada / cancelada inline notes — 52-30: cada nota tem SUPERFÍCIE opaca com o mesmo
+          par do chip do seu status (antes, cor translúcida direto sobre o vidro branco: 1,45 e
+          1,18:1 no pior caso). A cópia não muda. */}
       {row.status === 'reagendada' && (
-        <p className="text-sm text-yellow-200/90">
+        <p className="rounded-lg bg-yellow-800 px-3 py-2 text-sm text-yellow-100">
           O horário da sua entrevista foi atualizado.
         </p>
       )}
       {isCancelada && (
-        <p className="text-sm text-red-200/90">
+        <p className="rounded-lg bg-red-800 px-3 py-2 text-sm text-red-100">
           Esta entrevista foi cancelada. Você será avisado aqui se uma nova data for
           marcada.
         </p>

@@ -22,7 +22,9 @@
  *   alvo         o pior caso tem de ser ≥ alvo (4,5:1 para texto, WCAG 1.4.3) — senão reprova
  *   controle     o pior caso tem de ficar ABAIXO do alvo — é a medida mordendo: um controle que
  *                «passa» quer dizer que o medidor ficou cego, e isso reprova
- *   informativo  só imprime o número (residual registrado para o operador); nunca muda a saída
+ *   informativo  só imprime o número (residual registrado para o operador); nunca muda a saída —
+ *                mas a ÂNCORA dele reprova como a de um alvo: consertado o residual, o cenário passa
+ *                a `alvo` no MESMO commit (foi o que o 52-30 fez com os sete `agendamento-…`)
  *
  * Cada camada e cada classe medida tem ÂNCORA no fonte (`{ arquivo, trecho }`): se o código mudar
  * e o cenário não, `CENARIO DESCOLADO DO FONTE` — o medidor não mede uma pilha que o código já não
@@ -47,8 +49,10 @@
  *   CENARIO DESCOLADO DO FONTE: <id> <arquivo> <trecho> | CONTRASTE ERRO: …            exit 1
  *
  * As funções puras são exportadas (`module.exports`): o teste dos selos
- * (`src/components/pages/__tests__/DashboardCandidatoPage.selos.test.tsx`) julga o contraste pela
- * MESMA `contrasteDeClasses` — um teste sobre uma cópia da fórmula não morderia nada.
+ * (`src/components/pages/__tests__/DashboardCandidatoPage.selos.test.tsx`) e o do cartão de
+ * entrevista (`src/features/agendamento/components/__tests__/AgendamentoCandidatoCard.test.tsx`)
+ * julgam o contraste pela MESMA `contrasteDeClasses` — um teste sobre uma cópia da fórmula não
+ * morderia nada.
  */
 
 const fs = require('fs');
@@ -271,25 +275,29 @@ const ANCORAS_PILHA_CARTAO_PAINEL = [
 ];
 
 /*
- * O RESIDUAL do G-52-6 (decisão do operador «Cancelada» → «Entra junto», 2026-10-12): no
- * `AgendamentoCandidatoCard` — montado DENTRO do `GlassCard` do painel, então com a mesma pilha —
- * só «Cancelada» virou opaca. Os outros cinco chips do `STATUS_CONFIG` e as duas notas coloridas do
- * mesmo cartão ficaram de fora POR ESCOPO. Esta lista é esse escopo (o que a decisão deixou de fora),
- * não uma fotografia: cada item vira um cenário `informativo`, com o pior caso medido, para o
- * operador decidir com número. Âncora: a linha da entrada (chave e as duas classes) ou a classe da
- * nota no fonte — se o código mudar, o cenário descola e reprova.
+ * G-52-6 no `AgendamentoCandidatoCard` — montado DENTRO do `GlassCard` do painel, então com a mesma
+ * pilha. No 52-28 só «Cancelada» virou opaca (decisão «Entra junto»); os outros cinco chips do
+ * `STATUS_CONFIG` e as duas notas coloridas ficaram como residual MEDIDO — sete cenários
+ * `informativo`, pior caso 1,14–1,46:1 (nota de cancelada 1,18). Em 2026-10-12, na Task 1 do 52-30,
+ * o operador decidiu «residual_chips_agendamento: consertar agora»: mesmo defeito e mesmo par opaco
+ * dos selos; a nota de cancelada é a que o candidato mais precisa ler. Desde então os sete são
+ * cenários `alvo` (4,5:1): cada chip é o par opaco dos selos (texto -100 sobre o tom -800 da família,
+ * cinza -700) e cada nota ganhou uma SUPERFÍCIE opaca com o mesmo par — composta pela pilha real, a
+ * superfície opaca dá o mesmo número em todo pixel, e é exatamente isso que se quer. Âncora: a linha
+ * da entrada (chave e as duas classes) ou a guarda da nota seguida do `<p>` com a classe de texto E a
+ * de superfície — se o código mudar, o cenário descola e reprova.
  */
 const AGENDA = 'src/features/agendamento/components/AgendamentoCandidatoCard.tsx';
-const CHIPS_RESIDUAIS = [
-  { chave: 'agendada', color: 'text-green-300', bg: 'bg-green-500/20' },
-  { chave: 'em_andamento', color: 'text-blue-300', bg: 'bg-blue-500/20' },
-  { chave: 'concluida', color: 'text-gray-300', bg: 'bg-gray-500/20' },
-  { chave: 'reagendada', color: 'text-yellow-300', bg: 'bg-yellow-500/20' },
-  { chave: 'nao_compareceu', color: 'text-gray-300', bg: 'bg-gray-500/20' },
+const CHIPS_AGENDAMENTO = [
+  { chave: 'agendada', color: 'text-green-100', bg: 'bg-green-800' },
+  { chave: 'em_andamento', color: 'text-blue-100', bg: 'bg-blue-800' },
+  { chave: 'concluida', color: 'text-gray-100', bg: 'bg-gray-700' },
+  { chave: 'reagendada', color: 'text-yellow-100', bg: 'bg-yellow-800' },
+  { chave: 'nao_compareceu', color: 'text-gray-100', bg: 'bg-gray-700' },
 ];
-const NOTAS_RESIDUAIS = [
-  { id: 'reagendada', texto: 'text-yellow-200/90', guarda: "row.status === 'reagendada' && (" },
-  { id: 'cancelada', texto: 'text-red-200/90', guarda: 'isCancelada && (' },
+const NOTAS_AGENDAMENTO = [
+  { id: 'reagendada', texto: 'text-yellow-100', superficie: 'bg-yellow-800', guarda: "row.status === 'reagendada' && (" },
+  { id: 'cancelada', texto: 'text-red-100', superficie: 'bg-red-800', guarda: 'isCancelada && (' },
 ];
 const ANCORA_CARTAO_DENTRO_DO_GLASSCARD = {
   arquivo: DASH,
@@ -386,9 +394,9 @@ const CENARIOS = [
     texto: 'text-white/60',
     ancoras: [],
   },
-  ...CHIPS_RESIDUAIS.map((c) => ({
+  ...CHIPS_AGENDAMENTO.map((c) => ({
     id: `agendamento-chip-${c.chave}`,
-    tipo: 'informativo',
+    tipo: 'alvo',
     alvo: 4.5,
     pilha: PILHA_CARTAO_PAINEL,
     superficie: c.bg,
@@ -399,17 +407,22 @@ const CENARIOS = [
       { arquivo: AGENDA, trecho: new RegExp(`^\\s*${esc(c.chave)}: \\{[^\\n]*color: '${esc(c.color)}', bg: '${esc(c.bg)}'`, 'm') },
     ],
   })),
-  ...NOTAS_RESIDUAIS.map((n) => ({
+  ...NOTAS_AGENDAMENTO.map((n) => ({
     id: `agendamento-nota-${n.id}`,
-    tipo: 'informativo',
+    tipo: 'alvo',
     alvo: 4.5,
     pilha: PILHA_CARTAO_PAINEL,
-    superficie: null,
+    superficie: n.superficie,
     texto: n.texto,
     ancoras: [
       ...ANCORAS_PILHA_CARTAO_PAINEL,
       ANCORA_CARTAO_DENTRO_DO_GLASSCARD,
-      { arquivo: AGENDA, trecho: new RegExp(`${esc(n.guarda)}\\n\\s*<p className="[^"\\n]*${tok(n.texto)}`) },
+      // A guarda da nota, e logo abaixo o `<p>` cujo className tem a classe de TEXTO e a de SUPERFÍCIE
+      // (em qualquer ordem) — trocar uma das duas, ou tirar a superfície, descola o cenário.
+      {
+        arquivo: AGENDA,
+        trecho: new RegExp(`${esc(n.guarda)}\\n\\s*<p className="(?=[^"\\n]*${tok(n.texto)})(?=[^"\\n]*${tok(n.superficie)})[^"\\n]*">`),
+      },
     ],
   })),
   ...TEXTOS_DO_CARTAO.map((t) => ({
