@@ -804,7 +804,7 @@ Plans:
 
 **Gap closure do UAT da 52** *(UAT 2026-10-12, `52-UAT.md` diagnosed; ondas do frontmatter: 52-28 = 3, 52-29 = 4, 52-30 = 13; rodar com `/gsd-execute-phase 52 --gaps-only`)*
 - [ ] 52-28-PLAN.md — G-52-6: medidor de contraste `scripts/p52_contraste.cjs` (pior caso sobre o fundo real, controle negativo); caixa da rejeição no painel com superfície azul-marinho e «Agradecemos» em 16px; todos os selos de `getStatusInfo` opacos; «Cancelada» do `AgendamentoCandidatoCard`
-- [ ] 52-29-PLAN.md — G-52-4 (linha de prazo some com tudo concluído), G-52-4b («Próximo passo» sem ação vira texto simples), G-52-2 (alternativa marcada do Raven: borda azul-marinho, anel branco, check; foco de teclado distinto)
+- [ ] 52-29-PLAN.md — G-52-4 (linha de prazo some com tudo concluído), G-52-4b («Próximo passo» sem ação vira texto simples), G-52-2 (alternativa marcada do Raven: borda azul-marinho, anel branco, check; foco de teclado distinto); teste que morde do motivo de rejeição desconhecido cru no contexto da revisão (ressalva do teste 15)
 - [ ] 52-30-PLAN.md — Review `52-REVIEW-UAT`, janela única por escrito, push por sha, marcadores no chunk de PROD, conferência visual do operador (desktop e 360px, sem cache)
 
 **Wave 13** *(checkpoint; só depois da UAT da 52 e com backup diário COMPLETED posterior ao último apply da fase — D-41 emendada em 2026-10-11, PITR recusado —, os dois conferidos por máquina)*

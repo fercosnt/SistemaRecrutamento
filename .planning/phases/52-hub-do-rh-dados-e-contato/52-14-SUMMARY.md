@@ -21,7 +21,8 @@ actuals:
   tasks: 2
   commits: 10
 plan_head_before: 77d2ae2b42cc9c1a6bbe6eb97a3423ca4016293d
-plan_head_after: 355f124924b2d7dc0d2ad1ab3d2cfa1a7dbf4d5b
+plan_head_after: 355f1249762b11455eb2513109232b6a7fe56e03
+errata_plan_head_after: "2026-10-12 (UAT da 52): o valor gravado era 355f124924b2d7dc0d2ad1ab3d2cfa1a7dbf4d5b — prefixo certo, cauda inventada, objeto inexistente no repo; corrigido para o sha real de 355f1249 (git rev-parse). Com ele, git rev-list --count 77d2ae2b..355f1249 = 10, igual ao «commits: 10 medido» do corpo."
 
 tech-stack:
   added: []
