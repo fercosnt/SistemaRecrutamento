@@ -714,3 +714,194 @@ R4 **aceitar** (os tipos são regenerados no 52-32, que retira o cast estreito).
 de desenho (verbatim na DECISAO) ficam como contexto. Janela única confirmada por escrito; D-52-G7-1 confirmada;
 nenhum achado destrutivo (item (h) não se aplica). Task 4 encerrada — a próxima é a Task 5 (pin, Passo 0b, apply),
 e este commit da FRONTEIRA vem ANTES do pin.
+
+---
+
+## §Task 5 — sessão C, 2026-10-12 ([BLOCKING] apply, provas em PROD, db:types só como prova, push)
+
+### Precondition (medida 2026-10-12T21:03:56Z, HEAD `954b3e4b`) — satisfeita
+
+- `<verify>` 1 da Task 4 de novo, como escrito: `PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7-1.md reviewed_head=133429d103c7e70d589b6068f33dbb76fc3f3d46 pin=- modo=revisao` (exit 0).
+- `<verify>` 2 da Task 4 de novo: `decisao do G-52-7: aplicar sobre 52-REVIEW-G7-1.md (warnings=2)` (exit 0) — `janela_unica: confirmada`, `d52_g7_1: confirmada`, resposta verbatim.
+- Ledger só leitura: `{"no_ledger": 0, "ausente": true}` (`20261011000006` fora do ledger; função ausente).
+- `git status --porcelain -- supabase src scripts e2e docs/compliance p46apply.cjs efdeploy.cjs database.types.ts` vazio; nenhum `52-31-SUMMARY.md`; `refs/gsd/52-31/sha` inexistente antes do Passo 0.
+
+### Passo 0 — pin (2026-10-12T21:04:05Z)
+
+`git rev-parse --verify -q refs/gsd/52-31/sha || git update-ref refs/gsd/52-31/sha HEAD ""` → rc=0;
+**`refs/gsd/52-31/sha` = `954b3e4b33a6cd290241793bf1df000083a49d81`** = HEAD = o commit da FRONTEIRA §Task 4 (commitada
+ANTES do pin, regra do plano). Entre o pin e o apply: nenhum commit (esta seção ficou só no disco até depois do
+registro do apply).
+
+### Passo 0b — re-medição imediatamente antes (HEAD = pin `954b3e4b`) — VERDE
+
+Ensaio exato (`node scripts/p52_ensaio.cjs --migracoes=supabase/migrations/20261011000006_p52_vagas_das_minhas_candidaturas.sql supabase/tests/p52_painel_vaga_smoke.sql`), 2026-10-12T21:04:18Z, exit 0:
+
+```
+ensaio: prefixadas=[20261011000006] aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005] ausentes=[20261011000004] arquivos=supabase/tests/p52_painel_vaga_smoke.sql
+ENSAIO VERDE: supabase/tests/p52_painel_vaga_smoke.sql · prefixadas=[20261011000006] · aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005] · ausentes=[20261011000004] · smokes=[52p=10/10] · evidencia=painel:vagas_candidato=ok 52p.pop=cand:22,naturais:16 52p.alvo=publica · 877 ms
+```
+
+(A primeira rodada, às 21:04:09Z, imprimiu a mesma linha `ENSAIO VERDE … 52p=10/10 … 1175 ms`, mas o exit não foi
+capturado — `PIPESTATUS` não existe no zsh do terminal; repetida com o exit capturado, acima. Ensaio que aborta: nada
+persiste.)
+
+Último `<automated>` da Task 2 (tipografia, build, marcadores), 2026-10-12T21:04:25Z → 21:04:31Z, exit 0:
+
+```
+TIPOGRAFIA OK (71 linhas acrescentadas varridas)
+marcadores no chunk eager do candidato
+```
+
+`grep -rl` → `painel-vaga-titulo` e `ler_vagas_das_minhas_candidaturas` ambos em `build/assets/index-CFPYr-z6.js` (o
+mesmo chunk da §Task 2 e do revisor). Árvore vigiada limpa depois do build.
+
+### Passo 1 — apply e o instante, num comando só (o comando do plano, byte a byte; 2026-10-12T21:04:37Z → 21:04:41Z) — VERDE
+
+```
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7-1.md reviewed_head=133429d103c7e70d589b6068f33dbb76fc3f3d46 pin=954b3e4b33a6cd290241793bf1df000083a49d81 modo=apply
+registro: 20261011000006 aplicado_ate 2026-10-12T21:04:42Z
+
+── 20261011000006_p52_vagas_das_minhas_candidaturas.sql
+   version : 20261011000006
+   name    : p52_vagas_das_minhas_candidaturas
+   octetos : 17020
+   md5     : 810bbace769390c8ab1b78324ecc388b
+   ✅ aplicada e escriturada — md5 do ledger BATE (17020 octetos)
+APPLY EXIT=0
+```
+
+(`aplicado_ate` = `now()` do servidor arredondado para cima, lido só leitura depois da resposta do `migrate`; o relógio
+local marcava 21:04:41Z no fim do comando — o servidor está à frente por fração de segundo, e o teto nunca põe o
+instante antes do COMMIT.) Nenhuma recusa do portão nem do PRE/POS; nenhum `55P03`/`57014`; registro gravado pela
+máquina no mesmo comando (nenhuma entrada à mão).
+
+Registro commitado sozinho: **`b0945868`** `docs(52-31): instante do apply da 20261011000006 (D-41 emendada, condicao 1 — ultimo apply da fase)` — só `52-APLICACOES.json` (+5 linhas: a entrada da 0006).
+`git rev-list refs/gsd/52-31/sha..b0945868` = só `b0945868` → nenhum commit entre o pin e o apply.
+
+### Passo 2 — provas em PROD
+
+`<verify>` 1 da Task 5 (só leitura), 2026-10-12T21:04:57Z, exit 0:
+
+```
+G-52-7 em PROD: ledger = arquivo; RPC no contrato de catalogo; anon e PUBLIC sem EXECUTE, authenticated com; registro cobre 5 versoes p52; ultimo apply da fase = 20261011000006 2026-10-12T21:04:42Z
+```
+
+`<verify>` 2 da Task 5 (smoke52p CONTRA O VIVO e P1–P10 em `--pos-apply`), 2026-10-12T21:05:01Z → 21:05:21Z, exit 0:
+
+```
+ENSAIO VERDE: supabase/tests/p52_painel_vaga_smoke.sql · prefixadas=[] · aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005,20261011000006] · ausentes=[20261011000004] · smokes=[52p=10/10] · evidencia=52p.pop=cand:22,naturais:16 52p.alvo=publica · 811 ms
+P1 morde: … -> P52P FAIL (b) [outro_elementos_que_nao_sao_dele:42,outro_ve_candidaturas_do_dono:2,sub_sem_candidato:ok:n=44] (987 ms)
+P2 morde: … filtro de vaga publica (status = 'ativa' AND deleted_at IS NULL) no WHERE -> P52P FAIL (a) […] 
+P3 morde: … 'status', v.status na projecao -> P52P FAIL (c) [dono_vivo_chaves:candidatura_id|departamento|status|titulo,…]
+P4 morde: … a guarda aceita rh e administrador -> P52P FAIL (g) [administrador_sub_do_admin:ok:n=3,rh_sub_do_recrutador:ok:n=0,administrador_sub_do_dono:ok:n=2] (1456 ms)
+P5 morde: GRANT EXECUTE … a anon depois da migration -> P52P FAIL (f) [anon_com_execute:true,anon_chamada:err:42501:forbidden] (1392 ms)
+P6 morde: … sem AND c.is_rascunho = false -> P52P FAIL (h) [rascunho_diferente_do_vivo_menos_o_alvo:n=2/esperado=1] (706 ms)
+P7 morde: … AND v.deleted_at IS NULL no WHERE -> P52P FAIL (i) [alvo_sem_titulo_e_departamento_da_vaga_apagada:ok:n=1] (1191 ms)
+P8 morde: … a guarda sem v_uid IS NULL OR -> P52P FAIL (e) [candidato_sem_sub:ok:n=0] (804 ms)
+P9 morde: … sem a guarda de papel -> P52P FAIL (e) [sem_claims:ok:n=0,sem_papel:ok:n=2,candidato_sem_sub:ok:n=0] (1533 ms)
+P10 morde: … CROSS JOIN (VALUES (1), (2)) logo depois da juncao de vagas (cada candidatura duas vezes) -> P52P FAIL (d) [repetidas:32_linhas_em_22/22_candidatos] (1661 ms)
+leitura so-leitura igual a baseline: ledger=["20261011000001","20261011000002","20261011000003","20261011000005","20261011000006"] funcoes=8 mutacoes_p52=0 fixtures_p52={"users":0,"candidatos":0}
+MUTACOES: 10/10 mordem; controle verde; nada persistiu (so=P1,P2,P3,P4,P5,P6,P7,P8,P9,P10) (pos-apply) (aposentadas: B1,B2,B3,B4,B5,B6)
+```
+
+(As linhas `Pn morde` acima foram encurtadas com `…` só no nome repetido da função e em listas longas de rótulos; as
+linhas `ENSAIO VERDE`, `leitura so-leitura` e `MUTACOES:` estão inteiras. Cada P morde na sua letra, como no ensaio da
+§Task 2: P1→b, P2→a, P3→c, P4→g, P5→f, P6→h, P7→i, P8→e, P9→e, P10→d.)
+
+### Passo 3 — prova do db:types (só leitura; nada commitado), 2026-10-12T21:05:30Z → 21:05:33Z — VERDE
+
+`supabase` CLI já instalado (`/opt/homebrew/bin/supabase`), **versão 2.116.0** (nenhuma instalação; o aviso de versão
+nova v2.120.0 foi ignorado). `<verify>` 3 como escrito, `< /dev/null` incluso, temporário por `mktemp` e removido:
+
+```
+db:types (so prova): rc=0 octetos=223687 linhas+=2 linhas-=1 funcao=presente
+database.types.ts versionado intacto (D-52-G7-5)
+```
+
+Temporário 223687 octetos contra o versionado 223613 (+74); diff = +2/−1 linhas, compatível só com a entrada da função
+nova (nenhuma deriva alheia acusada pelo número de linhas). `git status --porcelain -- database.types.ts` vazio; o
+cast estreito sai no 52-32 (R4/DECISAO), que regenera os tipos.
+
+### Passo 4 — o «Comando de push» do `<context>`, byte a byte (2026-10-12T21:05:41Z → 21:05:49Z) — VERDE
+
+**`R` = `70528fbaa96ca6e6f1381a5d7e4cfdc1807ddae8`** (origin/main antes) · **`S` = `b0945868c9f37f2003b1c8bd01019e0691754569`** (HEAD).
+
+```
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7-1.md reviewed_head=133429d103c7e70d589b6068f33dbb76fc3f3d46 pin=954b3e4b33a6cd290241793bf1df000083a49d81 modo=push ledger=[20261011000001,20261011000002,20261011000003,20261011000005,20261011000006]
+de7d5f1f8dcf0d124e0e83f937fb61f051a7d09e planning docs(52-30): SUMMARY — publicacao dos consertos do UAT da 52 (push por sha 70528fba, deploy git-source apos incidente da Vercel, conferencia visual aprovada, gap novo da vaga inativa)
+7f46b8ee0d65ee62d65852c3f003c5425927d2f9 planning docs(phase-52): tracking a mao apos a onda 3 do gap closure — 52-30 concluido e publicado (25/30); backlog e gap novo nos Pending Todos
+73976117f950d8aef7653a78b33d9494ec1f6148 planning docs(phase-52): UAT reconciliado a mao — G-52-2, G-52-4, G-52-4b e G-52-6 resolved com a evidencia da Task 3 do 52-30; G-52-7 (vaga inativa no painel) registrado como gap da fase
+db97d12edd68b5325170804c0e8de373a38702f2 planning docs(52-31): plano do gap G-52-7 — titulo e departamento da vaga inativa no painel do candidato por RPC com guarda de posse e allowlist (onda 14)
+67f8fff9544a7d3b3a2a1a70867d42b5b0a7554f planning docs(52-31): revisão 1 do plano — fronteira de retomada depois do tracer, P10 morde (d), re-portão antes do review novo, ordem 52-31 → 52-19 no grafo
+3bb37097c79c8aae881dba8a3b68a502dc74d0cb planning docs(52-31): revisão 2 — fronteira da sessão A fora do SUMMARY e parada mecânica na tracer
+eec21fc2bfea4bf3d24569e9b5394a2188fc2d0a planning docs(phase-52): tracking a mao — 52-31 (G-52-7) planejado e verificado em 3 rodadas (0 blockers, 0 warnings, 2 INFO); ROADMAP 25/31; proximo /gsd-execute-phase 52 --gaps-only
+0606acdbf78be1fa37e53e4b70403d9959eafb38 codigo feat(52-31): ler_vagas_das_minhas_candidaturas — o candidato le titulo e departamento da vaga das proprias candidaturas em qualquer status (G-52-7)
+e7f4054d159195ef0d53ce6ef28fd2f9a8597ee9 codigo chore(52-31): p52_ensaio conhece a 20261011000006 (MIGS na ordem de aplicacao, par 52p)
+e307fd7893c815854e6998f07722150c1da56825 codigo test(52-31): smoke52p (tracer — dono le vaga inativa, outro candidato nao, allowlist exata)
+a103a180f82cdfdf5a3d2d4e31ad4f5725fc2a3e codigo test(52-31): painel com vaga inativa mostra titulo e departamento (vermelho antes do conserto)
+38d654212d5d24e4c38c3d7d393fddaeb4853390 codigo fix(52-31): painel do candidato mescla titulo e departamento da RPC quando o embed da vaga vem nulo (G-52-7)
+b92ed23a98e0d3fffb309ff0271939f4a4a50e1a planning docs(52-31): registro entre sessoes §Task 1 — tracer verde (fronteira de retomada da sessao A)
+b326a2157ef5a18384ee2631200046530ff0055a codigo test(52-31): smoke52p completo (10 clausulas) e mutacoes P1-P10
+587481acc153e1a7f1ea78e2509bf8a8363b3566 codigo test(52-31): a mescla do servico e os casos restantes do painel (erro da RPC, embed presente, dialogo de retirada)
+17b5042908d37999fe2618819827a74b9fb2fe07 planning docs(52-31): emenda datada do G-52-7 no UAT — vaga com deleted_at mostra o titulo (D-52-G7-1); a leitura entrega so titulo e departamento (D-52-G7-4)
+133429d103c7e70d589b6068f33dbb76fc3f3d46 planning docs(52-31): registro entre sessoes §Tasks 2-3 — residuais medidos e emenda do UAT (fronteira da sessao B)
+e6fbeaf9d43e55750d3dc3bb6b9a05da070c962c planning docs(52-31): review adversarial do G-52-7 — 52-REVIEW-G7-1 (critical 0, warning 2, info 9)
+68b7ad3bbde8bf861d8e0387a6c80dd5727c4548 planning docs(52-31): registro entre sessoes §Task 4 — review G7-1 no portao, perguntas ao operador
+2721ef7164dde183b67a4eb91bec6abbabf7de51 planning docs(52-31): decisao do G-52-7 — aplicar sobre 52-REVIEW-G7-1 (warnings 2: WR-01 backlog, WR-02 ao 52-32; R1 plano-novo 52-32, R2 aceitar, R3 backlog, R4 aceitar)
+954b3e4b33a6cd290241793bf1df000083a49d81 planning docs(52-31): registro entre sessoes §Task 4 — decisao do operador registrada
+b0945868c9f37f2003b1c8bd01019e0691754569 planning docs(52-31): instante do apply da 20261011000006 (D-41 emendada, condicao 1 — ultimo apply da fase)
+enumeracao ok: 22 commit(s) em 70528fba..b0945868 · codigo coberto por 52-REVIEW-G7-1.md (reviewed_head 133429d1) · codigo contido no apply 954b3e4b
+```
+
+`git push` (stderr): `To github.com:fercosnt/SistemaRecrutamento.git` / `70528fba..b0945868  b0945868c9f37f2003b1c8bd01019e0691754569 -> main`; exit 0.
+
+22 commits: **15 `planning`** (`de7d5f1f`, `7f46b8ee`, `73976117` entre eles) e **7 `codigo`** (todos ancestrais do
+`reviewed_head` `133429d1` e do pin `954b3e4b`), **0 ALHEIO**. Nenhum `PORTAO RECUSADO`, `COMMIT ALHEIO: PARAR` nem
+`REVISAO NAO COBRE A BASE`; `merge-base --is-ancestor R S` verdadeiro. O comando não foi reescrito, o `--caminhos`
+não foi alargado e o pin não se moveu.
+
+### Passo 5 — `<verify>` 4 logo depois do push (sem commit no meio), 2026-10-12T21:05:52Z → 21:05:55Z — VERDE
+
+```
+origin/main = HEAD; pin 52-31 e os tres commits de .planning no remoto; nada local
+```
+
+### Passo 6 — `<verify>` 5, repetido sem mudança até aparecer — VERDE
+
+```
+[1] 2026-10-12T21:06:02Z rc=1 :: AUSENTE no chunk index de PROD: painel-vaga-titulo, ler_vagas_das_minhas_candidaturas (visitados=53; achados={"painel-vaga-titulo":[],"ler_vagas_das_minhas_candidaturas":[]})
+[2] 2026-10-12T21:07:18Z rc=0 :: PRESENTE em PROD (chunk index): {"painel-vaga-titulo":["/assets/index-CFPYr-z6.js"],"ler_vagas_das_minhas_candidaturas":["/assets/index-CFPYr-z6.js"]}
+```
+
+**Chunk em PROD = `assets/index-CFPYr-z6.js`** às 2026-10-12T21:07:18Z (~1,5 min depois do push de 21:05:49Z), o mesmo
+hash do build local da Passo 0b e do build do revisor: o que está no ar é byte a byte o que foi medido e revisado. O
+deploy automático da Vercel construiu sozinho desta vez (o incidente do 52-30 não se repetiu); nenhum deploy à mão,
+nenhum `efdeploy.cjs`, nada do disco local.
+
+### D-41 emendada, condição 1 — consequência deste apply
+
+O `aplicado_ate` da 0006 é **`2026-10-12T21:04:42Z`**, o maior do `52-APLICACOES.json` (o `<verify>` 1 confere).
+**O 52-19 só depois de um backup diário COMPLETED posterior a `2026-10-12T21:04:42Z`; na prática, a manhã seguinte**
+(depois do backup das ~06:28 UTC de 2026-10-13), nunca nesta tarde. Por decisão do operador (`52-31-DECISAO.md`), o
+plano novo **52-32 vem antes do 52-19**; se ele aplicar migration, o «último apply da fase» passa a ser o dele e a
+espera do 52-19 se recalcula pelo `aplicado_ate` do 52-32 (o `p52_backup.cjs` lê o maior por forma).
+
+### Origin/main depois desta parada
+
+`origin/main` = `b0945868` = HEAD até este ponto. O commit desta FRONTEIRA (e, depois da Task 6, o do
+`52-31-SUMMARY.md`) **reabrem `git log origin/main..HEAD` só com `.planning/`** — esperado e declarado: sobem no
+próximo push com plano (o do 52-32 ou o do bloco D), como `de7d5f1f`/`7f46b8ee`/`73976117` subiram neste.
+
+### Desvios e observações (Task 5)
+
+1. **Passo 0b rodado duas vezes** (o exit da primeira não foi capturado por causa do `PIPESTATUS` no zsh); as duas
+   imprimiram `ENSAIO VERDE … smokes=[52p=10/10]`. Ensaio que aborta — nada persistiu (confirmado de novo pela
+   linha `leitura so-leitura igual a baseline` do Passo 2).
+2. Os comandos do plano (apply, os cinco `<verify>`, o «Comando de push») foram extraídos das linhas do
+   `52-31-PLAN.md` por máquina para scripts no scratchpad e rodados com `bash`, sem edição — cópia byte a byte (o
+   plano não tem entidades HTML a decodificar).
+3. Nada além dos comandos do plano tocou PROD: nenhum `p46apply.cjs run`, `supabase db push`, `efdeploy.cjs` nem
+   deploy manual da Vercel. Nenhum `52-31-SUMMARY.md`; STATE/ROADMAP intocados.
+
+fronteira_retomada: sessao_c_parada 2026-10-12T21:08Z head=b0945868c9f37f2003b1c8bd01019e0691754569
