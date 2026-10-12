@@ -33,8 +33,8 @@ export const COPY_PAINEL_AVALIACOES = {
 /** O tratamento neutro do selo (o mesmo de «Finalizado»): esperar a equipe não é alarme nem vitória. */
 const SELO_AGUARDANDO_EQUIPE = {
   icon: Clock,
-  color: 'text-gray-300',
-  bg: 'bg-gray-500/20',
+  color: 'text-gray-100',
+  bg: 'bg-gray-700',
   label: COPY_PAINEL_AVALIACOES.selo,
 };
 
@@ -122,20 +122,27 @@ export function DashboardCandidatoPage() {
    * (varredura 48 §2). `hasDecisaoFinal` abaixo NÃO usa o helper e não muda (D-12).
    */
 
+  /**
+   * 52-28 (G-52-6, decisão do operador «Todos os selos»): todo selo tem fundo OPACO, texto claro
+   * sobre o tom escuro da mesma família (o significado de cada cor não muda; ícone + palavra,
+   * nunca só cor). A cor translúcida de antes, sobre o vidro branco do painel, media 1,3–3,6:1
+   * conforme o pixel atrás; o selo opaco não depende do fundo. Quem vigia: o
+   * `DashboardCandidatoPage.selos.test.tsx` (lê os descritores pela forma, contraste ≥ 4,5).
+   */
   const getStatusInfo = (status: string | null | undefined) => {
     switch (status) {
       case 'aguardando_resposta':
-        return { icon: FileText, color: 'text-blue-300', bg: 'bg-blue-500/20', label: 'Aguardando Resposta' };
+        return { icon: FileText, color: 'text-blue-100', bg: 'bg-blue-800', label: 'Aguardando Resposta' };
       case 'em_analise':
-        return { icon: Clock, color: 'text-yellow-300', bg: 'bg-yellow-500/20', label: 'Em Análise' };
+        return { icon: Clock, color: 'text-yellow-100', bg: 'bg-yellow-800', label: 'Em Análise' };
       case 'aprovado_proxima':
-        return { icon: CheckCircle2, color: 'text-green-300', bg: 'bg-green-500/20', label: 'Aprovado - Próxima Etapa' };
+        return { icon: CheckCircle2, color: 'text-green-100', bg: 'bg-green-800', label: 'Aprovado - Próxima Etapa' };
       case 'rejeitado':
         return { icon: AlertCircle, color: 'text-red-100', bg: 'bg-red-800', label: 'Rejeitado' };
       case 'finalizado':
-        return { icon: CheckCircle2, color: 'text-gray-300', bg: 'bg-gray-500/20', label: 'Finalizado' };
+        return { icon: CheckCircle2, color: 'text-gray-100', bg: 'bg-gray-700', label: 'Finalizado' };
       default:
-        return { icon: FileText, color: 'text-gray-300', bg: 'bg-gray-500/20', label: status };
+        return { icon: FileText, color: 'text-gray-100', bg: 'bg-gray-700', label: status };
     }
   };
 

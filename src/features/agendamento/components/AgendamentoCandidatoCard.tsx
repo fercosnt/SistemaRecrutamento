@@ -50,6 +50,12 @@ export interface AgendamentoCandidatoCardProps {
  * Status → chip presentation. Reuses the file's `getStatusInfo` color grammar (verbatim
  * tokens per 35-UI-SPEC). Every chip carries a TEXT label alongside the color
  * (colorblind-safe).
+ *
+ * 52-28 (G-52-6, decisão do operador «Cancelada» → «Entra junto», 2026-10-12): «Cancelada» é
+ * OPACA, o mesmo par do «Rejeitado» do painel (texto claro sobre vermelho escuro, ≥ 4,5:1). Os
+ * outros cinco chips seguem o idioma translúcido antigo POR ESCOPO — a decisão nomeou só
+ * «Cancelada» — e são residual registrado, não esquecido: o pior caso de cada um, e o das duas
+ * notas coloridas deste cartão, sai nas linhas INFORMATIVO do `scripts/p52_contraste.cjs`.
  */
 const STATUS_CONFIG: Record<
   StatusAgendamento,
@@ -59,7 +65,7 @@ const STATUS_CONFIG: Record<
   em_andamento: { icon: Clock, color: 'text-blue-300', bg: 'bg-blue-500/20', label: 'Em andamento' },
   concluida: { icon: CheckCircle2, color: 'text-gray-300', bg: 'bg-gray-500/20', label: 'Concluída' },
   reagendada: { icon: RefreshCw, color: 'text-yellow-300', bg: 'bg-yellow-500/20', label: 'Reagendada' },
-  cancelada: { icon: AlertCircle, color: 'text-red-300', bg: 'bg-red-500/20', label: 'Cancelada' },
+  cancelada: { icon: AlertCircle, color: 'text-red-100', bg: 'bg-red-800', label: 'Cancelada' },
   nao_compareceu: { icon: AlertCircle, color: 'text-gray-300', bg: 'bg-gray-500/20', label: 'Não compareceu' },
 }
 
