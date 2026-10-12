@@ -352,3 +352,9 @@ Nenhum.
 ---
 *Phase: 52-hub-do-rh-dados-e-contato*
 *Completed: 2026-10-12*
+
+## Self-Check: PASSED
+
+- FOUND: os 6 arquivos de código/teste/medidor e este SUMMARY
+- FOUND commits: 3810ae7e, c45e9136, 7669a3b2, a2af65ca, c3517ee6, 4bb2b66b, 5dc5dcf9, 02924e2e (ancestrais de HEAD)
+- Árvore: só os arquivos das outras janelas seguem sujos, intocados
