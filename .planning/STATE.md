@@ -214,7 +214,7 @@ Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 52 — Hub do RH — Dados, Contato e Avaliações do Candidato (gap closure 52-28..31 concluído; **52-32 PLANEJADO** em 2026-10-12 (leitores do embed, WR-02, db:types; 8 tasks em 4 sessões) — próximo: `/gsd-execute-phase 52 --gaps-only`, sessão A só até a Task 1; depois, na ordem do operador de 2026-10-12 («tudo hoje», segunda emenda da D-41 em `52-DECISAO-2026-10-12-bloco-d-hoje.md`): `/gsd-verify-work 52` → 52-19 → 52-20/27 → 52-21 → 52-22)
+**Current focus:** Phase 52 — Hub do RH — Dados, Contato e Avaliações do Candidato (gap closure 52-28..31 concluído; **52-32 PLANEJADO** em 2026-10-12 (leitores do embed, WR-02, db:types; 8 tasks em 4 sessões) — próximo: `/gsd-execute-phase 52 --gaps-only`, sessão A só até a Task 1; depois `/gsd-verify-work 52` até `complete` AINDA HOJE; o bloco D (52-19 → 52-20/27 → 52-21 → 52-22) só AMANHÃ, 2026-10-13, depois do backup diário de ~06:30Z, com o `p52_backup.cjs` como está — correção do operador de 2026-10-12 22:50Z em `52-DECISAO-2026-10-12-bloco-d-hoje.md` § «Correção de ordem»; a segunda emenda da D-41 fica registrada e não é usada; vagas reais INATIVAS podem entrar em PROD hoje pela janela de cadastro, ativação só depois do 52-21)
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
@@ -1816,7 +1816,7 @@ blocker; todos estão rastreados em arquivo.
 ## Session Continuity
 
 Last session: 2026-10-12T22:40:00.000Z
-Stopped at: Phase 52 — 52-32 planejado e verificado (0 blockers, 0 warnings, 5 INFO); decisão «fechar o sistema hoje» gravada (segunda emenda da D-41); próximo: /gsd-execute-phase 52 --gaps-only (sessão A só até a Task 1 do 52-32), depois /gsd-verify-work 52 → 52-19 → 52-20/27 → 52-21 → 52-22
+Stopped at: Phase 52 — 52-32 planejado e verificado (0 blockers, 0 warnings, 5 INFO); decisão «fechar o sistema hoje» gravada (segunda emenda da D-41); próximo: /gsd-execute-phase 52 --gaps-only (sessão A só até a Task 1 do 52-32), depois /gsd-verify-work 52 hoje; bloco D (52-19 → 52-20/27 → 52-21 → 52-22) amanhã 2026-10-13 após o backup de ~06:30Z (correção do operador 22:50Z)
 Resume file: .planning/phases/52-hub-do-rh-dados-e-contato/52-32-PLAN.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

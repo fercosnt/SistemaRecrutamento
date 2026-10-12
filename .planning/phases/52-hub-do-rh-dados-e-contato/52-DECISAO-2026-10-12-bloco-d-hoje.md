@@ -40,3 +40,21 @@ Agora: /gsd-plan-phase 52 --gaps (52-32).
 5. **Janela de cadastro de vagas:** não grava em PROD nem commita até o 52-22 fechar (memória «publicação com janela concorrente: pausar»).
 
 Efeito sobre textos existentes: a frase «na prática, a manhã seguinte» da R5 (52-31) e das linhas emendadas do `52-19-PLAN.md` (:24, :120, :148) fica superada por esta emenda; o `p52_backup.cjs` do 52-19, que exige backup posterior ao maior `aplicado_ate`, recusaria hoje por construção — o 52-19 tem de ler ESTA emenda (o planejamento do bloco D decide se o `--auto-teste`/modo real ganham a condição 3 acima ou se o plano é emendado) — levar ao `/gsd-plan-phase`/executor do 52-19 como pré-condição escrita, nunca contornar o script por conta própria.
+
+## Correção de ordem (operador, 2026-10-12 ~19:50 -03 / 22:50Z) — o bloco D NÃO roda hoje
+
+Texto do operador (verbatim):
+
+```
+Correção de ordem (operador, 2026-10-12): o bloco D NÃO roda hoje à noite. Motivo: o p52_backup.cjs do 52-19 exige por máquina backup posterior ao último apply e recusaria hoje (R5 do 52-32); emendar o portão custaria outra rodada de planejamento, e o apply destrutivo cairia de madrugada. Nova ordem: hoje 52-32 completo → /gsd-verify-work 52 até complete; amanhã de manhã, após o backup físico diário (~06:30Z de 2026-10-13, posterior à 0007), 52-19 → 52-20/52-27 → 52-21 → 52-22 com o portão como está escrito (sem mexer no p52_backup.cjs). A segunda emenda da D-41 fica registrada, mas não é usada. Registrar essa correção datada no 52-DECISAO-2026-10-12-bloco-d-hoje.md. Vagas reais podem ser cadastradas INATIVAS em PROD hoje pela outra janela (sem «[TESTE» no título, sem «teste-» no slug, sem commit); ativação só depois do 52-21. Seguir com a sessão A do 52-32 até a parada da Task 1.
+```
+
+O que vale a partir daqui:
+
+1. **A segunda emenda da D-41 (seção anterior) fica REGISTRADA e NÃO É USADA.** O bloco D roda com a condição 1 da primeira emenda, por máquina, como o `52-19-PLAN.md` escreve: backup diário físico COMPLETED posterior ao maior `aplicado_ate` do `52-APLICACOES.json` (será o da `20261011000007` do 52-32). Na prática: depois do backup de ~06:30Z de 2026-10-13. Nada no `p52_backup.cjs` muda.
+2. **Hoje:** 52-32 completo (as quatro sessões + a conferência do operador) → `/gsd-verify-work 52` até `status: complete` no `52-UAT.md` (a precondition do 52-19 exige).
+3. **Amanhã, após o backup:** 52-19 (com a pergunta sobre as vagas ativas `fdbe1a4a` Consultor e `e897f709` Social Media: reaproveitar ou limpar) → 52-20/52-27 → 52-21 → 52-22.
+4. **Vagas reais INATIVAS em PROD a partir de hoje, pela janela de cadastro de vagas** (sem «[TESTE» no título, sem «teste-» no slug, sem commit no repositório; ativação só depois do 52-21). Consequências a observar:
+   - **52-32:** a população de `vagas` muda durante o dia (contagem «15 vagas, 12 pelo predicado» do planejamento é fotografia). O smoke52a lê atores e população na execução; a sonda do WR-02 escolhe a vaga por predicado (`status <> 'ativa' AND deleted_at IS NULL`) dentro de subtransações que revertem, no ensaio que aborta — uma vaga real inativa pode ser a escolhida; nada persiste (três camadas + `vagas_estado`), mas a sessão B deve registrar na FRONTEIRA qual vaga a sonda usou (prefixo do id e se é de teste), e, se a forma do plano permitir sem mudar o texto revisado, preferir vaga de teste.
+   - **52-19 (varredura da população de teste):** vagas reais inativas NÃO são população de teste — a lista da D-30 (contas `+claudeN`, `+cand1`, `@teste.com`, `@invalido.local`, vagas «[TESTE»/`teste-`) não as alcança; a D-32 leva a `629a5f31` ao portão. O executor do 52-19 confere que a varredura não as lista.
+   - **Janela única:** a janela de cadastro de vagas NÃO empurra, NÃO aplica migration e NÃO commita; só escreve linhas em `vagas` pela interface. Isso não colide com os portões do 52-32 (`p52_portao.cjs` vigia árvore e git, não dados de PROD), mas o `--vistas` do ensaio compara views externas: se um `P52V FAIL (vistas)` aparecer na sessão B, a causa provável é essa escrita — registrar, não «consertar» o portão.

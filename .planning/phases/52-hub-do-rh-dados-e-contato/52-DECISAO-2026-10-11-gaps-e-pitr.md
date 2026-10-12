@@ -48,3 +48,5 @@ nenhuma escrita em PROD fora de «migrations do git + contas de teste da popula�
 06:31:59Z (0 vagas criadas/alteradas, 0 candidaturas criadas) — escrita fora da lista = PARAR. Tudo hoje,
 na ordem 52-32 → `/gsd-verify-work 52` → 52-19 → 52-21 → 52-22. Texto do operador verbatim e a medição
 independente desta janela estão no arquivo citado.
+
+**Correção (operador, 2026-10-12 22:50Z):** a segunda emenda acima fica registrada e NÃO é usada — o bloco D roda amanhã (2026-10-13), depois do backup diário de ~06:30Z, com a condição 1 por máquina como está no `p52_backup.cjs`/`52-19-PLAN.md`. Texto verbatim em `52-DECISAO-2026-10-12-bloco-d-hoje.md` § «Correção de ordem».
