@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Completed 52-26-PLAN.md (2026-10-11): gap de servidor no ar — 20261011000005 aplicada pelo portao 22:51:48Z (ledger BATE; pontuar_sjt a63375bd, salvar4 d2d3bc1d, salvar3 intocada; smoke52g 14/14 contra o vivo; G1-G9 9/9 pos-apply); reviews 52-REVIEW-GAP-1 (WR-01 consertado: clausula (n), G8/G9, guarda do cliente) e -2 (WR-01 aceito como residual); push c3e04a71..29f34756 por sha com os dois caminhos do WR-01 na linha de comando (52-26-DECISAO-PUSH.md, opcao B do operador); 8fa8193a/e9dfc369 no remoto. Proximo: UAT da 52 (/gsd-verify-work 52), depois 52-19 com backup diario COMPLETED posterior a 2026-10-11T22:51:48Z."
-last_updated: "2026-10-11T23:20:00.000Z"
-last_activity: 2026-10-11
+stopped_at: "UAT da 52 (2026-10-12): 52-UAT.md diagnosed — 14 pass, 2 issue (testes 2 e 4), 4 gaps (G-52-2 Raven selecao, G-52-4 prazo no concluido, G-52-4b Proximo passo com cara de botao, G-52-6 contraste do card rejeitado e selos — promovido pelo operador); escopo decidido pelo operador (esconder prazo; todos os selos; Cancelada junto). Planos de gap 52-28/29/30 (bb04b75d, revisados 1f3f187e e 4d378ec5; checker iteracao 3: 0 blocker, 0 warning). Proximo: /gsd-execute-phase 52 --gaps-only, depois /gsd-verify-work 52 (reconcilia os gaps), depois 52-19 com backup diario COMPLETED posterior a 2026-10-11T22:51:48Z."
+last_updated: "2026-10-12T06:30:00.000Z"
+last_activity: 2026-10-12
 state_head: 158c322515351108f8ac6bae0cf7f63038516276
 progress:
   total_phases: 11
   completed_phases: 10
-  total_plans: 198
+  total_plans: 201
   completed_plans: 193
   percent: 97
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
-last_activity_desc: "/gsd-execute-phase 52 --gaps-only: 52-26 concluido (0005 em PROD, provada; push 29f34756); threat-IDs do 52-18 renumerados T-52-93/94 (portao #4683)."
+last_activity_desc: "/gsd-verify-work 52: UAT diagnosed (4 gaps); planos de gap 52-28..30 verificados pelo checker; ROADMAP a mao (30 planos, 22/30)."
 ---
 
 # Project State
