@@ -663,3 +663,54 @@ este executor.
 (`consertar|backlog|aceitar`) e qualquer INFO que vá ao backlog; ou «vetar: <motivo>». Com a resposta, a próxima
 continuação escreve `52-31-DECISAO.md` (verbatim), commita só ela, roda o segundo `<verify>` da Task 4 e completa
 esta §Task 4 — ainda antes do pin da Task 5.
+
+### Resposta do operador (recebida 2026-10-12 17:59 -03 = 2026-10-12T20:59Z, verbatim)
+
+```
+janela única: confirmo + D-52-G7-1: confirmo + R1: plano-novo (52-32, antes do 52-19: avaliacaoService.ts:118, redacaoService.ts:150 e exportacaoService.ts:1005, mesmo molde do 52-31 — leitura com guarda de posse e allowlist só dos campos que cada leitor usa; regenerar database.types.ts no mesmo plano) + R2: aceitar (a mensagem da página pública é verdadeira; o card do painel é o que importa) + R3: backlog + R4: aceitar (tipos regenerados no 52-32) + WR-01: backlog + WR-02: entra no 52-32 (o capturar() precisa fotografar vagas antes do ensaio da limpeza no 52-20) + INFO: aceitar todos.
+```
+
+Nenhum «consertar agora»: nenhum código mudou, nenhuma rodada de conserto, nenhum review `-2` — o review de maior N
+segue o `52-REVIEW-G7-1.md` e o re-portão da Task 2 não se aplica (critério 3 da Task 4).
+
+### Decisão escrita — `52-31-DECISAO.md` (commit `2721ef71`, só esse arquivo)
+
+`docs(52-31): decisao do G-52-7 — aplicar sobre 52-REVIEW-G7-1 (warnings 2: WR-01 backlog, WR-02 ao 52-32; R1 plano-novo 52-32, R2 aceitar, R3 backlog, R4 aceitar)`
+— `1 file changed, 105 insertions(+)`; pre-commit `tsc errors: 89 (frozen baseline: 96)`.
+
+Chaves: `decisao: aplicar` · `revisao: 52-REVIEW-G7-1.md` · `warnings: 2` · `autorizacao: 52-UAT.md` (contexto; não
+exigida com warnings > 0) · `disposicao_WR-01: backlog` · `disposicao_WR-02: backlog — entra no 52-32 (…)` ·
+`d52_g7_1: confirmada` · `residual_leitores_embed: plano-novo` · `residual_detalhe_vaga: aceitar` ·
+`residual_departamento_nulo: backlog` · `db_types: aceitar` · `janela_unica: confirmada` ·
+`decidido_em: 2026-10-12 17:59 -03`; seções `## Resposta do operador` (verbatim), `## Backlog` (R3, WR-01) e
+`## Plano novo (52-32, antes do 52-19)` (R1, WR-02, regeneração do `database.types.ts`).
+
+Mapeamento de vocabulário (instrução do orquestrador no despacho, não leitura do executor): «WR-02: entra no 52-32» →
+`disposicao_WR-02: backlog` com o texto do operador depois do travessão (o contrato aceita só
+`consertar|backlog|aceitar`; o item vai ao plano novo seguinte, não a este).
+
+### `<verify>` 2 da Task 4 — contrato da decisão (rodado como escrito, HEAD `2721ef71`, 2026-10-12T21:03Z) — VERDE
+
+```
+decisao do G-52-7: aplicar sobre 52-REVIEW-G7-1.md (warnings=2)
+EXIT=0
+```
+
+### Disposição de cada WARNING/INFO do `52-REVIEW-G7-1.md`
+
+| achado | disposição | dono |
+|---|---|---|
+| WR-01 — varredura do POS sobre `v.<coluna>` sensível a caixa | **backlog** | Pending Todos (orquestrador copia do `## Backlog` da DECISAO) |
+| WR-02 — `capturar()` sem chave para `public.vagas` | **backlog → plano novo 52-32** («o capturar() precisa fotografar vagas antes do ensaio da limpeza no 52-20») | próximo `/gsd-plan-phase 52 --gaps` |
+| IN-01..IN-09 | **aceitar** («INFO: aceitar todos») | — |
+
+Residuais: R1 **plano-novo** (52-32, antes do 52-19, com a especificação do operador); R2 **aceitar**; R3 **backlog**;
+R4 **aceitar** (os tipos são regenerados no 52-32, que retira o cast estreito).
+
+### Qual caminho valeu para o conteúdo
+
+`warning` = 2 no review de maior N → o conteúdo vale pela **resposta escrita do operador aos dois WR** (nenhum
+«consertar agora»: os dois ficam fora deste plano), e não só pela autorização do UAT; a promoção do gap e a preferência
+de desenho (verbatim na DECISAO) ficam como contexto. Janela única confirmada por escrito; D-52-G7-1 confirmada;
+nenhum achado destrutivo (item (h) não se aplica). Task 4 encerrada — a próxima é a Task 5 (pin, Passo 0b, apply),
+e este commit da FRONTEIRA vem ANTES do pin.
