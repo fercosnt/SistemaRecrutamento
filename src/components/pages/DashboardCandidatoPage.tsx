@@ -428,7 +428,13 @@ export function DashboardCandidatoPage() {
                               etapa terminal/stale/sem-prazo → o componente não renderiza.
                               48-14 (JORN-19): numa candidatura REABERTA o SLA da etapa
                               contradiria o prazo do e-mail — a linha da reabertura o
-                              substitui (rotuloReabertura). */}
+                              substitui (rotuloReabertura).
+                              2026-10-12 (UAT da 52, G-52-4): com todas as avaliações
+                              concluídas, «conclua em até 7 dias» contradizia «aguardando a
+                              equipe». A etapa continua `avaliacao_assincrona` por desenho
+                              (D-27), então quem decide é `concluidas` (a mesma variável do
+                              selo e do «Próximo passo»); carregando/erro → falso → a linha
+                              fica (D-52-U16). Nenhum prazo novo é inventado. */}
                           {rotuloReabertura(candidatura) ? (
                             <div data-testid="prazo-reabertura">
                               <PrazoEstimadoLinha rotulo={rotuloReabertura(candidatura)} />
@@ -439,7 +445,7 @@ export function DashboardCandidatoPage() {
                                 // Candidatura encerrada não tem prazo de espera — ver
                                 // candidaturaEncerrada. Antes prometia «retorno em 48 horas»
                                 // no mesmo cartão que dizia «Rejeitado».
-                                candidaturaEncerrada(candidatura.etapa_atual, candidatura.status)
+                                candidaturaEncerrada(candidatura.etapa_atual, candidatura.status) || concluidas
                                   ? null
                                   : rotuloDeEspera(
                                       candidatura.etapa_atual
@@ -506,7 +512,11 @@ export function DashboardCandidatoPage() {
                               do sistema ou do próprio clique. Uma seta é uma
                               promessa de navegação; quando não há para onde ir, o
                               honesto é dizer o estado, não oferecer um botão
-                              morto. */}
+                              morto.
+                              Em 2026-08-26 o botão morto virou `span`, mas manteve a
+                              moldura do botão: ao lado do «Retirar minha candidatura»
+                              ainda parecia clicável (UAT da 52, G-52-4b). Desde
+                              2026-10-12 é texto simples, sem moldura. */}
                           {stepCTA.destino ? (
                             <button
                               type="button"
@@ -520,9 +530,7 @@ export function DashboardCandidatoPage() {
                               <ArrowRight className="h-4 w-4" />
                             </button>
                           ) : (
-                            <span className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white/80">
-                              {stepCTA.label}
-                            </span>
+                            <span data-testid="painel-proximo-passo-texto" className="text-base text-white/90">{stepCTA.label}</span>
                           )}
                         </div>
                       )}
