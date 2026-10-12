@@ -17,9 +17,14 @@
  * Caso (2): a RPC responde sem entrada para a candidatura — o caso «vaga inexistente» da D-52-G7-6
  * (impossível no banco: `candidaturas.vaga_id` NOT NULL, FK com ON DELETE CASCADE) — e o fallback
  * «Vaga não encontrada» / «N/A» fica.
+ *
+ * Casos (3)–(5) (52-31 Task 2): erro da RPC → o cartão da vaga inativa no fallback e o outro cartão
+ * intacto, sem eco do erro; todo embed presente → a RPC não é chamada; o diálogo de «Retirar minha
+ * candidatura» da candidatura de vaga inativa nomeia a vaga com o título da RPC (abrir e sair por
+ * «Voltar»). Asserções de UMA linha (o relatório TAP da evidência RED).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -86,6 +91,7 @@ vi.mock('@/lib/supabase/client', () => {
 })
 
 import { DashboardCandidatoPage } from '../DashboardCandidatoPage'
+import { COPY_RETIRAR_CANDIDATURA } from '@/features/vagas/components/RetirarCandidaturaAcao'
 
 const TITULO = 'Analista de Conteúdo — vaga pausada pelo RH'
 const DEPARTAMENTO = 'Marketing'
@@ -101,6 +107,29 @@ const candidaturaVagaInativa = {
   decisao_final: null,
   vaga: null,
 }
+
+const TITULO_PUBLICA = 'Auxiliar de Saúde Bucal — vaga aberta'
+
+const candidaturaVagaPublica = {
+  id: 'candidatura-publica-1',
+  candidato_id: 'candidato-1',
+  vaga_id: 'vaga-publica-1',
+  status: 'em_analise',
+  etapa_atual: 'triagem',
+  created_at: '2026-09-20T12:00:00Z',
+  encerrada_a_pedido_em: null,
+  decisao_final: null,
+  vaga: {
+    id: 'vaga-publica-1',
+    titulo: TITULO_PUBLICA,
+    cidade: 'São Paulo',
+    estado: 'SP',
+    departamento: 'Clinica',
+    status: 'ativa',
+  },
+}
+
+const ERRO_SECRETO = 'detalhe interno do banco que nunca pode chegar ao candidato'
 
 function renderPainel() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -157,5 +186,48 @@ describe('painel do candidato — candidatura de vaga inativa (G-52-7)', () => {
     await waitFor(() => expect(mocks.rpcChamadas).toContain('ler_vagas_das_minhas_candidaturas'))
     expect(await screen.findByText('Vaga não encontrada')).toBeInTheDocument()
     expect(screen.getByText('N/A')).toBeInTheDocument()
+  })
+
+  it('(3) erro da RPC: o cartão da vaga inativa fica no fallback e o outro cartão fica intacto, sem eco do erro', async () => {
+    mocks.linhas = [candidaturaVagaInativa, candidaturaVagaPublica]
+    mocks.rpcResposta = { data: null, error: { message: ERRO_SECRETO, code: 'XX000' } }
+    renderPainel()
+
+    await waitFor(() => expect(mocks.rpcChamadas, 'a RPC consultada pelo embed nulo').toContain('ler_vagas_das_minhas_candidaturas'))
+    await waitFor(() => expect(screen.queryAllByTestId('painel-vaga-titulo').length, 'os dois cartões').toBe(2), { onTimeout: (e) => e })
+
+    const titulos = screen.getAllByTestId('painel-vaga-titulo').map((el) => el.textContent?.trim())
+    expect(titulos.join(' | '), 'o cartão da vaga inativa no fallback e o da vaga pública intacto').toBe(`Vaga não encontrada | ${TITULO_PUBLICA}`)
+    const deptos = screen.getAllByTestId('painel-vaga-departamento').map((el) => el.textContent?.trim())
+    expect(deptos.join(' | '), 'os departamentos dos dois cartões').toBe('N/A | Clinica')
+    expect(document.body.textContent?.includes(ERRO_SECRETO), 'o texto do erro na tela').toBe(false)
+  })
+
+  it('(4) todo embed presente: a RPC não é chamada', async () => {
+    mocks.linhas = [candidaturaVagaPublica]
+    mocks.rpcResposta = { data: [{ candidatura_id: 'candidatura-publica-1', titulo: 'NÃO pode aparecer', departamento: 'X' }], error: null }
+    renderPainel()
+
+    await waitFor(() => expect(screen.queryByText(TITULO_PUBLICA), 'o título do embed no cartão').not.toBeNull(), { onTimeout: (e) => e })
+    expect(mocks.rpcChamadas.length, 'chamadas à RPC com todo embed presente').toBe(0)
+    expect(screen.queryByText('NÃO pode aparecer'), 'título da RPC sobre embed presente').toBeNull()
+  })
+
+  it('(5) o diálogo de «Retirar minha candidatura» da vaga inativa nomeia a vaga pelo título da RPC', async () => {
+    mocks.rpcResposta = {
+      data: [{ candidatura_id: 'candidatura-inativa-1', titulo: TITULO, departamento: DEPARTAMENTO }],
+      error: null,
+    }
+    renderPainel()
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: COPY_RETIRAR_CANDIDATURA.acao }), 'a ação de retirar no cartão').not.toBeNull(), { onTimeout: (e) => e })
+    fireEvent.click(screen.getByRole('button', { name: COPY_RETIRAR_CANDIDATURA.acao }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog'), 'o diálogo de retirada aberto').not.toBeNull(), { onTimeout: (e) => e })
+    const dialogo = screen.getByRole('alertdialog')
+    expect(within(dialogo).queryByText(COPY_RETIRAR_CANDIDATURA.titulo(TITULO)), 'o título do diálogo com o nome da vaga vindo da RPC').not.toBeNull()
+
+    fireEvent.click(within(dialogo).getByRole('button', { name: COPY_RETIRAR_CANDIDATURA.recuar }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog'), 'o diálogo fechado por «Voltar»').toBeNull(), { onTimeout: (e) => e })
   })
 })
