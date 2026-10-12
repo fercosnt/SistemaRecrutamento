@@ -3,7 +3,7 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Gap closure da 52 em curso (2026-10-12, --gaps-only, janela unica confirmada por escrito pelo operador no comando): 52-28 PLAN COMPLETE (G-52-6 — cartao rejeitado legivel, todos os selos + Cancelada opacos, scripts/p52_contraste.cjs com controle que morde; residual medido: 5 chips + 2 notas do cartao de entrevista, min 1,14–1,46). Proximo: 52-29 (G-52-4/4b/2 + caso do codigo cru), depois o review 52-REVIEW-UAT-1 pelo orquestrador e o 52-30 (push por sha + conferencia visual), depois /gsd-verify-work 52 e o 52-19."
+stopped_at: "Gap closure da 52 em curso (2026-10-12, --gaps-only, janela unica confirmada por escrito pelo operador no comando): 52-28 e 52-29 PLAN COMPLETE — os quatro gaps consertados em codigo (G-52-6 cartao rejeitado + selos opacos; G-52-4 prazo escondido com concluidas; G-52-4b Proximo passo em texto; G-52-2 selecao do Raven) + caso do codigo cru (Task 4); medidor scripts/p52_contraste.cjs; portao pos-onda: build verde, suite 3117 verdes, 2 falhas pre-existentes de promessasComExecutor (identicas na base 0940aa39). Residuais medidos para o 52-30: 5 chips + 2 notas do cartao de entrevista (min 1,14–1,46) e 5 estilos de texto do cartao de vidro (1,39–1,78). Proximo: review 52-REVIEW-UAT-1 (base refs/gsd/52-26/sha), 52-30 (checkpoint janela unica + residuais, push por sha, conferencia visual), /gsd-verify-work 52, depois 52-19."
 last_updated: "2026-10-12T06:30:00.000Z"
 last_activity: 2026-10-12
 state_head: 0940aa39f5e42c797e8e547ca8af107654515fde
@@ -11,11 +11,11 @@ progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 201
-  completed_plans: 194
+  completed_plans: 195
   percent: 97
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
-last_activity_desc: "/gsd-execute-phase 52 --gaps-only: 52-28 concluido (G-52-6, medidor p52_contraste, 7 residuais INFORMATIVO medidos); 52-29 em execucao; ROADMAP a mao (23/30)."
+last_activity_desc: "/gsd-execute-phase 52 --gaps-only: 52-28 e 52-29 concluidos (G-52-6, G-52-4, G-52-4b, G-52-2 + caso do codigo cru); proximo: review 52-REVIEW-UAT-1 pelo orquestrador e 52-30 (push por sha); ROADMAP a mao (24/30)."
 ---
 
 # Project State
