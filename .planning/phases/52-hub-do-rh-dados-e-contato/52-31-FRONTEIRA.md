@@ -537,3 +537,129 @@ nenhum `/gsd-code-review`, `52-REVIEW-G7-*.md`, `52-31-DECISAO.md` nem `52-APLIC
 próxima é a Task 4 (review adversarial bloqueante, depois a decisão escrita do operador), numa sessão nova.
 
 fronteira_retomada: sessao_b_encerrada 2026-10-12T20:26Z head=17b5042908d37999fe2618819827a74b9fb2fe07
+
+---
+
+## §Task 4 — sessão C, 2026-10-12 (parada interna: as perguntas ao operador)
+
+> Parada INTERNA da Task 4 (regra 2 do `<context>`): esta seção é commitada sozinha e SEM linha
+> `fronteira_retomada` — só as três paradas que encerram sessão a carregam; a última `fronteira_retomada`
+> do arquivo segue sendo a `sessao_b_encerrada` acima. O executor NÃO revisa e NÃO decide warning,
+> residual, D-52-G7-1 nem janela única: nenhum `52-31-DECISAO.md` foi escrito, nenhum pin
+> (`refs/gsd/52-31/sha` inexistente, medido), nenhum apply, nenhum push; `52-APLICACOES.json` intocado
+> (versões 0001, 0002, 0003, 0005 — sem 0006).
+
+### Sinal de retomada recebido
+
+Orquestrador: «review commitado» — `.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7-1.md`, commit
+`e6fbeaf9` (`docs(52-31): review adversarial do G-52-7 — 52-REVIEW-G7-1 (critical 0, warning 2, info 9)`).
+HEAD no despacho = `e6fbeaf9`; diretório da fase limpo no git (`git diff --quiet HEAD` = 0).
+
+### `<verify>` 1 da Task 4 — portão no modo revisão (rodado como escrito, HEAD `e6fbeaf9`, 2026-10-12T20:48Z) — VERDE
+
+```
+$ node scripts/p52_portao.cjs --revisao .planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7 --base refs/gsd/52-30/sha --plano .planning/phases/52-hub-do-rh-dados-e-contato/52-31-PLAN.md --modo revisao
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7-1.md reviewed_head=133429d103c7e70d589b6068f33dbb76fc3f3d46 pin=- modo=revisao
+EXIT=0
+```
+
+`refs/gsd/52-30/sha` = `70528fbaa96ca6e6f1381a5d7e4cfdc1807ddae8`. Mesma saída que a rodada do orquestrador.
+
+### O review de maior N — `52-REVIEW-G7-1.md` (o único `52-REVIEW-G7-*`)
+
+- Frontmatter: `reviewed: 2026-10-12T20:41:27Z` · `depth: deep` · `diff_base: 70528fba…` (= `refs/gsd/52-30/sha`) ·
+  `reviewed_head: 133429d1…` · `files_reviewed: 9` · `status: issues_found` ·
+  **`findings: critical 0 · warning 2 · info 9 · total 11`**.
+- Summary, verbatim: «**Não achei nada crítico e nada destrutivo.**» — nenhuma escrita de dado, nenhuma ACL
+  mudada além da da própria função, nenhuma outra função ou policy tocada. O item (h) da Task 4 não se aplica.
+- O revisor reproduziu (só leitura ou dentro do ensaio que aborta): ensaio `52p=10/10 · vistas=igual`; P1–P10
+  10/10, cada uma na sua letra; rodada completa 27/27; regressão `52l=20/20` em controle e tratamento; Vitest 224
+  verdes e delta `alteradas=0 · novas=0 · mordida=ok`; lint 89 = base; `TIPOGRAFIA OK`; build com
+  `painel-vaga-titulo` e `ler_vagas_das_minhas_candidaturas` em `index-CFPYr-z6.js`; enumeração em seco 17
+  commits (10 `planning`, 7 `codigo`, 0 ALHEIO). Ponto (6): as sondas e a contagem agregada da §Task 3, re-rodadas,
+  são IGUAIS — «a medição confere».
+
+### Warnings — com a proposta do revisor (disposição: DO OPERADOR, pendente)
+
+- **WR-01 — a varredura «por forma» do POS sobre `v.<coluna>` é sensível a caixa.**
+  `supabase/migrations/20261011000006_p52_vagas_das_minhas_candidaturas.sql:250-256`: `regexp_matches(v_cod,
+  '\mv\.([a-z_]+)', 'g')` não enxerga `v.Titulo` / `v.TITULO` / `v."titulo"`. Provado: `mf1` (`v.descricao`) →
+  `P52-06 POS-PORTAO` morde; `mf4` (`'departamento', v.Titulo`) → POS passa, só o smoke (a) reprova pelo valor. Hoje
+  nada errado vai a PROD (o texto revisado é todo minúsculo; (a)/(c)/(d) mordem pelo valor).
+  *Proposta de conserto:* `FROM regexp_matches(lower(v_cod), '\mv\.("?)([a-z_]+)\1', 'g') AS m;` usando `m[2]` (ou
+  flag `gi` + `lower(m[1])`, que não pega `v."titulo"`). Toca a migration → «consertar agora» = `fix(52-31)` → o
+  `<verify>` inteiro da Task 2 + o segundo `<automated>` da Task 1 sobre o sha do conserto → review `-2` → Task 4 de
+  novo. *Recomendação do revisor (informação, não resposta):* **backlog** — «o apply de hoje não fica mais seguro
+  com o conserto e cada rodada de conserto já trouxe blocker novo duas vezes».
+- **WR-02 — `capturar()` do ensaio não tem chave para `public.vagas`.** `scripts/p52_ensaio.cjs` (`capturar()`);
+  `supabase/tests/p52_painel_vaga_smoke.sql:367,482,800` (os três `UPDATE public.vagas`). Nada persistiu (impressão
+  digital de `vagas` inteira `15:5adc811e…` igual antes/depois de cada rodada, medida pelo revisor) e há três camadas
+  (envelope `P52P1`, `ponto()`, sentinela); a fraqueza é só de DETECÇÃO: um `UPDATE` fora de envelope numa cláusula
+  futura sairia verde no `PERSISTIU`. *Proposta de conserto:* uma chave estreita `vagas_estado` em `capturar()`
+  (contagem + md5 de `id`, `status`, `deleted_at` de `public.vagas`, ordenado por `id`). Toca o `p52_ensaio.cjs`
+  (dentro do `--caminhos`) → «consertar agora» = `fix(52-31)` → `<verify>` da Task 2 → review `-2` → Task 4 de novo.
+  *Recomendação do revisor (informação, não resposta):* **backlog, antes do 52-20** (o bloco D edita o
+  `p52_ensaio.cjs` de qualquer jeito, e a chave serve ao portão da D-32, que lê `vagas.status` da `629a5f31`).
+
+### Infos — default proposto «aceitar» (o revisor marca todas «nenhuma decisão»), salvo resposta contrária
+
+| IN | título (resumo) |
+|---|---|
+| IN-01 | a ORDEM do array (`created_at DESC, id`) não é vigiada — sem `ORDER BY` passa 10/10 (nenhum consumidor depende dela) |
+| IN-02 | a allowlist do POS varre só `v.<coluna>`; uma chave a mais vinda de `c.<coluna>` passa o POS e cai em (c) |
+| IN-03 | o predicado de posse é «verbatim» no sentido semântico, não textual (`v_uid` e alias `ca`; mesmo conjunto) |
+| IN-04 | um erro da RPC é engolido em silêncio — na tela, indistinguível do fallback legítimo (sem `console.*`) |
+| IN-05 | rascunho (`is_rascunho = true`) é listado pelo `listCandidaturas` e excluído pela RPC — `rascunhos_prod=0` |
+| IN-06 | o ramo «embed `undefined`» da mescla não é exercitado — `!==` em vez de `!=` passa 18/18 |
+| IN-07 | a cláusula (d) chama a RPC uma vez por candidato (22 hoje, ~0,6 s) sob `statement_timeout` de 5 s — cresce com a população |
+| IN-08 | a enumeração EXATA do «Comando de push» recusa até o review estar commitado — o fluxo esperado |
+| IN-09 | duas chamadas à RPC por carga do painel quando há vaga não pública — a R9 do plano, confirmada no código |
+
+### Perguntas ao operador (a)–(h), cada uma com o número da §Task 3 que a sustenta
+
+- **(a) Janela única:** «nenhuma outra janela publica — migration, EF ou push — até o fim deste plano?» Resposta
+  escrita (exigida em todo caminho; sem ela, nada de apply nem push na Task 5).
+- **(b) D-52-G7-1:** «vaga com `deleted_at` (e todo status não ativo) mostra título e departamento da própria
+  candidatura — confirma?» Hoje: 16 candidaturas vivas naturais de vaga não pública (1 `inativa`, 15 `arquivada`),
+  `vaga_com_deleted_at=0` — a parte do `deleted_at` vale para o futuro. Provado por (a)/(i) e P2/P7. **Veto = PARAR e
+  voltar ao planejador** (smoke e RPC encarnam a decisão).
+- **(c) R1 `residual_leitores_embed`** — os leitores do embed `vaga:vagas` sob a RLS do candidato quebram assim
+  (tabela da §Task 3): `avaliacaoService.ts:118` → `testesAplicaveis = null` → `deriveCards` = `[]` → a página de
+  avaliações diz «Nenhuma avaliação pendente» e o painel nunca mostra «Avaliações concluídas — aguardando a equipe»;
+  `redacaoService.ts:150` (`!inner`) → «Candidatura não encontrada» por link direto; `exportacaoService.ts:1005` →
+  «Vaga não identificada» no bloco de currículos de `/candidato/privacidade` e `vagaTitulo: null` no export. Caso
+  medido: **`f73682b6`** (`avaliacao_assincrona`, vaga arquivada, `vaga_visivel:false`) — 1 hoje; **2 das 16** naturais
+  têm currículo exportável. Consertar exige outra RPC e outro apply (move de novo o «último apply» da D-41); consertar
+  DENTRO do 52-31 não é caminho. Opções: «plano novo (52-32, antes do 52-19)», «backlog» ou «aceitar».
+- **(d) R2 `residual_detalhe_vaga`** — o clique no cartão abre `/vagas/:id`, que diz «Vaga não encontrada ou não
+  está mais ativa» (`VagaDetalhePage.tsx:88-91`, via `getVagaById`, `vagasService.ts:372-376/382/397`), enquanto o
+  cartão passa a mostrar o título. Alcance: **as 16** candidaturas vivas naturais de vaga não pública (inclusive
+  `d31c78bb`). Opções: «plano novo», «backlog» ou «aceitar».
+- **(e) R3 `residual_departamento_nulo`** — departamento nulo na própria vaga segue «N/A», como já é para vaga
+  ativa: **4 vagas** arquivadas sem departamento, com **11 das 16** candidaturas naturais. Opções: «backlog» ou
+  «aceitar».
+- **(f) R4 `db_types`** — `database.types.ts` (223613 octetos) tem **0** ocorrências de
+  `ler_vagas_das_minhas_candidaturas`; o cliente usa o cast estreito confinado a `lerVagasDasMinhasCandidaturas()`
+  (`candidaturasService.ts:339-355`) com o comentário de quem o retira (D-52-G7-5; o gerador roda só como prova;
+  motivo: portão do push e o `--caminhos` do 52-22). Opções: «aceitar» ou «plano novo».
+- **(g) WR-01 e WR-02** (acima), cada um: «consertar agora» (código muda → `<verify>` inteiro da Task 2 verde no
+  commit do conserto → review NOVO `-2` → Task 4 de novo), «backlog» ou «aceitar». Recomendação do revisor, como
+  informação: WR-01 backlog; WR-02 backlog antes do 52-20.
+- **(h) Achado destrutivo:** nenhum (critical 0; Summary do review: «nada crítico e nada destrutivo») — não se aplica.
+- **INFO:** IN-01..IN-09 com default «aceitar»; o operador pode mandar qualquer uma ao backlog.
+
+### Observação — opções da §Task 3 × contrato da Task 4
+
+As «perguntas prontas» da §Task 3 ofereciam, em R2, «aceitar ou plano novo» e, em R3, «aceitar ou plano novo». As
+perguntas acima seguem o `<context>` da Task 4 e o regex do segundo `<verify>` dela, que aceitam R2 ∈ {plano-novo,
+backlog, aceitar} e R3 ∈ {backlog, aceitar}. Um «plano novo» para R3 não cabe no contrato — se o operador o
+quiser, a resposta precisa ser traduzida por ele (p.ex. «backlog» com o texto do plano no `## Backlog`), não por
+este executor.
+
+### Sinal de retomada esperado do operador
+
+«janela única: confirmo» + «D-52-G7-1: confirmo» + a disposição de R1 (`plano-novo|backlog|aceitar`), R2
+(`plano-novo|backlog|aceitar`), R3 (`backlog|aceitar`), R4 (`aceitar|plano-novo`) + a disposição de WR-01 e WR-02
+(`consertar|backlog|aceitar`) e qualquer INFO que vá ao backlog; ou «vetar: <motivo>». Com a resposta, a próxima
+continuação escreve `52-31-DECISAO.md` (verbatim), commita só ela, roda o segundo `<verify>` da Task 4 e completa
+esta §Task 4 — ainda antes do pin da Task 5.
