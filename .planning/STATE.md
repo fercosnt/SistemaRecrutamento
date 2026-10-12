@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "Gap closure da 52 em curso (2026-10-12, --gaps-only, janela unica confirmada por escrito pelo operador no comando): 52-28 e 52-29 PLAN COMPLETE — os quatro gaps consertados em codigo (G-52-6 cartao rejeitado + selos opacos; G-52-4 prazo escondido com concluidas; G-52-4b Proximo passo em texto; G-52-2 selecao do Raven) + caso do codigo cru (Task 4); medidor scripts/p52_contraste.cjs; portao pos-onda: build verde, suite 3117 verdes, 2 falhas pre-existentes de promessasComExecutor (identicas na base 0940aa39). Residuais medidos para o 52-30: 5 chips + 2 notas do cartao de entrevista (min 1,14–1,46) e 5 estilos de texto do cartao de vidro (1,39–1,78). Proximo: review 52-REVIEW-UAT-1 (base refs/gsd/52-26/sha), 52-30 (checkpoint janela unica + residuais, push por sha, conferencia visual), /gsd-verify-work 52, depois 52-19."
+stopped_at: "Gap closure da 52 CONCLUIDO (2026-10-12, --gaps-only): 52-28, 52-29 e 52-30 PLAN COMPLETE. 52-30: review -1 (warning 1) → operador «consertar agora» dos chips e notas do cartao de entrevista → fix a0f24b76 (sete cenarios do medidor em ALVO 6,38–9,37) → review -2 (critical 0, warning 0) → 52-30-DECISAO.md (janela unica confirmada; WR-01, cartao de vidro e IN-04 em backlog) → push por sha 70528fba pelo portao (36 commits, 14 codigo, 0 ALHEIO) → Vercel sem deploy por 86 min (incidente upstream GitHub) → deploy git-source dpl_8Zzy82HoDwHGgG6q2o7RbPcn4Pr2 no MESMO sha por ordem escrita do operador → PRESENTE em PROD (index-EkWKvKBY.js) → conferencia visual aprovada (itens 1, 2, 3, 5; item 4 NAO OBSERVADO: nenhuma candidatura de teste mostra o cartao com chip). Gap NOVO achado pelo operador na conferencia (fora dos quatro): candidatura de vaga INATIVA aparece como «Vaga nao encontrada»/«N/A» no painel do candidato (policy «Publico ve vagas ativas»); registrar no /gsd-verify-work 52. origin/main..HEAD reaberto so com .planning (SUMMARY de7d5f1f + este tracking). Proximo: /gsd-verify-work 52, depois 52-19 (ondas 5+)."
 last_updated: "2026-10-12T06:30:00.000Z"
 last_activity: 2026-10-12
-state_head: 0940aa39f5e42c797e8e547ca8af107654515fde
+state_head: de7d5f1f8dcf0d124e0e83f937fb61f051a7d09e
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 201
-  completed_plans: 195
+  completed_plans: 196
   percent: 97
 current_phase_name: Hub do RH — Dados, Contato e Avaliações do Candidato
 current_phase: 52
-last_activity_desc: "/gsd-execute-phase 52 --gaps-only: 52-28 e 52-29 concluidos (G-52-6, G-52-4, G-52-4b, G-52-2 + caso do codigo cru); proximo: review 52-REVIEW-UAT-1 pelo orquestrador e 52-30 (push por sha); ROADMAP a mao (24/30)."
+last_activity_desc: "/gsd-execute-phase 52 --gaps-only concluido: 52-28, 52-29 e 52-30 PLAN COMPLETE; consertos dos quatro gaps do UAT + chips/notas do cartao de entrevista publicados por push por sha 70528fba e no ar (index-EkWKvKBY.js); conferencia visual aprovada; gap novo (vaga inativa no painel) para o /gsd-verify-work 52; ROADMAP a mao (25/30)."
 ---
 
 # Project State
@@ -214,7 +214,7 @@ Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 52 — Hub do RH — Dados, Contato e Avaliações do Candidato (gap closure 52-28..30)
+**Current focus:** Phase 52 — Hub do RH — Dados, Contato e Avaliações do Candidato (gap closure 52-28..30 concluído; próximo `/gsd-verify-work 52`, depois 52-19)
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
@@ -1499,6 +1499,8 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - **WR-07 — ENTREGUE (2026-10-03, 49-44/49-45):** o RH dono da vaga (predicado WR-04) e o administrador leem, na Decisão Final, dentro do aviso da SJT, o texto do caso aberto, pela RPC `ler_resposta_caso_aberto_sjt` (SECURITY DEFINER, sem cópia do texto); o caso aberto ficou congelado para o candidato a partir do nascimento da linha de score (políticas RESTRICTIVE `cand_congela_caso_aberto_*`). Migration `20261003000001` (md5 do ledger `7750c40767d99f7c8dc597ece70172be`, aplicada 2026-10-03T19:49:16Z–19:49:17Z, antes do push), front `8581e98d172046df7cea0379b8e8b0b366f1090e` com `decisao-sjt-resposta-caso-aberto` servido em `DecisaoFinalPage-Zw-MAwxN.js`. Forma de acesso e congelamento: escolhas do planejador, mostradas ao operador antes da publicação (resposta no 49-45-SUMMARY). O texto lido pode não ser o analisado por R1–R3, antes da linha de score (flush falho segue para o envio; edição durante a chamada de IA, noutra aba, ou na mesma aba depois que o cliente desiste da resposta da EF; cliente modificado), e há R4, depois dela (o cliente modificado chama a EF de novo com outra pergunta de caso aberto: segunda nota sobre outro texto, enquanto o RH lê o primeiro), nomeados no 49-44 e não fechados; a rota (i) fecharia só R1 e a edição na mesma aba com o envio pendente, e nenhuma das rotas (i)–(iii) fecha R4; disposição do operador: «Aceito» (2026-10-03), em resposta à recomendação do orquestrador de publicar com R1–R4 registrados (rota (iii)), verbatim no 49-45-SUMMARY. `database.types.ts` segue sem a RPC (cast estreito em `getRespostaCasoAbertoSjt`): o primeiro plano que rodar `npm run db:types < /dev/null` retira o cast no mesmo commit. População com sinal em PROD na publicação: 0 (hoje nenhum RH vê o botão em PROD; a prova ao vivo é o smoke, 9/9). A conferência visual do botão fica como recomendação do planejador junto do item 2 do `49-UAT.md`, adiado pelo operador. **Pendência SEM DONO, a resolver ANTES de `config_purga.modo` ir a `live` (IN-04 do `49-REVIEW-GAPS-9.md`, registrada pelo orquestrador):** o motor de exclusão antigo (`20260923000002`) grava «removido a pedido do titular» também no ramo da purga de retenção, que é a mesma classe de causa falsa do WR-01; está latente enquanto `config_purga.modo = 'dry_run'` (medido em 2026-10-03).
 - **UAT da Phase 49 (pendência do operador, 2026-10-03):** os 3 itens de verificação humana de `49-UAT.md` (fluxo flag/block ponta a ponta em PROD com candidatura de teste; conferência visual das telas do sinal; decisão sobre o custo residual do bloqueio, WR-03) ficam para depois. Resposta do operador, verbatim: «Pode fazer o push e deixa esses testes manuais como Pendência para depois». A fase 49 segue `human_needed` (13/13, 0 gaps) e NÃO é marcada concluída até `/gsd-verify-work 49`; JORN-41 continua `[ ]`.
 
+- **Backlog do 52-30 (publicação dos consertos do UAT da 52, 2026-10-12; detalhes e disposições verbatim em `52-30-DECISAO.md` e `52-30-SUMMARY.md` § Backlog):** (1) **WR-01 do `52-REVIEW-UAT-1`** — o teste de contraste do Raven (`AvaliacaoRavenScreen.shell.test.tsx`) compara cores SEM compor o alfa; trocar pela `contrasteDeClasses` do medidor nos quatro pares. Operador: «backlog». (2) **residual_contraste_cartao** — texto do cartão de vidro branco do painel do candidato sem superfície local (amostra de cinco estilos: título 1,78 vs 3:1; departamento/data 1,57, etapa 1,48, eyebrow «Próximo passo» 1,39, frase 1,67 vs 4,5:1). Nota do operador, verbatim: «registre no backlog que a amostra mediu o pior caso sobre o gradiente e que PrazoEstimadoLinha, «Retirar minha candidatura» e o eyebrow «Sua entrevista» ficaram sem medir». Consertar é plano novo. (3) **IN-04 do `52-REVIEW-UAT-2`** — `CHIPS_AGENDAMENTO` em `scripts/p52_contraste.cjs` é lista literal de 5 dos 6 status; operador, verbatim: «IN-04: backlog (a lista literal de cinco chips do medidor é a forma «iteração sobre lista literal» do CLAUDE.md: um chip novo fica fora da vigilância com o teste verde; trocar por derivação do mapa de status)». (4) **IN-02 do `52-REVIEW-UAT-2`, planning-only** — células 52-UI-SPEC:585 e :822 ainda descrevem chips e notas como residual translúcido; emenda datada quando a UI-SPEC for tocada. (5) **Item 4 da Task 3 NÃO OBSERVADO** — cartão de entrevista com chip não apareceu em nenhuma conta de teste (as com agendamento estão finalizada/rejeitada); coberto pelos sete cenários do medidor e pelo teste do cartão; observar na primeira entrevista real ou numa candidatura de teste agendada.
+- **GAP NOVO achado pelo operador na conferência visual do 52-30 (2026-10-12), fora dos quatro gaps do UAT — registrar no `/gsd-verify-work 52`:** no painel do candidato, candidatura de vaga INATIVA aparece como «Vaga não encontrada» com departamento «N/A». Resposta do operador, verbatim: «Causa medida: a única policy de SELECT em vagas que alcança o candidato é «Público vê vagas ativas» (status = 'ativa' AND deleted_at IS NULL); inativada a vaga, o candidato ainda no funil perde título e departamento (vagasService.ts:382/397). Vai acontecer com candidato real quando o RH pausar ou fechar uma vaga com gente no processo. Sugestão: leitura do título/departamento das vagas das PRÓPRIAS candidaturas do candidato; prioridade: antes de inativar a primeira vaga real, não bloqueia a abertura.» Caso observado: +cand1, candidatura `d31c78bb`, vaga `629a5f31`.
 ### Blockers/Concerns
 
 - **🎉 P39 FECHADA 2026-07-28 — CR-01 e CR-02 PROVADOS AO VIVO EM PROD.** CR-02: a EF respondeu `{"ok":true,"skipped":"knockout"}` com **zero** linhas no ledger (a guarda existe de fato E roda antes do claim). CR-01: a cadeia canônica inteira disparou de uma aprovação real e o **conteúdo entregue foi inspecionado** — assunto *"Boa notícia sobre sua candidatura"* + `COPY_APROVACAO`, sem traço da recusa. **+1 achado NOVO no UAT (W-01):** o `PREHEADERS` não ramificava por desfecho, então o aprovado via prévia *"Atualização sobre a sua candidatura."* na caixa de entrada — corrigido (EF **v5**), com 3 testes de regressão provados por stash, e re-verificado ao vivo. Só apareceu porque o corpo INTEIRO foi inspecionado: o preheader é `<span display:>`, invisível às asserções que olham o texto visível.
@@ -1811,9 +1813,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-10T20:52:00.000Z
-Stopped at: Phase 52 UI-SPEC approved (próximo: /gsd-plan-phase 52)
-Resume file: .planning/phases/52-hub-do-rh-dados-e-contato/52-UI-SPEC.md
+Last session: 2026-10-12T17:30:00.000Z
+Stopped at: Phase 52 gap closure 52-28..30 concluído e publicado (próximo: /gsd-verify-work 52, depois 52-19)
+Resume file: .planning/phases/52-hub-do-rh-dados-e-contato/52-30-SUMMARY.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

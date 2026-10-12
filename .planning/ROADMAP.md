@@ -805,7 +805,7 @@ Plans:
 **Gap closure do UAT da 52** *(UAT 2026-10-12, `52-UAT.md` diagnosed; ondas do frontmatter: 52-28 = 3, 52-29 = 4, 52-30 = 13; rodar com `/gsd-execute-phase 52 --gaps-only`)*
 - [x] 52-28-PLAN.md (2026-10-12, 8 commits 01436adf..e86e61e3) — G-52-6: medidor de contraste `scripts/p52_contraste.cjs` (pior caso sobre o fundo real, controle negativo); caixa da rejeição no painel com superfície azul-marinho e «Agradecemos» em 16px; todos os selos de `getStatusInfo` opacos; «Cancelada» do `AgendamentoCandidatoCard`
 - [x] 52-29-PLAN.md (2026-10-12, 10 commits 3810ae7e..c8c18417) — G-52-4 (linha de prazo some com tudo concluído), G-52-4b («Próximo passo» sem ação vira texto simples), G-52-2 (alternativa marcada do Raven: borda azul-marinho, anel branco, check; foco de teclado distinto); teste que morde do motivo de rejeição desconhecido cru no contexto da revisão (ressalva do teste 15)
-- [ ] 52-30-PLAN.md — Review `52-REVIEW-UAT`, janela única por escrito, push por sha, marcadores no chunk de PROD, conferência visual do operador (desktop e 360px, sem cache)
+- [x] 52-30-PLAN.md (2026-10-12, 4 commits a0f24b76..de7d5f1f; review nº 1 b08e7b3b antes do ledger) — reviews `52-REVIEW-UAT-1` (warning 1) e `-2` (critical 0, warning 0) após a rodada «consertar agora» dos chips e notas do cartão de entrevista (a0f24b76, sete cenários do medidor em ALVO 6,38–9,37); `52-30-DECISAO.md` (janela única, WR-01 e cartão em backlog, IN-04 backlog); push por sha `70528fba` pelo portão (36 commits, 14 código, 0 ALHEIO); Vercel sem deploy por 86 min (incidente upstream) → deploy git-source no mesmo sha por ordem do operador; marcadores em PROD (`index-EkWKvKBY.js`); conferência visual aprovada (itens 1, 2, 3, 5; item 4 NÃO OBSERVADO); gap novo: vaga inativa → «Vaga não encontrada» no painel do candidato, para o `/gsd-verify-work 52`
 
 **Wave 13** *(checkpoint; só depois da UAT da 52 e com backup diário COMPLETED posterior ao último apply da fase — D-41 emendada em 2026-10-11, PITR recusado —, os dois conferidos por máquina)*
 - [ ] 52-19-PLAN.md — Backup diário posterior ao último apply conferido pela Management API (D-41 emendada, condição 1); varredura da população de teste por conta (lista da D-30 inteira, `3a9254c3` na população, trava do RH) e decisão do escopo da limpeza (só opções executáveis)
@@ -842,7 +842,7 @@ Plans:
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
 | 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | Complete | 2026-10-10 |
-| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 24/30 | In Progress | - |
+| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 25/30 | In Progress | - |
 
 ---
 
