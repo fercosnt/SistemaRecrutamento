@@ -1,0 +1,383 @@
+{
+  "medido_em": "2026-10-13T07:29:16.953Z",
+  "examinados_total": 47,
+  "particao_candidatos": [
+    "trava_rh_excluidos",
+    "fixtures_p46",
+    "ficticios",
+    "tombstones",
+    "contas_teste_com_candidatura",
+    "contas_sem_candidatura",
+    "fora_da_populacao"
+  ],
+  "entrada_i": 46,
+  "entrada_ii": 5,
+  "i_e_ii": 5,
+  "i_menos_ii": 41,
+  "ii_menos_i": 0,
+  "ii_menos_i_ids8": [],
+  "populacao_contas": 46,
+  "excluidos_rh": 1,
+  "rh_com_candidato": 1,
+  "usuarios_rh_total": 9,
+  "usuarios_rh_user_id_nulo": 0,
+  "candidaturas_excluidas_rh": 3,
+  "candidaturas_total": 44,
+  "candidaturas_populacao": {
+    "n": 32,
+    "md5": "6d5fb61a0bf63a38855128d181a2586f"
+  },
+  "categorias": {
+    "ficticios": {
+      "n": 6,
+      "md5": "e92b8afcd802c9a0bb382cf0c704a582",
+      "ids8": [
+        "f0000001",
+        "f0000002",
+        "f0000003",
+        "f0000004",
+        "f0000005",
+        "f0000006"
+      ]
+    },
+    "tombstones": {
+      "n": 2,
+      "md5": "6819cb8d99bbaaae5de23cefae2c88bd",
+      "ids8": [
+        "317ff71a",
+        "37614985"
+      ]
+    },
+    "fixtures_p46": {
+      "n": 8,
+      "md5": "c7019514d0fb6c833ddf0ac82d6ad48c",
+      "ids8": [
+        "4601b000",
+        "4601b000",
+        "4601b000",
+        "4601b000",
+        "4601b000",
+        "4601b000",
+        "4601b000",
+        "4601b000"
+      ]
+    },
+    "fora_da_populacao": {
+      "n": 0,
+      "md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "ids8": []
+    },
+    "trava_rh_excluidos": {
+      "n": 1,
+      "md5": "27511bc43a12431aef78d0a4239340e1",
+      "ids8": [
+        "d8ef9db1"
+      ]
+    },
+    "auth_orfaos_sem_padrao": {
+      "n": 3,
+      "md5": "c90c14af054f42576c576be8f366503f",
+      "ids8": [
+        "2a71d384",
+        "95d4b83c",
+        "e41b0bd5"
+      ]
+    },
+    "contas_sem_candidatura": {
+      "n": 16,
+      "md5": "d19cb4e28141480effce505e5bbd5ecf",
+      "ids8": [
+        "098ff94c",
+        "3394956c",
+        "3882d7cf",
+        "52a56c77",
+        "5ef4263d",
+        "697ecd60",
+        "a381c35d",
+        "aa8d21d7",
+        "b362295d",
+        "c5904850",
+        "c8d6cc80",
+        "d4ce6d50",
+        "f523aafc",
+        "fa181f41",
+        "fce7e5bd",
+        "ff394568"
+      ]
+    },
+    "auth_orfaos_padrao_teste": {
+      "n": 0,
+      "md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "ids8": []
+    },
+    "contas_teste_com_candidatura": {
+      "n": 14,
+      "md5": "cb08ebbee80672c8146266a00adf8dbe",
+      "ids8": [
+        "03f3b61d",
+        "0cc6c027",
+        "1c1575d8",
+        "5a2e3f17",
+        "6453833c",
+        "6dbf4012",
+        "6fcdd6bf",
+        "747fa40c",
+        "896c6a43",
+        "9567034e",
+        "aecf305c",
+        "eb718a32",
+        "fe253bdb",
+        "ff3916e5"
+      ]
+    }
+  },
+  "vagas_teste": [
+    {
+      "id": "53b73af6-d397-4dbb-8c77-7935e320a6c5",
+      "slug": "teste-coordenador-rh-sede",
+      "status": "arquivada",
+      "deleted_at": null,
+      "candidaturas_total": 1,
+      "candidaturas_excluidas": 1,
+      "candidaturas_populacao": 0
+    },
+    {
+      "id": "53f75c81-a152-43d8-87d3-03a275f678b9",
+      "slug": "teste-asb-shopping-riomar",
+      "status": "arquivada",
+      "deleted_at": null,
+      "candidaturas_total": 3,
+      "candidaturas_excluidas": 1,
+      "candidaturas_populacao": 2
+    },
+    {
+      "id": "629a5f31-aee1-4034-9071-240ae2937250",
+      "slug": "teste-e2e-social-media-junior-1-producao-e-captacao-de-conteudo",
+      "status": "inativa",
+      "deleted_at": null,
+      "candidaturas_total": 1,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 1
+    },
+    {
+      "id": "a32fe930-6b17-46f4-842e-04aa8d250d99",
+      "slug": "teste-dentista-funil-e2e",
+      "status": "arquivada",
+      "deleted_at": null,
+      "candidaturas_total": 3,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 3
+    },
+    {
+      "id": "bc370a8b-4aff-4417-a304-1a53fa33cae5",
+      "slug": "teste-analista-marketing-digital-remoto",
+      "status": "arquivada",
+      "deleted_at": null,
+      "candidaturas_total": 1,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 1
+    },
+    {
+      "id": "cb413d5d-75d8-4b3c-8849-23dc2be81a16",
+      "slug": "teste-auxiliar-administrativo-sede",
+      "status": "arquivada",
+      "deleted_at": "2025-11-23T00:06:23.365-03:00",
+      "candidaturas_total": 0,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 0
+    },
+    {
+      "id": "e36e9929-4dda-4324-ad3a-2ea5c86a7d8b",
+      "slug": "teste-asb-shopping-riomar-copia-1763869177679",
+      "status": "inativa",
+      "deleted_at": null,
+      "candidaturas_total": 0,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 0
+    },
+    {
+      "id": "f7655d91-0e0a-4906-8676-8f25b7c8209c",
+      "slug": "teste-atendente-shopping-recife",
+      "status": "inativa",
+      "deleted_at": null,
+      "candidaturas_total": 0,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 0
+    },
+    {
+      "id": "fb362e28-77ea-4870-8255-5938826e0808",
+      "slug": "teste-assistente-comercial-vendas",
+      "status": "inativa",
+      "deleted_at": null,
+      "candidaturas_total": 0,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 0
+    }
+  ],
+  "n_vagas_teste": 9,
+  "n_colisoes": 2,
+  "vagas_fora_do_padrao_nao_ativas": [
+    {
+      "id8": "4601d000",
+      "slug": "fixture-p46-vaga-arquivada-1",
+      "status": "arquivada",
+      "fixture": true,
+      "deleted_at": null
+    },
+    {
+      "id8": "4601d000",
+      "slug": "fixture-p46-vaga-arquivada-2",
+      "status": "arquivada",
+      "fixture": true,
+      "deleted_at": null
+    },
+    {
+      "id8": "4601d000",
+      "slug": "fixture-p46-vaga-ativa",
+      "status": "arquivada",
+      "fixture": true,
+      "deleted_at": null
+    },
+    {
+      "id8": "9f6ccf1a",
+      "slug": "dev-backend",
+      "status": "arquivada",
+      "fixture": false,
+      "deleted_at": null
+    }
+  ],
+  "vagas_ativas": [
+    {
+      "id8": "e897f709",
+      "slug": "social-media-producao-captacao-conteudo",
+      "teste": false,
+      "candidaturas_total": 13,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 13
+    },
+    {
+      "id8": "fdbe1a4a",
+      "slug": "consultor-relacionamento-pre-vendas",
+      "teste": false,
+      "candidaturas_total": 10,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 10
+    }
+  ],
+  "possivel_real": [
+    {
+      "id": "2a71d384-67ba-47c2-b1dc-64d7fb9239eb",
+      "tipo": "auth_orfao",
+      "motivo": "conta_beautysmile_sem_mais"
+    },
+    {
+      "id": "4dc31256-19e5-4059-b1c7-0e2cf5f22597",
+      "tipo": "candidatura",
+      "motivo": "candidatura_ate_2026-04-26"
+    },
+    {
+      "id": "95d4b83c-4c3d-406f-be66-ed042ec318d9",
+      "tipo": "auth_orfao",
+      "motivo": "conta_beautysmile_sem_mais"
+    },
+    {
+      "id": "d5491f18-40d6-4d9f-9efc-9b94f9ddf25f",
+      "tipo": "candidatura",
+      "motivo": "candidatura_ate_2026-04-26"
+    },
+    {
+      "id": "e41b0bd5-a1af-4dcc-b5bf-e4a9683c45ba",
+      "tipo": "auth_orfao",
+      "motivo": "conta_beautysmile_sem_mais"
+    },
+    {
+      "id": "eb718a32-9ba6-4f83-a49e-f2d39c0b1566",
+      "tipo": "candidato",
+      "motivo": "conta_beautysmile_sem_mais"
+    },
+    {
+      "id": "f8318f39-f5f4-4ed8-a9ef-52fe461cd46e",
+      "tipo": "candidatura",
+      "motivo": "candidatura_ate_2026-04-26"
+    },
+    {
+      "id": "fa181f41-b4ba-44be-b049-5b5de0a86925",
+      "tipo": "candidato",
+      "motivo": "conta_beautysmile_sem_mais"
+    }
+  ],
+  "n_possivel_real": 8,
+  "candidaturas_ativas_fora_da_populacao": [],
+  "fixtures": {
+    "vagas": 3,
+    "candidatos": 8,
+    "candidaturas": 9,
+    "na_entrada_i": 8,
+    "em_vaga_de_teste": 0,
+    "vagas_casam_teste": 0,
+    "candidaturas_de_outros_em_vaga_fixture": 0
+  },
+  "fixtures_md5": "17c2491d454bb43640af53a336e169d0",
+  "tombstones_onde": [
+    {
+      "id8": "317ff71a",
+      "candidaturas": [
+        {
+          "id8": "a111296a",
+          "vaga8": "bc370a8b",
+          "vaga_teste": true
+        },
+        {
+          "id8": "c912aa17",
+          "vaga8": "a32fe930",
+          "vaga_teste": true
+        }
+      ]
+    },
+    {
+      "id8": "37614985",
+      "candidaturas": [
+        {
+          "id8": "dae837f4",
+          "vaga8": "e897f709",
+          "vaga_teste": false
+        }
+      ]
+    }
+  ],
+  "auth_orfaos_por_classe": [
+    {
+      "n": 1,
+      "dominio": "beautysmile.com",
+      "sem_mais": true,
+      "categoria": "auth_orfaos_sem_padrao"
+    },
+    {
+      "n": 2,
+      "dominio": "beautysmile.com.br",
+      "sem_mais": true,
+      "categoria": "auth_orfaos_sem_padrao"
+    }
+  ],
+  "auth_contas_da_populacao": 30,
+  "storage_curriculos": {
+    "trava_rh": 4,
+    "ficticios": 6,
+    "populacao": 18
+  },
+  "obrigatorias": [
+    {
+      "id": "3a9254c3-8086-42df-8d81-42889c3a1f8d",
+      "entrada": "i",
+      "situacao": "na populacao",
+      "na_populacao": true
+    }
+  ],
+  "padroes_md5": "fa46cb9ec5db7e7e5dbbb39df2af25e6",
+  "padroes_n": {
+    "d30": 4,
+    "semente_p47_sem_admin": 9
+  },
+  "apagaveis": null,
+  "populacao_md5": null
+}
