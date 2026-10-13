@@ -450,3 +450,27 @@ ANTES da sessão B (tira o leitor cognitivo da Task 3, de `files_modified`, do `
 planejador com esta §Task 1 (commits locais, nada em PROD, nenhum review gasto).
 
 fronteira_retomada: sessao_a_encerrada 2026-10-12T23:33Z head=8dd062720849d9adcf8c456dbe7416362160f7c3
+
+---
+
+## §Task 2 — sessão B, 2026-10-13 (UTC)
+
+Executor: sessão B (Tasks 2–3), início 2026-10-13T00:24Z (2026-10-12 21:24 -03). Continuação da
+`fronteira_retomada: sessao_a_encerrada … head=8dd06272` acima; as linhas da §Task 1 não foram reescritas.
+
+### Precondition (medida 2026-10-13T00:26Z, só leitura) — satisfeita
+
+- `git merge-base --is-ancestor 8dd062720849d9adcf8c456dbe7416362160f7c3 HEAD` → 0; os seis commits da sessão A existem (`f5822c88`, `9079765a`, `63b011bc`, `1c64a704`, `8dd06272`, `27e1271d`); HEAD no despacho = `27e1271d`.
+- Resposta do operador VERBATIM no despacho, confirmando D-52-G7B-1, -2 e -5 (bloco abaixo) — nenhum veto.
+- Nenhum `52-32-SUMMARY.md` no diretório da fase.
+- `node p46apply.cjs sql "set transaction read only; …"` → `{"no_ledger": 0, "ausente": true, "agora": "2026-10-12 21:26:48.849292-03", "vagas": 15, "pred": 12, "ativas_vivas": 2, "apagadas": 1}` (`20261011000007` fora do ledger; função ausente em PROD; contagens de `vagas` iguais às da revisão do plano: a janela de cadastro não gravou vaga nova até aqui).
+- `git status --porcelain -- supabase src scripts e2e docs/compliance p46apply.cjs efdeploy.cjs database.types.ts` → vazio.
+
+### Resposta do operador — parada da tracer
+
+Recebida 2026-10-12 ~20:40 -03 (≈2026-10-12T23:40Z), repassada pelo orquestrador (`/gsd-execute-phase`) no despacho da sessão B, como bloco `<operator_response verbatim="true">`. Copiada byte a byte, sem paráfrase:
+
+```text
+continuar + D-52-G7B-1/-2/-5: confirmo.
+Nota do operador sobre a -2: ciente de que o candidato ainda no funil segue fazendo as avaliações de vaga pausada/fechada/apagada (o servidor já permitia; o conserto é de leitura). Encerrar o funil de uma vaga é decisão do RH sobre as candidaturas, não efeito do status da vaga.
+```
