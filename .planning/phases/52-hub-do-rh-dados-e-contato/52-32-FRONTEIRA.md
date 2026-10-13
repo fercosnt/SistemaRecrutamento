@@ -1561,3 +1561,63 @@ pin: `30edb982` (registro do apply, só `.planning/`), `8a516a94` (tipos + casts
    STATE.md/ROADMAP.md intocados.
 
 fronteira_retomada: sessao_c_parada 2026-10-13T01:32Z head=8a516a942865b3248a7311a32b029fe9fa31fba7
+
+## §Task 6 — sessão D, 2026-10-13 (UTC) (review dos tipos G7B-2 no portão)
+
+Continuação a partir de `fronteira_retomada: sessao_c_parada 2026-10-13T01:32Z head=8a516a94…` acima; as linhas das
+§Tasks 1–5 não foram reescritas. Sinal do orquestrador: «review dos tipos commitado: 52-REVIEW-G7B-2.md, approved, PORTAO OK».
+
+### Precondition da sessão D (medida 2026-10-13T01:43Z, HEAD `2a02c27b`) — satisfeita
+
+- Última linha da FRONTEIRA: `fronteira_retomada: sessao_c_parada 2026-10-13T01:32Z head=8a516a94…`; `8a516a94` ancestral de HEAD.
+- Nenhum `52-32-SUMMARY.md`; `refs/gsd/52-32-tipos/sha` inexistente (`git rev-parse --verify -q` rc=1); `refs/gsd/52-32/sha` = `eb21aa79…`.
+- O review de maior N (M = 2) commitado pelo orquestrador: `2a02c27b` `docs(52-32): review do commit dos tipos — 52-REVIEW-G7B-2 (critical 0, warning 0, info 7, approved)`.
+
+### O review `52-REVIEW-G7B-2.md` (frontmatter)
+
+`critical: 0 · warning: 0 · info: 7 · total: 7 · status: approved`; `reviewed_head` 913b83a8355f932f2fa2fd00c235c9720ca10965
+(contém o commit dos tipos `8a516a94`); `diff_base` 954b3e4b33a6cd290241793bf1df000083a49d81 (= `refs/gsd/52-31/sha`);
+`files_reviewed: 4`. Nenhum achado destrutivo. Os INFO, só os títulos (o revisor marca todos «Fix: Nenhuma»; nenhuma decisão aqui):
+
+- IN-01: O gerador emite `Args: never`, não `Record<PropertyKey, never>` — é a forma do CLI 2.116.0 e a chamada sem argumento compila
+- IN-02: `PostgrestVersion: "13.0.5"` vai como gerado — deriva aceita, efeito nulo no tsc
+- IN-03: A retirada dos casts não muda o que atravessa o fio — só o tipo estático de `data`
+- IN-04: Desenho do pin de publicação `refs/gsd/52-32-tipos/sha` contra as regras (4)/(5)/(8) — passa, com uma condição de disciplina
+- IN-05: Enumeração em seco — as duas recusas de hoje são as esperadas; o rótulo de uma delas é enganoso
+- IN-06: Build — os três marcadores no chunk eager e o embed antigo ausente
+- IN-07: A FRONTEIRA §Task 5 confere com o que re-medi; HEAD difere do `head=` dela só em `.planning/`
+
+### Caminho: sem operador
+
+A regra da Task 6 («o operador só se o review deixar warning ou achar algo destrutivo») NÃO exigiu parada: warning 0,
+nada destrutivo. A autorização é a da Task 4 (`d52_g7b_6: confirmada`, `deriva_postgrest: aceitar`, `decidido_em:
+2026-10-12 22:05 -03`), registrada em `52-32-DECISAO.md`.
+
+### `<verify>` 1 da Task 6 — o portão no modo revisão (2026-10-13T01:43:04Z, HEAD `2a02c27b`; re-rodado pela extração ancorada no `<verify>` às 01:43:5xZ, HEAD `8f803b17`) — VERDE
+
+```
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7B-2.md reviewed_head=913b83a8355f932f2fa2fd00c235c9720ca10965 pin=- modo=revisao
+```
+
+### Decisão dos tipos — `52-32-DECISAO.md` § «Review dos tipos (Task 6)»
+
+Chaves: `revisao_tipos: 52-REVIEW-G7B-2.md` · `warnings_tipos: 0` · `tipos_decisao: empurrar` ·
+`autorizacao_tipos: d52_g7b_6 confirmada em 2026-10-12 22:05 -03`. Commit **`8f803b17`** `docs(52-32): review dos tipos —
+empurrar sobre 52-REVIEW-G7B-2` (só o arquivo de decisão; o pre-commit imprimiu `tsc errors: 89`).
+
+### `<verify>` 2 da Task 6 (2026-10-13T01:43:43Z, HEAD `8f803b17`) — VERDE
+
+```
+review dos tipos: empurrar sobre 52-REVIEW-G7B-2.md (warnings=0)
+```
+
+### Observações
+
+1. **Despacho × plano:** o despacho pedia «commit ONLY the FRONTEIRA» no fecho da Task 6; a `<action>` da Task 6 manda
+   também acrescentar a seção «## Review dos tipos (Task 6)» a `52-32-DECISAO.md` e commitá-la sozinha, e o `<verify>` 2
+   lê essa seção por máquina (falharia sem ela). Seguido o plano: dois commits só-`.planning/` (decisão `8f803b17`, depois
+   esta §), ambos antes do pin de publicação — as regras (4)/(5) do portão seguem valendo (nenhum código depois do
+   `reviewed_head` 913b83a8).
+2. **Extração dos comandos:** a primeira extração desta sessão (por `split('<verify>')`) casou as menções a `` `<verify>` ``
+   no texto e não escreveu os arquivos; refeita ancorada no elemento (`\n  <verify>\n … \n  </verify>`), antes de qualquer
+   comando da Task 7. O «Comando de push» extraído ocorre 1× literal no plano (1686 caracteres, sha256 `3c610230…`).
