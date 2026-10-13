@@ -87,3 +87,19 @@ Para o orquestrador copiar aos «Pending Todos» do STATE.md (nada disto muda c�
    `IF lower(v_cod) ~ '\m(to_jsonb|to_json|row_to_json|jsonb_strip_nulls)\s*\(\s*v\s*\)' OR lower(v_cod) ~ '\mv\.\*' THEN RAISE EXCEPTION 'P52-0N POS-PORTAO: % projeta a linha inteira de vagas', c_sig; END IF;`
    e `IF (length(v_cod) - length(replace(v_cod, 'public.vagas', ''))) / length('public.vagas') <> 1 THEN RAISE EXCEPTION 'P52-0N POS-PORTAO: % cita public.vagas mais de uma vez (segundo alias)', c_sig; END IF;`
    + uma mutação de RECUSA (`A15`-equivalente) no runner que o prove por execução. A 0007 não se reescreve.
+
+## Review dos tipos (Task 6)
+
+revisao_tipos: 52-REVIEW-G7B-2.md
+warnings_tipos: 0
+tipos_decisao: empurrar
+autorizacao_tipos: d52_g7b_6 confirmada em 2026-10-12 22:05 -03
+
+O review de maior N é o `52-REVIEW-G7B-2.md` (commit `2a02c27b`, do orquestrador; `reviewed_head`
+913b83a8355f932f2fa2fd00c235c9720ca10965, que contém o commit dos tipos `8a516a94`; `diff_base`
+954b3e4b33a6cd290241793bf1df000083a49d81 = `refs/gsd/52-31/sha`; critical 0 · warning 0 · info 7 · `status: approved`;
+nenhum achado destrutivo). Portão no modo revisão, 2026-10-13T01:43:04Z: `PORTAO OK:
+revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7B-2.md reviewed_head=913b83a8355f932f2fa2fd00c235c9720ca10965
+pin=- modo=revisao`. Pela regra da Task 6 («o operador só se o review deixar warning ou achar algo destrutivo»), o
+operador NÃO foi chamado: a autorização é a D-52-G7B-6 e a `deriva_postgrest: aceitar` da Task 4 (acima, verbatim).
+IN-01..IN-07 do G7B-2: o revisor marca todas «Fix: Nenhuma»; não são decisão deste arquivo.
