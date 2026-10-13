@@ -541,6 +541,9 @@ function compararDocs(agora, doc, popul) {
   if (!ap || !H.test(ap)) e.push('populacao_md5_aprovado ausente ou malformado');
   const aprov = {};
   for (const m of doc.matchAll(/^aprovado_([a-z0-9_]+): *(\S*)/gm)) {
+    /* WR-01 (b) do 52-REVIEW-LIMPEZA-1: `aprovado_em: <data>` (Task 2 do 52-21) é a data do OK, não categoria —
+     * a mesma exclusão que os verifies do 52-21 fazem. Sem isto, toda DECISAO real recusava com «aprovado_em malformado». */
+    if (m[1] === 'em') continue;
     if (!/^[0-9]+$/.test(m[2])) e.push(`aprovado_${m[1]} malformado`);
     else aprov[m[1]] = Number(m[2]);
   }
@@ -549,8 +552,15 @@ function compararDocs(agora, doc, popul) {
   const ec = conferirContrato(agora, { apagar: apagar || [] });
   if (!apagar) e.push('medicao de agora sem apagaveis');
   if (ec.length) e.push(`medicao de agora fora do contrato (${ec.join(', ')})`);
-  const ep = conferirContrato(popul, {});
+  /* WR-01 (a) do 52-REVIEW-LIMPEZA-1: a população APROVADA (52-21-POPULACAO.json) foi medida COM --decisao
+   * (apagaveis e populacao_md5 presentes). Confere-se pelo contrato «com --decisao» sobre as próprias chaves de
+   * apagaveis — o contrato «sem --decisao» ({}) recusava o arquivo real em 100% das execuções — e o md5 dela tem
+   * de ser o que o operador aprovou (a população que ele leu é a que a DECISAO cita). */
+  const apagarPop = O(popul) && O(popul.apagaveis) ? Object.keys(popul.apagaveis) : [];
+  const ep = conferirContrato(popul, { apagar: apagarPop });
+  if (!apagarPop.length) e.push('populacao aprovada sem apagaveis');
   if (ep.length) e.push(`populacao aprovada fora do contrato (${ep.join(', ')})`);
+  if (ap && H.test(ap) && O(popul) && popul.populacao_md5 !== ap) e.push(`populacao_md5 da populacao aprovada ${popul.populacao_md5} != aprovado ${ap}`);
   if (apagar) {
     for (const k of Object.keys(aprov)) if (!apagar.includes(k)) e.push(`aprovado_${k} sem chave em apagaveis`);
     for (const k of apagar) if (!tem(aprov, k)) e.push(`apagaveis.${k} sem aprovado_${k}`);
@@ -638,7 +648,14 @@ function autoTeste() {
     const msg = e.length ? `POPULACAO FORA DO CONTRATO: ${e.join('; ')}` : p || '';
     return !!msg && (!re || re.test(msg));
   };
-  const DEC = (cats, extra) => `decisao: apagar\npopulacao_md5_aprovado: ${comDecisao(cats).populacao_md5}\n${cats.map((k) => `aprovado_${k}: ${comDecisao(cats).apagaveis[k].length}`).join('\n')}\n${extra || ''}`;
+  /* WR-01 do 52-REVIEW-LIMPEZA-1: as fixtures do comparar têm a FORMA DAS ENTRADAS REAIS — a população aprovada
+   * medida com --decisao (POP = comDecisao) e a DECISAO no formato da Task 2 do 52-21 (com `aprovado_em:` e as
+   * linhas storage_/export_/janela_). As anteriores (base() com apagaveis null, DEC sem aprovado_em) davam 40/40
+   * enquanto o comparar recusava os arquivos reais em 100% das execuções. */
+  const POP = (cats) => comDecisao(cats);
+  const DEC = (cats, extra) =>
+    `decisao: apagar\npopulacao_md5_aprovado: ${comDecisao(cats).populacao_md5}\n${cats.map((k) => `aprovado_${k}: ${comDecisao(cats).apagaveis[k].length}`).join('\n')}\n` +
+    `storage_n_aprovado: 2\nstorage_md5_aprovado: ${md5('x')}\nexport_escopo: aceito\njanela_unica: confirmada\naprovado_em: 2026-10-14 08:00 -03\n${extra || ''}`;
 
   const casos = [
     ['contrato: base sem decisao -> OK', () => ok(base(), {})],
@@ -667,14 +684,18 @@ function autoTeste() {
     ['--pos com as chaves presentes e vazias -> OK', () => ok(mod((j) => { j.apagaveis = { ficticios: [], tombstones: [] }; j.populacao_md5 = md5(''); }), { pos: true, apagar: ['ficticios', 'tombstones'] })],
     ['com decisao sem --pos: apagaveis sem entrada -> recusa', () => recusa(mod((j) => { j.apagaveis = { tombstones: [] }; j.populacao_md5 = md5(''); }), { apagar: ['tombstones'] }, /nenhuma entrada/)],
     ['com decisao: populacao_md5 errado -> recusa', () => recusa(mod((j) => { const d = comDecisao(['ficticios']); j.apagaveis = d.apagaveis; j.populacao_md5 = md5('x'); }), { apagar: ['ficticios'] }, /populacao_md5/)],
-    ['comparar: igual -> OK', () => compararDocs(comDecisao(['ficticios', 'contas_teste_com_candidatura']), DEC(['ficticios', 'contas_teste_com_candidatura']), base()).length === 0],
-    ['comparar: id a mais -> recusa', () => { const a = comDecisao(['ficticios']); a.apagaveis.ficticios.push({ id: id(7), user_id: null }); a.categorias.ficticios = cat([id(2), id(7)]); a.examinados_total = 5; a.populacao_md5 = md5Ids([id(2), id(7)]); return compararDocs(a, DEC(['ficticios']), base()).length > 0; }],
-    ['comparar: id a menos -> recusa', () => { const a = comDecisao(['ficticios']); a.apagaveis.ficticios = []; a.populacao_md5 = md5(''); return compararDocs(a, DEC(['ficticios']), base()).length > 0; }],
-    ['comparar: md5 aprovado malformado -> recusa', () => compararDocs(comDecisao(['ficticios']), DEC(['ficticios']).replace(/populacao_md5_aprovado: \S+/, 'populacao_md5_aprovado: 123'), base()).some((x) => /malformado/.test(x))],
-    ['comparar: aprovado_<k> sem chave em apagaveis -> recusa', () => compararDocs(comDecisao(['ficticios']), DEC(['ficticios'], 'aprovado_tombstones: 0'), base()).some((x) => /aprovado_tombstones sem chave/.test(x))],
-    ['comparar: chave sem aprovado_ -> recusa', () => compararDocs(comDecisao(['ficticios', 'contas_teste_com_candidatura']), DEC(['ficticios', 'contas_teste_com_candidatura']).replace(/^aprovado_contas_teste_com_candidatura: .*$/m, ''), base()).some((x) => /sem aprovado_contas_teste/.test(x))],
-    ['comparar: contagem diferente -> recusa', () => compararDocs(comDecisao(['ficticios']), DEC(['ficticios']).replace(/aprovado_ficticios: \d+/, 'aprovado_ficticios: 2'), base()).some((x) => /!= aprovado_ficticios/.test(x))],
-    ['comparar: decisao != apagar -> recusa', () => compararDocs(comDecisao(['ficticios']), DEC(['ficticios']).replace('decisao: apagar', 'decisao: adiar'), base()).some((x) => /decisao nao e apagar/.test(x))],
+    ['comparar: forma real (POP com --decisao, DEC com aprovado_em) -> OK', () => compararDocs(comDecisao(['ficticios', 'contas_teste_com_candidatura']), DEC(['ficticios', 'contas_teste_com_candidatura']), POP(['ficticios', 'contas_teste_com_candidatura'])).length === 0],
+    ['comparar: id a mais -> recusa', () => { const a = comDecisao(['ficticios']); a.apagaveis.ficticios.push({ id: id(7), user_id: null }); a.categorias.ficticios = cat([id(2), id(7)]); a.examinados_total = 5; a.populacao_md5 = md5Ids([id(2), id(7)]); return compararDocs(a, DEC(['ficticios']), POP(['ficticios'])).some((x) => /apagaveis\.ficticios 2 != aprovado_ficticios 1/.test(x)); }],
+    ['comparar: id a menos -> recusa', () => { const a = comDecisao(['ficticios']); a.apagaveis.ficticios = []; a.populacao_md5 = md5(''); return compararDocs(a, DEC(['ficticios']), POP(['ficticios'])).some((x) => /apagaveis\.ficticios 0 != aprovado_ficticios 1/.test(x)); }],
+    ['comparar: md5 aprovado malformado -> recusa', () => compararDocs(comDecisao(['ficticios']), DEC(['ficticios']).replace(/populacao_md5_aprovado: \S+/, 'populacao_md5_aprovado: 123'), POP(['ficticios'])).some((x) => /malformado/.test(x))],
+    ['comparar: aprovado_<k> sem chave em apagaveis -> recusa', () => compararDocs(comDecisao(['ficticios']), DEC(['ficticios'], 'aprovado_tombstones: 0'), POP(['ficticios'])).some((x) => /aprovado_tombstones sem chave/.test(x))],
+    ['comparar: chave sem aprovado_ -> recusa', () => compararDocs(comDecisao(['ficticios', 'contas_teste_com_candidatura']), DEC(['ficticios', 'contas_teste_com_candidatura']).replace(/^aprovado_contas_teste_com_candidatura: .*$/m, ''), POP(['ficticios', 'contas_teste_com_candidatura'])).some((x) => /sem aprovado_contas_teste/.test(x))],
+    ['comparar: contagem diferente -> recusa', () => compararDocs(comDecisao(['ficticios']), DEC(['ficticios']).replace(/aprovado_ficticios: \d+/, 'aprovado_ficticios: 2'), POP(['ficticios'])).some((x) => /!= aprovado_ficticios/.test(x))],
+    ['comparar: decisao != apagar -> recusa', () => compararDocs(comDecisao(['ficticios']), DEC(['ficticios']).replace('decisao: apagar', 'decisao: adiar'), POP(['ficticios'])).some((x) => /decisao nao e apagar/.test(x))],
+    /* WR-01: as duas causas do falso verde, cada uma isolada (a única recusa tem de ser a esperada). */
+    ['comparar: aprovado_em nao e categoria (DEC real, unica diferenca) -> OK', () => /^aprovado_em: /m.test(DEC(['ficticios'])) && compararDocs(comDecisao(['ficticios']), DEC(['ficticios']), POP(['ficticios'])).length === 0],
+    ['comparar: populacao aprovada na forma sem --decisao -> recusa', () => { const e = compararDocs(comDecisao(['ficticios']), DEC(['ficticios']), base()); return e.includes('populacao aprovada sem apagaveis'); }],
+    ['comparar: populacao aprovada de outra populacao (md5 != aprovado) -> recusa so por isso', () => { const e = compararDocs(comDecisao(['ficticios']), DEC(['ficticios']), POP(['ficticios', 'contas_teste_com_candidatura'])); return e.length === 1 && /^populacao_md5 da populacao aprovada [0-9a-f]{32} != aprovado /.test(e[0]); }],
     ['D-30: cada padrao literal no SQL_VARREDURA', () => padroesNoSql(SQL_VARREDURA).length === 0],
     ['D-30: um padrao tirado do SQL -> recusa', () => PADROES_D30.every((p) => padroesNoSql(SQL_VARREDURA.split(`('${p}')`).join('')).includes(p))],
     ['SQL comeca por set transaction read only', () => SQL_VARREDURA.startsWith('set transaction read only;')],
