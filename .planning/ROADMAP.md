@@ -814,7 +814,7 @@ Plans:
 
 **Wave 17**
 - [x] 52-20-PLAN.md — Migration destrutiva do escopo decidido (ensaio), prova pós, mutações, removedor de Storage
-- [ ] 52-27-PLAN.md — Exportador da população (D-41 emendada, condição 2): fecho de FK lido na execução, linhas e currículos fora do git, `--conferir --vivo`; nenhum export real (separado do 52-20 na checagem; paralelo a ele, contrato do `STORAGE.json` fixado nos dois)
+- [x] 52-27-PLAN.md — Exportador da população (D-41 emendada, condição 2): fecho de FK lido na execução, linhas e currículos fora do git, `--conferir --vivo`; nenhum export real (separado do 52-20 na checagem; paralelo a ele, contrato do `STORAGE.json` fixado nos dois)
 
 **Wave 18** *(checkpoint destrutivo)*
 - [ ] 52-21-PLAN.md — Portão destrutivo: medição fresca, export prévio feito uma vez e conferido, review bloqueante, OK sobre os números (escopo do export vetável), apply amarrado — backup no modo apply e export contra o vivo como os dois elos imediatamente antes do `migrate`, na manhã seguinte a um backup diário; currículos pela Storage API (lista aprovada, pin, ledger) sob a mesma porta
@@ -844,7 +844,7 @@ Plans:
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
 | 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | Complete | 2026-10-10 |
-| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 29/32 | In Progress | - |
+| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 30/32 | In Progress | - |
 
 ---
 
