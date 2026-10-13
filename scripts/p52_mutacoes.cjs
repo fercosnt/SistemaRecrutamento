@@ -90,6 +90,7 @@ const SMOKES = {
   'supabase/tests/p52_banco_sjt_smoke.sql': { prefixo: 'P52B', par: '52b', exigePrefixadas: ['20261011000003'] },
   'supabase/tests/p52_gap_servidor_smoke.sql': { prefixo: 'P52G', par: '52g' },
   'supabase/tests/p52_painel_vaga_smoke.sql': { prefixo: 'P52P', par: '52p' },
+  'supabase/tests/p52_testes_candidato_smoke.sql': { prefixo: 'P52A', par: '52a' },
 };
 
 /* Baseline de persistência; null até ser lida. */
@@ -293,6 +294,17 @@ const P_VIVA = '     AND c.deleted_at IS NULL AND c.is_rascunho = false;\n';
 const P_GUARDA = "  IF v_uid IS NULL OR coalesce(v_role, '') <> 'candidato' THEN\n";
 const P_GUARDA_BLOCO = P_GUARDA + "    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';\n" + '  END IF;\n';
 const P_JUNCAO = '    JOIN public.vagas v ON v.id = c.vaga_id\n';
+
+// ── 52-32: os testes da vaga das próprias candidaturas (migration 20261011000007) ──────────────
+// A 0007 copia BYTE A BYTE as linhas de guarda, posse, junção e viva da 0006 (D-52-G7B-3): as
+// âncoras `P_*` acima valem nas duas. Só a projeção é nova — `A_PROJ_TESTES` e `A_PROJ_FIM`, como
+// escritas na migration (únicas no arquivo inteiro: A13/A14 trocam sobre o texto COMPLETO).
+const V07 = '20261011000007';
+const S52A = 'supabase/tests/p52_testes_candidato_smoke.sql';
+const fnTestes = () => fnNova(V07, 'ler_testes_das_minhas_candidaturas');
+const A_PROJ_TESTES = "'testes_aplicaveis', v.testes_aplicaveis,";
+const A_PROJ_FIM = "'aplica_cognitivo', v.aplica_cognitivo)";
+const A_RECUSA_POS = 'P52-07 POS-PORTAO: public.ler_testes_das_minhas_candidaturas() le coluna de vagas fora da allowlist';
 
 const MUTACOES = [
   {
@@ -674,6 +686,145 @@ const MUTACOES = [
     letra: 'd',
     requer: [V06],
     sql: () => trocar(fnVagas(), P_JUNCAO, P_JUNCAO + '    CROSS JOIN (VALUES (1), (2)) AS p10_dup(n)\n', 'P10'),
+  },
+  {
+    // T-52-113: posse aberta — o predicado de candidato_le_propria_candidatura vira `true`.
+    id: 'A1',
+    desc: 'ler_testes_das_minhas_candidaturas: o predicado de posse vira true (toda candidatura viva de todos)',
+    smoke: S52A,
+    letra: 'b',
+    requer: [V07],
+    sql: () => trocar(fnTestes(), P_POSSE, 'true', 'A1'),
+  },
+  {
+    // R1 do G-52-7 / D-52-G7B-2 (a truth): o filtro da vaga PÚBLICA volta ao WHERE — a bateria da vaga inativada some.
+    id: 'A2',
+    desc: "ler_testes_das_minhas_candidaturas: filtro de vaga publica (status = 'ativa' AND deleted_at IS NULL) no WHERE",
+    smoke: S52A,
+    letra: 'a',
+    requer: [V07],
+    sql: () =>
+      trocar(
+        fnTestes(),
+        P_VIVA,
+        "     AND c.deleted_at IS NULL AND c.is_rascunho = false\n     AND v.status = 'ativa' AND v.deleted_at IS NULL;\n",
+        'A2'
+      ),
+  },
+  {
+    // T-52-114 (D-52-G7B-1): sobre-projeção — 'titulo', v.titulo entra como quarta chave.
+    id: 'A3',
+    desc: "ler_testes_das_minhas_candidaturas: 'titulo', v.titulo como quarta chave da projecao",
+    smoke: S52A,
+    letra: 'c',
+    requer: [V07],
+    sql: () => trocar(fnTestes(), A_PROJ_FIM, "'aplica_cognitivo', v.aplica_cognitivo,\n                                               'titulo', v.titulo)", 'A3'),
+  },
+  {
+    // T-52-116 (D-52-G7B-3): a guarda passa a aceitar rh e administrador.
+    id: 'A4',
+    desc: 'ler_testes_das_minhas_candidaturas: a guarda aceita rh e administrador',
+    smoke: S52A,
+    letra: 'g',
+    requer: [V07],
+    sql: () =>
+      trocar(
+        fnTestes(),
+        P_GUARDA,
+        "  IF v_uid IS NULL OR coalesce(v_role, '') NOT IN ('candidato', 'rh', 'administrador') THEN\n",
+        'A4'
+      ),
+  },
+  {
+    // T-52-115: EXECUTE de volta a anon depois da migration (o pg_default_acl de public).
+    id: 'A5',
+    desc: 'GRANT EXECUTE de ler_testes_das_minhas_candidaturas a anon depois da migration',
+    smoke: S52A,
+    letra: 'f',
+    requer: [V07],
+    sql: 'GRANT EXECUTE ON FUNCTION public.ler_testes_das_minhas_candidaturas() TO anon;',
+  },
+  {
+    // T-52-113: sem o filtro de rascunho — a candidatura rascunho volta a responder (oráculo).
+    id: 'A6',
+    desc: 'ler_testes_das_minhas_candidaturas: sem AND c.is_rascunho = false',
+    smoke: S52A,
+    letra: 'h',
+    requer: [V07],
+    sql: () => trocar(fnTestes(), ' AND c.is_rascunho = false', '', 'A6'),
+  },
+  {
+    // D-52-G7B-2: a vaga apagada por deleted_at some do retorno (contra a decisão confirmada pelo operador).
+    id: 'A7',
+    desc: 'ler_testes_das_minhas_candidaturas: AND v.deleted_at IS NULL no WHERE',
+    smoke: S52A,
+    letra: 'i',
+    requer: [V07],
+    sql: () =>
+      trocar(fnTestes(), P_VIVA, '     AND c.deleted_at IS NULL AND c.is_rascunho = false\n     AND v.deleted_at IS NULL;\n', 'A7'),
+  },
+  {
+    // T-52-116: a guarda deixa de exigir o sub — papel candidato sem sub passa.
+    id: 'A8',
+    desc: 'ler_testes_das_minhas_candidaturas: a guarda sem v_uid IS NULL OR',
+    smoke: S52A,
+    letra: 'e',
+    requer: [V07],
+    sql: () => trocar(fnTestes(), 'IF v_uid IS NULL OR ', 'IF ', 'A8'),
+  },
+  {
+    // T-52-116: sem a guarda inteira — token sem claims chega à busca.
+    id: 'A9',
+    desc: 'ler_testes_das_minhas_candidaturas: sem a guarda de papel',
+    smoke: S52A,
+    letra: 'e',
+    requer: [V07],
+    sql: () => trocar(fnTestes(), P_GUARDA_BLOCO, '', 'A9'),
+  },
+  {
+    // T-52-113: o conjunto vira multiconjunto — uma junção 1:N acrescentada por engano depois da de vagas.
+    id: 'A10',
+    desc: 'ler_testes_das_minhas_candidaturas: CROSS JOIN (VALUES (1), (2)) logo depois da juncao de vagas (cada candidatura duas vezes)',
+    smoke: S52A,
+    letra: 'd',
+    requer: [V07],
+    sql: () => trocar(fnTestes(), P_JUNCAO, P_JUNCAO + '    CROSS JOIN (VALUES (1), (2)) AS a10_dup(n)\n', 'A10'),
+  },
+  {
+    // T-52-117: o opt-in cognitivo vira constante — o sentinela alternado de (a) erra um dos status.
+    id: 'A11',
+    desc: "ler_testes_das_minhas_candidaturas: 'aplica_cognitivo', false no lugar do valor da vaga",
+    smoke: S52A,
+    letra: 'a',
+    requer: [V07],
+    sql: () => trocar(fnTestes(), A_PROJ_FIM, "'aplica_cognitivo', false)", 'A11'),
+  },
+  {
+    // T-52-117: a bateria vira constante — o sentinela de (a) não volta.
+    id: 'A12',
+    desc: "ler_testes_das_minhas_candidaturas: 'testes_aplicaveis', '[]'::jsonb no lugar do valor da vaga",
+    smoke: S52A,
+    letra: 'a',
+    requer: [V07],
+    sql: () => trocar(fnTestes(), A_PROJ_TESTES, "'testes_aplicaveis', '[]'::jsonb,", 'A12'),
+  },
+  {
+    // T-52-118 (WR-01 do 52-REVIEW-G7-1, não copiado): coluna de vagas com CAIXA mista — o POS da 0007 recusa.
+    id: 'A13',
+    desc: "migration 0007 com , 'titulo', v.Titulo acrescentado a ultima chave da projecao (RECUSA do POS)",
+    smoke: S52A,
+    recusa: A_RECUSA_POS,
+    requer: [V07],
+    migracao: { versao: V07, transformar: (t) => trocar(t, A_PROJ_FIM, "'aplica_cognitivo', v.aplica_cognitivo, 'titulo', v.Titulo)", 'A13') },
+  },
+  {
+    // T-52-118 (WR-01 do 52-REVIEW-G7-1, não copiado): coluna de vagas ENTRE ASPAS — o POS da 0007 recusa.
+    id: 'A14',
+    desc: "migration 0007 com , 'titulo', v.\"titulo\" acrescentado a ultima chave da projecao (RECUSA do POS)",
+    smoke: S52A,
+    recusa: A_RECUSA_POS,
+    requer: [V07],
+    migracao: { versao: V07, transformar: (t) => trocar(t, A_PROJ_FIM, "'aplica_cognitivo', v.aplica_cognitivo, 'titulo', v.\"titulo\")", 'A14') },
   },
 ];
 
