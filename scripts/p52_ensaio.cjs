@@ -20,6 +20,8 @@
  * Exceção revisada: a rodada 1 do portão do bloco B (WR-02 do 52-REVIEW-PORTAO-1) acrescentou a
  * chave `usuarios_rh` a `capturar()` — ver o comentário dela; vai ao 52-REVIEW-PORTAO-2. Na mesma
  * rodada, o WR-03 acrescentou a chave `opcoes_sjt` (o remapeamento do bloco C) — idem.
+ * 52-32: WR-02 do 52-REVIEW-G7-1 — chave `vagas_estado` e `provaVagasEstado()`; vai ao
+ * 52-REVIEW-G7B-1.
  * Serve aos blocos B (52-08, leituras do RH), C (52-17, banco SJT v2) e D (52-20/52-21, limpeza), e ao
  * gap de servidor do 52-26 (0005: `pontuar_sjt` por uuid e `salvar_avaliacao_entrevista` com todas as
  * competências — dono: 52-26), ao G-52-7 do 52-31 (0006: `ler_vagas_das_minhas_candidaturas`, título e
@@ -349,12 +351,144 @@ const MD5_SET = (expr, from) => `(SELECT md5(coalesce(string_agg(x, E'\\n' ORDER
  *                  os ids trocados em PROD com saída VERDE. A tabela não tem tráfego de candidato
  *                  (só o RH a edita, pela policy `rh_gerencia_opcoes_sjt`). `scores_candidato` fica
  *                  de fora pelo motivo de `candidaturas`; a escrita nela é atômica com esta.
+ *   vagas_estado   (WR-02 do 52-REVIEW-G7-1, 52-32) `public.vagas` ESTREITA: `<contagem>:<md5>` de
+ *                  `id|status|deleted_at` ordenado por `id` (`FP_VAGAS_ESTADO`, o texto do revisor
+ *                  verbatim). Só essas três colunas: são as que os smokes p52 escrevem em `vagas`
+ *                  (smoke52p e smoke52a, `status` e `deleted_at` dentro de envelopes); texto e
+ *                  `updated_at` têm tráfego do RH e envelheceriam o critério (uma edição de título
+ *                  entre as duas capturas NÃO acusa `PERSISTIU`). Uma mudança de status pelo RH
+ *                  DURANTE um ensaio acusaria — rara, e em REPEATABLE READ o ensaio já sairia 40001.
+ *                  A mordida da chave é provada por execução, dentro do ensaio que aborta, por
+ *                  `provaVagasEstado()` (abaixo) — nunca por escrita fora de um envelope que reverte.
  */
 const FP_USUARIOS_RH =
   "(select count(*)::text || ':' || md5(coalesce(string_agg(to_jsonb(u)::text, E'\\n' ORDER BY to_jsonb(u)::text), '')) from public.usuarios_rh u)";
 
 const FP_OPCOES_SJT =
   "(select count(*)::text || ':' || md5(coalesce(string_agg(to_jsonb(o)::text, E'\\n' ORDER BY to_jsonb(o)::text), '')) from public.perguntas_opcao_sjt o)";
+
+const FP_VAGAS_ESTADO =
+  "(select count(*)::text || ':' || md5(coalesce(string_agg(v.id::text || '|' || v.status::text || '|' || coalesce(v.deleted_at::text, ''), E'\\n' order by v.id), '')) from public.vagas v)";
+
+/*
+ * provaVagasEstado(fp = FP_VAGAS_ESTADO) — PURA: devolve o texto de um bloco `DO $p52w$ … $p52w$;`
+ * que prova, DENTRO do ensaio que aborta (`--mutacao=`), que a impressão `fp` morde onde deve e só
+ * onde deve (D-52-G7B-8). O padrão é a fonte única; o parâmetro existe só para a polaridade
+ * vermelha (impressão degradada numa coluna). Passos:
+ *   (i)   a impressão base;
+ *   (ii)  a vaga por PREDICADO — a de menor `id` com `status <> 'ativa' AND deleted_at IS NULL`
+ *         (nenhuma = `P52W FAIL (baseline)`), porque o trigger `vagas_status_soft_delete_sync_trg`
+ *         (20260606000001_vaga_status_sync.sql) coage `status` para `arquivada` quando `deleted_at`
+ *         é preenchido numa vaga `ativa`: com ela, o passo do `deleted_at` mudaria DUAS colunas; o
+ *         status-alvo é o primeiro valor do enum diferente de `ativa` e do atual (nenhum literal de
+ *         status além de `ativa`);
+ *   (iii) TRÊS passos, cada um no SEU envelope `P52W1` que reverte (o idioma do `P52P1`), partindo
+ *         do estado base e escrevendo UMA coluna (`titulo`, `status`, `deleted_at`); dentro de cada
+ *         um: ROW_COUNT = 1, a coluna escrita mudou e as outras duas do trio ficaram iguais (a
+ *         PREMISSA — marcada numa variável e julgada FORA do envelope, para não ser engolida pelo
+ *         `WHEN OTHERS`, advisory (a) do checker), e a impressão do passo guardada;
+ *   (iv)  depois dos envelopes, a impressão de novo = a base (senão `P52W FAIL (envelope)`);
+ *   (v)   julgamento: título = base (senão `(estreita)`), status ≠ base (senão `(status)`),
+ *         `deleted_at` ≠ base (senão `(deleted_at)`);
+ *   (vi)  anexa ` vagas_estado:morde=ok` a `p52.evidencia`.
+ * Nenhuma escrita fora dos envelopes; nenhuma mensagem imprime título, id ou valor — só rótulos e
+ * SQLSTATE. Recusa rodar fora do ensaio (`p52.tx` = txid desta transação).
+ */
+function provaVagasEstado(fp = FP_VAGAS_ESTADO) {
+  return `DO $p52w$
+DECLARE
+  v_base text; v_id uuid; v_titulo text; v_status text; v_del timestamptz; v_alvo text;
+  t_titulo text; t_status text; t_del timestamptz; v_n int;
+  v_imp_titulo text; v_imp_status text; v_imp_del text; v_imp_fim text;
+  v_premissa text := ''; v_inesperado text := '';
+BEGIN
+  IF coalesce(current_setting('p52.tx', true), '') IS DISTINCT FROM txid_current()::text THEN
+    RAISE EXCEPTION 'P52W RECUSADO (fora do ensaio): a prova do WR-02 so roda dentro de scripts/p52_ensaio.cjs --mutacao=';
+  END IF;
+  -- (i) a impressão base
+  v_base := ${fp};
+  -- (ii) a vaga por predicado e o status-alvo pelo enum
+  SELECT v.id, v.titulo, v.status::text, v.deleted_at INTO v_id, v_titulo, v_status, v_del
+    FROM public.vagas v WHERE v.status <> 'ativa' AND v.deleted_at IS NULL ORDER BY v.id LIMIT 1;
+  IF v_id IS NULL THEN
+    RAISE EXCEPTION 'P52W FAIL (baseline): nenhuma vaga com status nao ativo e deleted_at nulo';
+  END IF;
+  SELECT t.e::text INTO v_alvo
+    FROM unnest(pg_catalog.enum_range(NULL::public.status_vaga)) WITH ORDINALITY AS t(e, i)
+   WHERE t.e::text <> 'ativa' AND t.e::text <> v_status ORDER BY t.i LIMIT 1;
+  IF v_alvo IS NULL THEN
+    RAISE EXCEPTION 'P52W FAIL (baseline): o enum status_vaga nao tem um segundo status nao ativo';
+  END IF;
+  -- (iii) passo 1: só titulo
+  BEGIN
+    UPDATE public.vagas SET titulo = coalesce(titulo, '') || ' ' WHERE id = v_id;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    SELECT v.titulo, v.status::text, v.deleted_at INTO t_titulo, t_status, t_del FROM public.vagas v WHERE v.id = v_id;
+    IF v_n <> 1 OR t_titulo IS NOT DISTINCT FROM v_titulo OR t_status IS DISTINCT FROM v_status OR t_del IS DISTINCT FROM v_del THEN
+      v_premissa := v_premissa || 'titulo,';
+    END IF;
+    v_imp_titulo := ${fp};
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52W1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52W1' THEN NULL;
+    WHEN OTHERS THEN v_inesperado := v_inesperado || 'titulo:' || SQLSTATE || ',';
+  END;
+  -- (iii) passo 2: só status
+  BEGIN
+    UPDATE public.vagas SET status = v_alvo::public.status_vaga WHERE id = v_id;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    SELECT v.titulo, v.status::text, v.deleted_at INTO t_titulo, t_status, t_del FROM public.vagas v WHERE v.id = v_id;
+    IF v_n <> 1 OR t_status IS NOT DISTINCT FROM v_status OR t_titulo IS DISTINCT FROM v_titulo OR t_del IS DISTINCT FROM v_del THEN
+      v_premissa := v_premissa || 'status,';
+    END IF;
+    v_imp_status := ${fp};
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52W1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52W1' THEN NULL;
+    WHEN OTHERS THEN v_inesperado := v_inesperado || 'status:' || SQLSTATE || ',';
+  END;
+  -- (iii) passo 3: só deleted_at
+  BEGIN
+    UPDATE public.vagas SET deleted_at = now() WHERE id = v_id;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    SELECT v.titulo, v.status::text, v.deleted_at INTO t_titulo, t_status, t_del FROM public.vagas v WHERE v.id = v_id;
+    IF v_n <> 1 OR t_del IS NOT DISTINCT FROM v_del OR t_titulo IS DISTINCT FROM v_titulo OR t_status IS DISTINCT FROM v_status THEN
+      v_premissa := v_premissa || 'deleted_at,';
+    END IF;
+    v_imp_del := ${fp};
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P52W1';
+  EXCEPTION
+    WHEN SQLSTATE 'P52W1' THEN NULL;
+    WHEN OTHERS THEN v_inesperado := v_inesperado || 'deleted_at:' || SQLSTATE || ',';
+  END;
+  IF v_inesperado <> '' THEN
+    RAISE EXCEPTION 'P52W FAIL (inesperado): [%]', rtrim(v_inesperado, ',');
+  END IF;
+  IF v_premissa <> '' THEN
+    RAISE EXCEPTION 'P52W FAIL (premissa): [%] — o passo nao mudou exatamente a sua coluna do trio', rtrim(v_premissa, ',');
+  END IF;
+  -- (iv) nada escapou dos envelopes
+  v_imp_fim := ${fp};
+  IF v_imp_fim IS DISTINCT FROM v_base THEN
+    RAISE EXCEPTION 'P52W FAIL (envelope): a impressao depois dos envelopes difere da base';
+  END IF;
+  -- (v) o julgamento
+  IF v_imp_titulo IS DISTINCT FROM v_base THEN
+    RAISE EXCEPTION 'P52W FAIL (estreita): a impressao mudou com uma edicao de titulo';
+  END IF;
+  IF v_imp_status IS NOT DISTINCT FROM v_base THEN
+    RAISE EXCEPTION 'P52W FAIL (status): a impressao nao viu a mudanca de status';
+  END IF;
+  IF v_imp_del IS NOT DISTINCT FROM v_base THEN
+    RAISE EXCEPTION 'P52W FAIL (deleted_at): a impressao nao viu o deleted_at preenchido';
+  END IF;
+  -- (vi) a evidência
+  PERFORM set_config('p52.evidencia',
+    btrim(coalesce(current_setting('p52.evidencia', true), '') || ' vagas_estado:morde=ok'), false);
+END
+$p52w$;
+`;
+}
 
 function capturar() {
   const vs = MIGS.map(versao).map(lit).join(',');
@@ -380,7 +514,8 @@ function capturar() {
     "(with anon as (select c.id from public.candidatos c where c.email = 'anonimizado+' || c.id::text || '@invalido.local' and c.user_id is null and c.data_nascimento = date '1900-01-01') " +
     "select json_build_object('titulares', (select count(*) from anon), 'linhas', (select count(*) from public.disponibilidade d where d.candidato_id in (select a.id from anon a)))) as disp_anonimizados, " +
     `${FP_USUARIOS_RH} as usuarios_rh, ` +
-    `${FP_OPCOES_SJT} as opcoes_sjt`;
+    `${FP_OPCOES_SJT} as opcoes_sjt, ` +
+    `${FP_VAGAS_ESTADO} as vagas_estado`;
   return sqlLeitura(q)[0];
 }
 
@@ -606,6 +741,8 @@ module.exports = {
   ponto,
   FP_USUARIOS_RH,
   FP_OPCOES_SJT,
+  FP_VAGAS_ESTADO,
+  provaVagasEstado,
   MIGS,
   PARES,
   SENTINELA,
