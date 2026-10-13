@@ -60,6 +60,8 @@
  *       --pos-apply  `--sem-migracoes`: o smoke contra os objetos VIVOS; toda versão `requer`
  *                    tem de estar no ledger, senão erro do harness antes da baseline.
  *       --so=<id>[,<id>…]  só as entradas pedidas, na ordem DECLARADA.
+ *     (6a) 52-20: o que é prefixado sob cada smoke (controle e mutações) é só o que as entradas DESTE
+ *     smoke requerem (`prefixoDoSmoke`, PURA) — a 0004 da limpeza, destrutiva, só sob o smoke52d.
  *
  * (7) APOSENTADORIA (52-26). Uma linha de SMOKES pode declarar `exigePrefixadas: [<versão>…]` — o
  *     smoke só tem sentido com essas migrations PREFIXADAS (lê GUCs que o PRE delas grava NESTA
@@ -91,6 +93,8 @@ const SMOKES = {
   'supabase/tests/p52_gap_servidor_smoke.sql': { prefixo: 'P52G', par: '52g' },
   'supabase/tests/p52_painel_vaga_smoke.sql': { prefixo: 'P52P', par: '52p' },
   'supabase/tests/p52_testes_candidato_smoke.sql': { prefixo: 'P52A', par: '52a' },
+  // (7) o smoke52d da limpeza lê as GUCs `p52.limpeza.*` do PRE da 0004: só roda com ela PREFIXADA.
+  'supabase/tests/p52_limpeza_pos_smoke.sql': { prefixo: 'P52D', par: '52d', exigePrefixadas: ['20261011000004'] },
 };
 
 /* Baseline de persistência; null até ser lida. */
@@ -305,6 +309,35 @@ const fnTestes = () => fnNova(V07, 'ler_testes_das_minhas_candidaturas');
 const A_PROJ_TESTES = "'testes_aplicaveis', v.testes_aplicaveis,";
 const A_PROJ_FIM = "'aplica_cognitivo', v.aplica_cognitivo)";
 const A_RECUSA_POS = 'P52-07 POS-PORTAO: public.ler_testes_das_minhas_candidaturas() le coluna de vagas fora da allowlist';
+
+// ── 52-20: limpeza dos dados de teste (migration 20261011000004, DESTRUTIVA — só no ensaio que aborta) ──
+// As quatro são entradas de RECUSA: a mordida está no PRE/LIMPA/POS da própria migration (o smoke52d
+// nunca chega a rodar). Cada `transformar` troca um alvo LITERAL único no texto da 0004; a recusa
+// esperada é o rótulo da cláusula que TEM de pegar a mutação — outra cláusula, ou um erro sem rótulo,
+// não é mordida (a saída não pode ter nenhum `<X> FAIL (`).
+const V04 = '20261011000004';
+const S52D = 'supabase/tests/p52_limpeza_pos_smoke.sql';
+/* D1: a trava do RH sai da varredura — a CTE `rh` (única definição da trava na 0004) fica vazia. */
+const D1_RH = '  rh AS (SELECT r.user_id FROM public.usuarios_rh r),\n';
+const D1_RH_SEM = '  rh AS (SELECT r.user_id FROM public.usuarios_rh r WHERE false),\n';
+/* D2: o DELETE de revisao_rejeicao (e o registro do passo dele) some do LIMPA. */
+const D2_PASSO =
+  '    DELETE FROM public.revisao_rejeicao x WHERE x.candidatura_id = ANY (v_kids);\n' +
+  "    GET DIAGNOSTICS v_n = ROW_COUNT; v_passos := v_passos || jsonb_build_object('public.revisao_rejeicao', v_n);\n";
+/* D3: a lista de `remover` (vazia pela decisão) passa a ter uma vaga de teste com candidatura de conta da
+ * trava — escolhida por predicado no próprio ensaio, nenhum id literal. */
+const D3_REMOVER = "  v_remover_ids8 constant text[] := '{}'::text[];\n";
+const D3_REMOVER_COLISAO =
+  '  v_remover_ids8 constant text[] := ARRAY(SELECT left(t.id::text, 8) FROM public.vagas t\n' +
+  "                                           WHERE (t.titulo ILIKE '%[TESTE%' OR t.slug ILIKE 'teste-%')\n" +
+  '                                             AND EXISTS (SELECT 1 FROM public.candidaturas k JOIN public.candidatos c ON c.id = k.candidato_id\n' +
+  '                                                          JOIN public.usuarios_rh r ON r.user_id = c.user_id WHERE k.vaga_id = t.id)\n' +
+  '                                           ORDER BY t.id LIMIT 1);\n';
+/* D4: o LIMPA apaga um candidato A MAIS do que o PRE mediu (uma fixture, por predicado). */
+const D4_IDS = "  v_ids    uuid[] := string_to_array(nullif(current_setting('p52.limpeza.ids', true), ''), ',')::uuid[];\n";
+const D4_IDS_MAIS =
+  "  v_ids    uuid[] := string_to_array(nullif(current_setting('p52.limpeza.ids', true), ''), ',')::uuid[]\n" +
+  "                     || ARRAY(SELECT f.id FROM public.candidatos f WHERE lower(f.email) LIKE 'fixture-p46+%@invalido.local' ORDER BY f.id LIMIT 1);\n";
 
 const MUTACOES = [
   {
@@ -826,6 +859,42 @@ const MUTACOES = [
     requer: [V07],
     migracao: { versao: V07, transformar: (t) => trocar(t, A_PROJ_FIM, "'aplica_cognitivo', v.aplica_cognitivo, 'titulo', v.\"titulo\")", 'A14') },
   },
+  {
+    // T-52-59: sem a trava do RH, a conta excluída entra na população — a impressão digital da trava acusa.
+    id: 'D1',
+    desc: 'migration 0004 sem a trava do RH na varredura (CTE rh vazia): a conta de RH entra no alvo',
+    smoke: S52D,
+    recusa: 'P52D POS-PORTAO (trava)',
+    requer: [V04],
+    migracao: { versao: V04, transformar: (t) => trocar(t, D1_RH, D1_RH_SEM, 'D1') },
+  },
+  {
+    // T-52-59/T-52-60: um filho NO ACTION sem o seu DELETE — com ou sem linhas a apagar, (filhos) para.
+    id: 'D2',
+    desc: 'migration 0004 sem o DELETE de revisao_rejeicao no LIMPA',
+    smoke: S52D,
+    recusa: 'P52D LIMPA-PORTAO (filhos)',
+    requer: [V04],
+    migracao: { versao: V04, transformar: (t) => trocar(t, D2_PASSO, '', 'D2') },
+  },
+  {
+    // T-52-59: remover vaga com candidatura fora da população atravessaria a trava por CASCADE.
+    id: 'D3',
+    desc: 'migration 0004 com uma vaga de teste com candidatura da trava marcada para remover',
+    smoke: S52D,
+    recusa: 'P52D PRE-PORTAO (remover): vaga marcada para remover tem candidatura fora da populacao',
+    requer: [V04],
+    migracao: { versao: V04, transformar: (t) => trocar(t, D3_REMOVER, D3_REMOVER_COLISAO, 'D3') },
+  },
+  {
+    // T-52-59: o LIMPA apaga um candidato além da população medida pelo PRE.
+    id: 'D4',
+    desc: 'migration 0004 com um candidato fixture-p46 a mais no conjunto que o LIMPA apaga',
+    smoke: S52D,
+    recusa: 'P52D POS-PORTAO (apagadas): o apagamento contou',
+    requer: [V04],
+    migracao: { versao: V04, transformar: (t) => trocar(t, D4_IDS, D4_IDS_MAIS, 'D4') },
+  },
 ];
 
 /* Primeira reprovação da saída, com QUALQUER prefixo. */
@@ -963,6 +1032,16 @@ function selecionar(mutacoes, ids) {
 }
 
 /*
+ * (6a) O que prefixar POR SMOKE, PURO (52-20): só as migrations do plano que alguma entrada DESTE smoke
+ * requer. Sem isso, a 0004 (destrutiva, requerida só pelas D) iria prefixada sob o controle e as mutações
+ * de TODO smoke (L, G, P, A) — que foram medidos contra o vivo sem ela.
+ */
+function prefixoDoSmoke(prefixadas, alvo, smoke) {
+  const req = new Set(alvo.filter((m) => m.smoke === smoke).flatMap((m) => m.requer));
+  return prefixadas.filter((x) => req.has(E.versao(x)));
+}
+
+/*
  * O que prefixar, PURO: no modo padrão, as migrations de MIGS (na ordem de MIGS) cuja versão alguma
  * entrada requer e que estão fora do ledger; no pós-apply, nenhuma — e toda versão requerida tem de
  * estar no ledger. Devolve { prefixadas: [caminho…] } ou lança.
@@ -1046,10 +1125,11 @@ function principal() {
   const naoMordem = [];
   for (const smoke of ordem) {
     const S = SMOKES[smoke];
+    const prefSmoke = prefixoDoSmoke(plano.prefixadas, alvo, smoke);
     // ── CONTROLE deste smoke ──────────────────────────────────────────────
     let ctl;
     try {
-      ctl = rodarOuSair(E.compor({ prefixadas: plano.prefixadas, arquivos: [smoke] }), `CONTROLE_${path.basename(smoke, '.sql')}`);
+      ctl = rodarOuSair(E.compor({ prefixadas: prefSmoke, arquivos: [smoke] }), `CONTROLE_${path.basename(smoke, '.sql')}`);
     } catch (e) {
       sair(`ERRO DO HARNESS: ${e.message}`);
     }
@@ -1057,22 +1137,22 @@ function principal() {
     if (vc && vc.tipo === 'inconclusivo') sair(`INCONCLUSIVO: CONTROLE (${smoke}) (${ctl.ms} ms) — ${vc.motivo}; nada concluido sobre o portao`, 3);
     if (vc) sair(`CONTROLE VERMELHO (${smoke}): ${vc.motivo} (${ctl.ms} ms)`);
     const par = E.lerPares(ctl.smokes).find((x) => x.k === S.par);
-    console.log(`CONTROLE verde (${smoke}): par ${par.k}=${par.p}/${par.e} (${ctl.ms} ms)`);
+    console.log(`CONTROLE verde (${smoke}): par ${par.k}=${par.p}/${par.e} prefixadas=[${prefSmoke.map(E.versao).join(',')}] (${ctl.ms} ms)`);
 
     // ── MUTAÇÕES deste smoke ──────────────────────────────────────────────
     for (const m of alvo.filter((x) => x.smoke === smoke)) {
       contadas += 1;
       const sql = typeof m.sql === 'function' ? m.sql() : m.sql || null;
       const recusa = typeof m.recusa === 'function' ? m.recusa() : m.recusa;
-      let prefixadas = plano.prefixadas;
+      let prefixadas = prefSmoke;
       let r;
       try {
         if (m.migracao) {
           // A migration mutada vai a um arquivo temporário (nome começa pela versão) que a substitui SÓ nesta rodada.
-          const original = plano.prefixadas.find((x) => E.versao(x) === m.migracao.versao);
+          const original = prefSmoke.find((x) => E.versao(x) === m.migracao.versao);
           tmpMutacao = path.join(os.tmpdir(), `${m.migracao.versao}_p52_mutacao_${m.id}_${process.pid}.sql`);
           fs.writeFileSync(tmpMutacao, m.migracao.transformar(fs.readFileSync(path.join(E.ROOT, original), 'utf8')), 'utf8');
-          prefixadas = plano.prefixadas.map((x) => (x === original ? tmpMutacao : x));
+          prefixadas = prefSmoke.map((x) => (x === original ? tmpMutacao : x));
         }
         r = rodarOuSair(E.compor({ prefixadas, arquivos: [smoke], mutacao: sql, rotuloMutacao: `MUTACAO ${m.id}` }), m.id);
       } catch (e) {
@@ -1112,7 +1192,7 @@ function principal() {
   );
 }
 
-module.exports = { MUTACOES, SMOKES, julgarMutacao, julgarControle, falha, validarCarga, selecionar, planejarPrefixo, aposentar, trocar, extrair };
+module.exports = { MUTACOES, SMOKES, julgarMutacao, julgarControle, falha, validarCarga, selecionar, planejarPrefixo, prefixoDoSmoke, aposentar, trocar, extrair };
 
 if (require.main === module) {
   try {
