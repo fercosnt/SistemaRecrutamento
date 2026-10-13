@@ -25,6 +25,11 @@
       "version": "20261011000006",
       "aplicado_ate": "2026-10-12T21:04:42Z",
       "fonte": "52-31 Task 5: now() do servidor (arredondado para cima), leitura so-leitura logo depois do migrate, no mesmo comando"
+    },
+    {
+      "version": "20261011000007",
+      "aplicado_ate": "2026-10-13T01:29:02Z",
+      "fonte": "52-32 Task 5: now() do servidor (arredondado para cima), leitura so-leitura logo depois do migrate, no mesmo comando"
     }
   ]
 }
