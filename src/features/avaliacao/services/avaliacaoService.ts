@@ -134,15 +134,7 @@ export async function lerTestesDaMinhaCandidatura(
   candidaturaId: string,
 ): Promise<{ testes_aplicaveis: unknown; aplica_cognitivo: boolean } | null> {
   try {
-    // NARROW confined cast: `ler_testes_das_minhas_candidaturas` ainda não está em
-    // `database.types.ts` (a função só nasce no banco com o apply da 0007); quem o retira é a
-    // Task 5 do 52-32, no commit do `database.types.ts` regenerado do banco vivo. Só o nome da RPC
-    // é alargado — NÃO um cliente sem tipos.
-    const { data, error } = await (supabase.rpc as unknown as (
-      fn: string,
-    ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>)(
-      RPC_TESTES_DAS_MINHAS_CANDIDATURAS,
-    )
+    const { data, error } = await supabase.rpc(RPC_TESTES_DAS_MINHAS_CANDIDATURAS)
     if (error || !Array.isArray(data)) return null
     const entrada = data.find(
       (e: unknown) => ehTestesDaMinhaCandidatura(e) && e.candidatura_id === candidaturaId,

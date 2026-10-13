@@ -338,15 +338,7 @@ export function mesclarVagasDasCandidaturas(linhas: Candidatura[], entradas: unk
  */
 export async function lerVagasDasMinhasCandidaturas(): Promise<unknown> {
   try {
-    // NARROW confined cast: `ler_vagas_das_minhas_candidaturas` não está em `database.types.ts`
-    // (D-52-G7-5); quem o retira: o primeiro plano que rodar `npm run db:types < /dev/null` E
-    // empurrar `database.types.ts` pela via da fase. Só o nome da RPC é alargado — NÃO um cliente
-    // sem tipos.
-    const { data, error } = await (supabase.rpc as unknown as (
-      fn: string,
-    ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>)(
-      RPC_VAGAS_DAS_MINHAS_CANDIDATURAS,
-    )
+    const { data, error } = await supabase.rpc(RPC_VAGAS_DAS_MINHAS_CANDIDATURAS)
     if (error) return null
     return data
   } catch {

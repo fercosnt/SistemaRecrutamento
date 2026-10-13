@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "13.0.5"
   }
   graphql_public: {
     Tables: {
@@ -5967,6 +5967,8 @@ export type Database = {
         Returns: Json
       }
       ler_sjt_mc_rh: { Args: { p_candidatura_id: string }; Returns: Json }
+      ler_testes_das_minhas_candidaturas: { Args: never; Returns: Json }
+      ler_vagas_das_minhas_candidaturas: { Args: never; Returns: Json }
       liberar_cognitivo: {
         Args: { p_candidatura_id: string; p_motivo?: string }
         Returns: Json
