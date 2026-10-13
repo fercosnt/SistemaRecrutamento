@@ -3,10 +3,10 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "52-32 PLAN COMPLETE (2026-10-13T01:50Z, --gaps-only, quatro sessoes de executor A-D + dois reviews do orquestrador; registro em 52-32-FRONTEIRA.md, SUMMARY b42b4321). RPC public.ler_testes_das_minhas_candidaturas() em PROD pela 20261011000007 (md5 2a849b97…; aplicado_ate 2026-10-13T01:29:02Z — ULTIMO apply da fase); quatro leitores do embed (avaliacao, redacao, prova cognitiva, curriculos — a 0006 reusada no titulo) + capturar() fotografa vagas (WR-02) + database.types.ts regenerado do banco vivo com os dois casts retirados; reviews 52-REVIEW-G7B-1 (critical 0, warning 1 → WR-01 backlog) e G7B-2 (critical 0, warning 0); 52-32-DECISAO.md (aplicar; D-52-G7B-1/-2/-5 na parada do tracer, -6 confirmada; deriva PostgrestVersion 14.5→13.0.5 aceita; residual curriculo excluida aceito); pins apply eb21aa79 e publicacao 3a1503be = origin/main; Vercel publicou sozinha (index-B9DljfU9.js); conferencia do operador aprovada (itens 1-3; 4 nao observavel). origin/main..HEAD: so .planning (0e7bc524, b42b4321 + este tracking). PROXIMO HOJE: /gsd-verify-work 52 ate 52-UAT.md status: complete. AMANHA 2026-10-13 apos o backup diario de ~06:30Z (posterior a 0007): bloco D 52-19 → 52-20/52-27 → 52-21 → 52-22 com o p52_backup.cjs como esta (correcao do operador 22:50Z; segunda emenda da D-41 registrada e nao usada); no 52-19 perguntar sobre as vagas ativas fdbe1a4a e e897f709. Backlog: WR-01 do G7B-1 (POS do molde nao ve to_jsonb(v) nem segundo alias)."
-last_updated: "2026-10-13T02:00:00.000Z"
+stopped_at: "52-32 PLAN COMPLETE (2026-10-13T01:50Z, --gaps-only, quatro sessoes de executor A-D + dois reviews do orquestrador; registro em 52-32-FRONTEIRA.md, SUMMARY b42b4321). RPC public.ler_testes_das_minhas_candidaturas() em PROD pela 20261011000007 (md5 2a849b97…; aplicado_ate 2026-10-13T01:29:02Z — ULTIMO apply da fase); quatro leitores do embed (avaliacao, redacao, prova cognitiva, curriculos — a 0006 reusada no titulo) + capturar() fotografa vagas (WR-02) + database.types.ts regenerado do banco vivo com os dois casts retirados; reviews 52-REVIEW-G7B-1 (critical 0, warning 1 → WR-01 backlog) e G7B-2 (critical 0, warning 0); 52-32-DECISAO.md (aplicar; D-52-G7B-1/-2/-5 na parada do tracer, -6 confirmada; deriva PostgrestVersion 14.5→13.0.5 aceita; residual curriculo excluida aceito); pins apply eb21aa79 e publicacao 3a1503be = origin/main; Vercel publicou sozinha (index-B9DljfU9.js); conferencia do operador aprovada (itens 1-3; 4 nao observavel). origin/main..HEAD: so .planning (0e7bc524, b42b4321 + este tracking). /gsd-verify-work 52 FEITO (2026-10-13T02:18Z): 52-UAT.md status: complete (commit dd2d2b1d), predicado uat-passed=true, 94 testes (92 pass + 2 issue resolvidos por 52-28/52-29/52-31). AMANHA 2026-10-13 apos o backup diario de ~06:30Z (posterior a 0007): bloco D 52-19 → 52-20/52-27 → 52-21 → 52-22 com o p52_backup.cjs como esta (correcao do operador 22:50Z; segunda emenda da D-41 registrada e nao usada); no 52-19 perguntar sobre as vagas ativas fdbe1a4a e e897f709. Backlog: WR-01 do G7B-1 (POS do molde nao ve to_jsonb(v) nem segundo alias)."
+last_updated: "2026-10-13T02:20:00.000Z"
 last_activity: 2026-10-12
-state_head: b42b4321
+state_head: dd2d2b1d
 progress:
   total_phases: 11
   completed_phases: 10
@@ -214,7 +214,7 @@ Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 52 — Hub do RH — Dados, Contato e Avaliações do Candidato (gap closure 52-28..31 concluído; **52-32 PLAN COMPLETE** em 2026-10-13T01:50Z (0007 em PROD às 01:29:02Z — último apply da fase; quatro leitores do embed, WR-02 e `database.types.ts` no ar em `index-B9DljfU9.js`; conferência do operador aprovada) — próximo: `/gsd-verify-work 52` até `complete` AINDA HOJE; o bloco D (52-19 → 52-20/27 → 52-21 → 52-22) só AMANHÃ, 2026-10-13, depois do backup diário de ~06:30Z, com o `p52_backup.cjs` como está — correção do operador de 2026-10-12 22:50Z em `52-DECISAO-2026-10-12-bloco-d-hoje.md` § «Correção de ordem»; a segunda emenda da D-41 fica registrada e não é usada; vagas reais INATIVAS podem entrar em PROD hoje pela janela de cadastro, ativação só depois do 52-21)
+**Current focus:** Phase 52 — Hub do RH — Dados, Contato e Avaliações do Candidato (gap closure 52-28..31 concluído; **52-32 PLAN COMPLETE** em 2026-10-13T01:50Z (0007 em PROD às 01:29:02Z — último apply da fase; quatro leitores do embed, WR-02 e `database.types.ts` no ar em `index-B9DljfU9.js`; conferência do operador aprovada) — `/gsd-verify-work 52` FEITO em 2026-10-13T02:18Z (`52-UAT.md` `status: complete`, `uat-passed` verde); o bloco D (52-19 → 52-20/27 → 52-21 → 52-22) só AMANHÃ, 2026-10-13, depois do backup diário de ~06:30Z, com o `p52_backup.cjs` como está — correção do operador de 2026-10-12 22:50Z em `52-DECISAO-2026-10-12-bloco-d-hoje.md` § «Correção de ordem»; a segunda emenda da D-41 fica registrada e não é usada; vagas reais INATIVAS podem entrar em PROD hoje pela janela de cadastro, ativação só depois do 52-21)
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
@@ -1815,8 +1815,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-10-13T02:00:00.000Z
-Stopped at: Phase 52 — 52-32 PLAN COMPLETE (0007 em PROD, quatro leitores e tipos no ar, conferência aprovada); próximo HOJE: /gsd-verify-work 52 até complete; bloco D (52-19 → 52-20/27 → 52-21 → 52-22) amanhã 2026-10-13 após o backup de ~06:30Z, posterior à 0007
+Last session: 2026-10-13T02:20:00.000Z
+Stopped at: Phase 52 — 52-32 PLAN COMPLETE e UAT complete (dd2d2b1d, uat-passed verde); próximo: bloco D (52-19 → 52-20/27 → 52-21 → 52-22) amanhã 2026-10-13 após o backup de ~06:30Z, posterior à 0007
 Resume file: .planning/phases/52-hub-do-rh-dados-e-contato/52-32-SUMMARY.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
