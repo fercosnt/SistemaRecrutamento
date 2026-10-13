@@ -1621,3 +1621,110 @@ review dos tipos: empurrar sobre 52-REVIEW-G7B-2.md (warnings=0)
 2. **Extração dos comandos:** a primeira extração desta sessão (por `split('<verify>')`) casou as menções a `` `<verify>` ``
    no texto e não escreveu os arquivos; refeita ancorada no elemento (`\n  <verify>\n … \n  </verify>`), antes de qualquer
    comando da Task 7. O «Comando de push» extraído ocorre 1× literal no plano (1686 caracteres, sha256 `3c610230…`).
+
+## §Task 7 — sessão D, 2026-10-13 (UTC) (pin de publicação, push por sha, marcadores em PROD)
+
+### Precondition (medida 2026-10-13T01:44:27Z, HEAD `3a1503be`) — satisfeita
+
+- Os dois `<verify>` da Task 6 verdes (§Task 6 acima); `deriva_postgrest: aceitar` → o commit dos tipos existe e sobe.
+- `git status --porcelain -- supabase src scripts e2e docs/compliance p46apply.cjs efdeploy.cjs database.types.ts` vazio.
+- `refs/gsd/52-32-tipos/sha` inexistente antes do Passo 0 (`git rev-parse --verify -q` rc=1); nenhum `52-32-SUMMARY.md`.
+- `git diff --quiet 913b83a8 HEAD -- . ':!.planning'` rc=0: nenhum código depois do `reviewed_head` do G7B-2.
+
+### Re-medição local antes do pin (2026-10-13T01:44Z, HEAD `3a1503be`; build/ é ignorado pelo git) — VERDE
+
+`npm run build` rc=0 (`✓ assert-chunks PASSED`); `grep -rlF` em `build/assets/`:
+`ler_testes_das_minhas_candidaturas`, `ler_vagas_das_minhas_candidaturas` e `id, vaga:vagas(testes_aplicaveis)` →
+`build/assets/index-B9DljfU9.js` (o mesmo hash da §Task 5 e do revisor, IN-06); `vagas!inner(testes_aplicaveis)` → nenhum
+arquivo. (A Task 7 não tem um «Passo 0b» escrito; a re-medição foi feita por ser só leitura e não criar commit.)
+
+### Passo 0 — pin de publicação (2026-10-13T01:44:41Z)
+
+`git rev-parse --verify -q refs/gsd/52-32-tipos/sha || git update-ref refs/gsd/52-32-tipos/sha HEAD ""` →
+**`refs/gsd/52-32-tipos/sha` = `3a1503be27cf078856ae291e8021f82b73194dc2`** (= HEAD). Nenhum commit entre o pin e o push.
+
+### Passo 1 — o «Comando de push» do `<context>`, byte a byte (2026-10-13T01:44:41Z → 01:44:49Z) — VERDE
+
+Extraído do plano por máquina (1 ocorrência literal, 1686 caracteres, sha256 `3c610230…`) e executado por `source` num
+`bash` (para ler `R`/`S` depois, sem tocar no comando); rc=0.
+
+**`R` = `b0945868c9f37f2003b1c8bd01019e0691754569`** (origin/main antes) · **`S` = `3a1503be27cf078856ae291e8021f82b73194dc2`** (HEAD = pin).
+
+Saída inteira (stdout):
+
+```
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7B-2.md reviewed_head=913b83a8355f932f2fa2fd00c235c9720ca10965 pin=3a1503be27cf078856ae291e8021f82b73194dc2 modo=push ledger=[20261011000001,20261011000002,20261011000003,20261011000005,20261011000006,20261011000007]
+e2d838722d7014b39e8c630395eae114138a249c planning docs(52-31): registro entre sessoes §Task 5 — apply, provas e push (fronteira antes da conferencia)
+ea4597a5ce758e8e74a4d801b6571ae4fbdd22cf planning docs(52-31): SUMMARY — G-52-7 fechado: RPC ler_vagas_das_minhas_candidaturas em PROD (0006, aplicado_ate 2026-10-12T21:04:42Z), push 954b3e4b/b0945868, conferencia do operador aprovada (itens 1-2; 3-4 nao testados)
+af7a55681e08483dc4d85c9362127ded63506685 planning docs(phase-52): tracking a mao — 52-31 (G-52-7) PLAN COMPLETE: RPC em PROD (0006, ultimo apply da fase), push por sha, conferencia aprovada; UAT G-52-7 resolved; 52-19 emendado (R5: ultimo apply = 0006, 52-32 antes); ROADMAP 26/31; proximo /gsd-plan-phase 52 --gaps (52-32) antes do 52-19
+0331e8018ed94a33c89af858226fea8cb1434b8f planning docs(phase-52): decisao do operador 2026-10-12 — fechar o sistema hoje; segunda emenda da D-41 (ponto de restauracao = backup 06:31:59Z + migrations do git + export; remedir antes do 52-21; ordem 52-32 → verify-work → 52-19 → 52-21 → 52-22)
+2dedf4edfbca872fc2e70d2da9b9ae9145e21556 planning docs(52-32): plano dos residuais do G-52-7 — RPC ler_testes_das_minhas_candidaturas (3+1 leitores do embed), capturar() fotografa vagas (WR-02), database.types.ts regenerado e casts retirados; 8 tasks em 4 sessoes (onda 15); bloco D re-ondado 16-19 (52-19 depende do 52-32); checker 2 rodadas (3 warnings → 0, 5 INFO); ROADMAP 26/32; STATE a mao
+f360bee7a1a95183b588513c69476a99c62bb008 planning docs(phase-52): correcao de ordem do operador (2026-10-12 22:50Z) — bloco D so amanha apos o backup de ~06:30Z com o p52_backup.cjs como esta; segunda emenda da D-41 registrada e nao usada; hoje 52-32 + verify-work; vagas reais INATIVAS podem entrar em PROD pela janela de cadastro
+f5822c8893de22906526c280246cc5201f94ae98 codigo feat(52-32): ler_testes_das_minhas_candidaturas — o candidato le os testes e o opt-in cognitivo da vaga das proprias candidaturas em qualquer status (R1 do G-52-7)
+9079765aad7274dacbbd47de86cabf1f1e7705ef codigo chore(52-32): p52_ensaio conhece a 20261011000007 (MIGS na ordem de aplicacao, par 52a)
+63b011bc93a4d3b838b296b66d948ae3e9adb111 codigo test(52-32): smoke52a (tracer — dono le os testes da vaga fora do ar, outro candidato nao, allowlist exata)
+1c64a704011c129746e7bf3d7ba75ab7954d9901 codigo test(52-32): painel e pagina de avaliacoes com vaga nao publica (vermelho antes do conserto)
+8dd062720849d9adcf8c456dbe7416362160f7c3 codigo fix(52-32): getAvaliacaoContext le os testes da vaga pela RPC quando o embed vem nulo (JORN-59)
+27e1271d7b812a2993635add6d6ed4d78b8aa43b planning docs(52-32): registro entre sessoes §Task 1 — tracer verde (fronteira de retomada da sessao A)
+c91a64a347580c3fd9e25974c3adf888daa3dc0e planning docs(52-32): resposta do operador na parada da tracer — D-52-G7B-1/-2/-5
+0b4736b44a7954ade7490a3e98127f571e648377 codigo fix(52-32): capturar() fotografa vagas (id, status, deleted_at) e provaVagasEstado prova a mordida no ensaio que aborta (WR-02 do 52-REVIEW-G7-1)
+2237d8c8271df4340d18dae64b42cafaef71189b codigo test(52-32): smoke52a completo (10 clausulas) e mutacoes A1-A14 (A13-A14 provam a varredura do WR-01 na 0007)
+94c96eee85af1631bcd4fc9306e5f52c2ccb5d08 codigo test(52-32): redacao, prova cognitiva e curriculos com vaga nao publica (vermelho antes do conserto) e a leitura dos testes no servico
+6e9fa4440c568f382647ada9c2c329aa137f13b1 codigo fix(52-32): redacao, prova cognitiva e curriculos leem a vaga das proprias candidaturas pela RPC quando o embed vem nulo (R1 do G-52-7, D-52-G7B-5)
+31facac937bfc71e34ec282b7d5d21575bb84e92 planning docs(52-32): registro entre sessoes §Tasks 2-3 — WR-02, smoke52a 10/10, A1-A14 e os quatro leitores (fronteira da sessao B)
+a10758136d7a4cfd5a18537d65c4d8a22ab768c7 planning docs(52-32): review adversarial do 52-32 — 52-REVIEW-G7B-1 (critical 0, warning 1, info 8)
+2f62cad4901d0c0206027d2b0babe76ea02c7e83 planning docs(52-32): registro entre sessoes §Task 4 — review G7B-1 no portao, perguntas ao operador
+4d2414401d0267eb8b2d72a4b3411b7921932ad2 planning docs(52-32): decisao do 52-32 — aplicar sobre 52-REVIEW-G7B-1 (warnings 1: WR-01 backlog; D-52-G7B-6 confirmada; deriva PostgrestVersion aceita; residual curriculo excluida aceito)
+eb21aa7918d5e8947eaea1920e59b9b5df081957 planning docs(52-32): registro entre sessoes §Task 4 — decisao aplicar (WR-01 backlog, D-52-G7B-6 confirmada, deriva aceita, residual aceito, janela unica), segundo verify verde
+30edb982e9432f64675e6eb353912cae5beacdc7 planning docs(52-32): instante do apply da 20261011000007 (D-41 segunda emenda — ultimo apply da fase, reaplicavel do git)
+8a516a942865b3248a7311a32b029fe9fa31fba7 codigo chore(52-32): database.types.ts regenerado do banco vivo (0006 e 0007) e os casts estreitos das duas RPCs do candidato retirados (R4 do 52-31, D-52-G7-5)
+913b83a8355f932f2fa2fd00c235c9720ca10965 planning docs(52-32): registro entre sessoes §Task 5 — apply, provas em PROD e tipos regenerados (fronteira antes do review dos tipos)
+2a02c27b8eea4322b3f93563402d1f803a3e8a08 planning docs(52-32): review do commit dos tipos — 52-REVIEW-G7B-2 (critical 0, warning 0, info 7, approved)
+8f803b17165a2b7082e7303c6f60b8a944abff3a planning docs(52-32): review dos tipos — empurrar sobre 52-REVIEW-G7B-2
+3a1503be27cf078856ae291e8021f82b73194dc2 planning docs(52-32): registro entre sessoes §Task 6 — review dos tipos G7B-2 aprovado no portao
+enumeracao ok: 28 commit(s) em b0945868..3a1503be · codigo coberto por 52-REVIEW-G7B-2.md (reviewed_head 913b83a8) · codigo contido no apply 3a1503be
+```
+
+`git push` (stderr): `To github.com:fercosnt/SistemaRecrutamento.git` / `b0945868..3a1503be  3a1503be27cf078856ae291e8021f82b73194dc2 -> main`; exit 0.
+
+28 commits: **10 `codigo`** (`f5822c88`, `9079765a`, `63b011bc`, `1c64a704`, `8dd06272`, `0b4736b4`, `2237d8c8`, `94c96eee`,
+`6e9fa444` e o dos tipos **`8a516a94` como `codigo`** — todos ancestrais do `reviewed_head` 913b83a8 do G7B-2 e do pin
+`3a1503be`) e **18 `planning`** (entre eles `e2d83872`, `ea4597a5`, `af7a5568`, `0331e801`, o planejamento `2dedf4ed`, os
+reviews `a1075813`/`2a02c27b`, as decisões, as §FRONTEIRA e o registro do apply `30edb982`), **0 ALHEIO**. Nenhum
+`PORTAO RECUSADO`, `COMMIT ALHEIO: PARAR`, `REVISAO NAO COBRE A BASE` nem `REVISAO INVALIDA`; `merge-base --is-ancestor R S`
+verdadeiro. O comando não foi reescrito, o `--caminhos` não foi alargado e nenhum pin se moveu. `ledger=[…]` com a 0006 e a 0007.
+
+### Passo 2 — `<verify>` 1 logo depois do push (sem commit no meio), 2026-10-13T01:44:54Z → 01:44:57Z — VERDE
+
+```
+origin/main = HEAD; pins do apply e da publicacao, o commit dos tipos e os quatro commits de .planning no remoto; nada local
+```
+
+(Os pins são refs locais `refs/gsd/*` — `git ls-remote origin 'refs/gsd/*'` não lista nenhum, nem o do 52-31; o `<verify>`
+prova que os COMMITS para os quais apontam são ancestrais de `origin/main`.)
+
+### Passo 3 — `<verify>` 2, repetido sem mudança até aparecer — VERDE
+
+```
+[1] 2026-10-13T01:45:06Z rc=1 :: PROD SEM O 52-32: ausentes no chunk index=["ler_testes_das_minhas_candidaturas","id, vaga:vagas(testes_aplicaveis)"] antigo presente={"vagas!inner(testes_aplicaveis)":["/assets/index-CFPYr-z6.js"]} (visitados=53)
+[2] 2026-10-13T01:46:22Z rc=0 :: PRESENTE em PROD (chunk index): {"ler_testes_das_minhas_candidaturas":["/assets/index-B9DljfU9.js"],"id, vaga:vagas(testes_aplicaveis)":["/assets/index-B9DljfU9.js"]}; embed antigo da redacao ausente em 53 arquivos visitados
+```
+
+**Chunk em PROD = `assets/index-B9DljfU9.js`** às 2026-10-13T01:46:22Z (~1,5 min depois do push de 01:44:49Z), o mesmo hash
+do build local desta sessão, da §Task 5 e do build do revisor (IN-06): o que está no ar é byte a byte o que foi medido e
+revisado; o chunk anterior era `index-CFPYr-z6.js` (o do 52-31, com o `!inner` da redação). O deploy automático da Vercel
+construiu sozinho; nenhum deploy à mão, nenhum `efdeploy.cjs`, nada do disco local.
+
+### Consequência da D-41 (segunda emenda)
+
+O último apply da fase é a `20261011000007`, **`aplicado_ate` 2026-10-13T01:29:02Z** (`52-APLICACOES.json`), reaplicável do
+git; o ponto de restauração é o backup de 2026-10-12T06:31:59Z + a 0006 e a 0007 do git (o 52-19 lê esta emenda; o
+`p52_backup.cjs` dele recusaria por construção — R5). Front e banco agora no mesmo estado publicado.
+
+### Depois do push
+
+O commit desta FRONTEIRA (e, depois da Task 8, o do SUMMARY) reabre `origin/main..HEAD` só com `.planning/` — esperado;
+sobem no próximo push com plano, que usa `--base refs/gsd/52-32-tipos/sha` como o último pin publicado.
+Nenhum `52-32-SUMMARY.md`; STATE.md/ROADMAP.md intocados. A próxima é a parada da Task 8 (conferência no ar do operador).
+
+fronteira_retomada: sessao_d_parada 2026-10-13T01:47Z head=3a1503be27cf078856ae291e8021f82b73194dc2
