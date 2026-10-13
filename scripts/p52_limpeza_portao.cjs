@@ -696,6 +696,16 @@ function autoTeste() {
     ['comparar: aprovado_em nao e categoria (DEC real, unica diferenca) -> OK', () => /^aprovado_em: /m.test(DEC(['ficticios'])) && compararDocs(comDecisao(['ficticios']), DEC(['ficticios']), POP(['ficticios'])).length === 0],
     ['comparar: populacao aprovada na forma sem --decisao -> recusa', () => { const e = compararDocs(comDecisao(['ficticios']), DEC(['ficticios']), base()); return e.includes('populacao aprovada sem apagaveis'); }],
     ['comparar: populacao aprovada de outra populacao (md5 != aprovado) -> recusa so por isso', () => { const e = compararDocs(comDecisao(['ficticios']), DEC(['ficticios']), POP(['ficticios', 'contas_teste_com_candidatura'])); return e.length === 1 && /^populacao_md5 da populacao aprovada [0-9a-f]{32} != aprovado /.test(e[0]); }],
+    /* WR-02 do 52-REVIEW-LIMPEZA-1: mesma contagem por categoria, UM id trocado (uma conta de teste saiu e uma real
+     * entrou). A única linha que recusa isso é `populacao_md5 agora … != aprovado` — contagem e chaves batem. */
+    ['comparar: mesma contagem, um id trocado -> recusa SO por populacao_md5', () => {
+      const cats = ['ficticios', 'contas_teste_com_candidatura'];
+      const a = comDecisao(cats);
+      a.apagaveis.contas_teste_com_candidatura = [{ id: id(7), user_id: null }, { id: id(4), user_id: null }];
+      a.populacao_md5 = md5Ids([id(2), id(7), id(4)]);
+      const e = compararDocs(a, DEC(cats), POP(cats));
+      return e.length === 1 && /^populacao_md5 agora [0-9a-f]{32} != aprovado [0-9a-f]{32}$/.test(e[0]);
+    }],
     ['D-30: cada padrao literal no SQL_VARREDURA', () => padroesNoSql(SQL_VARREDURA).length === 0],
     ['D-30: um padrao tirado do SQL -> recusa', () => PADROES_D30.every((p) => padroesNoSql(SQL_VARREDURA.split(`('${p}')`).join('')).includes(p))],
     ['SQL comeca por set transaction read only', () => SQL_VARREDURA.startsWith('set transaction read only;')],
