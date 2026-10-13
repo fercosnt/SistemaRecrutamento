@@ -320,6 +320,10 @@ const S52D = 'supabase/tests/p52_limpeza_pos_smoke.sql';
 /* D1: a trava do RH sai da varredura — a CTE `rh` (única definição da trava na 0004) fica vazia. */
 const D1_RH = '  rh AS (SELECT r.user_id FROM public.usuarios_rh r),\n';
 const D1_RH_SEM = '  rh AS (SELECT r.user_id FROM public.usuarios_rh r WHERE false),\n';
+/* D1b: o IF do PRE (aprovada) do WR-03 (4ea47b5b) neutralizado por `false AND` — a execução passa do PRE e
+ * chega ao POS. Sem isso, a D1 só prova o portão mais cedo; com isso, prova que o POS (trava) morde sozinho. */
+const D1B_APROVADA = '  IF v_md5 IS DISTINCT FROM v_md5_aprovado THEN\n';
+const D1B_APROVADA_SEM = '  IF false AND v_md5 IS DISTINCT FROM v_md5_aprovado THEN\n';
 /* D2: o DELETE de revisao_rejeicao (e o registro do passo dele) some do LIMPA. */
 const D2_PASSO =
   '    DELETE FROM public.revisao_rejeicao x WHERE x.candidatura_id = ANY (v_kids);\n' +
@@ -860,13 +864,26 @@ const MUTACOES = [
     migracao: { versao: V07, transformar: (t) => trocar(t, A_PROJ_FIM, "'aplica_cognitivo', v.aplica_cognitivo, 'titulo', v.\"titulo\")", 'A14') },
   },
   {
-    // T-52-59: sem a trava do RH, a conta excluída entra na população — a impressão digital da trava acusa.
+    // T-52-59 / WR-03: sem a trava do RH, a conta excluída entra na população — o md5 do alvo deixa de ser o
+    // aprovado e o PRE (aprovada) recusa antes de qualquer DELETE (o POS (trava) nem é alcançado: ver D1b).
     id: 'D1',
-    desc: 'migration 0004 sem a trava do RH na varredura (CTE rh vazia): a conta de RH entra no alvo',
+    desc: 'trava do RH retirada → a população muda → o PRE (aprovada) recusa antes de qualquer DELETE',
+    smoke: S52D,
+    recusa: 'P52D PRE-PORTAO (aprovada): populacao calculada ',
+    requer: [V04],
+    migracao: { versao: V04, transformar: (t) => trocar(t, D1_RH, D1_RH_SEM, 'D1') },
+  },
+  {
+    // T-52-59: a mesma retirada da D1 com o PRE (aprovada) neutralizado — a impressão digital da trava acusa no POS.
+    id: 'D1b',
+    desc: 'sem a trava E sem o PRE (aprovada): o POS (trava) ainda morde — prova de que a trava tem dois portões independentes',
     smoke: S52D,
     recusa: 'P52D POS-PORTAO (trava)',
     requer: [V04],
-    migracao: { versao: V04, transformar: (t) => trocar(t, D1_RH, D1_RH_SEM, 'D1') },
+    migracao: {
+      versao: V04,
+      transformar: (t) => trocar(trocar(t, D1_RH, D1_RH_SEM, 'D1b (trava)'), D1B_APROVADA, D1B_APROVADA_SEM, 'D1b (aprovada)'),
+    },
   },
   {
     // T-52-59/T-52-60: um filho NO ACTION sem o seu DELETE — com ou sem linhas a apagar, (filhos) para.
