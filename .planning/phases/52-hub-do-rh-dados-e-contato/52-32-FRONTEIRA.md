@@ -1376,3 +1376,188 @@ exit=0
 ```
 
 Próximo: Task 5 (pin `refs/gsd/52-32/sha` sobre o commit DESTA seção; nenhum commit entre o pin e o apply).
+
+## §Task 5 — sessão C (segunda perna), 2026-10-13 (UTC) ([BLOCKING] apply, provas em PROD, tipos regenerados)
+
+Todos os comandos abaixo foram EXTRAÍDOS DO PLANO POR MÁQUINA (os `<automated>` do elemento `<verify>` da Task 5 e o
+comando do Passo 1 do `<action>`) e rodados com `bash`, sem reescrita. Nada além deles tocou PROD (nenhum
+`p46apply.cjs run`, `db push`, `efdeploy`, deploy manual nem `git push`).
+
+### Precondition (medida 2026-10-13T01:28:08Z–01:28:36Z, HEAD `eb21aa79`) — satisfeita
+
+- `<verify>` 1 da Task 4 de novo, como escrito: `PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7B-1.md reviewed_head=31facac937bfc71e34ec282b7d5d21575bb84e92 pin=- modo=revisao` (exit 0).
+- `<verify>` 2 da Task 4 de novo: `decisao do 52-32: aplicar sobre 52-REVIEW-G7B-1.md (warnings=1, deriva_postgrest=aceitar)` (exit 0) — `janela_unica: confirmada`, as quatro `d52_g7b_*: confirmada`.
+- PROD só leitura: `{"no_ledger": 0, "ausente": true, "vagas": 15, "pred": 12, "agora": "2026-10-12 22:28:09.751828-03"}` — `20261011000007` fora do ledger, função ausente; `vagas` iguais às sessões A, B e C1 (a janela de cadastro não gravou vaga até aqui).
+- `git status --porcelain -- supabase src scripts e2e docs/compliance p46apply.cjs efdeploy.cjs database.types.ts` vazio; nenhum `52-32-SUMMARY.md`; `refs/gsd/52-32/sha` inexistente (`git rev-parse --verify -q` rc=1).
+
+### Passo 0 — pin (2026-10-13T01:28:41Z)
+
+`git rev-parse --verify -q refs/gsd/52-32/sha || git update-ref refs/gsd/52-32/sha HEAD ""` → rc=0;
+**`refs/gsd/52-32/sha` = `eb21aa7918d5e8947eaea1920e59b9b5df081957`** = HEAD = o commit da FRONTEIRA §Task 4 (commitada
+ANTES do pin). Entre o pin e o apply: nenhum commit (esta seção ficou no disco até o fim da sessão).
+
+### Passo 0b — re-medição imediatamente antes (HEAD = pin `eb21aa79`) — VERDE
+
+Ensaio exato da Task 2 (segundo `<automated>` da Task 2: `--vistas --migracoes=<0007>` + smoke52a), 2026-10-13T01:28:47Z, exit 0:
+
+```
+ensaio: prefixadas=[20261011000007] aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005,20261011000006] ausentes=[20261011000004] arquivos=supabase/tests/p52_testes_candidato_smoke.sql
+ENSAIO VERDE: supabase/tests/p52_testes_candidato_smoke.sql · prefixadas=[20261011000007] · aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005,20261011000006] · ausentes=[20261011000004] · vistas=igual · smokes=[52a=10/10] · evidencia=avaliacao:testes_candidato=ok 52a.pop=cand:22,naturais:16 52a.alvo=publica · 784 ms
+```
+
+Último `<automated>` da Task 3 (build com os marcadores), 2026-10-13T01:28:49Z → 01:28:55Z, exit 0:
+
+```
+marcadores do 52-32 no chunk eager; embed antigo da redacao ausente
+```
+
+`grep -rl ler_testes_das_minhas_candidaturas build/assets/` → `build/assets/index-B9DljfU9.js` (o mesmo chunk do
+revisor do G7B-1). Árvore vigiada limpa depois do build (0 linhas).
+
+### Passo 1 — apply e o instante, num comando só (o comando do plano, byte a byte; 2026-10-13T01:28:59Z → 01:29:01Z local) — VERDE
+
+```
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7B-1.md reviewed_head=31facac937bfc71e34ec282b7d5d21575bb84e92 pin=eb21aa7918d5e8947eaea1920e59b9b5df081957 modo=apply
+registro: 20261011000007 aplicado_ate 2026-10-13T01:29:02Z
+
+── 20261011000007_p52_testes_das_minhas_candidaturas.sql
+   version : 20261011000007
+   name    : p52_testes_das_minhas_candidaturas
+   octetos : 17407
+   md5     : 2a849b97175ea254349b3eb4ed4a43b6
+   ✅ aplicada e escriturada — md5 do ledger BATE (17407 octetos)
+APPLY EXIT=0
+```
+
+(`aplicado_ate` = `now()` do servidor arredondado para cima, lido só leitura depois do `migrate`, no mesmo comando; o
+relógio local marcava 01:29:01Z no fim — o teto nunca põe o instante antes do COMMIT.) Nenhuma recusa do portão nem do
+PRE/POS; nenhum `55P03`/`57014`; registro gravado pela máquina (nenhuma entrada à mão; o caso do IN-02 não ocorreu).
+
+Registro commitado sozinho: **`30edb982`** `docs(52-32): instante do apply da 20261011000007 (D-41 segunda emenda — ultimo apply da fase, reaplicavel do git)` — só `52-APLICACOES.json` (+5 linhas: a entrada da 0007).
+`git rev-list refs/gsd/52-32/sha..30edb982` = só `30edb982` → nenhum commit entre o pin e o apply.
+
+### Passo 2 — provas em PROD
+
+`<verify>` 1 da Task 5 (só leitura), 2026-10-13T01:29:17Z, exit 0:
+
+```
+0007 em PROD: ledger = arquivo; RPC no contrato de catalogo; anon e PUBLIC sem EXECUTE, authenticated com; registro cobre 6 versoes p52; ultimo apply da fase = 20261011000007 2026-10-13T01:29:02Z
+```
+
+`<verify>` 2 da Task 5 (smoke52a e smoke52p CONTRA O VIVO; A1–A12 em `--pos-apply`), 2026-10-13T01:29:18Z → 01:29:30Z, exit 0:
+
+```
+p52_testes_candidato_smoke vivo rc=0: ENSAIO VERDE: supabase/tests/p52_testes_candidato_smoke.sql · prefixadas=[] · aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005,20261011000006,20261011000007] · ausentes=[20261011000004] · smokes=[52a=10/10] · evidencia=52a.pop=cand:22,naturais:16 52a.alvo=publica · 558 ms
+p52_painel_vaga_smoke vivo rc=0: ENSAIO VERDE: supabase/tests/p52_painel_vaga_smoke.sql · prefixadas=[] · aplicadas=[20261011000001,20261011000002,20261011000003,20261011000005,20261011000006,20261011000007] · ausentes=[20261011000004] · smokes=[52p=10/10] · evidencia=52p.pop=cand:22,naturais:16 52p.alvo=publica · 544 ms
+```
+
+Log inteiro do runner (`p52_mutacoes.cjs --pos-apply --so=A1,…,A12`; linhas `An morde` encurtadas com `…` só em listas
+longas de rótulos; `CONTROLE`, `leitura so-leitura` e `MUTACOES:` inteiras):
+
+```
+APOSENTADA: B1..B6 — supabase/tests/p52_banco_sjt_smoke.sql so roda com 20261011000003 prefixada, e 20261011000003 esta no ledger desde o apply
+APOSENTADA: A13 — supabase/tests/p52_testes_candidato_smoke.sql so roda com 20261011000007 prefixada, e 20261011000007 esta no ledger desde o apply
+APOSENTADA: A14 — supabase/tests/p52_testes_candidato_smoke.sql so roda com 20261011000007 prefixada, e 20261011000007 esta no ledger desde o apply
+selecao (--so): A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12
+modo: pos-apply (sem migracoes) prefixadas=[]
+baseline: ledger=["20261011000001","20261011000002","20261011000003","20261011000005","20261011000006","20261011000007"] funcoes=9 mutacoes_p52=0 fixtures_p52={"users":0,"candidatos":0}
+CONTROLE verde (supabase/tests/p52_testes_candidato_smoke.sql): par 52a=10/10 (517 ms)
+A1 morde: … o predicado de posse vira true -> P52A FAIL (b) [outro_elementos_que_nao_sao_dele:42,outro_ve_candidaturas_do_dono:2,sub_sem_candidato:ok:n=44] (491 ms)
+A2 morde: … filtro de vaga publica no WHERE -> P52A FAIL (a) [rascunho_alvo_sem_testes_e_opt_in_da_vaga:ok:n=0,…]
+A3 morde: … 'titulo', v.titulo como quarta chave -> P52A FAIL (c) [dono_vivo_chaves:aplica_cognitivo|candidatura_id|testes_aplicaveis|titulo,…]
+A4 morde: … a guarda aceita rh e administrador -> P52A FAIL (g) [administrador_sub_do_admin:ok:n=3,rh_sub_do_recrutador:ok:n=0,administrador_sub_do_dono:ok:n=2] (480 ms)
+A5 morde: GRANT EXECUTE … a anon depois da migration -> P52A FAIL (f) [anon_com_execute:true,anon_chamada:err:42501:forbidden] (704 ms)
+A6 morde: … sem AND c.is_rascunho = false -> P52A FAIL (h) [rascunho_diferente_do_vivo_menos_o_alvo:n=2/esperado=1] (661 ms)
+A7 morde: … AND v.deleted_at IS NULL no WHERE -> P52A FAIL (i) [alvo_sem_testes_e_opt_in_da_vaga_apagada:ok:n=1] (519 ms)
+A8 morde: … a guarda sem v_uid IS NULL OR -> P52A FAIL (e) [candidato_sem_sub:ok:n=0] (610 ms)
+A9 morde: … sem a guarda de papel -> P52A FAIL (e) [sem_claims:ok:n=0,sem_papel:ok:n=2,candidato_sem_sub:ok:n=0] (481 ms)
+A10 morde: … CROSS JOIN (VALUES (1), (2)) -> P52A FAIL (d) [repetidas:32_linhas_em_22/22_candidatos] (560 ms)
+A11 morde: … 'aplica_cognitivo', false no lugar do valor da vaga -> P52A FAIL (a) [inativa_alvo_sem_testes_e_opt_in_da_vaga:ok:n=2] (549 ms)
+A12 morde: … 'testes_aplicaveis', '[]'::jsonb no lugar do valor da vaga -> P52A FAIL (a) [rascunho_alvo_sem_testes_e_opt_in_da_vaga:ok:n=2,…] (544 ms)
+leitura so-leitura igual a baseline: ledger=["20261011000001","20261011000002","20261011000003","20261011000005","20261011000006","20261011000007"] funcoes=9 mutacoes_p52=0 fixtures_p52={"users":0,"candidatos":0}
+MUTACOES: 12/12 mordem; controle verde; nada persistiu (so=A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12) (pos-apply) (aposentadas: B1,B2,B3,B4,B5,B6,A13,A14)
+```
+
+Cada A morde na sua letra, como no ensaio da §Task 2 (A1→b, A2→a, A3→c, A4→g, A5→f, A6→h, A7→i, A8→e, A9→e,
+A10→d, A11→a, A12→a). A13/A14 (recusas do POS) aposentadas por construção no `--pos-apply`: a 0007 está no ledger.
+
+### Passo 3 — `database.types.ts` regenerado do banco vivo (2026-10-13T01:29:41Z → 01:29:43Z)
+
+CLI já instalado `/opt/homebrew/bin/supabase`, **versão 2.116.0** (nenhuma instalação; aviso de v2.120.0 ignorado).
+Comando do plano: `T=$(mktemp); SUPABASE_ACCESS_TOKEN=$(security find-generic-password -s "Supabase CLI" -a supabase -w) supabase gen types typescript --project-id isljnozzlvckrgjjbjwp < /dev/null > "$T"`
+→ rc=0, **temporário 223760 octetos** (> 100000), `ler_testes_das_minhas_candidaturas` 1×, `ler_vagas_das_minhas_candidaturas`
+1× → `mv "$T" database.types.ts` (versionado antes: 223613 octetos). Diff INTEIRO contra o pin:
+
+```diff
+diff --git a/database.types.ts b/database.types.ts
+index 620e6bb7..712cc9ba 100644
+--- a/database.types.ts
++++ b/database.types.ts
+@@ -10,7 +10,7 @@ export type Database = {
+   // Allows to automatically instantiate createClient with right options
+   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+   __InternalSupabase: {
+-    PostgrestVersion: "14.5"
++    PostgrestVersion: "13.0.5"
+   }
+   graphql_public: {
+     Tables: {
+@@ -5967,6 +5967,8 @@ export type Database = {
+         Returns: Json
+       }
+       ler_sjt_mc_rh: { Args: { p_candidatura_id: string }; Returns: Json }
++      ler_testes_das_minhas_candidaturas: { Args: never; Returns: Json }
++      ler_vagas_das_minhas_candidaturas: { Args: never; Returns: Json }
+       liberar_cognitivo: {
+         Args: { p_candidatura_id: string; p_motivo?: string }
+         Returns: Json
+```
+
++3/−1: só as duas entradas de função e a `PostgrestVersion` (deriva aceita pelo operador) — nenhuma linha alheia,
+logo nenhum sinal de banco mudado fora do ledger da fase. Arquivo nunca editado à mão.
+
+Casts: `lerVagasDasMinhasCandidaturas()` (`candidaturasService.ts`) e `lerTestesDaMinhaCandidatura()`
+(`avaliacaoService.ts`) passam a `await supabase.rpc(RPC_VAGAS_DAS_MINHAS_CANDIDATURAS)` /
+`await supabase.rpc(RPC_TESTES_DAS_MINHAS_CANDIDATURAS)` tipados; o resto do corpo (uma chamada, `null` em erro e em
+exceção de transporte, sem eco) intocado; os dois comentários de cast saíram. O cast de `get_avaliacao_status`
+(Phase 27, R7) fica. Lint antes do commit: 89 (= base), nenhum erro nos dois serviços.
+
+Commit dos tipos: **`8a516a942865b3248a7311a32b029fe9fa31fba7`** `chore(52-32): database.types.ts regenerado do banco vivo (0006 e 0007) e os casts estreitos das duas RPCs do candidato retirados (R4 do 52-31, D-52-G7-5)` — SÓ os três arquivos (`database.types.ts` +3/−1, `avaliacaoService.ts` +1/−9, `candidaturasService.ts` +1/−9); o pre-commit imprimiu `tsc errors: 89`.
+
+`<verify>` 3 da Task 5, 2026-10-13T01:30:28Z, exit 0:
+
+```
+tipos: octetos=223760 deriva=0 commit=8a516a942865b3248a7311a32b029fe9fa31fba7; casts candidaturasService=0 (base 1) avaliacaoService=1 (base 1)
+tipos regenerados e os dois casts retirados no mesmo commit
+```
+
+`<verify>` 4 da Task 5, 2026-10-13T01:30:29Z → 01:31:18Z, exit 0:
+
+```
+ Test Files  77 passed (77)
+      Tests  728 passed (728)
+vitest delta: base=0d70ac7 2725/2 · head=8a516a9 3179/2 · pre-existentes=2 · corrigidas=0 · alteradas=0 · novas=0 · mordida=ok
+lint exit=2 tsc errors=89 (base 89)
+suite, lint e build verdes com os tipos novos
+```
+
+Build: `ler_testes_das_minhas_candidaturas` em `build/assets/index-B9DljfU9.js` (mesmo hash do Passo 0b — os tipos
+não mudam o JS emitido). Árvore vigiada limpa depois (0 linhas).
+
+### Escopo para o review dos tipos (Task 6, do orquestrador)
+
+`git diff refs/gsd/52-32/sha..HEAD -- . ':!.planning'` = **só o commit `8a516a94`** (3 arquivos, +5/−19). Commits desde o
+pin: `30edb982` (registro do apply, só `.planning/`), `8a516a94` (tipos + casts), e o desta seção (só `.planning/`).
+
+### Desvios e observações
+
+1. **Despacho × plano no `--pos-apply`:** o despacho pedia `--so=A1..A14` e `MUTACOES: 14/14 mordem`; o `<verify>` 2 da
+   Task 5 diz `--so=A1,…,A12` e `^MUTACOES: 12/12 mordem` — rodado como o plano escreve. A13/A14 são recusas do POS e o
+   runner as aposenta por construção depois do apply (a 0007 no ledger), o que tornaria 14/14 impossível.
+2. **Extração dos comandos:** a primeira extração por máquina pegou também menções a `` `<automated>` `` no texto do
+   `<action>`; refeita ancorada no elemento `<verify>` antes de qualquer execução da Task 5 (o primeiro `<verify>` da
+   Task 4 rodou de novo pela extração correta e deu `PORTAO OK`). Nenhum comando foi reescrito.
+3. Nada empurrado: `origin/main..HEAD` segue com os commits locais (o push é a Task 7). Nenhum `52-32-SUMMARY.md`;
+   STATE.md/ROADMAP.md intocados.
+
+fronteira_retomada: sessao_c_parada 2026-10-13T01:32Z head=8a516a942865b3248a7311a32b029fe9fa31fba7
