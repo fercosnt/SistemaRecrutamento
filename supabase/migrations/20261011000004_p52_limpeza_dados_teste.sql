@@ -98,7 +98,8 @@
 -- -----------------------------------------------------------------------------
 -- (2) PRE / LIMPA / POS
 -- -----------------------------------------------------------------------------
--- `P52D PRE-PORTAO` recusa, sem mudar nada: (populacao) vazia ou id em duas categorias; (fk) FK não
+-- `P52D PRE-PORTAO` recusa, sem mudar nada: (populacao) vazia ou id em duas categorias; (aprovada) md5 do
+-- alvo calculado != `populacao_md5` aprovado (WR-03 mínimo do 52-REVIEW-LIMPEZA-1); (fk) FK não
 -- tratada; (imutavel)/(triggers) trigger de DELETE diferente do conhecido; (remover) vaga a remover
 -- sem exatamente uma vaga pelo prefixo, fora das vagas de teste, ou com candidatura FORA da população. Guarda em GUCs LOCAIS: a população (ids por categoria, contas de
 -- login), o `populacao_md5` canônico (`md5(string_agg(id::text, ',' ORDER BY id::text COLLATE "C"))`
@@ -137,6 +138,11 @@ SET LOCAL statement_timeout = '5s';
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $pre$
 DECLARE
+  -- WR-03 mínimo do 52-REVIEW-LIMPEZA-1: populacao aprovada pelo operador em 52-21-DECISAO.md
+  -- (`populacao_md5_aprovado`) — escopo decidido, não fotografia: população nova exige decisão nova e
+  -- migration nova. O PRE recusa, antes de qualquer DELETE, se o md5 canônico do alvo que ele calcula
+  -- (v_md5) for outro.
+  v_md5_aprovado constant text := '1b4b21a93ff00a9d01f7d10926dd1f54';
   -- 52-19-DECISAO-ESCOPO.md, linha `apagar_categorias` (escopo DECIDIDO, não fotografia)
   v_cats constant text[] := ARRAY['ficticios', 'tombstones', 'contas_teste_com_candidatura', 'contas_sem_candidatura'];
   -- 52-19-DECISAO-ESCOPO.md, destinos `vaga_<id8>`: nenhuma vaga `remover`
@@ -209,6 +215,10 @@ BEGIN
     RAISE EXCEPTION 'P52D PRE-PORTAO (populacao): % entradas para % ids distintos — uma conta em duas categorias quebra a particao; nada mudou', v_n_alvo, cardinality(v_ids);
   END IF;
   SELECT md5(coalesce(string_agg(x::text, ',' ORDER BY x::text COLLATE "C"), '')) INTO v_md5 FROM unnest(v_ids) AS x;
+  -- (aprovada) WR-03 mínimo: o alvo calculado AGORA é a população aprovada, ou nada é apagado
+  IF v_md5 IS DISTINCT FROM v_md5_aprovado THEN
+    RAISE EXCEPTION 'P52D PRE-PORTAO (aprovada): populacao calculada % != aprovada % — nada apagado', v_md5, v_md5_aprovado;
+  END IF;
   SELECT count(*) INTO v_k_alvo FROM public.candidaturas k WHERE k.candidato_id = ANY (v_ids);
 
   -- (fk) o grafo, lido agora
