@@ -1196,3 +1196,145 @@ Nada aplicado em PROD (a 0007 só rodou dentro de `p52_ensaio.cjs`/`p52_mutacoes
 Leitura de fechamento (só leitura, `node p46apply.cjs sql "set transaction read only; …"`, 2026-10-13T00:43Z): `[ { "no_ledger": 0, "ausente": true, "vagas": 15, "pred": 12, "agora": "2026-10-12 21:43:07.278567-03" }]` — 0007 fora do ledger, função ausente em PROD, `vagas` com as mesmas contagens do início da sessão (15 linhas, 12 no predicado da sonda).
 
 fronteira_retomada: sessao_b_encerrada 2026-10-13T00:43Z head=6e9fa4440c568f382647ada9c2c329aa137f13b1
+
+---
+
+## §Task 4 — sessão C (primeira perna), 2026-10-13 (UTC)
+
+Executor: sessão C, início 2026-10-13T01:01Z (2026-10-12 22:01 -03). Continuação da
+`fronteira_retomada: sessao_b_encerrada … head=6e9fa444` acima; as linhas das §Tasks 1–3 não foram reescritas.
+Resume-signal do orquestrador: «review commitado» — `52-REVIEW-G7B-1.md`, commit `a1075813`. Esta perna termina
+na parada do operador; NÃO escreve `52-32-DECISAO.md` (só com a resposta, na próxima continuação), não cria pin,
+não aplica, não toca `database.types.ts`, não empurra.
+
+### Precondition (medida 2026-10-13T01:01Z–01:02Z, só leitura) — satisfeita
+
+- `git merge-base --is-ancestor 6e9fa4440c568f382647ada9c2c329aa137f13b1 HEAD` → 0; HEAD no despacho = `a10758136d7a4cfd5a18537d65c4d8a22ab768c7`.
+- Última linha da FRONTEIRA antes desta seção: `fronteira_retomada: sessao_b_encerrada 2026-10-13T00:43Z head=6e9fa444…`.
+- Nenhum `52-32-SUMMARY.md`, nenhum `52-32-DECISAO.md`; `refs/gsd/52-32/sha` e `refs/gsd/52-32-tipos/sha` inexistentes (`git show-ref` rc=1).
+- Review de maior N commitado: `52-REVIEW-G7B-1.md` em `a1075813`.
+- `git status --porcelain -- supabase src scripts e2e docs/compliance p46apply.cjs efdeploy.cjs database.types.ts` → vazio (0 linhas).
+- `git log --oneline origin/main..HEAD` → 19 commits locais (esperado: nada sobe antes da Task 7).
+- PROD, `node p46apply.cjs sql "set transaction read only; …"` → `{"no_ledger": 0, "ausente": true, "vagas": 15, "pred": 12, "ativas_vivas": 2, "candidaturas_excluidas": 0, "agora": "2026-10-12 22:02:11.299816-03"}` — 0007 fora do ledger, função ausente; `vagas` com as mesmas contagens das sessões A e B (a janela de cadastro não gravou vaga até aqui); 0 candidaturas excluídas.
+
+### `<verify>` 1 da Task 4 — o portão no modo revisão (rodado como escrito, HEAD `a1075813`, 2026-10-13T01:01:40Z) — VERDE
+
+```text
+PORTAO OK: revisao=.planning/phases/52-hub-do-rh-dados-e-contato/52-REVIEW-G7B-1.md reviewed_head=31facac937bfc71e34ec282b7d5d21575bb84e92 pin=- modo=revisao
+exit=0
+```
+
+### O review `52-REVIEW-G7B-1.md` (lido inteiro)
+
+Frontmatter: `reviewed: 2026-10-13T00:56:46Z` · `depth: deep` · `diff_base: 954b3e4b33a6cd290241793bf1df000083a49d81`
+(= `refs/gsd/52-31/sha`) · `reviewed_head: 31facac937bfc71e34ec282b7d5d21575bb84e92` · `files_reviewed: 16` ·
+`findings: critical: 0 · warning: 1 · info: 8 · total: 9` · `status: issues_found`.
+
+Summary do revisor (resumo): «Não achei nada que torne o apply da `20261011000007` ou o push errado ou inseguro»; os
+oito pontos da instrução ✔; o único WARNING é «um ponto cego de FORMA do POS que eu provei por execução … real, mas com o
+backstop a funcionar»; «Os INFO não pedem decisão». Nenhum achado destrutivo.
+
+O revisor reproduziu (só leitura ou dentro do ensaio que aborta): A1–A14 14/14 na letra; sete mutações PRÓPRIAS da
+0007 (M1–M7: cinco recusadas pelo POS, M3 e M7 só pela cláusula (c) do smoke); WR-02 nas duas polaridades com a
+impressão de `vagas` idêntica antes/depois (`15:dd770c98…`, 12 elegíveis); regressões `52l=20/20` e `52p=10/10` em
+controle e tratamento; smoke52a `--vistas` 10/10 `vistas=igual` `52a.pop=cand:22,naturais:16`; lint 89 = `tsc_base`;
+Vitest 97 + 16 verdes; três mordidas próprias X1–X3 em cópia `git archive` com `git diff --quiet HEAD -- src` rc=0;
+`TIPOGRAFIA OK`; build com os marcadores em `index-B9DljfU9.js`; `--caminhos` 16/16; enumeração em seco recusa
+«SEM REVISAO» (esperado antes deste review ser commitado).
+
+### Warning — com a proposta do revisor (disposição: DO OPERADOR, pendente)
+
+- **WR-01 — a varredura de colunas do POS da 0007 não enxerga a linha inteira (`to_jsonb(v)`) nem um segundo alias
+  de `public.vagas`.** `supabase/migrations/20261011000007_p52_testes_das_minhas_candidaturas.sql:253-256` (a
+  varredura `\mv\.("?)([a-z_]+)\1` + a igualdade) e `:237-249` (âncora da junção e contagem de `jsonb_build_object(`).
+  Provado por execução pelo revisor: (M3) `'tudo', to_jsonb(v)` e (M7) `JOIN public.vagas w … 'titulo', w.titulo`
+  PASSAM o POS e só morrem em `P52A FAIL (c)` do smoke (chaves `…|tudo` / `…|titulo`) — o backstop é o ensaio que
+  precede todo pin de apply. O texto da 0007 hoje está correto; o buraco é da FORMA do portão; a 0006 em PROD tem o
+  mesmo limite.
+  *Proposta de conserto (texto pronto para o próximo molde, depois da contagem de `jsonb_build_object(`):*
+  `IF lower(v_cod) ~ '\m(to_jsonb|to_json|row_to_json|jsonb_strip_nulls)\s*\(\s*v\s*\)' OR lower(v_cod) ~ '\mv\.\*'
+  THEN RAISE EXCEPTION 'P52-0N POS-PORTAO: % projeta a linha inteira de vagas', c_sig; END IF;` +
+  `IF (length(v_cod) - length(replace(v_cod, 'public.vagas', ''))) / length('public.vagas') <> 1 THEN RAISE EXCEPTION
+  'P52-0N POS-PORTAO: % cita public.vagas mais de uma vez (segundo alias)', c_sig; END IF;` + uma mutação de RECUSA
+  (`A15`-equivalente) no runner que o prove por execução.
+  «Consertar agora» toca a migration → `fix(52-32): …` → o conjunto inteiro dos `<verify>` das Tasks 2 e 3 **e o
+  segundo `<automated>` da Task 1** (a migration muda) re-rodados verdes sobre o sha do conserto, cada saída nesta
+  §Task 4 → review NOVO `52-REVIEW-G7B-2.md` → Task 4 de novo (as âncoras `A_PROJ_FIM`/`P_JUNCAO` se movem).
+  *Recomendação do revisor (informação, não resposta):* **backlog** — «mexer agora move âncoras e custa um review -2
+  sem ganho de segurança»; «a segurança em PROD não muda num caso nem no outro».
+
+### Infos — default proposto «aceitar» (o revisor marca todas «Nenhuma ação/decisão»), salvo resposta contrária
+
+| IN | título (resumo) |
+|---|---|
+| IN-01 | `provaVagasEstado` escreve numa vaga REAL dentro de envelopes que revertem — medido e aceitável, inclusive se a outra janela criar vaga inativa hoje (o trigger só coage `ativa`→`arquivada`; uma vaga `ativa` nunca é escolhida) |
+| IN-02 | o instante do apply é lido numa SEGUNDA requisição depois do `migrate` — falha alta; o re-run é recusado pelo PRE; recuperação = registrar à mão com o `now()` lido em seguida (molde do 52-31 aceito) |
+| IN-03 | `p50_enumera` em seco recusa «SEM REVISAO» antes do commit do review — esperado; `--caminhos` 16/16 por máquina |
+| IN-04 | custo R2 aceito — `lerTestesDaMinhaCandidatura` lê a lista inteira do candidato e escolhe por `candidatura_id` |
+| IN-05 | varredura «pela FORMA» do smoke52a: quatro `ROW_COUNT <> 1` deliberados (escopo, não fotografia) e o literal `'inativa'` em (c) falha ALTO se o enum mudar |
+| IN-06 | dois casts estreitos em `avaliacaoService.ts` (o novo, que a Task 5 retira; o da Phase 27, que fica) — o `<verify>` da Task 5 compara com a contagem do pin |
+| IN-07 | FRONTEIRA `sessao_b_encerrada head=6e9fa444`; HEAD `31facac9` difere só em `.planning/` |
+| IN-08 | testes antigos que mockam o cliente sem `rpc` seguem verdes e intocados |
+
+### D-52-G7B-1, -2 e -5 — já confirmadas na parada da tracer (NÃO se perguntam de novo)
+
+Bloco `### Resposta do operador — parada da tracer` da §Task 2 desta FRONTEIRA (o `52-32-DECISAO.md` copia o CORPO dele
+byte a byte no bloco `## Resposta do operador — parada da tracer`):
+
+```text
+continuar + D-52-G7B-1/-2/-5: confirmo.
+Nota do operador sobre a -2: ciente de que o candidato ainda no funil segue fazendo as avaliações de vaga pausada/fechada/apagada (o servidor já permitia; o conserto é de leitura). Encerrar o funil de uma vaga é decisão do RH sobre as candidaturas, não efeito do status da vaga.
+```
+
+O review não pôs nenhuma das três em causa (ponto 6: «D-52-G7B-5 sustenta-se»; ponto 2: «nada sobre
+`vagas.status`/`deleted_at` (D-52-G7B-2)»; ponto 1: UMA função, 0006 reusada) — logo nenhuma volta como WR.
+
+### Perguntas ao operador (a)–(e), cada uma com o número que a sustenta
+
+- **(a) Janela única:** «nenhuma outra janela publica — migration, EF ou push — até o fim deste plano?» Resposta
+  escrita (exigida em todo caminho; sem ela, nada de apply nem push na Task 5). A janela de cadastro de vagas PODE
+  seguir criando vagas reais INATIVAS pela interface (correção de ordem do operador, 2026-10-12 ~19:50 -03,
+  `52-DECISAO-2026-10-12-bloco-d-hoje.md`: «sem «[TESTE» no título, sem «teste-» no slug, sem commit»); publicar
+  (migration, EF, push, commit) = não. Medido agora: `vagas` 15 / 12 no predicado / 2 ativas vivas — iguais às
+  sessões A e B.
+- **(b) D-52-G7B-6 + `deriva_postgrest`:** «os tipos são regenerados DEPOIS do apply, com os dois casts retirados no
+  mesmo commit, revisados num review próprio (`52-REVIEW-G7B-<M>`, Task 6) antes do push; dois pins: o do apply
+  `refs/gsd/52-32/sha` e o de publicação `refs/gsd/52-32-tipos/sha` (o commit dos tipos é código depois do pin do
+  apply) — confirma?» E a deriva: o gerador emite `PostgrestVersion: "13.0.5"` onde o arquivo versionado tem `"14.5"`
+  (`supabase/.temp/rest-version` = `v13.0.5`), vai como gerado, sem edição à mão. Medido: `tsc_postgrest: 14.5=89
+  13.0.5=89` (§Task 1; igual ao checker do plano) — o tsc não muda. Opções: `aceitar` | `parar`. `parar` = a Task 5
+  aplica e prova e para antes do commit dos tipos; a Task 6 não roda; a Task 7 sobe IGUAL o conjunto revisado neste
+  G7B-1 (o cliente com os dois casts), pelo pin de publicação nascido sobre o pin do apply só com `.planning/` depois
+  dele; o R4 volta ao planejador. Veto da D-52-G7B-6 = PARAR e voltar ao planejador.
+- **(c) R1 `residual_curriculo_excluida`:** «candidatura EXCLUÍDA (`deleted_at` preenchido) com currículo de vaga não
+  pública segue «Vaga não identificada» no bloco de currículos — a 0006 só devolve candidaturas vivas». Medido agora:
+  **0** candidaturas excluídas em PROD; nenhum escritor de `candidaturas.deleted_at` no código (plano, medido
+  2026-10-12). Opções do contrato: `aceitar` | `backlog`.
+- **(d) WR-01 do G7B-1** (acima, com a proposta do revisor): «consertar agora» | «backlog» | «aceitar».
+  Recomendação do revisor, como informação: **backlog**.
+- **(e) Achado destrutivo:** nenhum (`critical: 0`; Summary: nada torna o apply ou o push errado ou inseguro) — não
+  se aplica.
+- **INFO:** IN-01..IN-08 com default «aceitar»; o operador pode mandar qualquer uma ao backlog.
+
+### Observação — o despacho × o contrato da Task 4
+
+1. O despacho desta sessão nomeou para (c) as opções `aceitar|backlog|plano-novo` «como o contrato da DECISAO
+   nomeia». O contrato do plano diz outra coisa: `<context>` (c) e `<action>` da Task 4 e o R1 dos residuais
+   (`52-32-PLAN.md:485`) — `residual_curriculo_excluida: aceitar|backlog`; o regex do segundo `<verify>` aceita só
+   `^(aceitar|backlog)$`. Um «plano-novo» não cabe no contrato — se o operador o quiser, a tradução é dele (p.ex.
+   «backlog» com o texto do plano no `## Backlog`), não deste executor.
+2. A pergunta (a) no `<context>` do plano inclui «nem a janela de cadastro de vagas grava em PROD ou commita»; a
+   correção de ordem do operador (2026-10-12, posterior ao plano) autoriza vagas reais INATIVAS pela interface. A
+   pergunta acima segue o despacho e a correção (publicar = não; vaga inativa pela UI = permitida); o portão do
+   52-32 vigia árvore e git, não dados de PROD (IN-01 mede o efeito na sonda do WR-02).
+3. Com `warning: 1`, o `52-32-DECISAO.md` leva `disposicao_WR-01: …` (não a `autorizacao:` do caminho `warning: 0`),
+   além de `d52_g7b_1/2/5: confirmada` (copiadas), `d52_g7b_6`, `deriva_postgrest`, `residual_curriculo_excluida`,
+   `janela_unica`, `decidido_em`, os dois blocos de resposta e a `## Backlog` se houver.
+
+### Sinal de retomada esperado do operador
+
+«janela única: confirmo» + «D-52-G7B-6: confirmo» + «deriva PostgrestVersion: aceitar|parar» + «R1
+(residual_curriculo_excluida): aceitar|backlog» + «WR-01: consertar agora|backlog|aceitar» + qualquer INFO que vá ao
+backlog (default «aceitar»); ou «vetar: <motivo>». Com a resposta, a próxima continuação escreve `52-32-DECISAO.md`
+(resposta verbatim; bloco da tracer copiado byte a byte), commita só ela, roda o segundo `<verify>` da Task 4 e completa
+esta §Task 4 — ainda antes do pin da Task 5.
