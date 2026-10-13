@@ -810,7 +810,7 @@ Plans:
 - [x] 52-32-PLAN.md (onda 15; executado 2026-10-12/13 em quatro sessões A–D com `52-32-FRONTEIRA.md`; 23 commits + SUMMARY `b42b4321`; reviews G7B-1 critical 0/warning 1 → WR-01 backlog, G7B-2 critical 0/warning 0; `52-32-DECISAO.md`; 0007 em PROD às 2026-10-13T01:29:02Z — ÚLTIMO apply da fase; push por sha pins apply `eb21aa79` / publicação `3a1503be` (28 commits, 10 código, 0 ALHEIO); Vercel sozinha, `index-B9DljfU9.js`; conferência do operador aprovada nos itens 1–3, item 4 não observável) — residuais do G-52-7 por decisão do operador (`52-31-DECISAO.md` § Plano novo, «mesmo molde do 52-31»): R1 — RPC `ler_testes_das_minhas_candidaturas()` SECURITY DEFINER sem argumento, posse por `auth.uid()`, allowlist `testes_aplicaveis`/`aplica_cognitivo`, status- e `deleted_at`-agnóstica (D-52-G7B-1/2), migration `20261011000007` com o POS na forma do WR-01; os leitores do embed sob a RLS do candidato — página de avaliações e painel (a frase do JORN-59 em vaga não pública), redação (sai o `!inner`), prova cognitiva (o quarto leitor, achado no planejamento, D-52-G7B-5) e currículos da privacidade (a 0006 reusada para o título); smoke52a (a)–(j) + mutações A1–A14; WR-02 — `capturar()` fotografa `vagas` (`vagas_estado`) com prova de mordida no ensaio que aborta; R4 — `database.types.ts` regenerado do banco vivo depois do apply e os dois casts estreitos retirados no mesmo commit, com review próprio (`52-REVIEW-G7B-<M>`) e pin de publicação `refs/gsd/52-32-tipos/sha`; review `52-REVIEW-G7B-1`, `52-32-DECISAO.md` (janela única), apply com o instante em `52-APLICACOES.json` (último apply da fase; segunda emenda da D-41: reaplicável do git), push por sha que leva os commits só-`.planning/` locais, conferência no ar (conta da `f73682b6` e +cand1) ANTES do `/gsd-verify-work 52`
 
 **Wave 16** *(checkpoint; só depois do 52-31 ✓ e do **52-32** (onda 15 — a aresta 52-32 → 52-19 está no grafo desde o planejamento dele, 2026-10-12), da UAT da 52 (`/gsd-verify-work 52`) e da condição de backup da D-41 na SEGUNDA emenda (operador, 2026-10-12, `52-DECISAO-2026-10-12-bloco-d-hoje.md`: ponto de restauração = backup físico COMPLETED 2026-10-12T06:31:59Z + reaplicar do git as migrations aplicadas depois dele — 0006 e 0007 — + export prévio; nenhuma escrita fora dessa lista, remedida antes do 52-21), conferidas por máquina)*
-- [ ] 52-19-PLAN.md — Backup diário posterior ao último apply conferido pela Management API (D-41 emendada, condição 1); varredura da população de teste por conta (lista da D-30 inteira, `3a9254c3` na população, trava do RH) e decisão do escopo da limpeza (só opções executáveis)
+- [x] 52-19-PLAN.md — Backup diário posterior ao último apply conferido pela Management API (D-41 emendada, condição 1); varredura da população de teste por conta (lista da D-30 inteira, `3a9254c3` na população, trava do RH) e decisão do escopo da limpeza (só opções executáveis)
 
 **Wave 17**
 - [ ] 52-20-PLAN.md — Migration destrutiva do escopo decidido (ensaio), prova pós, mutações, removedor de Storage
@@ -844,7 +844,7 @@ Plans:
 | 49. Consertos da Jornada — Bloco 2 | v8.0 | 45/45 | Complete    | 2026-10-03 |
 | 50. Acesso do Recrutador | v8.0 | 11/11 | Complete    | 2026-10-06 |
 | 51. Consertos da Jornada — Bloco 3 | v8.0 | 24/24 | Complete | 2026-10-10 |
-| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 27/32 | In Progress | - |
+| 52. Hub do RH — Dados, Contato e Avaliações do Candidato | v8.0 | 28/32 | In Progress | - |
 
 ---
 
