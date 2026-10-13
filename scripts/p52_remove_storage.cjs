@@ -20,9 +20,16 @@
  *       Lista SÓ os prefixos aprovados, confere contagem e `nomes_md5` contra o aprovado
  *       (`STORAGE DIFERE DO APROVADO` → saída 1, nada removido); sem `--dry-run`, remove em lotes
  *       (`DELETE /storage/v1/object/<bucket>` com `prefixes`), relista e exige zero sob os prefixos.
+ *       WR-06 do 52-REVIEW-LIMPEZA-1: na MESMA execução, ANTES de remover, mede a baseline de tudo FORA dos
+ *       prefixos aprovados (os caminhos, só em memória); depois de remover, relista e exige que nenhum
+ *       caminho dessa baseline tenha sumido (`REMOCAO TOCOU FORA DA LISTA` → saída 1). Objeto NOVO fora dos
+ *       prefixos (um candidato real subindo currículo numa vaga ativa durante a execução) não reprova: é
+ *       contado em `novos=` e impresso. Nunca compara com o `total_bucket` da captura.
  *   --aprovado <STORAGE.json> --dry-run --esperar-vazio
- *       Prova depois (52-21 Task 3): só lista; imprime `restantes=<n>` e `total_bucket=<n>`; saída 1 se
- *       `restantes` ≠ 0 ou se `total_bucket` ≠ `total_bucket` capturado − `n_objetos`.
+ *       Prova depois (52-21 Task 3): só lista; imprime `restantes=<n>` e `total_bucket=<n>` (informativo);
+ *       saída 1 sse `restantes` ≠ 0. WR-06: o total do bucket NÃO é comparado com a captura (contagem contra
+ *       constante, CLAUDE.md §Portões — um upload real entre a captura e a prova reprovaria uma remoção
+ *       correta); que nada fora da lista foi tocado é provado pela baseline da própria execução da remoção.
  *   --auto-teste
  *       Os casos do `<behavior>` do plano com dublê de `fetch` (sem rede).
  *
@@ -200,6 +207,24 @@ async function listarTodos(cli, prefixos) {
   return todos;
 }
 
+/* WR-06: os caminhos de TUDO o que está fora dos prefixos aprovados (pastas da raiz não aprovadas + arquivos
+ * soltos na raiz). Só em memória — nunca impressos nem gravados (o nome pode conter o nome do candidato). */
+async function listarFora(cli, aprovados) {
+  const ap = new Set(aprovados);
+  const fora = [];
+  for (let p = 0; p < MAX_PAGINAS; p++) {
+    const linhas = await cli.listarPagina('', p * LIMITE);
+    for (const l of linhas) {
+      if (!O(l) || typeof l.name !== 'string' || l.name === '') continue;
+      if (l.id === null) {
+        if (!ap.has(l.name)) fora.push(...(await listarPrefixo(cli, l.name)));
+      } else fora.push(l.name);
+    }
+    if (linhas.length < LIMITE) return fora;
+  }
+  throw new Recusa('LISTAGEM DA RAIZ EXCEDEU O TETO DE PAGINAS');
+}
+
 /* ───────────────────────────── modos ───────────────────────────── */
 
 function tokenPadrao() {
@@ -292,12 +317,12 @@ async function modoAprovado(a, d, out) {
   const cli = criarCliente(d.fetch, chave);
 
   if (a.esperarVazio) {
+    /* WR-06: julga só `restantes`; o total é informativo (nunca comparado com a captura). */
     const restantes = (await listarTodos(cli, ap.prefixos)).length;
     const total = await contarBucket(cli);
-    const esperado = ap.total_bucket - ap.n_objetos;
-    out.log(`PROVA DEPOIS: restantes=${restantes} total_bucket=${total} (esperado ${esperado} = capturado ${ap.total_bucket} - aprovados ${ap.n_objetos})`);
-    if (restantes !== 0 || total !== esperado) {
-      out.err(`STORAGE NAO ESVAZIOU COMO APROVADO: restantes=${restantes} total_bucket=${total} esperado=${esperado}`);
+    out.log(`PROVA DEPOIS: restantes=${restantes} total_bucket=${total} (informativo; o que esta fora dos prefixos aprovados e provado pela baseline da propria execucao da remocao)`);
+    if (restantes !== 0) {
+      out.err(`STORAGE NAO ESVAZIOU COMO APROVADO: restantes=${restantes} sob os ${ap.prefixos.length} prefixo(s) aprovado(s)`);
       return 1;
     }
     return 0;
@@ -315,15 +340,28 @@ async function modoAprovado(a, d, out) {
     out.log(`DRY-RUN: n_objetos=${caminhos.length} nomes_md5=${agoraMd5} = aprovado (prefixos=${ap.prefixos.length}); nada removido`);
     return 0;
   }
+  /* WR-06: baseline de fora dos prefixos aprovados, medida NESTA execução, antes de remover. */
+  const foraAntes = await listarFora(cli, ap.prefixos);
   const ordem = ordenarBytes(caminhos);
   let removidos = 0;
   for (let i = 0; i < ordem.length; i += LOTE) removidos += await cli.remover(ordem.slice(i, i + LOTE));
   const restantes = (await listarTodos(cli, ap.prefixos)).length;
+  const foraDepois = new Set(await listarFora(cli, ap.prefixos));
+  const sumidos = foraAntes.filter((c) => !foraDepois.has(c)).length;
+  const antesSet = new Set(foraAntes);
+  const novos = [...foraDepois].filter((c) => !antesSet.has(c)).length;
+  const fora = `fora dos prefixos aprovados: antes=${foraAntes.length} depois=${foraDepois.size} sumidos=${sumidos} novos=${novos} (baseline desta execucao)`;
+  let rc = 0;
   if (removidos !== caminhos.length || restantes !== 0) {
     out.err(`REMOCAO INCOMPLETA: removidos=${removidos} de ${caminhos.length}; restantes=${restantes} sob os prefixos aprovados`);
-    return 1;
+    rc = 1;
   }
-  out.log(`REMOVIDOS: n=${removidos} nomes_md5=${agoraMd5}; restantes=0 sob ${ap.prefixos.length} prefixo(s) aprovado(s)`);
+  if (sumidos !== 0) {
+    out.err(`REMOCAO TOCOU FORA DA LISTA: ${fora}`);
+    rc = 1;
+  }
+  if (rc) return rc;
+  out.log(`REMOVIDOS: n=${removidos} nomes_md5=${agoraMd5}; restantes=0 sob ${ap.prefixos.length} prefixo(s) aprovado(s); ${fora}`);
   return 0;
 }
 
@@ -474,13 +512,13 @@ async function autoTeste(out) {
       const e = amb({ 'a.json': apr(alvo, [Uf(3)], 1) }, d);
       return (await principal(['--aprovado', 'a.json'], e.deps)) === 1 && e.saida.join('\n').includes('STORAGE DIFERE DO APROVADO') && !dels(d).length;
     }],
-    ['prefixo fora da lista: nunca listado nem removido', async () => {
+    /* WR-06: o que está fora dos prefixos aprovados agora é LIDO (a baseline da execução), nunca removido. */
+    ['prefixo fora da lista: nunca removido (so lido para a baseline)', async () => {
       const alvo = [`${Uf(3)}/a.pdf`];
       const d = duble([...alvo, `${Uf(9)}/fica.pdf`]);
       const e = amb({ 'a.json': apr(alvo, [Uf(3)], 2) }, d);
       const ok = (await principal(['--aprovado', 'a.json'], e.deps)) === 0;
-      const listados = d.chamadas.filter((c) => c.url.endsWith(`/object/list/${BUCKET}`)).map((c) => c.corpo.prefix);
-      return ok && listados.length > 0 && listados.every((p) => p === Uf(3)) && !dels(d).some((p) => p.startsWith(Uf(9))) && d.objetos.has(`${Uf(9)}/fica.pdf`);
+      return ok && dels(d).length === 1 && dels(d).every((p) => p.startsWith(Uf(3) + '/')) && d.objetos.has(`${Uf(9)}/fica.pdf`);
     }],
     ['a chave e o token nunca em stdout/stderr; nenhum nome de arquivo', async () => {
       const alvo = [`${Uf(3)}/curriculo-nome-sobrenome.pdf`];
@@ -501,16 +539,58 @@ async function autoTeste(out) {
       const t = () => e.saida.join('\n');
       return (await principal(['--aprovado', 'a.json', '--dry-run'], e.deps)) === 0 && t().includes('n_objetos=2') && t().includes(nomesMd5(alvo)) && !dels(d).length && d.objetos.size === 2;
     }],
-    ['--dry-run --esperar-vazio: restantes=0 e total coerente -> 0; restante ou total diferente -> 1', async () => {
+    /* WR-06 do 52-REVIEW-LIMPEZA-1: --esperar-vazio julga só restantes; o total da captura não é constante de prova. */
+    ['--dry-run --esperar-vazio: restantes=0 -> 0 (com upload novo fora dos prefixos depois da captura, ou bucket vazio); restante -> 1', async () => {
       const ap = apr([`${Uf(3)}/a.pdf`, `${Uf(3)}/b.pdf`], [Uf(3)], 3);
       const e1 = amb({ 'a.json': ap }, duble([`${Uf(9)}/fica.pdf`]));
       const e2 = amb({ 'a.json': ap }, duble([`${Uf(3)}/a.pdf`, `${Uf(9)}/fica.pdf`]));
       const e3 = amb({ 'a.json': ap }, duble([]));
+      const e4 = amb({ 'a.json': ap }, duble([`${Uf(9)}/fica.pdf`, `${Uf(8)}/cv real novo.pdf`]));
       return (
         (await principal(['--aprovado', 'a.json', '--dry-run', '--esperar-vazio'], e1.deps)) === 0 && /restantes=0 total_bucket=1/.test(e1.saida.join('\n')) &&
         (await principal(['--aprovado', 'a.json', '--dry-run', '--esperar-vazio'], e2.deps)) === 1 && /restantes=1/.test(e2.saida.join('\n')) &&
-        (await principal(['--aprovado', 'a.json', '--dry-run', '--esperar-vazio'], e3.deps)) === 1
+        (await principal(['--aprovado', 'a.json', '--dry-run', '--esperar-vazio'], e3.deps)) === 0 &&
+        (await principal(['--aprovado', 'a.json', '--dry-run', '--esperar-vazio'], e4.deps)) === 0 && /restantes=0 total_bucket=2/.test(e4.saida.join('\n'))
       );
+    }],
+    ['--aprovado: objeto novo FORA dos prefixos aparece no meio da execucao -> remocao provada (0), novos=1, sem nome na saida', async () => {
+      const alvo = [`${Uf(3)}/a.pdf`, `${Uf(1)}/c.pdf`];
+      const d = duble([...alvo, `${Uf(9)}/fica.pdf`]);
+      const orig = d.fetch;
+      d.fetch = async (url, init) => {
+        const r = await orig(url, init);
+        if (init && init.method === 'DELETE') d.objetos.add(`${Uf(8)}/cv candidato real.pdf`);
+        return r;
+      };
+      const e = amb({ 'a.json': apr(alvo, [Uf(1), Uf(3)], 3) }, d);
+      const t = () => e.saida.join('\n');
+      return (await principal(['--aprovado', 'a.json'], e.deps)) === 0 && /REMOVIDOS: n=2 .*antes=1 depois=2 sumidos=0 novos=1/.test(t()) && !/candidato|\.pdf/.test(t()) && d.objetos.has(`${Uf(9)}/fica.pdf`);
+    }],
+    ['--aprovado: objeto aprovado que fica -> REMOCAO INCOMPLETA (1)', async () => {
+      const alvo = [`${Uf(3)}/a.pdf`, `${Uf(1)}/c.pdf`];
+      const d = duble([...alvo, `${Uf(9)}/fica.pdf`]);
+      const orig = d.fetch;
+      d.fetch = async (url, init) => {
+        const r = await orig(url, init);
+        if (init && init.method === 'DELETE') d.objetos.add(`${Uf(3)}/a.pdf`);
+        return r;
+      };
+      const e = amb({ 'a.json': apr(alvo, [Uf(1), Uf(3)], 3) }, d);
+      return (await principal(['--aprovado', 'a.json'], e.deps)) === 1 && /REMOCAO INCOMPLETA: .*restantes=1/.test(e.saida.join('\n'));
+    }],
+    ['--aprovado: objeto FORA dos prefixos some durante a remocao -> REMOCAO TOCOU FORA DA LISTA (1), sem nome na saida', async () => {
+      const alvo = [`${Uf(3)}/a.pdf`];
+      const d = duble([...alvo, `${Uf(9)}/fica nome real.pdf`, `${Uf(7)}/outro.pdf`]);
+      const orig = d.fetch;
+      d.fetch = async (url, init) => {
+        const r = await orig(url, init);
+        if (init && init.method === 'DELETE') d.objetos.delete(`${Uf(9)}/fica nome real.pdf`);
+        return r;
+      };
+      const e = amb({ 'a.json': apr(alvo, [Uf(3)], 3) }, d);
+      const rc = await principal(['--aprovado', 'a.json'], e.deps);
+      const t = e.saida.join('\n');
+      return rc === 1 && /REMOCAO TOCOU FORA DA LISTA: .*antes=2 depois=1 sumidos=1 novos=0/.test(t) && !/nome real|\.pdf/.test(t);
     }],
     ['APROVADO fora do formato (prefixo com /, md5 malformado, fora da ordem) -> recusa sem rede', async () => {
       for (const j of [
@@ -560,7 +640,7 @@ async function autoTeste(out) {
   return 0;
 }
 
-module.exports = { nomesMd5, prefixosDe, ordenarBytes, prefixosDaPopulacao, conferirAprovado, obterChave, criarCliente, listarPrefixo, contarBucket, principal, autoTeste: () => autoTeste({ segredos: [], log: (s) => console.log(s), err: (s) => console.error(s) }), BUCKET, URL_PROJETO, URL_CHAVES };
+module.exports = { nomesMd5, prefixosDe, ordenarBytes, prefixosDaPopulacao, conferirAprovado, obterChave, criarCliente, listarPrefixo, contarBucket, listarFora, principal, autoTeste: () => autoTeste({ segredos: [], log: (s) => console.log(s), err: (s) => console.error(s) }), BUCKET, URL_PROJETO, URL_CHAVES };
 
 if (require.main === module) {
   principal(process.argv.slice(2)).then(

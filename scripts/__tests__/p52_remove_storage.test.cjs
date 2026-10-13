@@ -13,9 +13,12 @@
  *     parágrafo «Forma canônica», literal: 224b2ac1…, e NÃO 78557760… nem deecf20e…);
  *   · `--capturar` recusa `POPULACAO SEM apagaveis` (ausente, null, {}) sem gravar nada;
  *   · `--aprovado` remove exatamente a lista aprovada; listagem diferente → `STORAGE DIFERE DO APROVADO`,
- *     nada removido; prefixo fora da lista nunca listado nem removido;
+ *     nada removido; prefixo fora da lista nunca removido (WR-06: só lido, para a baseline da execução);
  *   · a chave e os nomes de arquivo nunca saem em stdout/stderr;
- *   · `--dry-run` não remove; `--dry-run --esperar-vazio` imprime `restantes=` e `total_bucket=`.
+ *   · `--dry-run` não remove; `--dry-run --esperar-vazio` imprime `restantes=` e `total_bucket=` e julga só
+ *     `restantes` (WR-06 do 52-REVIEW-LIMPEZA-1: o total da captura não é constante de prova);
+ *   · WR-06: a remoção prova, pela baseline de fora dos prefixos medida NA MESMA execução, que nada fora da
+ *     lista sumiu; objeto novo fora dos prefixos no meio da execução não reprova; aprovado que fica reprova.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -170,16 +173,52 @@ test('--aprovado: listagem com 4 recusa STORAGE DIFERE DO APROVADO e nada e remo
   assert.equal(d.objetos.size, 4);
 });
 
-test('prefixo fora da lista aprovada nunca e listado nem removido', async () => {
+test('prefixo fora da lista aprovada nunca e removido (WR-06: so lido para a baseline)', async () => {
   const alvo = [`${U(3)}/a.pdf`];
   const d = duble([...alvo, `${U(9)}/fica.pdf`]);
   const { deps } = ambiente({ 'ap.json': JSON.stringify(aprovadoDe(alvo, [U(3)], 2)) }, d);
   assert.equal(await chamar(m.principal, ['--aprovado', 'ap.json'], deps), 0);
-  const listados = d.chamadas.filter((c) => c.url.endsWith('/object/list/curriculos')).map((c) => c.corpo.prefix);
-  assert.ok(listados.length > 0);
-  assert.ok(listados.every((p) => p.startsWith(U(3))));
-  assert.equal(removidosDe(d).some((p) => p.startsWith(U(9))), false);
+  assert.deepEqual(removidosDe(d), alvo);
+  assert.ok(removidosDe(d).every((p) => p.startsWith(U(3) + '/')));
   assert.equal(d.objetos.has(`${U(9)}/fica.pdf`), true);
+});
+
+/* WR-06: dublê que muda o bucket no instante da remoção (o que acontece em PROD entre a baseline e a relistagem). */
+function noDelete(d, efeito) {
+  const orig = d.fetch;
+  d.fetch = async (url, init) => {
+    const r = await orig(url, init);
+    if (init && String(init.method).toUpperCase() === 'DELETE') efeito(d.objetos);
+    return r;
+  };
+  return d;
+}
+
+test('--aprovado: objeto novo FORA dos prefixos no meio da execucao nao reprova a remocao (novos=1)', async () => {
+  const alvo = [`${U(3)}/a.pdf`, `${U(1)}/c.pdf`];
+  const d = noDelete(duble([...alvo, `${U(9)}/fica.pdf`]), (o) => o.add(`${U(8)}/cv candidata real.pdf`));
+  const { deps, saida } = ambiente({ 'ap.json': JSON.stringify(aprovadoDe(alvo, [U(1), U(3)], 3)) }, d);
+  assert.equal(await chamar(m.principal, ['--aprovado', 'ap.json'], deps), 0);
+  assert.match(saida.join('\n'), /REMOVIDOS: n=2 .*antes=1 depois=2 sumidos=0 novos=1/);
+  assert.doesNotMatch(saida.join('\n'), /candidata|\.pdf/);
+  assert.deepEqual(removidosDe(d).sort(), [...alvo].sort());
+});
+
+test('--aprovado: objeto aprovado que fica reprova (REMOCAO INCOMPLETA)', async () => {
+  const alvo = [`${U(3)}/a.pdf`, `${U(1)}/c.pdf`];
+  const d = noDelete(duble([...alvo, `${U(9)}/fica.pdf`]), (o) => o.add(`${U(3)}/a.pdf`));
+  const { deps, saida } = ambiente({ 'ap.json': JSON.stringify(aprovadoDe(alvo, [U(1), U(3)], 3)) }, d);
+  assert.equal(await chamar(m.principal, ['--aprovado', 'ap.json'], deps), 1);
+  assert.match(saida.join('\n'), /REMOCAO INCOMPLETA: .*restantes=1/);
+});
+
+test('--aprovado: objeto FORA dos prefixos que some durante a remocao reprova (REMOCAO TOCOU FORA DA LISTA)', async () => {
+  const alvo = [`${U(3)}/a.pdf`];
+  const d = noDelete(duble([...alvo, `${U(9)}/fica joao.pdf`, `${U(7)}/outro.pdf`]), (o) => o.delete(`${U(9)}/fica joao.pdf`));
+  const { deps, saida } = ambiente({ 'ap.json': JSON.stringify(aprovadoDe(alvo, [U(3)], 3)) }, d);
+  assert.equal(await chamar(m.principal, ['--aprovado', 'ap.json'], deps), 1);
+  assert.match(saida.join('\n'), /REMOCAO TOCOU FORA DA LISTA: .*antes=2 depois=1 sumidos=1 novos=0/);
+  assert.doesNotMatch(saida.join('\n'), /joao|\.pdf/);
 });
 
 test('a chave service_role e os nomes de arquivo nunca aparecem em stdout/stderr', async () => {
@@ -212,7 +251,7 @@ test('--dry-run: lista e confere, imprime contagem e md5, nao remove', async () 
   assert.equal(d.objetos.size, 2);
 });
 
-test('--dry-run --esperar-vazio: restantes=0 e total_bucket = capturado - aprovados; senao saida 1', async () => {
+test('--dry-run --esperar-vazio: julga so restantes (WR-06); o total_bucket e informativo', async () => {
   const ap = aprovadoDe([`${U(3)}/a.pdf`, `${U(3)}/b.pdf`], [U(3)], 3);
   const vazio = duble([`${U(9)}/fica.pdf`]);
   const e1 = ambiente({ 'ap.json': JSON.stringify(ap) }, vazio);
@@ -225,8 +264,13 @@ test('--dry-run --esperar-vazio: restantes=0 e total_bucket = capturado - aprova
   assert.match(e2.saida.join('\n'), /restantes=1/);
   const outroSumiu = duble([]);
   const e3 = ambiente({ 'ap.json': JSON.stringify(ap) }, outroSumiu);
-  assert.equal(await chamar(m.principal, ['--aprovado', 'ap.json', '--dry-run', '--esperar-vazio'], e3.deps), 1);
-  assert.equal([vazio, sobrou, outroSumiu].some((x) => x.chamadas.some((c) => c.metodo === 'DELETE')), false);
+  assert.equal(await chamar(m.principal, ['--aprovado', 'ap.json', '--dry-run', '--esperar-vazio'], e3.deps), 0);
+  // um candidato real subiu curriculo depois da captura: o total mudou, a remocao continua provada
+  const uploadReal = duble([`${U(9)}/fica.pdf`, `${U(8)}/novo.pdf`]);
+  const e4 = ambiente({ 'ap.json': JSON.stringify(ap) }, uploadReal);
+  assert.equal(await chamar(m.principal, ['--aprovado', 'ap.json', '--dry-run', '--esperar-vazio'], e4.deps), 0);
+  assert.match(e4.saida.join('\n'), /restantes=0 total_bucket=2/);
+  assert.equal([vazio, sobrou, outroSumiu, uploadReal].some((x) => x.chamadas.some((c) => c.metodo === 'DELETE')), false);
 });
 
 test('o script nao contem storage.objects e o --auto-teste dele sai verde', () => {
