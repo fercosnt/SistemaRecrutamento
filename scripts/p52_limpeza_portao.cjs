@@ -439,7 +439,9 @@ function normalizar(r, opts) {
     auth_contas_da_populacao: Number(r.auth_contas_da_populacao),
     storage_curriculos: r.storage_curriculos,
     obrigatorias: r.obrigatorias,
-    padroes: { d30: PADROES_D30, semente_p47_sem_admin: SEMENTE_P47 },
+    /* Os padrões moram no script (têm forma de e-mail; o JSON não leva nenhum). Só a impressão digital. */
+    padroes_md5: md5([...PADROES_D30, ...SEMENTE_P47].join(',')),
+    padroes_n: { d30: PADROES_D30.length, semente_p47_sem_admin: SEMENTE_P47.length },
     apagaveis: null,
     populacao_md5: null,
   };
