@@ -1338,3 +1338,41 @@ O review não pôs nenhuma das três em causa (ponto 6: «D-52-G7B-5 sustenta-se
 backlog (default «aceitar»); ou «vetar: <motivo>». Com a resposta, a próxima continuação escreve `52-32-DECISAO.md`
 (resposta verbatim; bloco da tracer copiado byte a byte), commita só ela, roda o segundo `<verify>` da Task 4 e completa
 esta §Task 4 — ainda antes do pin da Task 5.
+
+### Fecho da §Task 4 — sessão C (segunda perna), 2026-10-13T01:26Z–01:30Z (UTC)
+
+Resposta escrita do operador (recebida 2026-10-12 ~22:05 -03 ≈ 2026-10-13T01:05Z, repassada pelo orquestrador no
+despacho desta perna como `<operator_response verbatim="true">`), copiada byte a byte:
+
+```text
+janela única: confirmo (a janela de cadastro só cria vagas INATIVAS pela interface; não publica nem commita até o fim do 52-32) + D-52-G7B-6: confirmo + deriva PostgrestVersion: aceitar + R1 (residual_curriculo_excluida): aceitar + WR-01: backlog + INFO IN-01..08: aceitar.
+```
+
+**Disposições (registradas em `52-32-DECISAO.md`, commit `4d241440`, só esse arquivo):**
+
+| item | disposição | fonte |
+|---|---|---|
+| decisão | `aplicar` sobre `52-REVIEW-G7B-1.md` (`warnings: 1`) | esta parada |
+| WR-01 (POS não vê `to_jsonb(v)` / segundo alias) | **backlog** — texto do revisor na `## Backlog` da DECISAO para os Pending Todos; a 0007 não muda | esta parada (= recomendação do revisor) |
+| IN-01..IN-08 | **aceitar** (nenhuma ao backlog) | esta parada |
+| D-52-G7B-1, -2, -5 | `confirmada` — COPIADAS da parada da tracer (bloco da §Task 2 byte a byte no `## Resposta do operador — parada da tracer` da DECISAO) | parada da tracer |
+| D-52-G7B-6 | `confirmada` | esta parada |
+| `deriva_postgrest` | `aceitar` — o arquivo regenerado leva `PostgrestVersion` como o gerador emitir (medido `tsc_postgrest: 14.5=89 13.0.5=89`) | esta parada |
+| `residual_curriculo_excluida` | `aceitar` (0 candidaturas excluídas em PROD; nenhum escritor) | esta parada |
+| `janela_unica` | `confirmada` — a janela de cadastro só cria vagas INATIVAS pela interface; não publica nem commita até o fim do 52-32 | esta parada |
+| achado destrutivo | nenhum (`critical: 0`) | review |
+
+**Caminho que valeu para o conteúdo:** `warnings: 1` → a disposição do WR-01 (backlog) dada pelo operador; nenhum
+«consertar agora», logo nenhum `fix(52-32)`, nenhuma re-rodada dos `<verify>` das Tasks 2/3, nenhum review `-2`; o
+`52-REVIEW-G7B-1.md` segue o de maior N. `deriva_postgrest: aceitar` → a Task 5 segue o caminho completo (apply,
+provas, tipos regenerados + casts retirados no mesmo commit, review dos tipos na Task 6).
+
+**Segundo `<automated>` da Task 4** (rodado como escrito, extraído do plano por máquina, HEAD `4d241440`,
+2026-10-13T01:28Z) — VERDE:
+
+```text
+decisao do 52-32: aplicar sobre 52-REVIEW-G7B-1.md (warnings=1, deriva_postgrest=aceitar)
+exit=0
+```
+
+Próximo: Task 5 (pin `refs/gsd/52-32/sha` sobre o commit DESTA seção; nenhum commit entre o pin e o apply).
