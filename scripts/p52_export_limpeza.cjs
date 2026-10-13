@@ -35,8 +35,38 @@
  * MODOS
  *   --contar --populacao <POPULACAO.json> --decisao-escopo <52-19-DECISAO-ESCOPO.md>
  *       Só leitura, só contagens: `EXPORT CONTAGEM: <tabela>:<modo>=<n> … raizes=<n> populacao_md5=<md5>`.
+ *   --exportar <dir> --populacao <POPULACAO.json> --decisao-escopo <52-19-DECISAO-ESCOPO.md> --storage <STORAGE.json>
+ *       ⛔ CRIA UMA CÓPIA DE DADO PESSOAL. Só no 52-21 Task 1, UMA vez. `<dir>` absoluto, fora do repositório e
+ *       de QUALQUER árvore git, ainda inexistente; criado 0700, arquivos 0600:
+ *         linhas.jsonl       um registro por linha, `{"t":"<esquema>.<tabela>","m":"apaga|anula|atualiza","r":<to_jsonb>}`,
+ *                            na ordem do fecho (pais antes de filhos), dentro do nó por `r::text COLLATE "C"`;
+ *                            restaurável por `jsonb_populate_record(null::<tabela>, linha->'r')`;
+ *         storage/K.bin      cada currículo dos prefixos do STORAGE.json, baixado pela Storage API;
+ *         storage/INDICE.json `[{k, nome, bytes, md5}]` — o nome do arquivo só existe aqui, fora do git;
+ *         MANIFESTO.json     `{versao_formato, exportado_em (now() do servidor na requisição das linhas),
+ *                            populacao_md5, raizes, linhas, tabelas{n, md5, por_modo}, linhas_md5,
+ *                            excluidas_por_desenho, colunas_em_branco, storage{bucket, n_objetos, nomes_md5,
+ *                            conteudo_md5}, escopo{vagas}, fk_md5, arquivos{md5 por arquivo}, selo}` — `selo` =
+ *                            md5 do manifesto sem ele (um octeto trocado no próprio manifesto também é recusado).
+ *       `export_md5` = md5 dos bytes do MANIFESTO.json. Imprime `EXPORT GRAVADO: dir=… export_md5=… exportado_em=…
+ *       linhas=… tabelas=… curriculos=…`.
+ *   --conferir (--dir <dir> | --registro <52-21-EXPORT.md> | --decisao <52-21-DECISAO.md>) --populacao <POPULACAO.json>
+ *              --storage <STORAGE.json> [--vivo]
+ *       A prontidão para restaurar. `--registro` lê `export_dir:`/`export_md5:`/`exportado_em:`; `--decisao` lê
+ *       `export_dir:`/`export_md5_aprovado:`/`export_em_aprovado:`. Recusa, nesta ordem: EXPORT DENTRO DE
+ *       REPOSITORIO · EXPORT AUSENTE: <diretorio|MANIFESTO.json|linhas.jsonl|storage/INDICE.json|storage/K.bin> ·
+ *       EXPORT ADULTERADO: <arquivo> · EXPORT NAO E O APROVADO (md5 do manifesto ou instante ≠ registro/decisão) ·
+ *       EXPORT NAO E A POPULACAO (raízes ≠ apagaveis; currículos ≠ captura) · com `--vivo`, o fecho refeito AGORA
+ *       (só leitura) e o Storage relistado: EXPORT DIFERE DO VIVO: <tabela|linhas|catalogo|storage>. Saída
+ *       `EXPORT CONFERIDO: export_md5=… linhas=… curriculos=… vivo=igual|nao_conferido`.
  *   --auto-teste
- *       Os casos do plano com dublê de consulta (sem rede).
+ *       Os casos do plano com dublê de consulta e de `fetch` (sem rede; exports de teste em temporários do
+ *       sistema, apagados no fim).
+ *
+ * CHAVE: a `service_role` (só para a Storage API) vem em memória de `GET https://api.supabase.com/v1/projects/
+ * <ref>/api-keys` com o token da Management API (Keychain «Supabase CLI»/«supabase», ou SUPABASE_ACCESS_TOKEN —
+ * o molde do `efdeploy.cjs`/`p46apply.cjs`); nunca impressa, nunca gravada; toda saída passa por um redator.
+ * O Storage NUNCA é lido pelo catálogo SQL dele — só pela Storage API (listar e baixar).
  *
  * PRIVACIDADE (JORN-63): nada aqui imprime e-mail, nome, CPF, nome de arquivo, token ou chave — só ids
  * (prefixo de 8), nomes de tabela, contagens e md5. Mensagens de erro da leitura saem truncadas e redigidas.
@@ -45,11 +75,20 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
 const RAIZ = path.resolve(__dirname, '..');
+const REF = process.env.SUPABASE_PROJECT_REF || 'isljnozzlvckrgjjbjwp';
+const URL_PROJETO = `https://${REF}.supabase.co`;
+const URL_CHAVES = `https://api.supabase.com/v1/projects/${REF}/api-keys`;
+const BUCKET = 'curriculos';
+const LIMITE = 100;
+const MAX_PAGINAS = 100;
+const ISO = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z$/;
+const H = /^[0-9a-f]{32}$/;
 
 const T_CAND = 'public.candidatos';
 const T_AUTH = 'auth.users';
@@ -77,6 +116,28 @@ function ordenarBytes(xs) {
 /* O populacao_md5 canônico do 52-19: ids distintos, ordem de byte, vírgula. */
 function md5Ids(ids) {
   return md5(ordenarBytes([...new Set(ids)]).join(','));
+}
+
+/*
+ * FORMA CANÔNICA de `nomes_md5` e `prefixos` (contrato do STORAGE.json com o 52-20 — `p52_remove_storage.cjs
+ * --capturar` o produz; o parágrafo «Forma canônica» é idêntico nos dois planos): cada objeto é o caminho
+ * COMPLETO dentro do bucket, `<prefixo>/<nome>` — sem bucket, sem `/` inicial. `nomes_md5` = md5 hex minúsculo
+ * dos bytes UTF-8 da junção por `\n`, SEM `\n` no fim, depois de ordenar por comparação de bytes UTF-8
+ * (`Buffer.compare`, nunca o `.sort()` padrão, que compara unidades UTF-16); lista vazia ⇒ d41d8cd9….
+ * `prefixos` = os prefixos distintos dos caminhos, sem `/` final, na mesma ordem de bytes.
+ */
+function nomesMd5(caminhos) {
+  return md5(ordenarBytes(caminhos).join('\n'));
+}
+
+function prefixosDe(caminhos) {
+  return ordenarBytes([...new Set(caminhos.map((c) => String(c).split('/')[0]))]);
+}
+
+/* As raízes do que foi alcançado: os candidatos em apaga, mais as contas em apaga que não são login deles (órfãs). */
+function raizesDe(cands, authIds) {
+  const usersCand = new Set(cands.map((x) => x[1]).filter(Boolean));
+  return ordenarBytes([...new Set([...cands.map((x) => String(x[0])), ...authIds.map(String).filter((u) => !usersCand.has(u))])]);
 }
 
 /* O contrato do POPULACAO.json (52-19). Devolve { ids, users, populacao_md5, prefixos } ou lança Recusa. */
@@ -336,10 +397,13 @@ function avaliarFecho(plano, resp, entrada, fkMd5Catalogo, modo) {
   }
   const cand = (resp.raizes.candidatos || []).map((x) => (Array.isArray(x) ? x : [null, null]));
   const authIds = (resp.raizes.auth || []).map(String);
-  const usersCand = new Set(cand.map((x) => x[1]).filter(Boolean));
-  for (const u of authIds) if (!entrada.users.includes(u)) throw new Recusa(`EXPORT NAO E A POPULACAO: conta ${u.slice(0, 8)} em apaga fora dos user_id de apagaveis`);
-  const raizesExport = ordenarBytes([...new Set([...cand.map((x) => String(x[0])), ...authIds.filter((u) => !usersCand.has(u))])]);
+  exigirContasDaPopulacao(authIds, entrada.users);
+  const raizesExport = raizesDe(cand, authIds);
   return { agora: String(resp.agora || ''), colunasToken, contagens, linhas, raizesExport, raizesMd5: md5Ids(raizesExport) };
+}
+
+function exigirContasDaPopulacao(authIds, users) {
+  for (const u of authIds) if (!users.includes(u)) throw new Recusa(`EXPORT NAO E A POPULACAO: conta ${String(u).slice(0, 8)} em apaga fora dos user_id de apagaveis`);
 }
 
 /* Raízes ≠ apagaveis (id a mais ou a menos) = recusa. */
@@ -358,6 +422,66 @@ function exigirRaizes(raizesExport, pop) {
 function linhaContagem(av, pop, plano) {
   const partes = av.contagens.filter((c) => c.n > 0 || c.chave === `${T_CAND}|apaga`).map((c) => `${c.tabela}:${c.excluida ? 'excluida' : c.modo}=${c.n}`);
   return `EXPORT CONTAGEM: ${partes.join(' ')} tabelas_no_fecho=${plano.nos.length} raizes=${av.raizesExport.length} populacao_md5=${av.raizesMd5}`;
+}
+
+/* ───────────────────────────── o formato do export (puro) ───────────────────────────── */
+
+/* linhas.jsonl e o resumo por tabela, a partir do fecho avaliado (a MESMA função no --exportar e no --vivo). */
+function montarLinhas(av) {
+  const txt = av.linhas.map((l) => `{"t":${JSON.stringify(l.t)},"m":${JSON.stringify(l.m)},"r":${l.texto}}`);
+  const corpo = txt.map((x) => `${x}\n`).join('');
+  const acc = {};
+  av.linhas.forEach((l, i) => {
+    const t = acc[l.t] || (acc[l.t] = { l: [], por_modo: { apaga: 0, anula: 0, atualiza: 0 } });
+    t.l.push(txt[i]);
+    t.por_modo[l.m] += 1;
+  });
+  const tabelas = {};
+  for (const [t, v] of Object.entries(acc)) tabelas[t] = { n: v.l.length, md5: md5(v.l.join('\n')), por_modo: v.por_modo };
+  const excluidas = {};
+  for (const c of av.contagens) if (c.excluida) excluidas[c.tabela] = (excluidas[c.tabela] || 0) + c.n;
+  return { corpo, tabelas, excluidas, linhas_md5: md5(corpo), n: txt.length };
+}
+
+function textoManifesto(mf) {
+  const semSelo = { ...mf };
+  delete semSelo.selo;
+  return `${JSON.stringify({ ...semSelo, selo: md5(JSON.stringify(semSelo, null, 2)) }, null, 2)}\n`;
+}
+
+/* O manifesto íntegro: JSON na forma exata em que foi gravado, com o selo certo. Devolve o objeto ou null. */
+function lerManifestoIntegro(buf) {
+  let mf;
+  try {
+    mf = JSON.parse(buf.toString('utf8'));
+  } catch {
+    return null;
+  }
+  if (!O(mf) || typeof mf.selo !== 'string' || textoManifesto(mf) !== buf.toString('utf8')) return null;
+  if (!O(mf.arquivos) || !O(mf.tabelas) || !O(mf.storage) || !O(mf.escopo) || !O(mf.escopo.vagas)) return null;
+  return mf;
+}
+
+/* O formato do STORAGE.json (a captura do 52-20). Devolve a lista de erros (vazia = no formato). */
+function errosStorage(j) {
+  const e = [];
+  if (!O(j)) return ['raiz nao e objeto'];
+  if (j.bucket !== BUCKET) e.push('bucket');
+  if (!Array.isArray(j.prefixos) || j.prefixos.some((p) => typeof p !== 'string' || !U.test(p))) e.push('prefixos (cada um um uuid, sem /)');
+  else if (JSON.stringify(ordenarBytes([...new Set(j.prefixos)])) !== JSON.stringify(j.prefixos)) e.push('prefixos (fora da forma canonica)');
+  if (!Number.isInteger(j.n_objetos) || j.n_objetos < 0) e.push('n_objetos');
+  if (typeof j.nomes_md5 !== 'string' || !H.test(j.nomes_md5)) e.push('nomes_md5');
+  if (Array.isArray(j.prefixos) && Number.isInteger(j.n_objetos) && j.n_objetos > 0 && !j.prefixos.length) e.push('prefixos vazios com n_objetos > 0');
+  return e;
+}
+
+function lerStorage(d, p, pop) {
+  const st = lerJson(d, p, 'EXPORT NAO E A POPULACAO: STORAGE.json');
+  const e = errosStorage(st);
+  if (e.length) throw new Recusa(`EXPORT NAO E A POPULACAO: STORAGE.json fora do formato (${e.join(', ')})`);
+  const fora = st.prefixos.filter((x) => !pop.prefixos.includes(x));
+  if (fora.length) throw new Recusa(`EXPORT NAO E A POPULACAO: storage com prefixo fora de apagaveis (${fora.map((x) => x.slice(0, 8)).join(',')})`);
+  return st;
 }
 
 /* ───────────────────────────── leitura de PROD (só leitura) ───────────────────────────── */
@@ -384,6 +508,106 @@ function consultarProd(pedido) {
   } catch {
     throw new Recusa('LEITURA FALHOU: saida sem JSON');
   }
+}
+
+/* ───────────────────────────── Storage API (injetável; só listar e baixar) ───────────────────────────── */
+
+class ErroRede extends Error {}
+
+async function obterChave(fetchFn, token) {
+  let r;
+  try {
+    r = await fetchFn(URL_CHAVES, { method: 'GET', headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    throw new ErroRede('chave: Management API inalcancavel');
+  }
+  if (!r.ok) throw new ErroRede(`chave: Management API HTTP ${r.status}`);
+  const j = await r.json().catch(() => null);
+  const k = Array.isArray(j) ? j.find((x) => O(x) && x.name === 'service_role' && typeof x.api_key === 'string' && x.api_key) : null;
+  if (!k) throw new ErroRede('chave: service_role ausente na resposta da Management API');
+  return k.api_key;
+}
+
+function criarCliente(fetchFn, chave) {
+  const cab = { Authorization: `Bearer ${chave}`, apikey: chave };
+  return {
+    async listarPagina(prefixo, offset) {
+      let r;
+      try {
+        r = await fetchFn(`${URL_PROJETO}/storage/v1/object/list/${BUCKET}`, {
+          method: 'POST',
+          headers: { ...cab, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefix: prefixo, limit: LIMITE, offset, sortBy: { column: 'name', order: 'asc' } }),
+        });
+      } catch {
+        throw new ErroRede('listagem: Storage API inalcancavel');
+      }
+      if (!r.ok) throw new ErroRede(`listagem: Storage API HTTP ${r.status}`);
+      const j = await r.json().catch(() => null);
+      if (!Array.isArray(j)) throw new ErroRede('listagem: resposta nao e lista');
+      return j;
+    },
+    async baixar(caminho) {
+      let r;
+      try {
+        r = await fetchFn(`${URL_PROJETO}/storage/v1/object/${BUCKET}/${caminho.split('/').map(encodeURIComponent).join('/')}`, { method: 'GET', headers: cab });
+      } catch {
+        throw new ErroRede('download: Storage API inalcancavel');
+      }
+      if (!r.ok) throw new ErroRede(`download: Storage API HTTP ${r.status}`);
+      return Buffer.from(await r.arrayBuffer());
+    },
+  };
+}
+
+/* Os objetos sob UM prefixo, `{ caminho, bytes }` (um nível; subpasta = recusa). */
+async function listarPrefixo(cli, prefixo) {
+  const objs = [];
+  for (let p = 0; p < MAX_PAGINAS; p++) {
+    const linhas = await cli.listarPagina(prefixo, p * LIMITE);
+    for (const l of linhas) {
+      if (!O(l) || typeof l.name !== 'string' || l.name === '') continue;
+      if (l.id === null) throw new Recusa('EXPORT NAO E A POPULACAO: subpasta sob um prefixo do storage (a listagem e de um nivel)');
+      const tam = O(l.metadata) && Number.isInteger(l.metadata.size) ? l.metadata.size : null;
+      objs.push({ caminho: `${prefixo}/${l.name}`, bytes: tam });
+    }
+    if (linhas.length < LIMITE) return objs;
+  }
+  throw new Recusa('EXPORT NAO E A POPULACAO: listagem do storage excedeu o teto de paginas');
+}
+
+async function listarTodos(cli, prefixos) {
+  const todos = [];
+  for (const p of prefixos) todos.push(...(await listarPrefixo(cli, p)));
+  return todos;
+}
+
+/* ───────────────────────────── o diretório: fora de qualquer árvore git ───────────────────────────── */
+
+/* Devolve o caminho real (resolvido pelo ancestral existente) ou lança EXPORT DENTRO DE REPOSITORIO. */
+function exigirForaDeGit(dir, raizRepo) {
+  if (typeof dir !== 'string' || !path.isAbsolute(dir)) throw new Recusa('EXPORT DENTRO DE REPOSITORIO: o diretorio do export tem de ser caminho absoluto (fora de qualquer arvore git)');
+  let anc = path.resolve(dir);
+  const resto = [];
+  while (!fs.existsSync(anc)) {
+    const pai = path.dirname(anc);
+    if (pai === anc) break;
+    resto.unshift(path.basename(anc));
+    anc = pai;
+  }
+  const real = path.join(fs.realpathSync(anc), ...resto);
+  const repo = fs.realpathSync(raizRepo);
+  if (real === repo || real.startsWith(repo + path.sep)) throw new Recusa('EXPORT DENTRO DE REPOSITORIO: o diretorio fica dentro deste repositorio; nada gravado');
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')));
+  let r;
+  try {
+    r = execFileSync('git', ['-C', anc, 'rev-parse', '--is-inside-work-tree', '--is-inside-git-dir'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env });
+  } catch (e) {
+    if (e && typeof e.status === 'number') return real;
+    throw new Recusa('EXPORT DENTRO DE REPOSITORIO: nao foi possivel verificar a arvore git (git indisponivel); nada gravado');
+  }
+  if (/\btrue\b/.test(r)) throw new Recusa('EXPORT DENTRO DE REPOSITORIO: o diretorio fica dentro de uma arvore git; nada gravado');
+  return real;
 }
 
 /* Lê o grafo e o fecho (duas requisições: catálogo; depois TODAS as linhas/contagens numa só). */
@@ -426,37 +650,256 @@ async function modoContar(a, d, out) {
   return 0;
 }
 
+/* Lista e baixa os currículos dos prefixos capturados; listagem ≠ captura = recusa (nada gravado ainda). */
+async function baixarCurriculos(d, out, st) {
+  if (!st.prefixos.length) {
+    if (st.n_objetos !== 0 || st.nomes_md5 !== nomesMd5([])) throw new Recusa('EXPORT NAO E A POPULACAO: storage != captura (captura sem prefixo com objetos)');
+    return [];
+  }
+  const chave = await obterChave(d.fetch, d.token());
+  out.segredos.push(chave);
+  const cli = criarCliente(d.fetch, chave);
+  const lista = await listarTodos(cli, st.prefixos);
+  const nomes = lista.map((x) => x.caminho);
+  const agora = nomesMd5(nomes);
+  if (nomes.length !== st.n_objetos || agora !== st.nomes_md5) {
+    throw new Recusa(`EXPORT NAO E A POPULACAO: storage != captura (agora n_objetos=${nomes.length} nomes_md5=${agora}; captura n_objetos=${st.n_objetos} nomes_md5=${st.nomes_md5}); nada gravado`);
+  }
+  const porNome = new Map(lista.map((x) => [x.caminho, x]));
+  const objs = [];
+  for (const nome of ordenarBytes(nomes)) {
+    const buf = await cli.baixar(nome);
+    const tam = porNome.get(nome).bytes;
+    if (tam !== null && tam !== buf.length) throw new Recusa('EXPORT NAO E A POPULACAO: storage (tamanho baixado != listado); nada gravado');
+    objs.push({ nome, buf });
+  }
+  return objs;
+}
+
+async function modoExportar(a, d, out) {
+  exigirForaDeGit(a.exportar, d.raizRepo);
+  let existe = true;
+  try {
+    fs.lstatSync(a.exportar);
+  } catch {
+    existe = false;
+  }
+  if (existe) throw new Recusa('EXPORT JA EXISTE: o diretorio do export ja existe (cada export e um diretorio novo); nada gravado');
+  const pop = lerPopulacao(lerJson(d, a.populacao, 'EXPORT NAO E A POPULACAO'));
+  const vagas = lerDestinosVagas(lerTexto(d, a.decisaoEscopo, 'DECISAO FORA DO FORMATO'));
+  const st = lerStorage(d, a.storage, pop);
+  const { av, fkMd5 } = await lerFecho(d, pop, vagas, 'linhas');
+  exigirRaizes(av.raizesExport, pop);
+  if (!ISO.test(av.agora)) throw new Recusa('FECHO: o instante do servidor veio fora do formato ISO; nada gravado');
+  const objs = await baixarCurriculos(d, out, st);
+
+  const ex = montarLinhas(av);
+  const indice = objs.map((o, i) => ({ k: i + 1, nome: o.nome, bytes: o.buf.length, md5: md5(o.buf) }));
+  const indiceTxt = `${JSON.stringify(indice, null, 2)}\n`;
+  const mfTxt = textoManifesto({
+    versao_formato: 1,
+    exportado_em: av.agora,
+    populacao_md5: av.raizesMd5,
+    raizes: av.raizesExport.length,
+    linhas: ex.n,
+    tabelas: ex.tabelas,
+    linhas_md5: ex.linhas_md5,
+    excluidas_por_desenho: ex.excluidas,
+    colunas_em_branco: { [T_AUTH]: av.colunasToken },
+    storage: { bucket: BUCKET, n_objetos: indice.length, nomes_md5: nomesMd5(indice.map((x) => x.nome)), conteudo_md5: md5(indice.map((x) => x.md5).join('\n')) },
+    escopo: { vagas },
+    fk_md5: fkMd5,
+    arquivos: { 'linhas.jsonl': ex.linhas_md5, 'storage/INDICE.json': md5(indiceTxt) },
+  });
+
+  const dir = a.exportar;
+  fs.mkdirSync(path.join(dir, 'storage'), { recursive: true, mode: 0o700 });
+  fs.chmodSync(dir, 0o700);
+  fs.chmodSync(path.join(dir, 'storage'), 0o700);
+  const gravar = (rel, conteudo) => {
+    const p = path.join(dir, rel);
+    fs.writeFileSync(p, conteudo, { mode: 0o600, flag: 'wx' });
+    fs.chmodSync(p, 0o600);
+  };
+  gravar('linhas.jsonl', ex.corpo);
+  objs.forEach((o, i) => gravar(`storage/${i + 1}.bin`, o.buf));
+  gravar('storage/INDICE.json', indiceTxt);
+  gravar('MANIFESTO.json', mfTxt);
+  out.log(`EXPORT GRAVADO: dir=${dir} export_md5=${md5(mfTxt)} exportado_em=${av.agora} linhas=${ex.n} tabelas=${Object.keys(ex.tabelas).length} curriculos=${indice.length}`);
+  return 0;
+}
+
+/* A referência do --conferir: { dir, md5, em } (md5/em nulos com --dir). */
+function lerReferencia(a, d) {
+  if (a.dir) return { dir: a.dir, md5: null, em: null };
+  const fonte = a.registro ? 'registro' : 'decisao';
+  const [kd, km, ke] = a.registro ? ['export_dir', 'export_md5', 'exportado_em'] : ['export_dir', 'export_md5_aprovado', 'export_em_aprovado'];
+  const doc = lerTexto(d, a.registro || a.decisao, `EXPORT NAO E O APROVADO: ${fonte}`);
+  const v = (k) => {
+    const m = doc.match(new RegExp(`^${k}: *(\\S+)`, 'm'));
+    return m ? m[1] : null;
+  };
+  const ref = { dir: v(kd), md5: v(km), em: v(ke) };
+  if (!ref.dir || !ref.md5 || !H.test(ref.md5) || !ref.em) throw new Recusa(`EXPORT NAO E O APROVADO: ${fonte} sem ${kd}, ${km} (md5) e ${ke} validos`);
+  return ref;
+}
+
+async function modoConferir(a, d, out) {
+  const ref = lerReferencia(a, d);
+  const pop = lerPopulacao(lerJson(d, a.populacao, 'EXPORT NAO E A POPULACAO'));
+  const st = lerStorage(d, a.storage, pop);
+  exigirForaDeGit(ref.dir, d.raizRepo);
+  const dir = ref.dir;
+  const stat = (rel) => {
+    try {
+      return fs.statSync(path.join(dir, rel));
+    } catch {
+      return null;
+    }
+  };
+  const ler = (rel) => fs.readFileSync(path.join(dir, rel));
+
+  // EXPORT AUSENTE (diretório e arquivos fixos), depois EXPORT ADULTERADO (manifesto, índice), K.bin, linhas
+  const sd = stat('');
+  if (!sd || !sd.isDirectory()) throw new Recusa('EXPORT AUSENTE: diretorio');
+  for (const rel of ['MANIFESTO.json', 'linhas.jsonl', 'storage/INDICE.json']) if (!stat(rel) || !stat(rel).isFile()) throw new Recusa(`EXPORT AUSENTE: ${rel}`);
+  const mfBuf = ler('MANIFESTO.json');
+  const mf = lerManifestoIntegro(mfBuf);
+  if (!mf) throw new Recusa('EXPORT ADULTERADO: MANIFESTO.json');
+  const indBuf = ler('storage/INDICE.json');
+  if (md5(indBuf) !== mf.arquivos['storage/INDICE.json']) throw new Recusa('EXPORT ADULTERADO: storage/INDICE.json');
+  let ind;
+  try {
+    ind = JSON.parse(indBuf.toString('utf8'));
+  } catch {
+    throw new Recusa('EXPORT ADULTERADO: storage/INDICE.json');
+  }
+  const indOk = Array.isArray(ind) && ind.every((x, i) => O(x) && x.k === i + 1 && typeof x.nome === 'string' && Number.isInteger(x.bytes) && typeof x.md5 === 'string' && H.test(x.md5));
+  if (!indOk || ind.length !== mf.storage.n_objetos || md5(ind.map((x) => x.md5).join('\n')) !== mf.storage.conteudo_md5) throw new Recusa('EXPORT ADULTERADO: storage/INDICE.json');
+  for (const x of ind) if (!stat(`storage/${x.k}.bin`)) throw new Recusa(`EXPORT AUSENTE: storage/${x.k}.bin`);
+  for (const x of ind) {
+    const b = ler(`storage/${x.k}.bin`);
+    if (b.length !== x.bytes || md5(b) !== x.md5) throw new Recusa(`EXPORT ADULTERADO: storage/${x.k}.bin`);
+  }
+  const corpo = ler('linhas.jsonl');
+  if (md5(corpo) !== mf.arquivos['linhas.jsonl'] || md5(corpo) !== mf.linhas_md5) throw new Recusa('EXPORT ADULTERADO: linhas.jsonl');
+
+  // EXPORT NAO E O APROVADO (registro/decisão)
+  const exportMd5 = md5(mfBuf);
+  if (ref.md5 !== null && ref.md5 !== exportMd5) throw new Recusa(`EXPORT NAO E O APROVADO: md5 do manifesto ${exportMd5} != ${a.registro ? 'export_md5' : 'export_md5_aprovado'} ${ref.md5}`);
+  if (ref.em !== null && ref.em !== mf.exportado_em) throw new Recusa(`EXPORT NAO E O APROVADO: exportado_em do manifesto ${mf.exportado_em} != ${a.registro ? 'exportado_em' : 'export_em_aprovado'} ${ref.em}`);
+
+  // EXPORT NAO E A POPULACAO (raízes das linhas exportadas = apagaveis; currículos = captura)
+  let regs;
+  try {
+    regs = corpo.toString('utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  } catch {
+    throw new Recusa('EXPORT ADULTERADO: linhas.jsonl');
+  }
+  if (regs.length !== mf.linhas || regs.some((x) => !O(x) || typeof x.t !== 'string' || typeof x.m !== 'string' || !O(x.r))) throw new Recusa('EXPORT ADULTERADO: linhas.jsonl');
+  const cands = regs.filter((x) => x.t === T_CAND && x.m === 'apaga').map((x) => [x.r.id, x.r.user_id || null]);
+  const authIds = regs.filter((x) => x.t === T_AUTH && x.m === 'apaga').map((x) => x.r.id);
+  exigirContasDaPopulacao(authIds, pop.users);
+  exigirRaizes(raizesDe(cands, authIds), pop);
+  if (mf.populacao_md5 !== pop.populacao_md5) throw new Recusa('EXPORT NAO E A POPULACAO: populacao_md5 do manifesto != o do POPULACAO.json');
+  const nomes = ind.map((x) => x.nome);
+  if (nomes.length !== st.n_objetos || nomesMd5(nomes) !== st.nomes_md5 || mf.storage.nomes_md5 !== st.nomes_md5 || nomes.some((x) => !st.prefixos.includes(x.split('/')[0]))) {
+    throw new Recusa(`EXPORT NAO E A POPULACAO: storage != captura (export n_objetos=${nomes.length} nomes_md5=${nomesMd5(nomes)}; captura n_objetos=${st.n_objetos} nomes_md5=${st.nomes_md5})`);
+  }
+
+  // EXPORT DIFERE DO VIVO (o fecho refeito agora, só leitura; o Storage relistado)
+  if (a.vivo) {
+    const { av, fkMd5 } = await lerFecho(d, pop, mf.escopo.vagas, 'linhas');
+    exigirRaizes(av.raizesExport, pop);
+    if (fkMd5 !== mf.fk_md5) throw new Recusa('EXPORT DIFERE DO VIVO: catalogo (o grafo de FK mudou desde o export)');
+    const ex = montarLinhas(av);
+    for (const t of [...new Set([...Object.keys(mf.tabelas), ...Object.keys(ex.tabelas)])]) {
+      if (JSON.stringify(mf.tabelas[t] || null) !== JSON.stringify(ex.tabelas[t] || null)) throw new Recusa(`EXPORT DIFERE DO VIVO: ${t}`);
+    }
+    if (ex.linhas_md5 !== mf.linhas_md5) throw new Recusa('EXPORT DIFERE DO VIVO: linhas');
+    if (JSON.stringify(av.colunasToken) !== JSON.stringify((mf.colunas_em_branco || {})[T_AUTH])) throw new Recusa(`EXPORT DIFERE DO VIVO: ${T_AUTH} (colunas em branco)`);
+    const prefixos = ordenarBytes([...new Set([...st.prefixos, ...prefixosDe(nomes)])]);
+    let vivos = [];
+    if (prefixos.length) {
+      const chave = await obterChave(d.fetch, d.token());
+      out.segredos.push(chave);
+      vivos = await listarTodos(criarCliente(d.fetch, chave), prefixos);
+    }
+    const a1 = ordenarBytes(vivos.map((x) => `${x.caminho}\t${x.bytes}`)).join('\n');
+    const a2 = ordenarBytes(ind.map((x) => `${x.nome}\t${x.bytes}`)).join('\n');
+    if (a1 !== a2) throw new Recusa('EXPORT DIFERE DO VIVO: storage');
+  }
+  out.log(`EXPORT CONFERIDO: export_md5=${exportMd5} linhas=${mf.linhas} curriculos=${ind.length} vivo=${a.vivo ? 'igual' : 'nao_conferido'}`);
+  return 0;
+}
+
 const USO =
-  'USO: node scripts/p52_export_limpeza.cjs --auto-teste | --contar --populacao <POPULACAO.json> --decisao-escopo <52-19-DECISAO-ESCOPO.md>';
+  'USO: node scripts/p52_export_limpeza.cjs --auto-teste | --contar --populacao <POPULACAO.json> --decisao-escopo <52-19-DECISAO-ESCOPO.md> | ' +
+  '--exportar <dir> --populacao <POPULACAO.json> --decisao-escopo <52-19-DECISAO-ESCOPO.md> --storage <STORAGE.json> | ' +
+  '--conferir (--dir <dir> | --registro <52-21-EXPORT.md> | --decisao <52-21-DECISAO.md>) --populacao <POPULACAO.json> --storage <STORAGE.json> [--vivo]';
 
 function lerArgs(argv) {
-  const a = { modo: null, populacao: null, decisaoEscopo: null };
+  const a = { modo: null, populacao: null, decisaoEscopo: null, storage: null, exportar: null, dir: null, registro: null, decisao: null, vivo: false };
   const valor = (i) => (argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null);
+  const modo = (m) => (a.modo ? 'erro' : m);
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i];
-    if (x === '--auto-teste') a.modo = a.modo ? 'erro' : 'auto';
-    else if (x === '--contar') a.modo = a.modo ? 'erro' : 'contar';
-    else if (x === '--populacao' && valor(i)) a.populacao = argv[++i];
+    if (x === '--auto-teste') a.modo = modo('auto');
+    else if (x === '--contar') a.modo = modo('contar');
+    else if (x === '--conferir') a.modo = modo('conferir');
+    else if (x === '--exportar' && valor(i)) {
+      a.modo = modo('exportar');
+      a.exportar = argv[++i];
+    } else if (x === '--populacao' && valor(i)) a.populacao = argv[++i];
     else if (x === '--decisao-escopo' && valor(i)) a.decisaoEscopo = argv[++i];
-    else a.modo = 'erro';
+    else if (x === '--storage' && valor(i)) a.storage = argv[++i];
+    else if (x === '--dir' && valor(i)) a.dir = argv[++i];
+    else if (x === '--registro' && valor(i)) a.registro = argv[++i];
+    else if (x === '--decisao' && valor(i)) a.decisao = argv[++i];
+    else if (x === '--vivo') a.vivo = true;
+    else {
+      a.modo = 'erro';
+      break;
+    }
   }
+  const refs = [a.dir, a.registro, a.decisao].filter(Boolean).length;
   if (a.modo === 'auto' && argv.length !== 1) a.modo = 'erro';
-  if (a.modo === 'contar' && (!a.populacao || !a.decisaoEscopo)) a.modo = 'erro';
+  if (a.modo === 'contar' && (!a.populacao || !a.decisaoEscopo || a.storage || refs || a.vivo)) a.modo = 'erro';
+  if (a.modo === 'exportar' && (!a.populacao || !a.decisaoEscopo || !a.storage || refs || a.vivo)) a.modo = 'erro';
+  if (a.modo === 'conferir' && (!a.populacao || !a.storage || refs !== 1 || a.decisaoEscopo)) a.modo = 'erro';
   return a;
+}
+
+function tokenPadrao() {
+  if (process.env.SUPABASE_ACCESS_TOKEN) return process.env.SUPABASE_ACCESS_TOKEN.trim();
+  try {
+    return execFileSync('security', ['find-generic-password', '-s', 'Supabase CLI', '-a', 'supabase', '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    throw new Recusa('TOKEN AUSENTE: Keychain "Supabase CLI"/"supabase" ou SUPABASE_ACCESS_TOKEN');
+  }
 }
 
 function depsPadrao() {
   return {
     consultar: async (p) => consultarProd(p),
+    fetch: (...x) => globalThis.fetch(...x),
+    token: tokenPadrao,
     io: { log: (s) => console.log(s), err: (s) => console.error(s) },
     ler: (p) => fs.readFileSync(p, 'utf8'),
+    raizRepo: RAIZ,
   };
 }
 
-/* CLI testável: devolve o código de saída. `deps` substitui consulta, saída e arquivos. */
+/* CLI testável: devolve o código de saída. `deps` substitui consulta, rede, token, saída e arquivos de entrada. */
 async function principal(argv, deps) {
   const d = { ...depsPadrao(), ...(deps || {}) };
-  const out = { log: (s) => d.io.log(String(s)), err: (s) => d.io.err(String(s)) };
+  const segredos = [];
+  const redigir = (s) => {
+    let t = String(s);
+    for (const x of segredos) if (x) t = t.split(x).join('<redigido>');
+    return t;
+  };
+  const out = { segredos, log: (s) => d.io.log(redigir(s)), err: (s) => d.io.err(redigir(s)) };
   const a = lerArgs(argv);
   if (!a.modo || a.modo === 'erro') {
     out.err(USO);
@@ -464,9 +907,19 @@ async function principal(argv, deps) {
   }
   try {
     if (a.modo === 'auto') return await autoTeste(out);
-    return await modoContar(a, d, out);
+    // o token entra na lista de redação antes de qualquer chamada
+    const tk = d.token;
+    d.token = () => {
+      const t = tk();
+      segredos.push(t);
+      return t;
+    };
+    if (a.modo === 'contar') return await modoContar(a, d, out);
+    if (a.modo === 'exportar') return await modoExportar(a, d, out);
+    return await modoConferir(a, d, out);
   } catch (e) {
     if (e instanceof Recusa) out.err(e.message);
+    else if (e instanceof ErroRede) out.err(`ERRO DE REDE: ${e.message}; nada concluido`);
     else out.err(`ERRO INESPERADO: ${e && e.name ? e.name : 'erro'}; nada concluido`);
     return 1;
   }
@@ -534,6 +987,49 @@ function consultaEmMemoria(db) {
       nos,
     };
   };
+}
+
+/* Dublê da rede: Management API (api-keys) + Storage API (listar com tamanho, baixar) sobre um bucket em memória. */
+function dubleStorage(iniciais) {
+  const objetos = new Map(Object.entries(iniciais || {}).map(([k, v]) => [k, Buffer.from(v)]));
+  const token = 'token-management-FALSO-do-auto-teste-52-27';
+  const chave = 'chave-service-role-FALSA-do-auto-teste-52-27';
+  const chamadas = [];
+  const resp = (status, json, buf) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => json,
+    arrayBuffer: async () => {
+      const b = buf || Buffer.alloc(0);
+      return b.buffer.slice(b.byteOffset, b.byteOffset + b.length);
+    },
+  });
+  const fetch = async (url, init = {}) => {
+    const metodo = String(init.method || 'GET').toUpperCase();
+    const corpo = init.body ? JSON.parse(init.body) : null;
+    const h = Object.fromEntries(Object.entries(init.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
+    chamadas.push({ metodo, url, auth: h.authorization || '' });
+    if (url === URL_CHAVES) {
+      if (h.authorization !== `Bearer ${token}`) return resp(401, {});
+      return resp(200, [{ name: 'anon', api_key: 'anon-falsa' }, { name: 'service_role', api_key: chave }]);
+    }
+    if (h.authorization !== `Bearer ${chave}`) return resp(401, {});
+    if (metodo === 'POST' && url === `${URL_PROJETO}/storage/v1/object/list/${BUCKET}`) {
+      const pref = String(corpo.prefix || '');
+      const linhas =
+        pref === ''
+          ? ordenarBytes([...new Set([...objetos.keys()].map((x) => x.split('/')[0]))]).map((p) => ({ name: p, id: null }))
+          : ordenarBytes([...objetos.keys()].filter((x) => x.startsWith(`${pref}/`))).map((x) => ({ name: x.slice(pref.length + 1), id: 'obj', metadata: { size: objetos.get(x).length } }));
+      return resp(200, linhas.slice(corpo.offset, corpo.offset + corpo.limit));
+    }
+    const base = `${URL_PROJETO}/storage/v1/object/${BUCKET}/`;
+    if (metodo === 'GET' && url.startsWith(base)) {
+      const nome = url.slice(base.length).split('/').map(decodeURIComponent).join('/');
+      return objetos.has(nome) ? resp(200, null, objetos.get(nome)) : resp(404, {});
+    }
+    return resp(404, {});
+  };
+  return { fetch, chamadas, objetos, token, chave };
 }
 
 /* O grafo e as linhas da fixture do <behavior> (ids sintéticos; e-mails e nomes FALSOS, para provar que não vazam). */
@@ -605,6 +1101,11 @@ function fixtureFecho() {
 
 /* ───────────────────────────── auto-teste ───────────────────────────── */
 
+/* Detector de instrução de escrita SQL para os casos abaixo. Escrito com `trunc(?:ate)` (mesma semântica) para
+ * que a varredura de código do plano (52-27 Task 2, segundo <verify>), que procura a palavra inteira fora de
+ * comentário, não confunda o DETECTOR com uma instrução — o exportador não tem nenhuma. */
+const ESCRITA_SQL = /\b(insert\s+into|delete\s+from|trunc(?:ate)|update\s+\S+\s+set)\b/i;
+
 async function autoTeste(out) {
   const F = fixtureFecho;
   const amb = (f, arquivos) => {
@@ -629,6 +1130,59 @@ async function autoTeste(out) {
   const n = (av, chave) => (av.contagens.find((c) => c.chave === chave) || { n: -1 }).n;
   const temLinha = (av, t, m, idv) => av.linhas.some((l) => l.t === t && l.m === m && JSON.parse(l.texto).id === idv);
   const todasSaidas = [];
+
+  /* Task 2: um ambiente de escrita — exports de teste em temporários do sistema (fora de qualquer árvore git). */
+  const temporarios = [];
+  const FIXTURE_FORMA = ['b/2.pdf', 'a/Ç.pdf', 'a/1.pdf', 'a/\u{1F600}.pdf', 'a/Ａ.pdf'];
+  const ambX = () => {
+    const f = F();
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'p52-27-auto-'));
+    temporarios.push(tmp);
+    const objetos = { [`${f.Uu(1)}/curriculo-fulano-sobrenome.pdf`]: Buffer.from('%PDF-falso-1 conteudo'), [`${f.C(4)}/cv.pdf`]: Buffer.from('%PDF-falso-2') };
+    const caminhos = Object.keys(objetos);
+    const storage = { bucket: BUCKET, prefixos: prefixosDe(caminhos), n_objetos: caminhos.length, nomes_md5: nomesMd5(caminhos), total_bucket: 3, capturado_em: '2026-10-13T11:00:00.000Z' };
+    const mem = { 'pop.json': JSON.stringify(f.pop), 'dec.md': f.decisao, 'st.json': JSON.stringify(storage) };
+    const rede = dubleStorage(objetos);
+    const banco = consultaEmMemoria(f.db);
+    const saida = [];
+    const pedidos = [];
+    const deps = {
+      consultar: async (p) => {
+        pedidos.push(p.tipo === 'catalogo' ? SQL_CATALOGO : p.sql);
+        return banco(p);
+      },
+      fetch: rede.fetch,
+      token: () => rede.token,
+      io: { log: (s) => (saida.push(String(s)), todasSaidas.push(String(s))), err: (s) => (saida.push(String(s)), todasSaidas.push(String(s))) },
+      ler: (p) => {
+        if (!(p in mem)) throw new Error('ausente');
+        return mem[p];
+      },
+    };
+    const dir = path.join(tmp, 'export', '20261013T120000Z');
+    const exportar = (alvo) => principal(['--exportar', alvo || dir, '--populacao', 'pop.json', '--decisao-escopo', 'dec.md', '--storage', 'st.json'], deps);
+    const conferir = (...x) => principal(['--conferir', ...x, '--populacao', 'pop.json', '--storage', 'st.json'], deps);
+    const t = () => saida.join('\n');
+    const limpa = () => {
+      saida.length = 0;
+    };
+    const mf = (d) => JSON.parse(fs.readFileSync(path.join(d || dir, 'MANIFESTO.json'), 'utf8'));
+    const mfMd5 = (d) => md5(fs.readFileSync(path.join(d || dir, 'MANIFESTO.json')));
+    const regs = (d) => fs.readFileSync(path.join(d || dir, 'linhas.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    const modo = (rel, d) => fs.statSync(path.join(d || dir, rel)).mode & 0o777;
+    const adulterar = (rel, d) => {
+      const p = path.join(d || dir, rel);
+      const b = fs.readFileSync(p);
+      const i = Math.floor(b.length / 2);
+      b[i] = b[i] === 0x41 ? 0x42 : 0x41;
+      fs.writeFileSync(p, b);
+    };
+    return { f, tmp, objetos, storage, mem, rede, pedidos, deps, dir, exportar, conferir, t, limpa, mf, mfMd5, regs, modo, adulterar };
+  };
+  const recusaConferir = async (x, args, re) => {
+    x.limpa();
+    return (await x.conferir(...args)) === 1 && re.test(x.t());
+  };
 
   const casos = [
     ['fecho: raiz, filhos, neto (CASCADE) e o filho NO ACTION em apaga', async () => {
@@ -766,16 +1320,222 @@ async function autoTeste(out) {
       const arestas = plano.nos.reduce((acc, x) => acc + x.arestas.length, 0);
       return (
         s.startsWith('set transaction read only;') && SQL_CATALOGO.startsWith('set transaction read only;') &&
-        !/\b(insert\s+into|delete\s+from|truncate|update\s+\S+\s+set)\b/i.test(s) && /not exists \(select 1 from "public"\."usuarios_rh" g where g\.user_id = t\.id\)/.test(s) &&
+        !ESCRITA_SQL.test(s) && /not exists \(select 1 from "public"\."usuarios_rh" g where g\.user_id = t\.id\)/.test(s) &&
         /not exists \(select 1 from "public"\."candidatos" g where g\.user_id = t\.id and not \(g\.id = any/.test(s) && (s.match(/ in \(select p\./g) || []).length === arestas &&
         s.includes("e.key like '%token%'") && !s.includes("'l', (select coalesce(jsonb_agg(x.j order by x.j collate \"C\"), '[]'::jsonb) from (select to_jsonb(t)::text as j from \"auth\".\"sessions\"")
       );
     }],
+    // ── Task 2: forma canônica, escrita, recusas ──
+    ['forma canonica: fixture do contrato = 224b2ac162f0322444eed10e6335517a', async () => nomesMd5(FIXTURE_FORMA) === '224b2ac162f0322444eed10e6335517a'],
+    ['forma canonica: nao e o .sort() padrao (78557760...) nem a juncao com \\n final (deecf20e...); vazia = d41d8cd9...', async () => {
+      const h = nomesMd5(FIXTURE_FORMA);
+      const padrao = md5([...FIXTURE_FORMA].sort().join('\n'));
+      const barraN = md5(`${ordenarBytes(FIXTURE_FORMA).join('\n')}\n`);
+      return padrao === '785577602c38ce87887c0bac892cf805' && barraN === 'deecf20eb606d12e2937b76656f97f4a' && h !== padrao && h !== barraN && nomesMd5([]) === 'd41d8cd98f00b204e9800998ecf8427e';
+    }],
+    ['prefixos distintos, sem / final, em ordem de bytes', async () => JSON.stringify(prefixosDe(['Ａ/x', 'b/1', 'a/2', 'b/3', 'Ç/y'])) === JSON.stringify(['a', 'b', 'Ç', 'Ａ'])],
+    ['--exportar: diretorio 0700, arquivos 0600, linhas {t, m, r} na ordem do fecho, storage/K.bin + INDICE, MANIFESTO, EXPORT GRAVADO', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      const R = x.regs();
+      const ts = R.map((r) => r.t);
+      const m = x.mf();
+      const ind = JSON.parse(fs.readFileSync(path.join(x.dir, 'storage', 'INDICE.json'), 'utf8'));
+      return (
+        x.modo('') === 0o700 && x.modo('storage') === 0o700 && ['MANIFESTO.json', 'linhas.jsonl', 'storage/INDICE.json', 'storage/1.bin', 'storage/2.bin'].every((a) => x.modo(a) === 0o600) &&
+        R.every((r) => Object.keys(r).join() === 't,m,r') && ts.lastIndexOf('auth.users') < ts.indexOf('auth.identities') && ts.lastIndexOf('public.candidatos') < ts.indexOf('public.candidaturas') &&
+        ts.lastIndexOf('public.candidaturas') < ts.indexOf('public.filho') && ts.lastIndexOf('public.filho') < ts.indexOf('public.neto') &&
+        ind.length === 2 && ind.every((o) => md5(fs.readFileSync(path.join(x.dir, 'storage', `${o.k}.bin`))) === o.md5) && m.storage.nomes_md5 === x.storage.nomes_md5 &&
+        m.versao_formato === 1 && ISO.test(m.exportado_em) && m.populacao_md5 === x.f.pop.populacao_md5 && m.raizes === 4 && m.linhas === R.length &&
+        m.tabelas['public.candidatos'].por_modo.apaga === 4 && m.tabelas['public.filho_sn'].por_modo.anula === 1 && m.tabelas['public.vagas'].por_modo.atualiza === 1 &&
+        Object.entries(m.excluidas_por_desenho).map(([k, v]) => `${k}=${v}`).sort().join(',') === 'auth.mfa_factors=1,auth.refresh_tokens=1,auth.sessions=1' &&
+        new RegExp(`^EXPORT GRAVADO: dir=\\S+ export_md5=${x.mfMd5()} exportado_em=\\S+ linhas=${R.length} tabelas=\\d+ curriculos=2$`).test(x.t())
+      );
+    }],
+    ['--exportar: colunas token de auth.users em branco e listadas em colunas_em_branco; encrypted_password presente; sessoes fora', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      const m = x.mf();
+      const u = x.regs().filter((r) => r.t === 'auth.users');
+      const cols = m.colunas_em_branco['auth.users'];
+      return (
+        JSON.stringify(cols) === JSON.stringify(['confirmation_token', 'email_change_token_new', 'recovery_token']) && u.length === 1 && cols.every((c) => u[0].r[c] === '') &&
+        typeof u[0].r.encrypted_password === 'string' && u[0].r.encrypted_password.length > 0 && !x.regs().some((r) => ['auth.sessions', 'auth.refresh_tokens', 'auth.mfa_factors'].includes(r.t))
+      );
+    }],
+    ['--exportar: duas exportacoes do mesmo estado -> o mesmo export_md5', async () => {
+      const x = ambX();
+      const outro = path.join(x.tmp, 'export2', 'y');
+      return (await x.exportar()) === 0 && (await x.exportar(outro)) === 0 && x.mfMd5() === x.mfMd5(outro);
+    }],
+    ['--exportar e --conferir --vivo: toda requisicao comeca por set transaction read only e nenhuma escreve', async () => {
+      const x = ambX();
+      const ok = (await x.exportar()) === 0 && (await x.conferir('--dir', x.dir, '--vivo')) === 0;
+      return ok && x.pedidos.length === 4 && x.pedidos.every((s) => s.startsWith('set transaction read only;') && !ESCRITA_SQL.test(s));
+    }],
+    ['recusa: diretorio dentro deste repositorio -> EXPORT DENTRO DE REPOSITORIO, nada criado', async () => {
+      const x = ambX();
+      const alvo = path.join(RAIZ, '.planning', 'tmp', 'p52-27-auto-teste-nunca-criado');
+      return (await x.exportar(alvo)) === 1 && /EXPORT DENTRO DE REPOSITORIO/.test(x.t()) && !fs.existsSync(alvo);
+    }],
+    ['recusa: diretorio dentro de outra arvore git -> EXPORT DENTRO DE REPOSITORIO, nada criado', async () => {
+      const x = ambX();
+      execFileSync('git', ['init', '-q', path.join(x.tmp, 'arvore')], { stdio: 'ignore' });
+      const alvo = path.join(x.tmp, 'arvore', 'sub', 'export');
+      return (await x.exportar(alvo)) === 1 && /EXPORT DENTRO DE REPOSITORIO/.test(x.t()) && !fs.existsSync(alvo);
+    }],
+    ['recusa: caminho relativo -> EXPORT DENTRO DE REPOSITORIO', async () => {
+      const x = ambX();
+      return (await x.exportar('export-relativo')) === 1 && /EXPORT DENTRO DE REPOSITORIO/.test(x.t()) && !fs.existsSync('export-relativo');
+    }],
+    ['recusa: diretorio ja existente -> EXPORT JA EXISTE', async () => {
+      const x = ambX();
+      fs.mkdirSync(x.dir, { recursive: true });
+      return (await x.exportar()) === 1 && /EXPORT JA EXISTE/.test(x.t()) && fs.readdirSync(x.dir).length === 0;
+    }],
+    ['EXPORT AUSENTE: diretorio inexistente', async () => {
+      const x = ambX();
+      return recusaConferir(x, ['--dir', path.join(x.tmp, 'nunca')], /EXPORT AUSENTE: diretorio/);
+    }],
+    ...['MANIFESTO.json', 'linhas.jsonl', 'storage/2.bin'].map((rel) => [`EXPORT AUSENTE: ${rel}`, async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      fs.rmSync(path.join(x.dir, rel));
+      return recusaConferir(x, ['--dir', x.dir], new RegExp(`EXPORT AUSENTE: ${rel.replace(/[./]/g, '\\$&')}`));
+    }]),
+    ...['linhas.jsonl', 'MANIFESTO.json', 'storage/INDICE.json', 'storage/1.bin'].map((rel) => [`EXPORT ADULTERADO: ${rel} (um octeto trocado)`, async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0 || (await x.conferir('--dir', x.dir)) !== 0) return false;
+      x.adulterar(rel);
+      return recusaConferir(x, ['--dir', x.dir], new RegExp(`EXPORT ADULTERADO: ${rel.replace(/[./]/g, '\\$&')}$`, 'm'));
+    }]),
+    ['EXPORT ADULTERADO: MANIFESTO.json com JSON valido (um valor trocado; um espaco trocado) — o selo e a forma exata mordem', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      const p = path.join(x.dir, 'MANIFESTO.json');
+      const orig = fs.readFileSync(p, 'utf8');
+      const m = JSON.parse(orig);
+      m.tabelas['public.filho'].md5 = md5('outro');
+      fs.writeFileSync(p, `${JSON.stringify(m, null, 2)}\n`);
+      const r1 = await recusaConferir(x, ['--dir', x.dir], /EXPORT ADULTERADO: MANIFESTO\.json$/m);
+      fs.writeFileSync(p, orig.replace('{\n  "versao_formato"', '{\n \t"versao_formato"'));
+      const r2 = await recusaConferir(x, ['--dir', x.dir], /EXPORT ADULTERADO: MANIFESTO\.json$/m);
+      fs.writeFileSync(p, orig);
+      x.limpa();
+      return r1 && r2 && (await x.conferir('--dir', x.dir)) === 0;
+    }],
+    ['EXPORT NAO E A POPULACAO: id a mais em apagaveis', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      const p = JSON.parse(x.mem['pop.json']);
+      p.apagaveis.ficticios.push({ id: x.f.C(9), user_id: null });
+      p.populacao_md5 = md5Ids([x.f.C(1), x.f.C(2), x.f.C(4), x.f.C(6), x.f.C(9)]);
+      x.mem['pop.json'] = JSON.stringify(p);
+      return recusaConferir(x, ['--dir', x.dir], /EXPORT NAO E A POPULACAO: raizes do fecho != apagaveis \(a mais: -; a menos: c0000009\)/);
+    }],
+    ['EXPORT NAO E A POPULACAO: id a menos em apagaveis', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      const p = JSON.parse(x.mem['pop.json']);
+      p.apagaveis.contas_teste_com_candidatura = p.apagaveis.contas_teste_com_candidatura.filter((e) => e.id !== x.f.C(2));
+      p.populacao_md5 = md5Ids([x.f.C(1), x.f.C(4), x.f.C(6)]);
+      x.mem['pop.json'] = JSON.stringify(p);
+      return recusaConferir(x, ['--dir', x.dir], /EXPORT NAO E A POPULACAO: raizes do fecho != apagaveis \(a mais: c0000002; a menos: -\)/);
+    }],
+    ['EXPORT NAO E A POPULACAO: curriculos do export != captura do STORAGE.json', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      const um = [Object.keys(x.objetos)[0]];
+      x.mem['st.json'] = JSON.stringify({ ...x.storage, n_objetos: 1, nomes_md5: nomesMd5(um) });
+      return recusaConferir(x, ['--dir', x.dir], /EXPORT NAO E A POPULACAO: storage != captura/);
+    }],
+    ['EXPORT NAO E A POPULACAO: --exportar com a listagem do Storage != captura, nada gravado', async () => {
+      const x = ambX();
+      x.rede.objetos.set(`${x.f.Uu(1)}/novo.pdf`, Buffer.from('novo'));
+      return (await x.exportar()) === 1 && /EXPORT NAO E A POPULACAO: storage != captura/.test(x.t()) && !fs.existsSync(x.dir);
+    }],
+    ['EXPORT NAO E A POPULACAO: STORAGE.json com prefixo fora de apagaveis', async () => {
+      const x = ambX();
+      x.mem['st.json'] = JSON.stringify({ ...x.storage, prefixos: ordenarBytes([...x.storage.prefixos, x.f.Uu(5)]) });
+      return (await x.exportar()) === 1 && /EXPORT NAO E A POPULACAO: storage com prefixo fora de apagaveis/.test(x.t()) && !fs.existsSync(x.dir);
+    }],
+    ['--registro: md5 ou instante != manifesto -> EXPORT NAO E O APROVADO; iguais -> EXPORT CONFERIDO', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      const h = x.mfMd5();
+      const em = x.mf().exportado_em;
+      const reg = (a, b) => `# 52-21-EXPORT\nexport_dir: ${x.dir}\nexport_md5: ${a}\nexportado_em: ${b}\n`;
+      x.mem['r.md'] = reg(h, em);
+      x.limpa();
+      const ok = (await x.conferir('--registro', 'r.md')) === 0 && new RegExp(`^EXPORT CONFERIDO: export_md5=${h} linhas=\\d+ curriculos=2 vivo=nao_conferido$`, 'm').test(x.t());
+      x.mem['r.md'] = reg(md5('outro'), em);
+      const r1 = await recusaConferir(x, ['--registro', 'r.md'], /EXPORT NAO E O APROVADO: md5/);
+      x.mem['r.md'] = reg(h, '2026-10-13T12:00:01.000Z');
+      const r2 = await recusaConferir(x, ['--registro', 'r.md'], /EXPORT NAO E O APROVADO: exportado_em/);
+      return ok && r1 && r2;
+    }],
+    ['--decisao: md5 ou instante != manifesto -> EXPORT NAO E O APROVADO; iguais -> EXPORT CONFERIDO', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      const h = x.mfMd5();
+      const em = x.mf().exportado_em;
+      const dec = (a, b) => `decisao: apagar\nexport_dir: ${x.dir}\nexport_md5_aprovado: ${a}\nexport_em_aprovado: ${b}\n`;
+      x.mem['d.md'] = dec(h, em);
+      x.limpa();
+      const ok = (await x.conferir('--decisao', 'd.md')) === 0 && /^EXPORT CONFERIDO: /m.test(x.t());
+      x.mem['d.md'] = dec(md5('outro'), em);
+      const r1 = await recusaConferir(x, ['--decisao', 'd.md'], /EXPORT NAO E O APROVADO: md5/);
+      x.mem['d.md'] = dec(h, '2026-10-13T12:00:01.000Z');
+      const r2 = await recusaConferir(x, ['--decisao', 'd.md'], /EXPORT NAO E O APROVADO: exportado_em/);
+      return ok && r1 && r2;
+    }],
+    ['--registro sem export_dir (ou md5 malformado) -> EXPORT NAO E O APROVADO', async () => {
+      const x = ambX();
+      x.mem['r.md'] = `export_md5: ${md5('x')}\nexportado_em: 2026-10-13T12:00:00.000Z\n`;
+      x.mem['r2.md'] = `export_dir: ${x.dir}\nexport_md5: 123\nexportado_em: 2026-10-13T12:00:00.000Z\n`;
+      return (await recusaConferir(x, ['--registro', 'r.md'], /EXPORT NAO E O APROVADO/)) && (await recusaConferir(x, ['--registro', 'r2.md'], /EXPORT NAO E O APROVADO/));
+    }],
+    ['--vivo: banco e Storage iguais -> vivo=igual', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      x.limpa();
+      return (await x.conferir('--dir', x.dir, '--vivo')) === 0 && /vivo=igual$/m.test(x.t());
+    }],
+    ['--vivo: uma linha mudada no banco -> EXPORT DIFERE DO VIVO: <tabela>', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      x.f.db.tabelas['public.filho'][0].nota = 'mudou';
+      const r1 = await recusaConferir(x, ['--dir', x.dir, '--vivo'], /EXPORT DIFERE DO VIVO: public\.filho$/m);
+      delete x.f.db.tabelas['public.filho'][0].nota;
+      x.f.db.tabelas['public.neto'].push({ id: x.f.id('9', 8), filho_id: x.f.id('9', 1) });
+      const r2 = await recusaConferir(x, ['--dir', x.dir, '--vivo'], /EXPORT DIFERE DO VIVO: public\.neto$/m);
+      return r1 && r2;
+    }],
+    ['--vivo: um curriculo mudado no Storage -> EXPORT DIFERE DO VIVO: storage', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      x.rede.objetos.set(`${x.f.C(4)}/cv.pdf`, Buffer.from('%PDF-falso-2 trocado por outro de outro tamanho'));
+      return recusaConferir(x, ['--dir', x.dir, '--vivo'], /EXPORT DIFERE DO VIVO: storage$/m);
+    }],
+    ['--vivo: o grafo de FK mudou -> EXPORT DIFERE DO VIVO: catalogo', async () => {
+      const x = ambX();
+      if ((await x.exportar()) !== 0) return false;
+      x.f.db.fks.push({ tab: 'public.filho_novo', cols: ['filho_id'], ref: 'public.filho', refcols: ['id'], tipo: 'c', nn: true });
+      return recusaConferir(x, ['--dir', x.dir, '--vivo'], /EXPORT DIFERE DO VIVO: catalogo/);
+    }],
     ['uso invalido -> 2', async () => {
       const e = amb(F());
-      return (await principal([], e.deps)) === 2 && (await principal(['--contar', '--populacao', 'pop.json'], e.deps)) === 2 && (await principal(['--auto-teste', '--contar'], e.deps)) === 2;
+      const u = async (...a) => (await principal(a, e.deps)) === 2;
+      return (
+        (await u()) && (await u('--contar', '--populacao', 'pop.json')) && (await u('--auto-teste', '--contar')) &&
+        (await u('--exportar', '/tmp/x', '--populacao', 'pop.json', '--decisao-escopo', 'dec.md')) &&
+        (await u('--conferir', '--populacao', 'pop.json', '--storage', 's.json')) &&
+        (await u('--conferir', '--dir', '/x', '--registro', 'r.md', '--populacao', 'pop.json', '--storage', 's.json')) &&
+        (await u('--exportar', '/tmp/x', '--populacao', 'pop.json', '--decisao-escopo', 'dec.md', '--storage', 's.json', '--vivo'))
+      );
     }],
-    ['nenhum e-mail, nome, CPF, token ou hash em nenhuma saida dos casos acima', async () => !/@|Fulano|Sobrenome|Ficticio|000\.000|tok-|hashfalso|refresh-falso/.test(todasSaidas.join('\n')) && todasSaidas.length > 0],
+    ['nenhum e-mail, nome, CPF, token, hash, chave ou nome de arquivo em nenhuma saida dos casos acima', async () =>
+      todasSaidas.length > 20 && !/@|Fulano|Sobrenome|Ficticio|000\.000|tok-|hashfalso|refresh-falso|curriculo-|cv\.pdf|novo\.pdf|FALSA-do-auto|FALSO-do-auto/.test(todasSaidas.join('\n'))],
   ];
 
   const falhas = [];
@@ -788,17 +1548,19 @@ async function autoTeste(out) {
     }
     if (!r) falhas.push(nome);
   }
+  for (const t of temporarios) fs.rmSync(t, { recursive: true, force: true });
   if (falhas.length) {
     out.err(`EXPORT AUTO-TESTE FALHOU: ${falhas.join('; ')}`);
     return 1;
   }
-  out.log(`EXPORT AUTO-TESTE OK: ${casos.length}/${casos.length} (fecho de FK, modos apaga/anula/atualiza, auth fora por desenho, dupla guarda, ordem, contagem so leitura, recusas)`);
+  out.log(`EXPORT AUTO-TESTE OK: ${casos.length}/${casos.length} (fecho de FK, modos apaga/anula/atualiza, auth fora por desenho, dupla guarda, ordem, contagem so leitura; forma canonica, escrita 0700/0600, tokens em branco, recusas DENTRO DE REPOSITORIO/JA EXISTE/AUSENTE x4/ADULTERADO x4/NAO E A POPULACAO/NAO E O APROVADO/DIFERE DO VIVO, nada pessoal na saida)`);
   return 0;
 }
 
 module.exports = {
   ordenarBytes, md5Ids, lerPopulacao, lerDestinosVagas, modoDaAresta, planejarFecho, sqlDoFecho, avaliarFecho, exigirRaizes, linhaContagem,
-  consultaEmMemoria, fixtureFecho, principal, SQL_CATALOGO, Recusa,
+  nomesMd5, prefixosDe, raizesDe, montarLinhas, textoManifesto, lerManifestoIntegro, errosStorage, exigirForaDeGit, obterChave, criarCliente, listarPrefixo,
+  consultaEmMemoria, fixtureFecho, dubleStorage, principal, SQL_CATALOGO, Recusa, BUCKET, URL_PROJETO, URL_CHAVES,
 };
 
 if (require.main === module) {
