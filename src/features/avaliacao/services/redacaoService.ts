@@ -41,6 +41,7 @@
  */
 import { supabase } from '@/lib/supabase/client'
 import { respostaRedacaoSchema, type RespostaRedacao } from '../schemas/redacaoSchema'
+import { lerTestesDaMinhaCandidatura } from './avaliacaoService'
 
 /** Service error mirroring the `camelCaseService.ts` convention (CLAUDE.md). */
 export class RedacaoServiceError extends Error {
@@ -145,9 +146,18 @@ export async function getRedacaoContext(
   }
 
   // A vaga da candidatura decide o escopo. Own-row RLS cobre esta leitura.
+  //
+  // 52-32 (R1 do G-52-7 · D-52-G7B-4): o embed era `vagas!inner(...)`. Sob a RLS do candidato a única
+  // policy de SELECT de `vagas` que o alcança é a pública («Público vê vagas ativas»): com a vaga
+  // pausada, fechada, arquivada ou apagada, o `!inner` fazia a LINHA da candidatura sumir e a tela
+  // dizia «Candidatura não encontrada» a um candidato ainda no funil. Agora o embed é simples (a
+  // linha fica, com `vaga` nula) e, só nesse caso, os `codigos` vêm da RPC
+  // `ler_testes_das_minhas_candidaturas` (UMA chamada, só `testes_aplicaveis` é usado). Sem a
+  // entrada (erro, ausência), o desfecho é o de HOJE — `NOT_FOUND` —, nunca o default `is_padrao`:
+  // ele serviria a pergunta errada por acidente a quem a vaga declarou outros `codigos`.
   const { data: candRow, error: candErr } = await supabase
     .from('candidaturas')
-    .select('id, vaga:vagas!inner(testes_aplicaveis)')
+    .select('id, vaga:vagas(testes_aplicaveis)')
     .eq('id', candidaturaId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -163,8 +173,15 @@ export async function getRedacaoContext(
     throw new RedacaoServiceError('Candidatura não encontrada', 'NOT_FOUND')
   }
 
-  const testes = (candRow as unknown as { vaga: { testes_aplicaveis: unknown } | null })
-    .vaga?.testes_aplicaveis
+  const linhaCand = candRow as unknown as { id: string; vaga?: { testes_aplicaveis: unknown } | null }
+  let testes = linhaCand.vaga?.testes_aplicaveis
+  if (linhaCand.vaga == null) {
+    const daRpc = await lerTestesDaMinhaCandidatura(candidaturaId)
+    if (!daRpc) {
+      throw new RedacaoServiceError('Candidatura não encontrada', 'NOT_FOUND')
+    }
+    testes = daRpc.testes_aplicaveis
+  }
   const elem = Array.isArray(testes)
     ? (testes as Array<Record<string, unknown>>).find(
         (e) => e.teste === 'redacao_cultural' || e.tipo === 'redacao_cultural',

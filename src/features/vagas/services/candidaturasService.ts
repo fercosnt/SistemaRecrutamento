@@ -336,7 +336,7 @@ export function mesclarVagasDasCandidaturas(linhas: Candidatura[], entradas: unk
  * Erro (inclusive de transporte) devolve `null` — sem lançar e sem ecoar a mensagem: as linhas
  * ficam como vieram (o fallback do cartão), e a lista nunca cai por causa desta leitura.
  */
-async function lerVagasDasMinhasCandidaturas(): Promise<unknown> {
+export async function lerVagasDasMinhasCandidaturas(): Promise<unknown> {
   try {
     // NARROW confined cast: `ler_vagas_das_minhas_candidaturas` não está em `database.types.ts`
     // (D-52-G7-5); quem o retira: o primeiro plano que rodar `npm run db:types < /dev/null` E

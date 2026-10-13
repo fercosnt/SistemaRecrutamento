@@ -44,6 +44,7 @@
  * @see src/features/agendamento/services/agendamentoCandidatoService.ts (o molde do disparo por Blob/anchor)
  */
 import { supabase } from '@/lib/supabase/client'
+import { lerVagasDasMinhasCandidaturas } from '@/features/vagas/services/candidaturasService'
 // O endereço do canal de privacidade tem UMA fonte no projeto. Duplicá-lo aqui criaria duas
 // verdades sobre o mesmo canal humano — e é o canal que a copy de erro oferece
 // quando o caminho automático falha.
@@ -1039,6 +1040,31 @@ function tituloDaVaga(vaga: unknown): string | null {
 }
 
 /**
+ * 52-32 (R1 do G-52-7 · D-52-G7B-1: a 0006 reusada) — preenche `vagaTitulo` NULO com o `titulo` da
+ * entrada de `ler_vagas_das_minhas_candidaturas` da MESMA candidatura.
+ *
+ * Pura e defensiva: `entradas` que não é array devolve as linhas como vieram; entrada sem
+ * `candidatura_id` string ou sem `titulo` string não vazia é ignorada; nunca sobrescreve um título
+ * presente; só `titulo` atravessa (nenhuma outra chave da entrada entra na `LinhaCurriculo`).
+ */
+export function mesclarTitulosDasVagas(linhas: LinhaCurriculo[], entradas: unknown): LinhaCurriculo[] {
+  if (!Array.isArray(entradas)) return linhas
+  const porCandidatura = new Map<string, string>()
+  for (const e of entradas) {
+    if (typeof e !== 'object' || e === null || Array.isArray(e)) continue
+    const o = e as Record<string, unknown>
+    if (typeof o.candidatura_id !== 'string' || typeof o.titulo !== 'string' || o.titulo.trim() === '') continue
+    if (!porCandidatura.has(o.candidatura_id)) porCandidatura.set(o.candidatura_id, o.titulo)
+  }
+  if (porCandidatura.size === 0) return linhas
+  return linhas.map((linha) => {
+    if (linha.vagaTitulo !== null) return linha
+    const titulo = porCandidatura.get(linha.id)
+    return titulo === undefined ? linha : { ...linha, vagaTitulo: titulo }
+  })
+}
+
+/**
  * Lista as candidaturas do titular **que têm currículo** — own-row, por allowlist.
  *
  * ⚠ **NÃO esconde candidatura removida de forma suave, e isso é decisão.** O
@@ -1074,7 +1100,7 @@ export async function listarMeusCurriculos(
   }
 
   const linhas = (data ?? []) as unknown as LinhaCurriculoBruta[]
-  return linhas
+  const resultado = linhas
     .filter((linha) => typeof linha?.curriculo_url === 'string' && linha.curriculo_url !== '')
     .map((linha) => ({
       id: String(linha.id),
@@ -1082,6 +1108,15 @@ export async function listarMeusCurriculos(
       enviadoEm: typeof linha.created_at === 'string' ? linha.created_at : '',
       vagaTitulo: tituloDaVaga(linha.vaga),
     }))
+
+  // 52-32 (R1 do G-52-7 · D-52-G7B-1: a 0006 reusada; candidatura excluída segue sem título —
+  // residual R1): sob a RLS do candidato o embed `vaga` volta NULO quando a vaga saiu do ar. Só
+  // quando alguma linha veio sem título, UMA chamada a `ler_vagas_das_minhas_candidaturas` (que já
+  // está no ar, revisada) e a mescla do título; erro = as linhas como vieram (`vagaTitulo` nulo,
+  // «Vaga não identificada»), sem lançar e sem ecoar a mensagem.
+  if (!resultado.some((linha) => linha.vagaTitulo === null)) return resultado
+  const entradas = await lerVagasDasMinhasCandidaturas()
+  return mesclarTitulosDasVagas(resultado, entradas)
 }
 
 /**

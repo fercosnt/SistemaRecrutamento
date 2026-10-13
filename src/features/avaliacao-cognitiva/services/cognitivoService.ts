@@ -28,6 +28,7 @@
  * @see supabase/functions/_shared/cognitivo-schemas.ts (SubmitCognitivoBodySchema — the body contract)
  */
 import { supabase } from '@/lib/supabase/client'
+import { lerTestesDaMinhaCandidatura } from '@/features/avaliacao/services/avaliacaoService'
 
 /** Service error mirroring the `camelCaseService.ts` convention (CLAUDE.md). */
 export class CognitivoServiceError extends Error {
@@ -140,11 +141,21 @@ export async function getContexto(
     etapa_atual: string
     vagas?: { aplica_cognitivo?: boolean } | null
   }
+  // 52-32 (D-52-G7B-5 — o quarto leitor): sob a RLS do candidato o embed `vagas` volta NULO quando a
+  // vaga saiu do ar (só a policy pública a alcança). Sem isto, a página de avaliações — que passa a
+  // mostrar o card cognitivo da vaga não pública com opt-in — levaria a uma prova «indisponível».
+  // Só nesse caso, UMA chamada à RPC `ler_testes_das_minhas_candidaturas`, e só `aplica_cognitivo` é
+  // usado; sem a entrada (erro, ausência), falso — a prova segue fechada, nunca aberta por acidente.
+  let aplicaCognitivo = raw.vagas?.aplica_cognitivo ?? false
+  if (raw.vagas == null) {
+    const daRpc = await lerTestesDaMinhaCandidatura(raw.id)
+    aplicaCognitivo = daRpc?.aplica_cognitivo ?? false
+  }
   return {
     candidatura_id: raw.id,
     vaga_id: raw.vaga_id,
     etapa_atual: raw.etapa_atual,
-    aplica_cognitivo: raw.vagas?.aplica_cognitivo ?? false,
+    aplica_cognitivo: aplicaCognitivo,
   }
 }
 
