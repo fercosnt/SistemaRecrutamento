@@ -38,6 +38,31 @@ const RUBRICA_VIVA = [
   { dimension: "consentimento_continuidade", peso: 15 },
 ];
 
+/**
+ * As 13 chaves VIVAS dos três cargos de marketing, lidas de PROD em 2026-10-14
+ * (`social-media`, `videomaker-storymaker`, `editor-video` — migrations
+ * 20261013000101..104 e 20261014000001). `clareza_do_processo` é compartilhada pelos três.
+ * Mesma natureza do array acima: fixture de teste, não fonte do peso em produção.
+ */
+const RUBRICA_VIVA_MARKETING = [
+  { dimension: "leitura_da_voz", peso: 30 },
+  { dimension: "decisao_de_recorte", peso: 25 },
+  { dimension: "criterio_do_desdobramento", peso: 20 },
+  { dimension: "conformidade_percebida", peso: 15 },
+  { dimension: "clareza_do_processo", peso: 10 },
+  { dimension: "criterio_de_selecao", peso: 30 },
+  { dimension: "arco_do_dia", peso: 25 },
+  { dimension: "uso_da_reserva", peso: 20 },
+  { dimension: "o_que_ficou_de_fora", peso: 15 },
+  { dimension: "decisao_de_corte", peso: 30 },
+  { dimension: "logica_das_variacoes", peso: 25 },
+  { dimension: "uso_do_material", peso: 20 },
+  { dimension: "conformidade_sinalizada", peso: 15 },
+];
+
+/** Todas as chaves vivas conhecidas, de todos os cargos. */
+const TODAS_VIVAS = [...RUBRICA_VIVA, ...RUBRICA_VIVA_MARKETING];
+
 Deno.test("49-23 / contrato — sjt-rubrica.ts não tem NENHUM import", async () => {
   const fonte = await Deno.readTextFile(new URL("../sjt-rubrica.ts", import.meta.url));
   const linhasImport = fonte
@@ -52,8 +77,8 @@ Deno.test("49-23 / contrato — sjt-rubrica.ts não tem NENHUM import", async ()
   assert(fonte.length > 4000, "o fonte lido é pequeno demais para ser o módulo real");
 });
 
-Deno.test("49-23 / JORN-35 — as 5 chaves VIVAS estão no catálogo, com rótulo e critérios", () => {
-  for (const { dimension } of RUBRICA_VIVA) {
+Deno.test("49-23 / JORN-35 — toda chave VIVA está no catálogo, com rótulo e critérios", () => {
+  for (const { dimension } of TODAS_VIVAS) {
     const def = DIMENSOES_SJT[dimension];
     assert(def, `a chave viva ${dimension} não está no catálogo`);
     assert(def.rotulo.length > 3, `${dimension} sem rótulo`);
@@ -61,11 +86,21 @@ Deno.test("49-23 / JORN-35 — as 5 chaves VIVAS estão no catálogo, com rótul
     assert(def.exclusion.length > 10, `${dimension} sem exclusion transcrito`);
     assert(def.dimensao_clinica.length > 0, `${dimension} sem dimensão clínica de referência`);
   }
-  assertEquals(
-    Object.keys(DIMENSOES_SJT).sort(),
-    RUBRICA_VIVA.map((d) => d.dimension).sort(),
-    "o catálogo tem exatamente as 5 chaves vivas — nem uma inventada, nem uma faltando",
-  );
+  // ⚠ CONSERTADO EM 2026-10-14. Até aqui esta asserção exigia que o catálogo tivesse
+  // EXATAMENTE as 5 chaves do `dentista` — e reprovou o acréscimo legítimo das 13 de
+  // marketing, que são chaves VIVAS em PROD. Era a «contagem contra constante» do
+  // CLAUDE.md §«Portões»: uma FOTOGRAFIA de 2026-09-22 apresentada como invariante, que
+  // reprova trabalho correto com diagnóstico falso («nem uma inventada» — não havia).
+  //
+  // O invariante REAL, e é o que o docblock deste arquivo sempre disse (item 2), é
+  // «as chaves vivas estão no catálogo» — o laço acima. O que falta é o outro lado:
+  // nenhuma entrada do catálogo pode ser oca. Isso NÃO congela a contagem, e continua
+  // pegando a invenção que a asserção antiga queria pegar.
+  const ocas = Object.entries(DIMENSOES_SJT).filter(
+    ([, d]) => d.inclusion.trim().length < 20 || d.exclusion.trim().length < 10 ||
+      d.rotulo.trim().length < 3 || d.dimensao_clinica.trim().length === 0,
+  ).map(([k]) => k);
+  assertEquals(ocas, [], "entrada de catálogo sem critério real — placeholder não entra aqui");
 });
 
 Deno.test("49-23 / JORN-35 — nenhum rótulo é reusado entre dimensões distintas", () => {

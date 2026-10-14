@@ -232,6 +232,139 @@ export const DIMENSOES_SJT: Record<string, DimensaoSjt> = {
     exclusion: "Sem consentimento informado sobre irreversibilidade",
     template_bars: null,
   },
+
+  // ── Cargos de MARKETING (2026-10-14) ────────────────────────────────────────────
+  //
+  // As 13 chaves abaixo vêm dos três documentos de vaga do squad de Marketing, §15
+  // («Critérios das dimensões do caso aberto»), revisados pelo operador em 12-13/10 e
+  // aplicados pelas migrations 20261013000101..104 e 20261014000001. Elas estavam
+  // AUSENTES deste catálogo, e a consequência foi medida em 12/10: o bloco enviado ao
+  // modelo dizia honestamente «esta dimensão não tem critérios catalogados; avalie pelo
+  // sentido da própria chave» — e cada dimensão virava o que o modelo achasse que o nome
+  // dela significa, produzindo nota 0-25 com banda em 13 e 18 sem régua por trás.
+  //
+  // ⚠ `ancoras: null` nas treze, pela MESMA razão das cinco do dentista: a REGRA_NIVEIS_SJT
+  // já converte inclusion/exclusion em 1-5. Escrever âncoras aqui seria invenção. Por isso
+  // os `inclusion` são numerados — «metade dos inclusion» só significa algo se forem
+  // contáveis — e cada `exclusion` diz se é CRÍTICO ou menor, que é o que a regra usa.
+  //
+  // ⚠ `dimensao_clinica` NÃO SE APLICA. O campo existe para o catálogo clínico do cargo
+  // `dentista`; estes são cargos de marketing e audiovisual. Preencher com algo parecido
+  // seria exatamente a falsa atribuição que este arquivo existe para impedir.
+  //
+  // ⚠ O caso aberto destes três cargos É o teste prático: o candidato sobe o trabalho num
+  // Drive dele e usa o campo para o link e o raciocínio. A IA NÃO ABRE O LINK. Todos os
+  // critérios abaixo são sobre o TEXTO. Quando o texto não aborda a dimensão, a saída é
+  // `insufficient_evidence` — nunca nota baixa por ausência (REGRA_INSUFFICIENT_SJT).
+  // Exceção medida: em `social-media` a entrega é texto no próprio campo, e aí o modelo VÊ
+  // a peça; mas ele NÃO viu o Instagram do Dr. Jr., então `leitura_da_voz` se julga pela
+  // coerência entre o que ela descreveu e o que o roteiro faz.
+  //
+  // Fonte de cada campo: docs/vagas/<slug>.md §15, extraído por script (nunca transcrito).
+  leitura_da_voz: {
+    rotulo: "Leitura da voz",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Nomeia pelo menos duas marcas concretas do jeito do Dr. Jr. falar - como abre, que tipo de analogia usa, onde põe o termo técnico, o grau de informalidade. (2) Liga pelo menos uma dessas marcas a uma escolha que fez no roteiro. (3) As marcas são verificáveis no perfil, não atributos genéricos de comunicador. (4) Diz o que não imitou, ou onde se afastou de propósito.",
+    exclusion: "CRÍTICO: só adjetivos (\"didático\", \"acessível\", \"carismático\") sem nenhuma marca concreta. Isso não prova que assistiu. CRÍTICO: atribui ao Dr. Jr. características do material-fonte, que foi gravado por outra pessoa. É o erro central que este teste existe para pegar. menor: descreve a voz a partir da bio ou da descrição do perfil, sem evidência de ter assistido a conteúdo.",
+    template_bars: null,
+  },  // `social-media`
+  decisao_de_recorte: {
+    rotulo: "Decisão de recorte",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Diz qual ângulo escolheu do material e por quê. (2) Nomeia pelo menos uma coisa que descartou, e a razão. (3) A razão é sobre o espectador - o que retém, o que confunde - e não sobre gosto. (4) Explica como resolveu o problema do mecanismo denso: os ~40 segundos de contexto que o assunto exige antes de fazer sentido.",
+    exclusion: "CRÍTICO: não menciona nada descartado. Material denso obriga a escolher; quem não conta o que ficou de fora provavelmente resumiu em vez de escolher. CRÍTICO: justifica por \"achei mais interessante\" ou equivalente, sem critério. menor: trata o material como se coubesse inteiro em 60 segundos.",
+    template_bars: null,
+  },  // `social-media`
+  criterio_do_desdobramento: {
+    rotulo: "Critério do desdobramento",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Diz por que aquele formato e não os outros dois oferecidos. (2) A razão vem do conteúdo - o que o assunto pede - e não da facilidade de produzir. (3) O desdobramento acrescenta algo que o Reel não entrega, em vez de repetir em outro suporte.",
+    exclusion: "CRÍTICO: o desdobramento é o roteiro recortado, sem peça própria. menor: justifica por preferência pessoal (\"gosto mais de carrossel\").",
+    template_bars: null,
+  },  // `social-media`
+  conformidade_percebida: {
+    rotulo: "Conformidade percebida sem aviso",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Identifica pelo menos um dos percentuais sem referência no material (70% menos dor, 40% menos edema, 45% contra 18% de cicatrização). (2) Diz o que faria: pedir a fonte, omitir o número, ou reescrever em linguagem de possibilidade. (3) A decisão preserva o impacto da peça em vez de apenas esvaziá-la.",
+    exclusion: "CRÍTICO: propõe usar um dos percentuais como hook, sem ressalva. menor: fala de \"conformidade\" em geral sem apontar nenhum trecho.",
+    template_bars: null,
+  },  // `social-media`
+  clareza_do_processo: {
+    rotulo: "Clareza do processo",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) O texto diz o que foi feito, em que ordem, e não apenas o que resultou. (2) Dá para outra pessoa repetir o caminho a partir do que está escrito. (3) Separa o que foi decisão própria do que foi restrição do material.",
+    exclusion: "CRÍTICO: o texto descreve o resultado em vez do caminho (\"fiz um Reel sobre fotobiomodulação\", \"montei a sequência do dia 08\"). CRÍTICO: o texto é curto demais para sustentar qualquer juízo (abaixo de ~60 palavras) e não há o que avaliar além da entrega em si. menor: descreve o caminho mas nunca distingue decisão de restrição: tudo aparece como escolha, inclusive o que o material impôs.",
+    template_bars: null,
+  },  // `social-media`, `videomaker-storymaker`, `editor-video`
+  criterio_de_selecao: {
+    rotulo: "Critério de seleção",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Diz por que aquele dia entre as seis pastas. (2) Diz por que aqueles stories dentro do dia escolhido. (3) Nomeia o que descartou e a razão. (4) O critério é do espectador - o que prende, o que repete - e não da conveniência de edição.",
+    exclusion: "CRÍTICO: escolheu o dia e não diz por quê. A escolha do dia é a primeira decisão editorial do cargo. CRÍTICO: \"escolhi o que tinha mais material\", sem critério editorial. menor: descreve o dia sem dizer o que selecionou dentro dele.",
+    template_bars: null,
+  },  // `videomaker-storymaker`
+  arco_do_dia: {
+    rotulo: "Arco do dia",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Descreve uma lógica de ordem: o que abre, o que sustenta, o que fecha. (2) A ordem tem razão declarada - não é a cronologia do material por falta de decisão. (3) Diz onde está o ponto alto do dia e por que ele cai ali.",
+    exclusion: "CRÍTICO: a sequência é a ordem em que o material foi gravado, sem nenhuma decisão de montagem. menor: usa a palavra \"narrativa\" sem descrever a ordem que montou.",
+    template_bars: null,
+  },  // `videomaker-storymaker`
+  uso_da_reserva: {
+    rotulo: "Uso do banco de reserva",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Diz se foi à pasta RESERVAS - e, se não foi, por que não precisou. (2) Se usou: o tema escolhido conversa com o que o dia já tinha, em vez de ser enchimento. (3) Trata a reserva como recurso editorial, não como tapa-buraco.",
+    exclusion: "CRÍTICO: escolheu um dia fraco, entregou pouco, e não menciona a reserva. A solução estava nomeada, em caixa alta, na mesma lista de pastas. menor: usou a reserva sem ligar o tema ao dia.",
+    template_bars: null,
+  },  // `videomaker-storymaker`
+  o_que_ficou_de_fora: {
+    rotulo: "O que ficou de fora",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Nomeia pelo menos uma coisa que escolheu não publicar. (2) Dá a razão, e ela é editorial ou de respeito a quem aparece - não uma regra recitada. (3) A decisão é dele, aplicada àquele material, não um princípio genérico.",
+    exclusion: "CRÍTICO: não menciona nada deixado de fora. É a competência que não aparece em portfólio: ela se manifesta no que não existe na entrega. menor: recita a norma (\"não publico paciente sem termo\") sem aplicá-la a nada do material que recebeu.",
+    template_bars: null,
+  },  // `videomaker-storymaker`
+  decisao_de_corte: {
+    rotulo: "Decisão de corte",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Diz onde começou o Reel e por quê. (2) Nomeia o que cortou do material denso. (3) Liga a escolha à retenção, não à fidelidade ao bruto. (4) Explica o que fez com o preâmbulo - o trecho de contexto que antecede o ponto.",
+    exclusion: "CRÍTICO: manteve a ordem do bruto e não diz por quê. CRÍTICO: justifica por \"ficou melhor assim\", sem critério. menor: fala de ritmo sem dizer onde cortou.",
+    template_bars: null,
+  },  // `editor-video`
+  logica_das_variacoes: {
+    rotulo: "Lógica das variações de hook",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Diz o que cada uma das três testa. (2) As três testam coisas diferentes - ângulos distintos, não a mesma frase reescrita. (3) Diz como saberia qual venceu: que número olharia.",
+    exclusion: "CRÍTICO: as três mudam só a frase, com a mesma imagem e o mesmo argumento. É exatamente o que o descritivo do cargo proíbe: \"versões diferentes entre si, não só troca de texto\". menor: nomeia as três sem dizer o que cada uma testa.",
+    template_bars: null,
+  },  // `editor-video`
+  uso_do_material: {
+    rotulo: "Uso do material de apoio",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Diz o que fez com os inserts - quais escolheu e por quê. (2) Há critério de quando cortar para apoio e quando ficar na fala. (3) Reconhece o risco dos dois extremos: só talking head cortado ignora metade do material; troca de plano a cada frase vira videoclipe.",
+    exclusion: "CRÍTICO: não menciona os inserts. São cerca de 50 clipes na pasta; ignorá-los em silêncio é decisão não tomada. menor: usou inserts sem critério declarado.",
+    template_bars: null,
+  },  // `editor-video`
+  conformidade_sinalizada: {
+    rotulo: "Conformidade sinalizada",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de marketing, fora do catálogo clínico)",
+    inclusion: "(1) Identifica as afirmações problemáticas do pacote que escolheu - proporcional, não absoluto. (2) Diz o que faria, e a proposta preserva o impacto em vez de só esvaziar. (3) Sinaliza em vez de decidir: a mensagem é da social media.",
+    exclusion: "CRÍTICO: reescreveu a mensagem por conta própria e entregou sem avisar. É a invasão de alçada do MC2, medida duas vezes por caminhos diferentes. CRÍTICO: não identificou nenhuma afirmação, tendo sido avisado no briefing que elas existem. menor: identificou e não propôs nada.",
+    template_bars: null,
+  },  // `editor-video`
 };
 
 /**
