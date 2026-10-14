@@ -25,7 +25,25 @@ node p46apply.cjs sql "select count(*) from public.perguntas_formulario where va
 
 ## A restrição que muda como se escreve a pergunta
 
-**A pergunta nunca chega ao prompt da IA — só a resposta.** `buildRespostasBlock`
+## ⚠ CONSERTADO — leia antes do que vem abaixo (remedido em 2026-10-12)
+
+**O defeito descrito nesta seção foi corrigido.** Hoje `buildRespostasBlock`
+(`analise-candidato-individual/index.ts:186`) embute `perguntas_formulario(texto_pergunta,
+ordem)` pela FK, ordena por `ordem`, e emite cada item como `Pergunta: … / Resposta: …`. O
+modelo recebe o enunciado, na ordem. Linha sem pergunta degrada para o formato antigo — nunca
+para silêncio.
+
+**O que isso muda para quem escreve perguntas:** a exigência de opções «autoidentificáveis fora
+de contexto» deixou de ser obrigatória. Continua sendo boa prática — texto autoexplicativo não
+custa nada e sobrevive a regressão — mas **não escreva mais a instrução de leitura por conteúdo
+dentro da rubrica**: ela descreveria ao modelo uma realidade que não existe mais, e instrução
+para situação inexistente escorre para o contexto mais próximo.
+
+O texto abaixo fica como registro do defeito e do raciocínio que ele produziu.
+
+---
+
+**[HISTÓRICO — não vale mais]** A pergunta nunca chega ao prompt da IA — só a resposta. `buildRespostasBlock`
 (`analise-candidato-individual/index.ts:114`) monta apenas o texto da resposta; o `pergunta_id`
 é selecionado e nunca usado. O modelo recebe:
 

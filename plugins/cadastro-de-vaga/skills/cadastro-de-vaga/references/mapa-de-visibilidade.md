@@ -13,7 +13,7 @@ Uma coluna de `vagas` pode ser lida por até três públicos, e a maioria não �
 
 ## A tabela
 
-| Coluna | Candidato | Markdown | IA | RH |
+| Coluna | Candidato | Markdown | IA da **triagem** | RH |
 |---|---|---|---|---|
 | `titulo` | ✅ | ❌ | ✅ | ✅ |
 | `slug` | ✅ (na URL) | — | ❌ | ⚠ campo existe, **não persiste** |
@@ -34,7 +34,7 @@ Uma coluna de `vagas` pode ser lida por até três públicos, e a maioria não �
 | `tipo_contrato` | ❌ **nada renderiza** | — | ❌ | ⚠ campo existe, **não persiste** |
 | `subtitulo` | ✅ 2026-08-25 | ❌ texto puro | ❌ | ❌ |
 | `sobre_empresa` | ✅ 2026-08-25 | ✅ | ❌ | ❌ |
-| `perfil_ideal` | ❌ | — | ❌ | ✅ |
+| `perfil_ideal` | ❌ | — | ❌ na triagem · ✅ **no guia de entrevista** | ✅ |
 | `secoes_extras` | ✅ 2026-08-25 | ✅ | ❌ | ❌ |
 | `faixa_salarial_min` / `max` | ❌ | — | ❌ | ✅ |
 | `exibir_salario` | ❌ nada consulta | — | ❌ | ❌ |
@@ -135,6 +135,26 @@ existe um campo que ninguém lê?".
 os blocos livres no fim da página, os dois últimos pelo TextoRico.
 
 `perfil_ideal` **continua sem tela** — é o único dos quatro que ficou de fora.
+
+## ⚠ Remedido em 2026-10-12 — a coluna «IA» é singular para um consumidor PLURAL
+
+`perfil_ideal` está marcado ❌ na coluna «IA», e isso levou a skill a tratá-lo como campo morto
+por quase dois meses. **Ele não é.** A EF `gerar-guia-entrevista` o lê e o injeta no prompt do
+roteiro de entrevista, cortado em 800 caracteres (`index.ts:242` e `:306`).
+
+E há um agravante que torna o campo mais importante, não menos: o outro dado que aquela função
+usa como «competências críticas» são as **chaves de `pesos_avaliacao`** — ou seja, o prompt
+recebe `triagem; work_sample_sjt; redacao_cultural; entrevista`, que são **etapas, não
+competências**. Na prática, **`perfil_ideal` é o único sinal real que o guia de entrevista
+recebe sobre o cargo.** Deixá-lo vazio produz roteiro genérico.
+
+**A lição é de método, e é maior que o campo.** A coluna chama-se «IA» como se houvesse uma.
+Há pelo menos seis consumidores de IA no sistema — `analise-candidato-individual` (triagem),
+`gerar-guia-entrevista`, `avaliar-redacao` (que também pontua o caso aberto do SJT),
+`avaliar-redacao-cultural`, `gerar-devolutiva-bigfive` e `comparativo-candidatos` — e cada um
+lê um conjunto diferente de campos. **Antes de concluir que um campo não tem leitor, pergunte
+quem MAIS lê a mesma fonte**, com `grep -rn '<campo>' supabase/functions/`. Tela vazia não é
+dado ausente.
 
 A lição do método, que vale mais que a tabela: esta tabela é uma **fotografia**, e fotografia
 envelhece. Ela esteve certa por meses e ficou errada num dia de trabalho de frontend. Antes de

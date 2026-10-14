@@ -48,10 +48,10 @@ relatório de quadros.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Leva os dois números lado a lado e propõe um teste: manter o Estudo do dia com formato novo (hook diferente, mais curto) por 3 semanas e aumentar a frequência dos bastidores — com o critério de corte combinado antes de começar. |
-| 2 | pontua | 2 | Apresenta os números e recomenda cortar o Estudo do dia, porque o dado é claro. |
-| 3 | neutro | 1 | Apresenta os números sem recomendação e deixa a decisão com o Dr. |
-| 4 | atencao | 0 | Mantém o Estudo do dia como está — é o quadro que o Dr. quer, e insistir só desgasta a relação. |
+| 1 | fortemente_pontua | 4 | Propõe testar o Estudo do dia em formato novo por 3 semanas e subir os bastidores, com critério de corte definido antes. |
+| 2 | pontua | 2 | Apresenta os números e recomenda cortar o Estudo do dia agora, porque oito semanas de dado já bastam. |
+| 3 | neutro | 1 | Apresenta os números sem recomendação e deixa a decisão com o Dr., que conhece o público melhor. |
+| 4 | atencao | 0 | Mantém o Estudo do dia como está — é o quadro que o Dr. quer, e insistir nisso só desgasta a relação. |
 
 ### MC2 · "Está bom, mas não é assim que eu falo"
 *(dimensão: Escrita na voz do outro + Receptividade a feedback · 4 min)*
@@ -62,9 +62,9 @@ amanhã.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Pede que ele conte a mesma ideia do jeito dele, grava o áudio ali, e reescreve a partir das palavras que ele usou — alimentando o banco de frases com o que saiu. |
-| 2 | pontua | 2 | Reescreve os três mais curtos e mais coloquiais, e leva de volta para ele. |
-| 3 | neutro | 1 | Mantém os dois que funcionaram, descarta os três e escreve outros do zero. |
+| 1 | fortemente_pontua | 4 | Pede que ele conte a ideia do jeito dele, grava o áudio e reescreve com as palavras que ele usou. |
+| 2 | pontua | 2 | Reescreve os três mais curtos e mais coloquiais, e leva de volta para ele antes de gravar. |
+| 3 | neutro | 1 | Mantém os dois que funcionaram, descarta os três e escreve outros do zero até amanhã. |
 | 4 | atencao | 0 | Grava assim mesmo — no teleprompter ele adapta na hora, e o calendário não pode parar. |
 
 ### MC3 · Imagem de paciente, pedida por quem manda
@@ -76,9 +76,9 @@ no arquivo.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Segura a publicação, avisa o Dr. e a Coordenação de que falta o termo, e pede à recepção que confirme ou colha antes. |
+| 1 | fortemente_pontua | 4 | Segura a publicação, avisa o Dr. de que falta o termo e pede à recepção que colha antes. |
 | 2 | pontua | 2 | Publica cortando o rosto e mostrando só a boca, e providencia o termo depois. |
-| 3 | neutro | 1 | Publica em stories, por ser temporário, e não no feed. |
+| 3 | neutro | 1 | Publica em stories, que somem em 24 horas, e deixa o feed para quando o termo chegar. |
 | 4 | atencao | 0 | Publica — foi o próprio Dr. quem mandou, e a autorização é responsabilidade da clínica. |
 
 ### MC4 · O estudo que sustenta o "Estudo do dia"
@@ -90,9 +90,9 @@ estudo parecido — com 34 participantes e sem grupo controle.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Leva ao Dr. o que encontrou — o estudo existe, mas é frágil — e propõe trocar por um achado que dê para referenciar, ou manter o tema falando de mecanismo em vez de número. |
+| 1 | fortemente_pontua | 4 | Mostra ao Dr. que o estudo é frágil e propõe trocar por um que dê para referenciar. |
 | 2 | pontua | 2 | Publica sem o número, falando só do mecanismo, e não comenta a fragilidade com o Dr. |
-| 3 | neutro | 1 | Tira o tema da pauta e escolhe outro assunto para o dia. |
+| 3 | neutro | 1 | Tira o tema da pauta e escolhe outro assunto, para não publicar nada frágil. |
 | 4 | atencao | 0 | Usa o número citando "estudos mostram" — o Dr. mandou, e é ele quem entende do assunto. |
 
 ### MC5 · Um tema bom que é chato de explicar
@@ -103,9 +103,9 @@ forte, mas o mecanismo exige uns 40 segundos de contexto antes de qualquer coisa
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Abre pelo efeito na vida da pessoa (dormir a noite inteira, o cônjuge voltar para o quarto) e entrega o mecanismo depois, em uma frase — e escreve 4 hooks testando ângulos diferentes do mesmo efeito. |
+| 1 | fortemente_pontua | 4 | Abre pelo efeito na vida da pessoa, entrega o mecanismo depois em uma frase, e escreve 4 hooks do mesmo efeito. |
 | 2 | pontua | 2 | Abre com uma pergunta provocativa sobre ronco e mantém a explicação inteira, cortando o resto. |
-| 3 | neutro | 1 | Divide em dois Reels: um de contexto e um de mecanismo. |
+| 3 | neutro | 1 | Divide em dois Reels: um de contexto e outro de mecanismo, publicados em dias seguidos. |
 | 4 | atencao | 0 | Mantém a ordem natural do assunto — contexto primeiro, porque sem ele ninguém entende o resto. |
 
 ### MC6 · O mesmo ajuste pedido pela terceira vez
@@ -117,10 +117,10 @@ vezes, por escrito.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Chama para uma conversa curta, mostra os três casos lado a lado na tela, combina o padrão explicitamente e registra onde ele fica para consulta. |
-| 2 | pontua | 2 | Devolve de novo por escrito, agora com marcação de tempo exata em cada ponto. |
-| 3 | neutro | 1 | Corrige você mesma o que dá e entrega no prazo, para não travar o calendário. |
-| 4 | atencao | 0 | Escala para a Coordenação cobrar o padrão — você já pediu duas vezes e não é sua função insistir. |
+| 1 | fortemente_pontua | 4 | Chama para uma conversa curta, mostra os três casos na tela e combina o padrão por escrito. |
+| 2 | pontua | 2 | Devolve de novo por escrito, agora com marcação de tempo exata em cada ponto do vídeo. |
+| 3 | neutro | 1 | Escala para a Coordenação cobrar o padrão — você já pediu duas vezes e não é sua função insistir. |
+| 4 | atencao | 0 | Corrige você mesma o que dá e entrega no prazo, para não travar o calendário da semana. |
 
 ### Caso aberto · O «Professor Sarcástico» encosta no limite
 *(18 min)*
@@ -154,10 +154,10 @@ a tarde tem só um atendimento longo. São 11h e você tem 4 stories publicados.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Usa o tempo morto nos quadros que não dependem de paciente (estudo, academia, obra, equipamento) e combina com a social media puxar um quadro do banco para o dia. |
+| 1 | fortemente_pontua | 4 | Usa o tempo morto nos quadros que não dependem de paciente e combina um quadro do banco com a social media. |
 | 2 | pontua | 2 | Aproveita o atendimento longo da tarde e faz dele uma sequência completa, com começo, meio e fim. |
-| 3 | neutro | 1 | Publica menos hoje e compensa amanhã, avisando a Coordenação. |
-| 4 | atencao | 0 | Republica cortes de stories antigos que foram bem, para não quebrar a constância. |
+| 3 | neutro | 1 | Publica menos hoje e compensa amanhã, avisando a Coordenação de que o dia rendeu pouco. |
+| 4 | atencao | 0 | Republica cortes de stories antigos que foram bem, para não quebrar a constância do perfil. |
 
 ### MC2 · A sessão de gravação atrasou
 *(dimensão: Planejamento + Comunicação · 4 min)*
@@ -167,9 +167,9 @@ Há 6 roteiros na pauta, e o editor precisa do material amanhã cedo.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Deixa o set pronto para começar em minutos, avisa a social media e a Coordenação do risco de prazo, e prioriza com elas quais roteiros gravar no tempo que restar. |
-| 2 | pontua | 2 | Espera e grava tudo no que sobrar do dia, mesmo com luz e áudio piores. |
-| 3 | neutro | 1 | Remarca a sessão inteira para a semana seguinte. |
+| 1 | fortemente_pontua | 4 | Deixa o set pronto, avisa a Coordenação do risco de prazo e prioriza com ela quais roteiros gravar. |
+| 2 | pontua | 2 | Espera e grava tudo no que sobrar do dia, mesmo com luz e áudio piores que o padrão. |
+| 3 | neutro | 1 | Remarca a sessão inteira para a semana seguinte, quando houver tempo de fazer direito. |
 | 4 | atencao | 0 | Grava os roteiros com outra pessoa da equipe no lugar do Dr., para não perder o prazo. |
 
 ### MC3 · O melhor material do mês, sem autorização
@@ -196,9 +196,9 @@ está ruim e há barulho de sugador.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Grava assim mesmo priorizando o áudio (aproxima o celular, encosta o microfone) e publica com legenda — a fala é o conteúdo, e ela não volta. |
+| 1 | fortemente_pontua | 4 | Grava assim mesmo priorizando o áudio e publica com legenda — a fala é o conteúdo e não volta. |
 | 2 | pontua | 2 | Grava em silêncio e publica só a imagem, com texto na tela resumindo o que aconteceu. |
-| 3 | neutro | 1 | Não grava e pede ao Dr. que reconte depois, num set preparado. |
+| 3 | neutro | 1 | Não grava e pede ao Dr. que reconte depois, num set preparado com luz e áudio. |
 | 4 | atencao | 0 | Ajusta a luz e posiciona o lapela antes de começar a gravar, para não publicar material ruim. |
 
 ### MC5 · O equipamento falha 20 minutos antes
@@ -210,9 +210,9 @@ janela de 40 minutos e não haverá outra nesta semana.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Resolve com o que tem — microfone direcional do celular a curta distância e o roteiro impresso em cartões grandes fora do quadro — e avisa a Coordenação da reposição necessária. |
-| 2 | pontua | 2 | Grava com o áudio do celular e o Dr. lendo do próprio celular na mão. |
-| 3 | neutro | 1 | Usa os 20 minutos tentando consertar o lapela e começa a sessão atrasado. |
+| 1 | fortemente_pontua | 4 | Resolve com o que tem: microfone do celular perto e o roteiro impresso em cartões fora do quadro. |
+| 2 | pontua | 2 | Grava com o áudio do celular e o Dr. lendo do próprio celular na mão, sem teleprompter. |
+| 3 | neutro | 1 | Usa os 20 minutos tentando consertar o lapela e começa a sessão atrasado, com menos tempo. |
 | 4 | atencao | 0 | Remarca a sessão e comunica que, sem equipamento, não dá para garantir qualidade. |
 
 ### MC6 · Três dias de material e o editor começa segunda às 8h
@@ -224,10 +224,10 @@ você vai emendar o fim de semana.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Sobe tudo na pasta compartilhada, nomeado no padrão e separado por dia e por pauta, com um recado curto ao editor sobre o contexto de cada captação e o que é prioridade. |
+| 1 | fortemente_pontua | 4 | Sobe tudo nomeado no padrão, separado por dia, com um recado ao editor sobre o que é prioridade. |
 | 2 | pontua | 2 | Sobe tudo numa pasta única "semana 39" e manda mensagem ao editor dizendo o que é o quê. |
 | 3 | neutro | 1 | Sobe as sessões de gravação, que são prioridade, e deixa fotos e bastidores para segunda cedo. |
-| 4 | atencao | 0 | Deixa tudo nos dispositivos e sobe na segunda antes das 8h. |
+| 4 | atencao | 0 | Deixa tudo nos dispositivos e sobe na segunda antes das 8h, a tempo da fila do editor. |
 
 ### Caso aberto · Um dia inteiro de cobertura
 *(18 min)*
@@ -263,10 +263,10 @@ forte antes dos 15s.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Monta as duas versões — a inteira e uma de 45s começando pelo ponto mais forte — e leva ambas à social media com o número de retenção, para decidirem com ele. |
-| 2 | pontua | 2 | Entrega a versão curta, explicando na entrega por que cortou. |
-| 3 | neutro | 1 | Entrega inteira como pedido, registrando a preocupação com a retenção. |
-| 4 | atencao | 0 | Entrega inteira e não comenta — o pedido veio de quem aparece no vídeo. |
+| 1 | fortemente_pontua | 4 | Monta as duas versões, a inteira e uma de 45s, e leva à social media com o número de retenção. |
+| 2 | pontua | 2 | Entrega a versão curta, explicando na entrega por que cortou os 25 segundos iniciais. |
+| 3 | neutro | 1 | Entrega inteira como pedido, registrando na entrega a preocupação com a retenção. |
+| 4 | atencao | 0 | Entrega inteira e não comenta nada — o pedido veio de quem aparece no vídeo. |
 
 ### MC2 · O hook mais forte da semana promete resultado
 *(dimensão: Conformidade + Alçada · 4 min)*
@@ -277,10 +277,10 @@ o hook mais forte da semana.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Edita e entrega, sinalizando à social media que "sem dor nenhuma" é promessa de resultado, e propõe duas variações de hook sem a promessa para teste. |
-| 2 | pontua | 2 | Edita como está e registra a dúvida na entrega. |
-| 3 | neutro | 1 | Edita como está — o texto é da social media, que responde pela mensagem. |
-| 4 | atencao | 0 | Reescreve o hook por conta própria e entrega já alterado, sem avisar. |
+| 1 | fortemente_pontua | 4 | Edita e entrega sinalizando que "sem dor nenhuma" é promessa, e propõe duas variações sem ela. |
+| 2 | pontua | 2 | Edita como está e registra a dúvida na entrega, para a social media decidir. |
+| 3 | neutro | 1 | Edita como está e não comenta — o texto é da social media, que responde pela mensagem. |
+| 4 | atencao | 0 | Reescreve o hook por conta própria e entrega já alterado, sem avisar ninguém. |
 
 > As opções 3 e 4 são as duas falhas opostas de alçada: a 3 abdica de uma responsabilidade que o
 > descritivo põe na edição; a 4 invade «Não decide: mudança de roteiro ou de mensagem».
@@ -293,10 +293,10 @@ chegou sem áudio aproveitável. Faltam 2 horas para a entrega.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Avisa a Coordenação e a social media na hora e propõe entregar 3 hoje e o quarto amanhã, com regravação do áudio. |
-| 2 | pontua | 2 | Entrega os 3 e deixa o quarto para amanhã, avisando no fim do dia. |
+| 1 | fortemente_pontua | 4 | Avisa a Coordenação na hora e propõe entregar 3 hoje e o quarto amanhã, com o áudio regravado. |
+| 2 | pontua | 2 | Entrega os 3 e deixa o quarto para amanhã, avisando a Coordenação no fim do dia. |
 | 3 | neutro | 1 | Entrega os 4, salvando o quarto com legenda e trilha por cima do áudio ruim. |
-| 4 | atencao | 0 | Entrega os 4 no prazo e não menciona o problema de áudio. |
+| 4 | atencao | 0 | Entrega os 4 no prazo e não menciona o problema de áudio do quarto vídeo. |
 
 ### MC4 · Quatro variações que precisam ser diferentes
 *(dimensão: Variação de hook · 4 min)*
@@ -306,7 +306,7 @@ vídeo fala sobre clareamento sem sensibilidade.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Faz quatro aberturas testando ângulos distintos — dor evitada, prova visual, quebra de crença, pergunta direta — mantendo o corpo igual, e nomeia os arquivos de modo que dê para comparar resultado. |
+| 1 | fortemente_pontua | 4 | Faz quatro aberturas com ângulos distintos e nomeia os arquivos para dar para comparar o resultado. |
 | 2 | pontua | 2 | Faz quatro aberturas com o mesmo argumento, variando a frase e o ritmo do corte. |
 | 3 | neutro | 1 | Entrega duas variações fortes e explica que as outras duas seriam repetição. |
 | 4 | atencao | 0 | Troca a primeira frase do texto na tela nas quatro versões, mantendo a imagem idêntica. |
@@ -334,9 +334,9 @@ do quadro desta semana.
 
 | # | tag | peso | Opção |
 |---|---|---|---|
-| 1 | fortemente_pontua | 4 | Aproxima cor e áudio do padrão até onde dá, entrega sinalizando o que não foi possível igualar, e propõe um mínimo de captação para quem substituir o videomaker. |
-| 2 | pontua | 2 | Ajusta só a cor, que é o que mais salta, e comenta na entrega. |
-| 3 | neutro | 1 | Entrega como veio, sinalizando que o material fugiu do padrão. |
+| 1 | fortemente_pontua | 4 | Aproxima cor e áudio do padrão, sinaliza o que não deu para igualar e propõe um mínimo de captação. |
+| 2 | pontua | 2 | Ajusta só a cor, que é o que mais salta aos olhos, e comenta na entrega. |
+| 3 | neutro | 1 | Entrega como veio, sinalizando na entrega que o material fugiu do padrão visual. |
 | 4 | atencao | 0 | Refaz o grading até bater exatamente com o padrão, mesmo atrasando as outras entregas do dia. |
 
 ### Caso aberto · Seis minutos densos viram 60 segundos

@@ -62,7 +62,7 @@ ninguém.** Escrever ali é trabalho que evapora.
 | `subtitulo` | ✅ desde 2026-08-25 (abaixo do título) | ❌ texto puro | ❌ |
 | `sobre_empresa` | ✅ desde 2026-08-25 (seção própria, no fim) | ✅ | ❌ |
 | `secoes_extras` | ✅ desde 2026-08-25 (blocos livres, no fim) | ✅ | ❌ |
-| `perfil_ideal` | ❌ **nada renderiza** | — | ❌ |
+| `perfil_ideal` | ❌ (candidato) | — | ❌ na triagem · ✅ **no guia de entrevista** |
 | `tipo_contrato` · `jornada_trabalho` · `endereco_completo` | ❌ **nada renderiza** | — | ❌ |
 | `faixa_salarial_min`/`max` | ❌ **não exibida ao candidato** | — | ❌ |
 | `qualificacao_etapa1` | ❌ *snapshot* do `publish_vaga` — não use | — | ❌ |
@@ -74,7 +74,13 @@ Consequências que mudam como você escreve:
   campos só entram no caminho de fallback, que existe para as vagas antigas sem rubrica.
   Logo: nunca escreva "conforme os requisitos da vaga" na rubrica. O modelo não os vê. Todo
   requisito que precisa pesar tem de estar **escrito dentro da própria rubrica**.
-- **`perfil_ideal` continua sem tela.** `subtitulo`, `sobre_empresa` e `secoes_extras` foram
+- **⚠ `perfil_ideal` NÃO é campo morto — corrigido em 2026-10-12.** Ele não tem tela, e por isso a
+  skill o tratou como inútil por dois meses. Mas `gerar-guia-entrevista` o lê e o injeta no
+  prompt (800 caracteres). E como o outro campo que aquela função usa como «competências
+  críticas» são as chaves de `pesos_avaliacao` — que são ETAPAS, não competências —, o
+  `perfil_ideal` é **o único sinal real que o guia de entrevista recebe sobre o cargo**.
+  Escreva-o, e escreva-o para o entrevistador. Ver [references/avaliacoes.md](references/avaliacoes.md).
+- **`perfil_ideal` não tem tela de candidato.** `subtitulo`, `sobre_empresa` e `secoes_extras` foram
   ligados em 2026-08-25 (`VagaDetalhePage`); `perfil_ideal` não. Na vaga de Social Media ele
   guardava o **teste prático do processo seletivo** e os indicadores de desempenho — conteúdo
   que decide se a pessoa se inscreve — e por isso foi movido para `sobre_cargo`. Se o descritivo
@@ -91,6 +97,43 @@ Consequências que mudam como você escreve:
 
 O mapa foi medido, não suposto. Se o app mudar, remeça — o método está em
 [references/mapa-de-visibilidade.md](references/mapa-de-visibilidade.md).
+
+## ⚠ Antes dos modos: para vaga de verdade, o documento vem antes da migration
+
+Estabelecido em 2026-10 montando três vagas reais, e a razão é econômica: **mudar uma frase num
+documento custa uma edição; mudar depois que virou migration custa outra migration** — e neste
+repositório o banco e o front saem por canais diferentes.
+
+E há uma razão que pesa mais: **quem valida a vaga não lê JSON.** A gerente de marketing
+precisa ler o que o candidato vai ver. Um payload não serve para isso.
+
+O formato que funcionou, um arquivo por vaga em `docs/vagas/<slug>.md`, versionado:
+
+1. o fluxo de ponta a ponta — inscrição até decisão, com os instrumentos em cada etapa
+2. o anúncio como o candidato lê
+3. as perguntas da Etapa 1, com as opções, e **em destaque qual é a de knockout**
+4. o SJT: os 6 itens de múltipla escolha com tag e peso, e o caso aberto
+5. a redação: quais códigos e por quê
+6. quais avaliações entram, e se cada uma é obrigatória
+7. a rubrica da IA por extenso, com as âncoras BARS
+8. os eliminatórios, com a frase de que o sistema nunca rejeita sozinho
+9. o que a rubrica é PROIBIDA de pesar
+10. as instruções de calibragem
+11. os pesos das etapas
+12. o `perfil_ideal` — que alimenta o guia de entrevista
+13. o teste prático: briefing, entregável, prazo, material e régua
+14. os critérios de cada dimensão do caso aberto
+15. textos de divulgação (Catho, LinkedIn, WhatsApp — este com sintaxe nativa, não markdown)
+16. o checklist de cadastro campo a campo, com o que fica vazio e por quê
+
+**Decisões em aberto ficam marcadas no texto, numeradas, com a recomendação e o custo de cada
+saída** — e são riscadas quando o operador decide, com a data. Documento que diz «pendente» o
+que já foi decidido é pior que documento incompleto.
+
+**Extraia por script o que tem fonte canônica.** A seção do SJT dos três documentos saiu do
+arquivo-fonte do banco por extração, não por transcrição — depois de eu ter introduzido duas
+divergências transcrevendo à mão. E **anotações suas vivem FORA da região regerada**, senão a
+próxima regeração as apaga (aconteceu duas vezes).
 
 ## Três modos
 
@@ -202,7 +245,7 @@ Ao escrever a rubrica, siga [references/rubrica-ia.md](references/rubrica-ia.md)
 duas rubricas reais em produção como gabarito.
 
 Ao escrever as perguntas, siga [references/perguntas-etapa1.md](references/perguntas-etapa1.md).
-⚠ A pergunta **não chega ao prompt da IA** hoje — só a resposta. Isso muda como se pergunta.
+⚠ A pergunta **chega ao prompt** desde o conserto de `buildRespostasBlock` — com o enunciado e em ordem. A referência registra o defeito antigo e o que mudou.
 
 ### 4 · Rodar o validador — este é o portão
 
@@ -313,3 +356,4 @@ deliberada.
 | [references/texto-rico.md](references/texto-rico.md) | ao escrever qualquer corpo de anúncio |
 | [references/rubrica-ia.md](references/rubrica-ia.md) | ao escrever a rubrica — traz as duas gabarito |
 | [references/perguntas-etapa1.md](references/perguntas-etapa1.md) | ao escrever as perguntas da Etapa 1 |
+| [references/avaliacoes.md](references/avaliacoes.md) | **ao configurar SJT, caso aberto, redação e cognitivo** — e SEMPRE antes de publicar, para conferir se o banco do cargo tem itens |
