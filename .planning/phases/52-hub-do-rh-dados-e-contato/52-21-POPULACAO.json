@@ -1,6 +1,6 @@
 {
-  "medido_em": "2026-10-13T12:16:23.762Z",
-  "examinados_total": 47,
+  "medido_em": "2026-10-15T00:56:49.819Z",
+  "examinados_total": 48,
   "particao_candidatos": [
     "trava_rh_excluidos",
     "fixtures_p46",
@@ -19,13 +19,13 @@
   "populacao_contas": 46,
   "excluidos_rh": 1,
   "rh_com_candidato": 1,
-  "usuarios_rh_total": 9,
+  "usuarios_rh_total": 10,
   "usuarios_rh_user_id_nulo": 0,
   "candidaturas_excluidas_rh": 3,
-  "candidaturas_total": 44,
+  "candidaturas_total": 48,
   "candidaturas_populacao": {
-    "n": 32,
-    "md5": "6d5fb61a0bf63a38855128d181a2586f"
+    "n": 35,
+    "md5": "c1b54644122e2ebeeab7443a8df39c4f"
   },
   "categorias": {
     "ficticios": {
@@ -63,9 +63,11 @@
       ]
     },
     "fora_da_populacao": {
-      "n": 0,
-      "md5": "d41d8cd98f00b204e9800998ecf8427e",
-      "ids8": []
+      "n": 1,
+      "md5": "514de6c67dc5aea6ee7025e46e1d04cf",
+      "ids8": [
+        "920ac182"
+      ]
     },
     "trava_rh_excluidos": {
       "n": 1,
@@ -244,24 +246,46 @@
       "status": "arquivada",
       "fixture": false,
       "deleted_at": null
-    }
-  ],
-  "vagas_ativas": [
+    },
     {
       "id8": "e897f709",
       "slug": "social-media-producao-captacao-conteudo",
-      "teste": false,
-      "candidaturas_total": 13,
-      "candidaturas_excluidas": 0,
-      "candidaturas_populacao": 13
+      "status": "inativa",
+      "fixture": false,
+      "deleted_at": null
     },
     {
       "id8": "fdbe1a4a",
       "slug": "consultor-relacionamento-pre-vendas",
+      "status": "inativa",
+      "fixture": false,
+      "deleted_at": null
+    }
+  ],
+  "vagas_ativas": [
+    {
+      "id8": "71052ef1",
+      "slug": "social-media-senior-marca-pessoal",
       "teste": false,
-      "candidaturas_total": 10,
+      "candidaturas_total": 2,
       "candidaturas_excluidas": 0,
-      "candidaturas_populacao": 10
+      "candidaturas_populacao": 1
+    },
+    {
+      "id8": "7baef6ff",
+      "slug": "editor-video",
+      "teste": false,
+      "candidaturas_total": 1,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 1
+    },
+    {
+      "id8": "f45c026d",
+      "slug": "videomaker-storymaker",
+      "teste": false,
+      "candidaturas_total": 1,
+      "candidaturas_excluidas": 0,
+      "candidaturas_populacao": 1
     }
   ],
   "possivel_real": [
@@ -307,7 +331,13 @@
     }
   ],
   "n_possivel_real": 8,
-  "candidaturas_ativas_fora_da_populacao": [],
+  "candidaturas_ativas_fora_da_populacao": [
+    {
+      "id8": "3590d2a5",
+      "dominio": "gmail.com",
+      "created_at": "2026-10-14T11:55:40.356951-03:00"
+    }
+  ],
   "fixtures": {
     "vagas": 3,
     "candidatos": 8,
@@ -361,9 +391,10 @@
   ],
   "auth_contas_da_populacao": 30,
   "storage_curriculos": {
+    "outros": 1,
     "trava_rh": 4,
     "ficticios": 6,
-    "populacao": 18
+    "populacao": 21
   },
   "obrigatorias": [
     {
