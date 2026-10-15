@@ -1,0 +1,27 @@
+{
+  "slug": "sdr-relacionamento-pre-vendas",
+  "endereco_completo": "Rua Desembargador Eliseu Guilherme, 53 — Paraíso, São Paulo/SP",
+  "processo_seletivo_antigo_inicio": "### Como é o processo seletivo",
+  "processo_seletivo_novo": "### Como é o processo seletivo\n\nInscrição com cinco perguntas objetivas e análise do currículo. Quem avança recebe uma avaliação online, para fazer no seu tempo: seis situações do dia a dia do pré-vendas e um caso prático — responder por escrito a uma mensagem real de WhatsApp, planejar o follow-up de quem não respondeu e contornar uma objeção de preço. Por fim, entrevista.\n\nO caso prático e a entrevista são as etapas que mais pesam. Esta função vende por escrito, e escrever para alguém inseguro, que pergunta o preço antes de qualquer coisa, é a competência central do cargo.",
+  "perfil_ideal": "Já atendeu ou vendeu por escrito como atividade central, com volume, e sustenta follow-up sem constrangimento e sem pressão. Opera com processo e CRM, não com memória. Vende a avaliação, não o tratamento: qualifica antes de agendar, mesmo com a meta apertada. Na entrevista, fazer role-play de WhatsApp — «quanto custa?» logo na primeira mensagem, «vou falar com meu marido» e o lead que sumiu depois de receber horários — e observar se pergunta antes de responder, se propõe horários concretos e se respeita o paciente. Sondar: o que faz com lead fora do perfil no fim do mês, abaixo da meta; como organiza 20 leads novos de uma vez; como já reduziu falta na agenda. Riscos: quem só atendeu de forma passiva, quem agenda sem qualificar e quem promete resultado.",
+  "pesos_avaliacao": {
+    "triagem": 25,
+    "work_sample_sjt": 40,
+    "redacao_cultural": 0,
+    "entrevista": 35
+  },
+  "beneficios_trocas": [
+    [
+      "- **Salário fixo:** R$ 3.000/mês (CLT), pago na folha normal.",
+      "- **Salário fixo** em regime CLT, pago na folha normal."
+    ],
+    [
+      "- **Quanto dá na prática:** somando fixo + prêmio, a faixa realista de ganhos fica entre **R$ 4.000 e R$ 5.200+ por mês**, conforme o resultado, com upside livre para performance excepcional.\n",
+      ""
+    ],
+    [
+      "Os valores por evento, uma simulação de ganhos e as regras completas",
+      "Os valores, uma simulação de ganhos e as regras completas"
+    ]
+  ]
+}

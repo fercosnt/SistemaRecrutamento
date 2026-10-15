@@ -1,0 +1,91 @@
+[
+  {
+    "ordem": 1,
+    "bloco": "jornada",
+    "tipo_resposta": "single_choice",
+    "texto_pergunta": "Qual é a sua disponibilidade para esta vaga, que é presencial na clínica, de segunda a sexta, das 9h às 19h?",
+    "texto_ajuda": null,
+    "opcoes_resposta": [
+      "Tenho disponibilidade integral e presencial, de segunda a sexta, no horário comercial",
+      "Tenho disponibilidade integral e presencial, mas precisaria ajustar o horário de entrada ou de saída",
+      "Tenho disponibilidade apenas parcial, em alguns dias da semana",
+      "Tenho disponibilidade apenas para trabalho remoto"
+    ],
+    "obrigatoria": true,
+    "limite_caracteres": null,
+    "meta": [
+      {
+        "opcao_texto": "Tenho disponibilidade apenas para trabalho remoto",
+        "tag": "knockout",
+        "ordem": 4
+      }
+    ]
+  },
+  {
+    "ordem": 2,
+    "bloco": "curriculo",
+    "tipo_resposta": "single_choice",
+    "texto_pergunta": "Há quanto tempo você trabalha com atendimento, vendas, recepção ou relacionamento com cliente?",
+    "texto_ajuda": null,
+    "opcoes_resposta": [
+      "Menos de 1 ano em atendimento, vendas, recepção ou relacionamento com cliente",
+      "Entre 1 e 2 anos em atendimento, vendas, recepção ou relacionamento com cliente",
+      "Entre 2 e 5 anos em atendimento, vendas, recepção ou relacionamento com cliente",
+      "Mais de 5 anos em atendimento, vendas, recepção ou relacionamento com cliente"
+    ],
+    "obrigatoria": true,
+    "limite_caracteres": null,
+    "meta": null
+  },
+  {
+    "ordem": 3,
+    "bloco": "tecnologia",
+    "tipo_resposta": "multiple_choice",
+    "texto_pergunta": "Quais destas atividades já são rotina do seu trabalho, e não algo que você fez uma vez?",
+    "texto_ajuda": null,
+    "opcoes_resposta": [
+      "Atendimento e venda por WhatsApp, escrevendo eu mesmo as mensagens",
+      "Prospecção ativa e follow-up de quem não respondeu, seguindo uma cadência definida",
+      "Registro de todo contato em CRM (GoHighLevel, RD Station, HubSpot, Pipedrive, Clinicorp ou similar)",
+      "Agendamento, confirmação e trabalho ativo para reduzir falta na agenda",
+      "Atendimento por Direct do Instagram ou por comentários, como canal de vendas",
+      "Acompanhamento de indicadores de conversão e de comparecimento",
+      "Nenhuma destas ainda é rotina do meu trabalho"
+    ],
+    "obrigatoria": true,
+    "limite_caracteres": null,
+    "meta": null
+  },
+  {
+    "ordem": 4,
+    "bloco": "curriculo",
+    "tipo_resposta": "single_choice",
+    "texto_pergunta": "Você já atendeu ou vendeu em um contexto em que a pessoa decide sobre um valor alto e sente insegurança?",
+    "texto_ajuda": null,
+    "opcoes_resposta": [
+      "Sim, atendi cliente decidindo valor alto em clínica odontológica, estética ou de saúde",
+      "Sim, atendi cliente decidindo valor alto em outro setor (imóveis, veículos, educação, serviços financeiros)",
+      "Atendi cliente final, mas em produto ou serviço de ticket baixo",
+      "Ainda não atendi cliente final nesse tipo de decisão"
+    ],
+    "obrigatoria": true,
+    "limite_caracteres": null,
+    "meta": null
+  },
+  {
+    "ordem": 5,
+    "bloco": "valores",
+    "tipo_resposta": "single_choice",
+    "texto_pergunta": "O que mais te atrai nesta vaga?",
+    "texto_ajuda": null,
+    "opcoes_resposta": [
+      "Ser o primeiro contato de quem chega buscando resolver algo que carrega há anos",
+      "A trilha de carreira definida, que pode levar a Coordenação Comercial ou a Closer",
+      "Construir os scripts, as cadências e o processo comercial com autonomia",
+      "O prêmio por resultado sem teto, atrelado a comparecimento e a venda"
+    ],
+    "obrigatoria": true,
+    "limite_caracteres": null,
+    "meta": null
+  }
+]
