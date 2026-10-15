@@ -365,6 +365,89 @@ export const DIMENSOES_SJT: Record<string, DimensaoSjt> = {
     exclusion: "CRÍTICO: reescreveu a mensagem por conta própria e entregou sem avisar. É a invasão de alçada do MC2, medida duas vezes por caminhos diferentes. CRÍTICO: não identificou nenhuma afirmação, tendo sido avisado no briefing que elas existem. menor: identificou e não propôs nada.",
     template_bars: null,
   },  // `editor-video`
+
+  // ── `sdr-social-seller` — caso aberto «Responda, retome e contorne» ───────────────
+  // Aqui a entrega É o texto: o candidato escreve no campo (a) a resposta ao lead, (b) um
+  // follow-up de 7 dias com dia, canal e mensagem, e (c) a resposta à objeção de preço. O
+  // modelo vê a peça inteira — não há link a abrir. Banco: docs/specs/BANCO-SJT-V3-SDR.md.
+  //
+  // Fonte: a tabela «Rubric BARS» de docs/conhecimento/sjt/banco-sjt-sdr-social-seller.md
+  // (linhas 77-83), desdobrada em critérios contáveis com a metodologia Full Sales
+  // (principios-contato-sdr, speeches-whatsapp, o-poder-do-follow-up, lidando-com-objecoes,
+  // matiz-objecao).
+  // ⚠ PREÇO: a Full Sales manda NÃO passar valor; o banco aprovado da Beauty Smile (MC4)
+  // premia dar a faixa e dizer que o exato sai na avaliação. Os critérios seguem o banco
+  // aprovado — um catálogo que contradiz o próprio teste cobra duas coisas opostas do mesmo
+  // candidato. O documento da vaga (docs/vagas/sdr-relacionamento-pre-vendas.md §15) é
+  // EXTRAÍDO daqui por script.
+  acolhimento: {
+    rotulo: "Acolhimento",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de pré-vendas, fora do catálogo clínico)",
+    inclusion: "(1) Reconhece o incômodo concreto que o lead contou - o dente escuro, a vergonha de sorrir - e não só um \"entendo\" genérico. (2) Responde à pergunta \"vocês fazem?\" antes de pedir qualquer coisa ao lead. (3) Pergunta o nome ou trata a pessoa de forma pessoal: o lead não se identificou. (4) O tom é de conversa entre pessoas, não de comunicado da empresa. (5) Escreve como no WhatsApp de verdade: mensagens curtas, uma ideia por mensagem, português correto.",
+    exclusion: "CRÍTICO: abre direto com preço, tabela ou apresentação comercial, sem nenhuma menção ao que o lead contou. CRÍTICO: minimiza ou ironiza o incômodo (\"isso é bem simples\", \"nem é tão grave\") - invalida a vergonha que ele acabou de admitir. menor: acolhimento só de fórmula (\"Olá! Tudo bem?\") sem referência ao caso. menor: um bloco único de texto longo, ou erros de português recorrentes.",
+    template_bars: null,
+  },  // `sdr-social-seller`
+  descoberta_e_qualificacao: {
+    rotulo: "Descoberta e qualificação",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de pré-vendas, fora do catálogo clínico)",
+    inclusion: "(1) Faz pelo menos uma pergunta sobre o caso antes de falar em tratamento ou valor - desde quando, se é um dente ou mais, se já tratou esse dente, se há dor. (2) Faz pelo menos uma pergunta sobre o que a pessoa quer ou sobre o momento dela - o resultado que procura, o que a fez procurar agora. (3) Pergunta pouco de cada vez - no máximo duas ou três perguntas por mensagem -, como conversa e não como formulário. (4) Diz por que está perguntando: o caminho e o valor dependem do caso.",
+    exclusion: "CRÍTICO: nenhuma pergunta sobre o caso - responde e convida sem saber o que a pessoa tem. CRÍTICO: diagnostica pelo chat (\"isso é canal\", \"clareamento resolve\") - o diagnóstico é do dentista, na avaliação. menor: um questionário longo de uma vez só.",
+    template_bars: null,
+  },  // `sdr-social-seller`
+  conducao_ao_agendamento: {
+    rotulo: "Condução ao agendamento",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de pré-vendas, fora do catálogo clínico)",
+    inclusion: "(1) Na parte (a), não foge da pergunta do preço: dá uma referência (faixa, \"a partir de\", o valor da avaliação) ou explica de forma direta por que o valor depende do caso - e diz quando a pessoa vai saber o valor exato. Usar marcador no lugar do número (\"[valor]\", \"a partir de R$ X\") é aceitável: o candidato não conhece a tabela. (2) Liga a avaliação ao que a pessoa quer resolver - o que a avaliação vai responder para ela -, e não a apresenta como formalidade. (3) A parte (a) termina com um próximo passo concreto: duas ou três opções de dia e horário, ou uma pergunta que pede resposta.",
+    exclusion: "CRÍTICO: promete resultado (\"vai ficar branquinho\", \"resolve em uma sessão\") ou fecha o preço do tratamento pelo chat. CRÍTICO: a parte (a) termina sem próximo passo (\"qualquer dúvida, estou à disposição\", \"quando quiser, é só chamar\"). menor: texto longo sobre técnica ou diferenciais antes de qualquer pergunta ou proposta de horário. menor: pergunta \"quando você pode?\" em vez de oferecer horários. menor: pede CPF, documento ou histórico de saúde pelo chat no primeiro contato.",
+    template_bars: null,
+  },  // `sdr-social-seller`
+  cadencia_de_follow_up: {
+    rotulo: "Cadência de follow-up",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de pré-vendas, fora do catálogo clínico)",
+    inclusion: "(1) Na parte (b), distribui mais de um contato pelos 7 dias, espaçados - não todos no mesmo dia, nem um só. (2) Usa pelo menos dois canais diferentes (mensagem, áudio, ligação, Instagram). (3) Cada contato traz algo novo - retoma o que o lead contou, um conteúdo ou depoimento ligado à queixa dele, uma pergunta fácil de responder - em vez de repetir \"ainda tem interesse?\". (4) Pelo menos um contato propõe dia e horário concretos. (5) A cadência tem fim: uma última mensagem que encerra com respeito e deixa a porta aberta, com o registro no CRM.",
+    exclusion: "CRÍTICO: pressão ou escassez falsa (\"só hoje\", \"últimas vagas\", \"o preço vai subir\"). CRÍTICO: um único contato, ou desiste depois da primeira tentativa. menor: os contatos repetem a mesma mensagem com outras palavras. menor: mensagem todo dia, sem nada novo, até virar insistência. menor: diz quando vai chamar, mas não o que vai dizer.",
+    template_bars: null,
+  },  // `sdr-social-seller`
+  contorno_de_objecao: {
+    rotulo: "Contorno de objeção",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de pré-vendas, fora do catálogo clínico)",
+    inclusion: "(1) Na parte (c), acolhe a objeção sem discutir nem se defender: reconhece que o preço pesa na decisão. (2) Pergunta antes de rebater - o que a outra clínica ofereceu, o que está incluído, o que pesa mais para ele. (3) Diferencia sem falar mal da outra clínica: diz o que muda no atendimento da Beauty Smile (laser, sem dor, avaliação do caso), ligado ao que ele contou. (4) Devolve a decisão para a avaliação - o valor certo depende do caso - e termina com um próximo passo concreto.",
+    exclusion: "CRÍTICO: fala mal da outra clínica, ou diz que o tratamento mais barato é perigoso sem saber nada dele. CRÍTICO: oferece desconto ou condição comercial que não caberia a ele autorizar, para empatar o preço. menor: aceita a objeção e encerra (\"entendo, fico à disposição\"). menor: rebate com uma lista de diferenciais sem perguntar nada.",
+    template_bars: null,
+  },  // `sdr-social-seller`
+
+  // ⚠ As três abaixo são do caso aberto ANTERIOR do cargo («Responda este lead no WhatsApp»,
+  // content_hash 4d259109…), retirado pela migration 20261014000102. Ficam porque há uma resposta
+  // a ele aguardando revisão humana: se for reavaliada, que seja com régua, e não pelo nome da chave.
+  comunicacao_de_valor: {
+    rotulo: "Comunicação de valor",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de pré-vendas, fora do catálogo clínico)",
+    inclusion: "(1) Não foge da pergunta do preço: dá uma referência (faixa, \"a partir de\", o valor da avaliação) ou explica de forma direta por que o valor depende do caso - e diz quando a pessoa vai saber o valor exato. Usar marcador no lugar do número (\"[valor]\", \"a partir de R$ X\") é aceitável: o candidato não conhece a tabela. (2) Liga a avaliação ao que a pessoa quer resolver - o que a avaliação vai responder para ela -, e não a apresenta como formalidade. (3) Cita no máximo um ou dois diferenciais da clínica (laser, sem dor, minimamente invasivo) ligados ao caso, sem aula técnica.",
+    exclusion: "CRÍTICO: promete resultado (\"vai ficar branquinho\", \"resolve em uma sessão\") ou fecha o preço do tratamento pelo chat. CRÍTICO: ignora a pergunta do preço como se ela não tivesse sido feita. menor: texto longo sobre técnica ou diferenciais antes de qualquer pergunta ou proposta de horário. menor: oferece desconto ou condição comercial que não caberia a ele autorizar.",
+    template_bars: null,
+  },  // `sdr-social-seller`
+  conducao_e_follow_up: {
+    rotulo: "Condução e follow-up",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de pré-vendas, fora do catálogo clínico)",
+    inclusion: "(1) A parte (a) termina com um próximo passo concreto: convite para a avaliação com duas ou três opções de dia e horário, ou uma pergunta que pede resposta. (2) Na parte (b), o retorno é curto e retoma algo que o lead contou, em vez de um \"ainda tem interesse?\". (3) Na parte (b), prevê mais de um toque, espaçados, e/ou troca de canal (mensagem, áudio, ligação) - não uma tentativa única. (4) Registra a conversa e o próximo passo no CRM, ou diz quando fará o próximo contato.",
+    exclusion: "CRÍTICO: a parte (a) termina sem próximo passo (\"qualquer dúvida, estou à disposição\", \"quando quiser, é só chamar\"). CRÍTICO: na parte (b), pressão ou escassez falsa (\"só hoje\", \"últimas vagas\"). menor: na parte (b), desiste depois de uma tentativa ou só repete \"oi, ainda tem interesse?\". menor: pergunta \"quando você pode?\" em vez de oferecer horários. menor: não responde a parte (b).",
+    template_bars: null,
+  },  // `sdr-social-seller`
+  tom_clareza_e_lgpd: {
+    rotulo: "Tom, clareza e LGPD",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de pré-vendas, fora do catálogo clínico)",
+    inclusion: "(1) Português correto, sem erro que um paciente notaria. (2) Mensagens curtas, quebradas como no WhatsApp de verdade, cada uma com uma ideia. (3) Pede só o necessário para seguir a conversa ou agendar; se pedir foto do dente, diz para que serve e que é opcional. (4) Não soa como texto colado de script: as frases se ligam ao que o lead escreveu.",
+    exclusion: "CRÍTICO: pede CPF, documento ou histórico de saúde detalhado pelo chat no primeiro contato. menor: um bloco único de texto longo. menor: erros de português recorrentes. menor: pede foto sem dizer para que serve.",
+    template_bars: null,
+  },  // `sdr-social-seller`
 };
 
 /**

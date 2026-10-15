@@ -60,8 +60,25 @@ const RUBRICA_VIVA_MARKETING = [
   { dimension: "conformidade_sinalizada", peso: 15 },
 ];
 
+/**
+ * As chaves do caso aberto de `sdr-social-seller`, nas DUAS versões que têm resposta gravada:
+ * a v2 (caso a34c1967, 20261011000003, retirado em 20261014000102 com uma resposta aguardando
+ * revisão humana) e a v3 (docs/specs/BANCO-SJT-V3-SDR.md, a viva depois de 20261014000102).
+ */
+const RUBRICA_VIVA_SDR = [
+  { dimension: "acolhimento", peso: 15 },
+  { dimension: "descoberta_e_qualificacao", peso: 20 },
+  { dimension: "conducao_ao_agendamento", peso: 15 },
+  { dimension: "cadencia_de_follow_up", peso: 25 },
+  { dimension: "contorno_de_objecao", peso: 25 },
+  // v2, retirada — a resposta pendente ainda pode ser reavaliada
+  { dimension: "comunicacao_de_valor", peso: 15 },
+  { dimension: "conducao_e_follow_up", peso: 25 },
+  { dimension: "tom_clareza_e_lgpd", peso: 10 },
+];
+
 /** Todas as chaves vivas conhecidas, de todos os cargos. */
-const TODAS_VIVAS = [...RUBRICA_VIVA, ...RUBRICA_VIVA_MARKETING];
+const TODAS_VIVAS = [...RUBRICA_VIVA, ...RUBRICA_VIVA_MARKETING, ...RUBRICA_VIVA_SDR];
 
 Deno.test("49-23 / contrato — sjt-rubrica.ts não tem NENHUM import", async () => {
   const fonte = await Deno.readTextFile(new URL("../sjt-rubrica.ts", import.meta.url));
