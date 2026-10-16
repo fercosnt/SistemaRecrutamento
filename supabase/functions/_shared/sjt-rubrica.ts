@@ -448,6 +448,62 @@ export const DIMENSOES_SJT: Record<string, DimensaoSjt> = {
     exclusion: "CRÍTICO: pede CPF, documento ou histórico de saúde detalhado pelo chat no primeiro contato. menor: um bloco único de texto longo. menor: erros de português recorrentes. menor: pede foto sem dizer para que serve.",
     template_bars: null,
   },  // `sdr-social-seller`
+
+  // ── `dentista` v2 — caso aberto «A primeira sessão com você» ───────────────────────
+  // Banco: docs/specs/BANCO-SJT-DENTISTA-V2.md. O dentista da vaga EXECUTA as sessões do plano
+  // do Dr. Fernando. O caso é de ATENDIMENTO (escolha do operador, 2026-10-16, depois de vetar
+  // cenários de plano errado e de protocolo que «não funcionou»): um paciente novo começa amanhã a
+  // limpeza a laser; o candidato descreve, passo a passo, a primeira sessão — antes de ele chegar,
+  // recepção, condução, encerramento e o dia seguinte.
+  // Conduta sustentada por docs/conhecimento/fit-cultural/Cultura-Beauty-Smile-Para-
+  // Recrutamento.md §2.1 (ler o prontuário antes, pausar e oferecer água, mensagem pessoal no dia
+  // seguinte; anti-exemplos «isso é normal, todo mundo sente» e «está no papelzinho») e por
+  // consultor-pre-vendas/Conhecimento/Limpeza (Mapa-Empatia-Lucia: sinal combinado, «me explica
+  // cada etapa antes», «sem surpresas»; FAQ: na maioria dos casos sem anestesia, leve aquecimento).
+  // `dimensao_clinica`: sem correspondência DECLARADA na taxonomia D1-D10 de
+  // docs/conhecimento/sjt/banco-sjt-dentista.md — inventar uma seria a falsa atribuição que o
+  // cabeçalho deste arquivo proíbe. As cinco do caso anterior (Mariana) ficam acima: há
+  // resposta a ele aguardando revisão humana.
+  preparacao_e_acolhimento: {
+    rotulo: "Preparação e acolhimento",
+    ancoras: null,
+    dimensao_clinica: "(sem correspondência declarada na taxonomia D1-D10 — dimensão nova da v2)",
+    inclusion: "(1) Antes de o paciente chegar, lê a avaliação e o prontuário: a queixa, o plano, medos e preferências anotados. (2) Deixa a sala e o material prontos antes do horário. (3) Recebe o paciente pelo nome e se apresenta. (4) Conversa com ele antes de levá-lo à cadeira, sem pressa.",
+    exclusion: "menor: não lê nada sobre o paciente antes de ele chegar. menor: recebe sem se apresentar ou sem chamá-lo pelo nome. menor: leva direto à cadeira, sem conversa.",
+    template_bars: null,
+  },  // `dentista`
+  escuta_e_personalizacao: {
+    rotulo: "Escuta e personalização",
+    ancoras: null,
+    dimensao_clinica: "(sem correspondência declarada na taxonomia D1-D10 — dimensão nova da v2)",
+    inclusion: "(1) Pergunta como o paciente está e o que espera do tratamento. (2) Pergunta sobre experiências anteriores com dentista e se algo o deixa desconfortável. (3) Ajusta a condução ao que ouviu - ritmo, pausas, quanto explicar. (4) Anota as preferências para as próximas sessões.",
+    exclusion: "CRÍTICO: não pergunta nada ao paciente - conduz a sessão igual para qualquer pessoa. menor: pergunta, mas nada do que ouve muda a condução. menor: não registra as preferências.",
+    template_bars: null,
+  },  // `dentista`
+  conducao_sem_surpresas: {
+    rotulo: "Condução sem surpresas",
+    ancoras: null,
+    dimensao_clinica: "(sem correspondência declarada na taxonomia D1-D10 — dimensão nova da v2)",
+    inclusion: "(1) Explica cada etapa antes de fazer, em linguagem simples, e mostra o equipamento. (2) Combina um sinal para o paciente pedir pausa e diz que pode parar quando quiser. (3) Confere o conforto dele durante a sessão e faz pausas. (4) Diz com honestidade o que ele pode sentir - por exemplo, um leve aquecimento -, sem garantir que não sentirá nada.",
+    exclusion: "CRÍTICO: descreve a sessão sem nenhuma explicação ao paciente, ou trata o desconforto dele como bobagem (\"isso é normal, todo mundo sente\"). menor: garante que \"não vai doer nada\" como promessa absoluta. menor: explica só no começo e não confere durante a sessão.",
+    template_bars: null,
+  },  // `dentista`
+  orientacao_de_saida: {
+    rotulo: "Orientação de saída",
+    ancoras: null,
+    dimensao_clinica: "(sem correspondência declarada na taxonomia D1-D10 — dimensão nova da v2)",
+    inclusion: "(1) Explica pessoalmente, antes de o paciente ir, os cuidados em casa e o que esperar até a próxima sessão. (2) Pergunta se ele tem dúvidas e confere que entendeu. (3) Diz quando é a próxima sessão e o que vai acontecer nela. (4) Encerra de forma pessoal, não com um protocolo de saída.",
+    exclusion: "CRÍTICO: manda embora sem orientação, ou só com o papel (\"está tudo no folheto\"). menor: não confere se o paciente entendeu. menor: não diz quando é a próxima sessão.",
+    template_bars: null,
+  },  // `dentista`
+  cuidado_depois_da_sessao: {
+    rotulo: "Cuidado depois da sessão",
+    ancoras: null,
+    dimensao_clinica: "(sem correspondência declarada na taxonomia D1-D10 — dimensão nova da v2)",
+    inclusion: "(1) Registra no prontuário o que foi feito e o que deixou o paciente à vontade. (2) Faz um contato pessoal no dia seguinte para saber como ele está. (3) Passa à recepção e à auxiliar o que vale para a próxima sessão. (4) Confere que a próxima sessão está marcada.",
+    exclusion: "CRÍTICO: não registra nada do que aconteceu na sessão. menor: o contato do dia seguinte é uma mensagem automática. menor: não passa nada à equipe para a próxima vez.",
+    template_bars: null,
+  },  // `dentista`
 };
 
 /**

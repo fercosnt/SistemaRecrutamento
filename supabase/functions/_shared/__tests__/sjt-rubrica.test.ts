@@ -77,8 +77,20 @@ const RUBRICA_VIVA_SDR = [
   { dimension: "tom_clareza_e_lgpd", peso: 10 },
 ];
 
+/**
+ * As 5 chaves do caso aberto v2 do `dentista` (docs/specs/BANCO-SJT-DENTISTA-V2.md, migration
+ * 20261015000102). As 5 do caso anterior seguem em RUBRICA_VIVA: há resposta a ele pendente.
+ */
+const RUBRICA_VIVA_DENTISTA_V2 = [
+  { dimension: "preparacao_e_acolhimento", peso: 15 },
+  { dimension: "escuta_e_personalizacao", peso: 20 },
+  { dimension: "conducao_sem_surpresas", peso: 25 },
+  { dimension: "orientacao_de_saida", peso: 20 },
+  { dimension: "cuidado_depois_da_sessao", peso: 20 },
+];
+
 /** Todas as chaves vivas conhecidas, de todos os cargos. */
-const TODAS_VIVAS = [...RUBRICA_VIVA, ...RUBRICA_VIVA_MARKETING, ...RUBRICA_VIVA_SDR];
+const TODAS_VIVAS = [...RUBRICA_VIVA, ...RUBRICA_VIVA_MARKETING, ...RUBRICA_VIVA_SDR, ...RUBRICA_VIVA_DENTISTA_V2];
 
 Deno.test("49-23 / contrato — sjt-rubrica.ts não tem NENHUM import", async () => {
   const fonte = await Deno.readTextFile(new URL("../sjt-rubrica.ts", import.meta.url));

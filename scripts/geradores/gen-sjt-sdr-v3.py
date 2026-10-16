@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""gen-sjt-sdr-v3.py — gera a migration da revisão do banco SJT `sdr-social-seller` a partir do TEXTO.
+"""gen-sjt-sdr-v3.py — gera a migration da revisão do banco SJT de UM cargo a partir do TEXTO.
 
     python3 -I scripts/geradores/gen-sjt-sdr-v3.py --texto docs/specs/BANCO-SJT-V3-SDR.md \\
         --versao 20261014000102 --saida "$TMPDIR/20261014000102_sjt_sdr_v3.sql"
+    python3 -I scripts/geradores/gen-sjt-sdr-v3.py --cargo dentista --nome sjt_dentista_v2 \\
+        --motivo docs/specs/BANCO-SJT-DENTISTA-V2.motivo.txt --texto docs/specs/BANCO-SJT-DENTISTA-V2.md \\
+        --versao 20261015000102 --saida "$TMPDIR/20261015000102_sjt_dentista_v2.sql"
+
+Nasceu para o `sdr-social-seller` (daí o nome) e foi generalizado em 2026-10-15 para o `dentista`:
+`--cargo`, `--nome` (sufixo do arquivo) e `--motivo` (o parágrafo «POR QUE» do cabeçalho). Sem eles,
+a saída é byte a byte a de 20261014000102 — conferido por `cmp` contra a migration aplicada.
 
 Reaproveita o parser (`sjt_texto.py`) e os blocos de INSERT e de RETIRADA do `gen-sjt-v2.py` — um
 único lugar para a gramática, o hash e a permutação de `ordem` (D-37). O que NÃO reaproveita, de
@@ -31,10 +38,10 @@ _spec = importlib.util.spec_from_file_location('gen_sjt_v2', os.path.join(AQUI, 
 v2 = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(v2)
 
-CARGO = 'sdr-social-seller'
+CARGO_PADRAO = 'sdr-social-seller'
 
 
-def gerar(texto, versao):
+def gerar(texto, versao, CARGO=CARGO_PADRAO, nome='sjt_sdr_v3', motivo=None):
     itens = sjt_texto.parse(texto)
     if sjt_texto.cargos(itens) != [CARGO]:
         raise sjt_texto.TextoInvalido(f'ESTE GERADOR SO CONHECE O CARGO {CARGO}: {sjt_texto.cargos(itens)}')
@@ -45,14 +52,16 @@ def gerar(texto, versao):
     hs = [i['content_hash'] for i in itens]
     rel = os.path.relpath(os.path.abspath(texto), os.getcwd())
 
-    cab = f"""-- {versao}_sjt_sdr_v3.sql
---
--- POR QUE ESTA MIGRATION EXISTE
--- Revisao do banco SJT do cargo `{CARGO}`, pedida pelo operador em 2026-10-14 ao montar a vaga
+    if motivo is None:
+        motivo = (f"""-- Revisao do banco SJT do cargo `{CARGO}`, pedida pelo operador em 2026-10-14 ao montar a vaga
 -- `sdr-relacionamento-pre-vendas`: sai o item de indicacao de tratamento (o SDR nao julga
 -- indicacao — e do dentista) e o de reclamacao publica; entram contorno de objecao e reativacao
 -- da base; "lente" vira "clareamento" no item de preco; o caso aberto ganha follow-up de 7 dias e
--- contorno de objecao de preco.
+-- contorno de objecao de preco.""")
+    cab = f"""-- {versao}_{nome}.sql
+--
+-- POR QUE ESTA MIGRATION EXISTE
+{motivo}
 --
 -- FONTE: {rel} (md5 {texto_md5}), GERADO por scripts/geradores/gen-sjt-sdr-v3.py — nunca
 -- transcrito. Itens de texto identico ao v2 tem o mesmo content_hash e NAO sao reinseridos.
@@ -141,12 +150,16 @@ def principal():
     ap.add_argument('--texto', required=True)
     ap.add_argument('--versao', required=True)
     ap.add_argument('--saida', required=True)
+    ap.add_argument('--cargo', default=CARGO_PADRAO)
+    ap.add_argument('--nome', default='sjt_sdr_v3')
+    ap.add_argument('--motivo', help='arquivo com o paragrafo POR QUE, ja com prefixo -- em cada linha')
     a = ap.parse_args()
     if not (len(a.versao) == 14 and a.versao.isdigit()):
         print(f'VERSAO INVALIDA: {a.versao!r}', file=sys.stderr)
         return 2
     try:
-        sql = gerar(a.texto, a.versao)
+        motivo = open(a.motivo, encoding='utf-8').read().rstrip('\n') if a.motivo else None
+        sql = gerar(a.texto, a.versao, a.cargo, a.nome, motivo)
     except sjt_texto.TextoInvalido as e:
         print(f'TEXTO RECUSADO: {e}', file=sys.stderr)
         return 1

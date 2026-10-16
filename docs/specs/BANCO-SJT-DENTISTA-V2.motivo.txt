@@ -1,0 +1,9 @@
+-- Revisao do banco SJT do cargo `dentista`, feita com o operador em 2026-10-15/16 ao montar a vaga
+-- `dentista-clinica-geral-laser`, cujo dentista EXECUTA as sessoes (a avaliacao, o plano e o
+-- orcamento sao do Dr. Fernando). Saem os 3 mc e o caso aberto de junho: itens clinicos genericos,
+-- a certa bem mais longa que as outras (D-34), um item com duas `atencao` e nenhuma `neutro`, 30 min
+-- por item; e um caso de avaliacao diagnostica de lentes, tratamento que a clinica nao faz. Entram 6
+-- mc de POSTURA escolhidos pelo operador no sentido do formulario antigo de dentista da clinica
+-- (feedback, comunicacao com o paciente, relacao com o Dr. Fernando, responsabilidade, atitude de
+-- dono, equipe) e um caso aberto sobre a primeira sessao de um paciente novo. Regra do operador:
+-- nada de plano errado nem de protocolo que "nao funcionou".
