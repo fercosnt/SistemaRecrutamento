@@ -89,8 +89,23 @@ const RUBRICA_VIVA_DENTISTA_V2 = [
   { dimension: "cuidado_depois_da_sessao", peso: 20 },
 ];
 
+/**
+ * As 5 chaves do caso aberto v1 do `lider-recepcao` (docs/specs/BANCO-SJT-LIDER-RECEPCAO-V1.md,
+ * migration 20261016000101 — cargo novo).
+ */
+const RUBRICA_VIVA_LIDER_RECEPCAO = [
+  { dimension: "confirmacao_e_preparo", peso: 15 },
+  { dimension: "acolhimento_na_chegada", peso: 25 },
+  { dimension: "espera_sem_surpresas", peso: 20 },
+  { dimension: "saida_e_proximo_passo", peso: 20 },
+  { dimension: "contato_depois", peso: 20 },
+];
+
 /** Todas as chaves vivas conhecidas, de todos os cargos. */
-const TODAS_VIVAS = [...RUBRICA_VIVA, ...RUBRICA_VIVA_MARKETING, ...RUBRICA_VIVA_SDR, ...RUBRICA_VIVA_DENTISTA_V2];
+const TODAS_VIVAS = [
+  ...RUBRICA_VIVA, ...RUBRICA_VIVA_MARKETING, ...RUBRICA_VIVA_SDR, ...RUBRICA_VIVA_DENTISTA_V2,
+  ...RUBRICA_VIVA_LIDER_RECEPCAO,
+];
 
 Deno.test("49-23 / contrato — sjt-rubrica.ts não tem NENHUM import", async () => {
   const fonte = await Deno.readTextFile(new URL("../sjt-rubrica.ts", import.meta.url));

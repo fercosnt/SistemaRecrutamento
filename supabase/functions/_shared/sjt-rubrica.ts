@@ -504,6 +504,57 @@ export const DIMENSOES_SJT: Record<string, DimensaoSjt> = {
     exclusion: "CRÍTICO: não registra nada do que aconteceu na sessão. menor: o contato do dia seguinte é uma mensagem automática. menor: não passa nada à equipe para a próxima vez.",
     template_bars: null,
   },  // `dentista`
+  // ── `lider-recepcao` v1 — caso aberto «A jornada da paciente nova» ─────────────────────
+  // Banco: docs/specs/BANCO-SJT-LIDER-RECEPCAO-V1.md (cargo novo, 2026-10-16). Uma paciente nova,
+  // com muito medo de dentista, marcou pelo WhatsApp a primeira avaliação com o Dr. Fernando; o
+  // candidato descreve, passo a passo, da marcação ao dia seguinte. A líder cuida da fidelização SEM
+  // vender (decisão do operador): valor, desconto e promessa de resultado são do Dr. Fernando e do
+  // pré-vendas — por isso são exclusion CRÍTICO em `saida_e_proximo_passo`.
+  // Conduta sustentada por docs/conhecimento/fit-cultural/Cultura-Beauty-Smile-Para-
+  // Recrutamento.md (perfil ideal da recepcionista: chama pelo nome, lembra detalhes do último
+  // contato, oferece água sem ser pedida, comunica atrasos com transparência e antecedência; «vou
+  // verificar e te retorno» em vez de improvisar) e pelo anti-exemplo «isso é normal, todo mundo
+  // sente». `dimensao_clinica`: não se aplica — cargo de recepção, fora da taxonomia D1-D10.
+  confirmacao_e_preparo: {
+    rotulo: "Confirmação e preparo",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de recepção, fora do catálogo clínico)",
+    inclusion: "(1) Confirma a avaliação antes do dia com uma mensagem pessoal, e oferece remarcar se precisar. (2) Diz à paciente o que ela precisa saber para chegar: endereço, como chegar, quanto tempo leva e o que trazer. (3) Registra no cadastro que ela tem medo e avisa a equipe e o Dr. Fernando antes do dia. (4) Já na confirmação, diz que a clínica está acostumada a receber quem tem medo e que ela pode contar o que a deixa desconfortável.",
+    exclusion: "menor: a confirmação é só a mensagem automática, sem nenhum contato pessoal. menor: o medo fica só na conversa de WhatsApp, sem registro e sem aviso à equipe. menor: não diz como chegar nem o que trazer.",
+    template_bars: null,
+  },  // `lider-recepcao`
+  acolhimento_na_chegada: {
+    rotulo: "Acolhimento na chegada",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de recepção, fora do catálogo clínico)",
+    inclusion: "(1) Recebe a paciente pelo nome e se apresenta. (2) Mostra que lembra do que ela contou, sem expor o medo dela na frente de outras pessoas. (3) Oferece água ou café e explica o que vai acontecer até ela entrar. (4) Faz o cadastro e os termos com calma, explicando para que servem, sem deixá-la sozinha com a papelada.",
+    exclusion: "CRÍTICO: trata o medo como bobagem (\"não precisa ter medo, é tranquilo\") ou fala do medo dela em voz alta na recepção. menor: recebe sem chamá-la pelo nome ou sem se apresentar. menor: entrega a ficha e manda aguardar, sem explicar nada.",
+    template_bars: null,
+  },  // `lider-recepcao`
+  espera_sem_surpresas: {
+    rotulo: "Espera sem surpresas",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de recepção, fora do catálogo clínico)",
+    inclusion: "(1) Diz com honestidade quanto tempo ela deve esperar. (2) Se houver atraso, avisa antes de ela perguntar e diz o novo horário provável. (3) Volta a falar com ela durante a espera, sem deixá-la esquecida. (4) Antes de ela entrar, passa à equipe da sala como ela está.",
+    exclusion: "CRÍTICO: deixa a paciente esperando sem nenhuma informação, ou culpa o dentista ou outro paciente pelo atraso. menor: só avisa o atraso quando ela pergunta. menor: não volta a falar com ela durante a espera.",
+    template_bars: null,
+  },  // `lider-recepcao`
+  saida_e_proximo_passo: {
+    rotulo: "Saída e próximo passo",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de recepção, fora do catálogo clínico)",
+    inclusion: "(1) Pergunta como foi e ouve, antes de falar de agenda. (2) Confere se ela saiu com as dúvidas respondidas e, se não, leva a dúvida a quem pode responder. (3) Deixa claro o próximo passo combinado na avaliação e marca a data, ou combina quando marcar, antes de ela ir. (4) Despede-se de forma pessoal.",
+    exclusion: "CRÍTICO: negocia valor, oferece desconto ou promete resultado do tratamento - isso é do Dr. Fernando e do pré-vendas. menor: deixa a paciente ir sem próximo passo (\"qualquer coisa, é só chamar\"). menor: fala de agenda e pagamento antes de perguntar como ela está.",
+    template_bars: null,
+  },  // `lider-recepcao`
+  contato_depois: {
+    rotulo: "Contato depois da avaliação",
+    ancoras: null,
+    dimensao_clinica: "(não se aplica — cargo de recepção, fora do catálogo clínico)",
+    inclusion: "(1) Faz um contato pessoal no dia seguinte para saber como ela está. (2) Registra no sistema o que aconteceu e o que a deixou à vontade, para a próxima visita. (3) Se ela ainda não decidiu seguir, combina quando retomar, sem pressionar. (4) Passa à equipe o que vale para a próxima visita.",
+    exclusion: "CRÍTICO: não registra nada do que aconteceu. menor: o contato do dia seguinte é uma mensagem automática. menor: insiste ou pressiona quem ainda não decidiu.",
+    template_bars: null,
+  },  // `lider-recepcao`
 };
 
 /**

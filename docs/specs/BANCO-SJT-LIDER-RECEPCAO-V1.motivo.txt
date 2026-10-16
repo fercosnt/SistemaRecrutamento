@@ -1,0 +1,8 @@
+-- Banco SJT NOVO do cargo `lider-recepcao`, criado com o operador em 2026-10-16 ao montar a vaga
+-- `lider-recepcao`. O banco `recepcionista` (1 item, de atendimento, sem vaga apontando) mede outra
+-- coisa e fica intacto. A lider comeca sozinha na recepcao e monta a equipe, e dona do processo
+-- (agenda, confirmacao, padrao de atendimento) e cuida da fidelizacao SEM vender. Entram 6 mc de
+-- POSTURA escolhidos pelo operador numa lista de doze (faltas do mes, o erro que foi seu, o
+-- checklist que ninguem segue, a reclamacao em voz alta, o paciente que pergunta de clareamento, o
+-- feedback que voce da) e um caso aberto: a jornada da paciente nova com medo de dentista, da
+-- marcacao ao dia seguinte. Cargo novo: nada a retirar (--cargo-novo).

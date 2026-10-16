@@ -6,10 +6,19 @@
     python3 -I scripts/geradores/gen-sjt-sdr-v3.py --cargo dentista --nome sjt_dentista_v2 \\
         --motivo docs/specs/BANCO-SJT-DENTISTA-V2.motivo.txt --texto docs/specs/BANCO-SJT-DENTISTA-V2.md \\
         --versao 20261015000102 --saida "$TMPDIR/20261015000102_sjt_dentista_v2.sql"
+    python3 -I scripts/geradores/gen-sjt-sdr-v3.py --cargo lider-recepcao --cargo-novo --nome sjt_lider_recepcao_v1 \\
+        --motivo docs/specs/BANCO-SJT-LIDER-RECEPCAO-V1.motivo.txt --texto docs/specs/BANCO-SJT-LIDER-RECEPCAO-V1.md \\
+        --versao 20261016000101 --saida "$TMPDIR/20261016000101_sjt_lider_recepcao_v1.sql"
 
 Nasceu para o `sdr-social-seller` (daí o nome) e foi generalizado em 2026-10-15 para o `dentista`:
 `--cargo`, `--nome` (sufixo do arquivo) e `--motivo` (o parágrafo «POR QUE» do cabeçalho). Sem eles,
 a saída é byte a byte a de 20261014000102 — conferido por `cmp` contra a migration aplicada.
+
+`--cargo-novo` (2026-10-16, cargo `lider-recepcao`): o cargo ainda não existe no banco, então não há
+o que retirar — e o PRE padrão ABORTA nesse caso («o texto ja esta no ar?»). Com a flag, o PRE troca
+de pergunta: exige que o cargo não tenha item NENHUM, em status nenhum (senão não é cargo novo, e
+pular a retirada esconderia um banco que já existe), e fixa `a_retirar` em 0. O resto — INSERT,
+retirada (que tira 0) e POS — é o mesmo. Sem a flag, a saída não muda (conferido por `cmp`).
 
 Reaproveita o parser (`sjt_texto.py`) e os blocos de INSERT e de RETIRADA do `gen-sjt-v2.py` — um
 único lugar para a gramática, o hash e a permutação de `ordem` (D-37). O que NÃO reaproveita, de
@@ -41,7 +50,7 @@ _spec.loader.exec_module(v2)
 CARGO_PADRAO = 'sdr-social-seller'
 
 
-def gerar(texto, versao, CARGO=CARGO_PADRAO, nome='sjt_sdr_v3', motivo=None):
+def gerar(texto, versao, CARGO=CARGO_PADRAO, nome='sjt_sdr_v3', motivo=None, cargo_novo=False):
     itens = sjt_texto.parse(texto)
     if sjt_texto.cargos(itens) != [CARGO]:
         raise sjt_texto.TextoInvalido(f'ESTE GERADOR SO CONHECE O CARGO {CARGO}: {sjt_texto.cargos(itens)}')
@@ -71,7 +80,20 @@ def gerar(texto, versao, CARGO=CARGO_PADRAO, nome='sjt_sdr_v3', motivo=None):
 -- Aditivo e reversivel (desfazer: status 'active' nos retirados, 'retired' nos novos).
 -- Sem BEGIN/COMMIT (D-22): o endpoint ja roda o corpo numa transacao.
 -- """
-    pre = f"""DO $pre$
+    pre_novo = f"""DO $pre$
+DECLARE
+  v_n bigint;
+BEGIN
+  -- Cargo NOVO: nao pode haver item nenhum do cargo, em status nenhum. Se houver, nao e cargo novo,
+  -- e pular a retirada esconderia um banco que ja existe.
+  SELECT count(*) INTO v_n FROM public.perguntas WHERE tipo = 'sjt' AND cargo = {v2.lit(CARGO)};
+  IF v_n > 0 THEN
+    RAISE EXCEPTION 'o cargo % ja tem % item(ns) — nao e cargo novo', {v2.lit(CARGO)}, v_n;
+  END IF;
+  PERFORM set_config('sdr3.a_retirar', '0', true);
+END
+$pre$;"""
+    pre = pre_novo if cargo_novo else f"""DO $pre$
 DECLARE
   v_n bigint;
 BEGIN
@@ -153,13 +175,14 @@ def principal():
     ap.add_argument('--cargo', default=CARGO_PADRAO)
     ap.add_argument('--nome', default='sjt_sdr_v3')
     ap.add_argument('--motivo', help='arquivo com o paragrafo POR QUE, ja com prefixo -- em cada linha')
+    ap.add_argument('--cargo-novo', action='store_true', help='o cargo nao existe no banco: nada a retirar')
     a = ap.parse_args()
     if not (len(a.versao) == 14 and a.versao.isdigit()):
         print(f'VERSAO INVALIDA: {a.versao!r}', file=sys.stderr)
         return 2
     try:
         motivo = open(a.motivo, encoding='utf-8').read().rstrip('\n') if a.motivo else None
-        sql = gerar(a.texto, a.versao, a.cargo, a.nome, motivo)
+        sql = gerar(a.texto, a.versao, a.cargo, a.nome, motivo, a.cargo_novo)
     except sjt_texto.TextoInvalido as e:
         print(f'TEXTO RECUSADO: {e}', file=sys.stderr)
         return 1
